@@ -1,15 +1,17 @@
 import { app } from 'electron'
 import { join, basename } from 'path'
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, statSync, copyFileSync, rmSync } from 'fs'
-import { LowDBService } from './lowdbService'
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, statSync, copyFileSync, rmSync, readFileSync, writeFileSync } from 'fs'
+import { DatabaseService } from './databaseService'
 
 export class BackupService {
   private backupDir: string
   private backupRegistryPath: string
+  private sqliteDbPath: string
 
-  constructor(private databaseService: LowDBService) {
+  constructor(private databaseService: DatabaseService) {
     this.backupDir = join(app.getPath('userData'), 'backups')
     this.backupRegistryPath = join(app.getPath('userData'), 'backup_registry.json')
+    this.sqliteDbPath = join(app.getPath('userData'), 'dental_clinic.db')
     this.ensureBackupDirectory()
     this.ensureBackupRegistry()
   }
@@ -41,7 +43,18 @@ export class BackupService {
   private addToBackupRegistry(backupInfo: any) {
     try {
       const registry = this.getBackupRegistry()
-      registry.unshift(backupInfo) // Add to beginning of array
+
+      // Check if backup with same name already exists
+      const existingIndex = registry.findIndex(backup => backup.name === backupInfo.name)
+      if (existingIndex !== -1) {
+        // Update existing entry instead of adding duplicate
+        registry[existingIndex] = backupInfo
+        console.log(`📝 Updated existing backup registry entry: ${backupInfo.name}`)
+      } else {
+        // Add new backup to beginning of array
+        registry.unshift(backupInfo)
+        console.log(`➕ Added new backup to registry: ${backupInfo.name}`)
+      }
 
       // Keep only last 50 backups in registry
       if (registry.length > 50) {
@@ -57,137 +70,154 @@ export class BackupService {
 
   async createBackup(customPath?: string): Promise<string> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const backupName = `backup_${timestamp}.json`
-
-    let backupPath: string
-    if (customPath) {
-      // Use the custom path provided by user
-      backupPath = customPath
-    } else {
-      // Use default backup directory
-      backupPath = join(this.backupDir, backupName)
-    }
+    const backupName = `backup_${timestamp}`
 
     try {
-      console.log('Starting backup creation...')
+      console.log('🚀 Starting SQLite backup creation...')
 
-      // Get all data from the database
-      const backupData = {
-        metadata: {
-          created_at: new Date().toISOString(),
-          version: '1.0.0',
-          platform: process.platform,
-          backup_type: 'full'
-        },
-        patients: await this.databaseService.getAllPatients(),
-        appointments: await this.databaseService.getAllAppointments(),
-        payments: await this.databaseService.getAllPayments(),
-        treatments: await this.databaseService.getAllTreatments(),
-        settings: await this.databaseService.getSettings(),
-        // Include license data in backup (encrypted)
-        license: await this.getLicenseBackupData()
+      let backupPath: string
+      if (customPath) {
+        // Use the custom path provided by user (remove extension if provided)
+        backupPath = customPath.replace(/\.(json|db|sqlite)$/, '') + '.db'
+      } else {
+        // Use default backup directory
+        backupPath = join(this.backupDir, `${backupName}.db`)
       }
 
-      // Write backup data to file
-      const fs = require('fs')
-      fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2), 'utf-8')
+      // Create SQLite database backup (direct file copy)
+      if (existsSync(this.sqliteDbPath)) {
+        console.log('📁 Creating SQLite database backup...')
+        copyFileSync(this.sqliteDbPath, backupPath)
+        console.log('✅ SQLite database backup created')
+      } else {
+        throw new Error('SQLite database file not found')
+      }
+
+      // Get file stats
+      const sqliteStats = statSync(backupPath)
+
+      // Create metadata for backup registry
+      const metadata = {
+        created_at: new Date().toISOString(),
+        version: '3.0.0', // Updated version for SQLite-only
+        platform: process.platform,
+        backup_type: 'full',
+        database_type: 'sqlite',
+        backup_format: 'sqlite_only' // SQLite only
+      }
 
       // Add to backup registry
-      const stats = fs.statSync(backupPath)
       const backupInfo = {
-        name: basename(backupPath),
+        name: basename(backupPath, '.db'),
         path: backupPath,
-        size: stats.size,
-        created_at: backupData.metadata.created_at,
-        version: backupData.metadata.version,
-        platform: backupData.metadata.platform
+        size: sqliteStats.size,
+        created_at: metadata.created_at,
+        version: metadata.version,
+        platform: metadata.platform,
+        database_type: 'sqlite',
+        backup_format: 'sqlite_only'
       }
       this.addToBackupRegistry(backupInfo)
 
-      console.log(`Backup created successfully: ${backupPath}`)
+      console.log(`✅ SQLite backup created successfully:`)
+      console.log(`   File: ${backupPath}`)
+      console.log(`   Size: ${this.formatFileSize(sqliteStats.size)}`)
+
       return backupPath
 
     } catch (error) {
-      console.error('Backup creation failed:', error)
+      console.error('❌ Backup creation failed:', error)
       throw new Error(`فشل في إنشاء النسخة الاحتياطية: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
   async restoreBackup(backupPath: string): Promise<boolean> {
     try {
-      console.log('Starting backup restoration...')
+      console.log('🔄 Starting backup restoration...')
 
-      // Read backup file
-      const fs = require('fs')
-      if (!existsSync(backupPath)) {
-        throw new Error('ملف النسخة الاحتياطية غير موجود')
+      // Check if backup file exists
+      let actualBackupPath = backupPath
+
+      // If path doesn't have .db extension, add it
+      if (!backupPath.endsWith('.db')) {
+        actualBackupPath = `${backupPath}.db`
       }
 
-      const backupContent = fs.readFileSync(backupPath, 'utf-8')
-      let backupData: any
+      // Check if the backup file exists
+      if (!existsSync(actualBackupPath)) {
+        // Try legacy JSON format for backward compatibility
+        const jsonBackupPath = backupPath.replace(/\.db$/, '.json')
+        if (existsSync(jsonBackupPath)) {
+          console.log('📄 Found legacy JSON backup, restoring...')
+          return await this.restoreLegacyBackup(jsonBackupPath)
+        }
+        throw new Error(`ملف النسخة الاحتياطية غير موجود: ${actualBackupPath}`)
+      }
+
+      console.log(`📁 Found SQLite backup: ${actualBackupPath}`)
+
+      // Create backup of current database before restoration
+      const currentDbBackupPath = join(app.getPath('userData'), `current_db_backup_${Date.now()}.db`)
+      if (existsSync(this.sqliteDbPath)) {
+        copyFileSync(this.sqliteDbPath, currentDbBackupPath)
+        console.log(`💾 Current database backed up to: ${currentDbBackupPath}`)
+      }
 
       try {
-        backupData = JSON.parse(backupContent)
-      } catch (parseError) {
-        throw new Error('ملف النسخة الاحتياطية غير صالح - تنسيق JSON خاطئ')
-      }
+        // Direct SQLite restoration
+        console.log('🗄️ Restoring from SQLite backup...')
+        await this.restoreFromSqliteBackup(actualBackupPath)
 
-      // Validate backup structure
-      if (!backupData.metadata || !backupData.patients || !backupData.appointments) {
-        throw new Error('ملف النسخة الاحتياطية تالف أو غير صالح - بيانات مفقودة')
-      }
+        console.log('✅ Backup restored successfully')
 
-      console.log(`Restoring backup created on: ${backupData.metadata.created_at}`)
-      console.log(`Backup version: ${backupData.metadata.version}`)
-      console.log(`Platform: ${backupData.metadata.platform}`)
-
-      console.log('Backup file validated, starting data restoration...')
-
-      // Clear existing data and restore from backup
-      if (backupData.patients) {
-        await this.databaseService.clearAllPatients()
-        for (const patient of backupData.patients) {
-          await this.databaseService.createPatient(patient)
+        // Clean up temporary backup
+        if (existsSync(currentDbBackupPath)) {
+          rmSync(currentDbBackupPath)
         }
-      }
 
-      if (backupData.appointments) {
-        await this.databaseService.clearAllAppointments()
-        for (const appointment of backupData.appointments) {
-          await this.databaseService.createAppointment(appointment)
+        return true
+
+      } catch (error) {
+        // Restore original database if restoration failed
+        console.error('❌ Restoration failed, restoring original database...')
+        if (existsSync(currentDbBackupPath)) {
+          copyFileSync(currentDbBackupPath, this.sqliteDbPath)
+          rmSync(currentDbBackupPath)
+          console.log('✅ Original database restored')
         }
+        throw error
       }
-
-      if (backupData.payments) {
-        await this.databaseService.clearAllPayments()
-        for (const payment of backupData.payments) {
-          await this.databaseService.createPayment(payment)
-        }
-      }
-
-      if (backupData.treatments) {
-        await this.databaseService.clearAllTreatments()
-        for (const treatment of backupData.treatments) {
-          await this.databaseService.createTreatment(treatment)
-        }
-      }
-
-      if (backupData.settings) {
-        await this.databaseService.updateSettings(backupData.settings)
-      }
-
-      // Restore license data if present
-      if (backupData.license) {
-        await this.restoreLicenseBackupData(backupData.license)
-      }
-
-      console.log('Backup restored successfully')
-      return true
 
     } catch (error) {
-      console.error('Backup restoration failed:', error)
+      console.error('❌ Backup restoration failed:', error)
       throw new Error(`فشل في استعادة النسخة الاحتياطية: ${error instanceof Error ? error.message : String(error)}`)
     }
+  }
+
+  private async restoreFromSqliteBackup(sqliteBackupPath: string): Promise<void> {
+    // Close current database connection
+    this.databaseService.close()
+
+    // Replace current database with backup
+    copyFileSync(sqliteBackupPath, this.sqliteDbPath)
+
+    // Reinitialize database service
+    // Note: The application will need to restart or reinitialize the database service
+    console.log('🔄 SQLite database restored. Application restart may be required.')
+  }
+
+
+
+  private async restoreLegacyBackup(backupPath: string): Promise<boolean> {
+    console.log('📄 Restoring legacy backup format...')
+
+    // Read and parse legacy backup data
+    const backupContent = readFileSync(backupPath, 'utf-8')
+    const backupData = JSON.parse(backupContent)
+
+    // Use JSON restoration method for legacy backups
+    await this.restoreFromJsonBackup(backupPath)
+    return true
   }
 
   async listBackups(): Promise<any[]> {
@@ -197,23 +227,53 @@ export class BackupService {
       // Filter out backups that no longer exist
       const validBackups = registry.filter(backup => {
         try {
+          // Check if the backup file exists
           return existsSync(backup.path)
         } catch (error) {
           return false
         }
       })
 
-      // Update registry if some backups were removed
-      if (validBackups.length !== registry.length) {
-        const fs = require('fs')
-        fs.writeFileSync(this.backupRegistryPath, JSON.stringify(validBackups, null, 2), 'utf-8')
+      // Remove duplicates based on backup name
+      const uniqueBackups = []
+      const seenNames = new Set()
+
+      for (const backup of validBackups) {
+        if (!seenNames.has(backup.name)) {
+          seenNames.add(backup.name)
+          uniqueBackups.push(backup)
+        } else {
+          console.log(`🔍 Removed duplicate backup entry: ${backup.name}`)
+        }
       }
 
-      return validBackups
+      // Update registry if some backups were removed or duplicates found
+      if (uniqueBackups.length !== registry.length) {
+        writeFileSync(this.backupRegistryPath, JSON.stringify(uniqueBackups, null, 2), 'utf-8')
+        console.log(`🧹 Cleaned up backup registry: ${registry.length} -> ${uniqueBackups.length} entries`)
+      }
+
+      // Add formatted file sizes and additional info
+      return uniqueBackups.map(backup => ({
+        ...backup,
+        formattedSize: this.formatFileSize(backup.size),
+        isSqliteOnly: backup.backup_format === 'sqlite_only',
+        isLegacy: backup.backup_format === 'hybrid' || !backup.backup_format
+      }))
     } catch (error) {
       console.error('Failed to list backups:', error)
       return []
     }
+  }
+
+  private formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes'
+
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   async deleteOldBackups(keepCount: number = 10): Promise<void> {
@@ -221,15 +281,22 @@ export class BackupService {
       const backups = await this.listBackups()
 
       if (backups.length > keepCount) {
-        const backupsToDelete = backups.slice(keepCount)
+        // Sort by creation date (newest first)
+        const sortedBackups = backups.sort((a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+
+        const backupsToDelete = sortedBackups.slice(keepCount)
 
         for (const backup of backupsToDelete) {
-          require('fs').unlinkSync(backup.path)
-          console.log(`Deleted old backup: ${backup.name}`)
+          await this.deleteBackup(backup.name)
+          console.log(`🗑️ Deleted old backup: ${backup.name}`)
         }
+
+        console.log(`✅ Cleaned up ${backupsToDelete.length} old backups, keeping ${keepCount} most recent`)
       }
     } catch (error) {
-      console.error('Failed to delete old backups:', error)
+      console.error('❌ Failed to delete old backups:', error)
     }
   }
 
@@ -243,21 +310,21 @@ export class BackupService {
         throw new Error('Backup not found in registry')
       }
 
-      const backupPath = registry[backupIndex].path
+      const backup = registry[backupIndex]
 
-      // Delete the file if it exists
-      if (existsSync(backupPath)) {
-        require('fs').unlinkSync(backupPath)
+      // Delete the backup file
+      if (existsSync(backup.path)) {
+        rmSync(backup.path)
+        console.log(`Deleted backup: ${backup.path}`)
       }
 
       // Remove from registry
       registry.splice(backupIndex, 1)
-      const fs = require('fs')
-      fs.writeFileSync(this.backupRegistryPath, JSON.stringify(registry, null, 2), 'utf-8')
+      writeFileSync(this.backupRegistryPath, JSON.stringify(registry, null, 2), 'utf-8')
 
-      console.log(`Backup deleted successfully: ${backupPath}`)
+      console.log(`✅ Backup deleted successfully: ${backupName}`)
     } catch (error) {
-      console.error('Failed to delete backup:', error)
+      console.error('❌ Failed to delete backup:', error)
       throw error
     }
   }
@@ -279,70 +346,5 @@ export class BackupService {
     }, intervals[frequency])
   }
 
-  /**
-   * Get license data for backup (encrypted and safe)
-   */
-  private async getLicenseBackupData(): Promise<any> {
-    try {
-      // Import license service dynamically to avoid circular dependencies
-      const { licenseManager } = await import('./licenseService')
-      const licenseStorage = licenseManager.storage
 
-      // Check if license exists
-      const hasLicense = await licenseStorage.isLicenseStored()
-      if (!hasLicense) {
-        return null
-      }
-
-      // Get license data (already encrypted in storage)
-      const license = await licenseStorage.getLicense()
-      if (!license) {
-        return null
-      }
-
-      // Return only essential license info for backup
-      // Exclude sensitive device fingerprint details
-      return {
-        licenseId: license.licenseId,
-        licenseType: license.licenseType,
-        activatedAt: license.activatedAt,
-        expiresAt: license.expiresAt,
-        features: license.features,
-        metadata: license.metadata,
-        // Include a flag to indicate this is a license backup
-        isLicenseBackup: true,
-        backupVersion: '1.0.0'
-      }
-    } catch (error) {
-      console.warn('Failed to backup license data:', error)
-      return null
-    }
-  }
-
-  /**
-   * Restore license data from backup
-   * Note: This only restores license info, not the actual license activation
-   */
-  private async restoreLicenseBackupData(licenseBackupData: any): Promise<void> {
-    try {
-      if (!licenseBackupData || !licenseBackupData.isLicenseBackup) {
-        console.log('No valid license backup data found')
-        return
-      }
-
-      console.log('License backup data found in backup file')
-      console.log(`License ID: ${licenseBackupData.licenseId}`)
-      console.log(`License Type: ${licenseBackupData.licenseType}`)
-      console.log(`Activated: ${licenseBackupData.activatedAt}`)
-      console.log(`Expires: ${licenseBackupData.expiresAt}`)
-
-      // Note: We don't automatically restore the license activation
-      // because licenses are device-bound. This is just for information.
-      console.log('Note: License data found in backup but not restored due to device binding.')
-      console.log('User will need to reactivate license on this device if needed.')
-
-    } catch (error) {
-      console.warn('Failed to process license backup data:', error)
-    }
-  }
 }

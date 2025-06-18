@@ -70,11 +70,14 @@ export default function AddAppointmentDialog({
 
     const appointmentData = {
       ...formData,
+      // Convert empty strings to null/undefined for foreign keys
+      treatment_id: formData.treatment_id || undefined,
       cost: formData.cost ? parseFloat(formData.cost) : undefined,
       start_time: new Date(formData.start_time).toISOString(),
       end_time: new Date(formData.end_time).toISOString()
     }
 
+    console.log('Submitting appointment data:', appointmentData)
     onSave(appointmentData)
 
     // Reset form

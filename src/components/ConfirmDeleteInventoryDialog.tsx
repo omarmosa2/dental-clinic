@@ -72,32 +72,32 @@ export default function ConfirmDeleteInventoryDialog({
             </div>
           </div>
         </AlertDialogHeader>
-        
-        <AlertDialogDescription className="text-right space-y-3">
-          <p className="text-muted-foreground">
-            هل أنت متأكد من حذف العنصر التالي من المخزون؟
-          </p>
-          
+
+        <AlertDialogDescription className="text-right text-muted-foreground">
+          هل أنت متأكد من حذف العنصر التالي من المخزون؟
+        </AlertDialogDescription>
+
+        <div className="space-y-3">
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between">
               <span className="font-medium text-foreground">{item.name}</span>
               <span className="text-sm text-muted-foreground">الاسم:</span>
             </div>
-            
+
             {item.category && (
               <div className="flex justify-between">
                 <span className="text-sm">{item.category}</span>
                 <span className="text-sm text-muted-foreground">الفئة:</span>
               </div>
             )}
-            
+
             <div className="flex justify-between">
               <span className="text-sm">
                 {item.quantity} {item.unit || 'قطعة'}
               </span>
               <span className="text-sm text-muted-foreground">الكمية:</span>
             </div>
-            
+
             {item.supplier && (
               <div className="flex justify-between">
                 <span className="text-sm">{item.supplier}</span>
@@ -105,7 +105,7 @@ export default function ConfirmDeleteInventoryDialog({
               </div>
             )}
           </div>
-          
+
           <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
             <p className="text-sm text-destructive font-medium">
               ⚠️ تحذير: هذا الإجراء لا يمكن التراجع عنه
@@ -114,17 +114,17 @@ export default function ConfirmDeleteInventoryDialog({
               سيتم حذف العنصر وجميع سجلات الاستخدام المرتبطة به نهائياً
             </p>
           </div>
-        </AlertDialogDescription>
+        </div>
 
         <AlertDialogFooter className="gap-2">
-          <AlertDialogCancel 
+          <AlertDialogCancel
             onClick={onClose}
             disabled={isDeleting || isLoading}
             className="flex-1"
           >
             إلغاء
           </AlertDialogCancel>
-          
+
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={isDeleting || isLoading}

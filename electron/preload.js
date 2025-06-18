@@ -69,7 +69,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     create: () => ipcRenderer.invoke('backup:create'),
     restore: (backupPath) => ipcRenderer.invoke('backup:restore', backupPath),
     list: () => ipcRenderer.invoke('backup:list'),
-    delete: (backupName) => ipcRenderer.invoke('backup:delete', backupName)
+    delete: (backupName) => ipcRenderer.invoke('backup:delete', backupName),
+    test: () => ipcRenderer.invoke('backup:test')
   },
 
   // File operations

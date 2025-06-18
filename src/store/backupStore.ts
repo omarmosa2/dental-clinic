@@ -35,6 +35,9 @@ interface BackupActions {
   // File operations
   selectBackupFile: () => Promise<string | null>
 
+  // Testing
+  runBackupTest: () => Promise<{ success: boolean; results: any[]; error?: string }>
+
   // Error handling
   clearError: () => void
 
@@ -187,8 +190,9 @@ export const useBackupStore = create<BackupStore>()(
           const result = await window.electronAPI.dialog.showOpenDialog({
             title: 'اختر ملف النسخة الاحتياطية',
             filters: [
-              { name: 'ملفات النسخ الاحتياطية', extensions: ['json'] },
-              { name: 'ملفات النسخ الاحتياطية القديمة', extensions: ['backup', 'bak'] },
+              { name: 'ملفات قاعدة البيانات', extensions: ['db', 'sqlite'] },
+              { name: 'ملفات النسخ الاحتياطية القديمة', extensions: ['json'] },
+              { name: 'ملفات النسخ الاحتياطية الأخرى', extensions: ['backup', 'bak'] },
               { name: 'جميع الملفات', extensions: ['*'] }
             ],
             properties: ['openFile']
@@ -203,7 +207,24 @@ export const useBackupStore = create<BackupStore>()(
         }
       },
 
-
+      runBackupTest: async () => {
+        set({ isLoading: true, error: null })
+        try {
+          const result = await window.electronAPI.backup.test()
+          set({ isLoading: false })
+          return result
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : 'فشل في تشغيل اختبار النسخ الاحتياطي',
+            isLoading: false
+          })
+          return {
+            success: false,
+            results: [],
+            error: error instanceof Error ? error.message : 'Unknown error'
+          }
+        }
+      },
 
       // Error handling
       clearError: () => {

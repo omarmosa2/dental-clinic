@@ -59,19 +59,46 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  // Initialize database service
+  console.log('🚀 Electron app is ready, initializing services...')
+
+  // Initialize database service with migration support
   try {
-    const { LowDBService } = require('../src/services/lowdbService.js')
-    databaseService = new LowDBService()
-    console.log('Database service initialized successfully')
+    const { DatabaseService } = require('../src/services/databaseService.js')
+    const { DataMigrationService } = require('../src/services/dataMigrationService.js')
+
+    // Check if migration is needed
+    const migrationService = new DataMigrationService()
+    const migrationStatus = await migrationService.getMigrationStatus()
+
+    console.log('Migration status:', migrationStatus)
+
+    if (migrationStatus.migrationNeeded) {
+      console.log('🔄 Starting data migration from LowDB to SQLite...')
+      const migrationResult = await migrationService.migrateData()
+
+      if (migrationResult.success) {
+        console.log('✅ Migration completed successfully:', migrationResult.stats)
+      } else {
+        console.error('❌ Migration failed:', migrationResult.message)
+        throw new Error(`Migration failed: ${migrationResult.message}`)
+      }
+    } else {
+      console.log('✅ No migration needed, using existing SQLite database')
+    }
+
+    // Initialize SQLite database service
+    const dbPath = require('path').join(app.getPath('userData'), 'dental_clinic.db')
+    databaseService = new DatabaseService(dbPath)
+    console.log('✅ SQLite database service initialized successfully')
 
     // Initialize backup service
     try {
       const { BackupService } = require('../src/services/backupService.js')
       backupService = new BackupService(databaseService)
-      console.log('Backup service initialized successfully')
+      console.log('✅ Backup service initialized successfully')
     } catch (backupError) {
-      console.error('Failed to initialize backup service:', backupError)
+      console.error('❌ Failed to initialize backup service:', backupError)
+      console.error('Backup error details:', backupError.stack)
       backupService = null
     }
 
@@ -79,16 +106,44 @@ app.whenReady().then(async () => {
     try {
       const { ReportsService } = require('../src/services/reportsService.js')
       reportsService = new ReportsService()
-      console.log('Reports service initialized successfully')
+      console.log('✅ Reports service initialized successfully')
     } catch (reportsError) {
-      console.error('Failed to initialize reports service:', reportsError)
+      console.error('❌ Failed to initialize reports service:', reportsError)
       reportsService = null
     }
+
+    // Clean up migration service
+    migrationService.close()
+
   } catch (error) {
-    console.error('Failed to initialize services:', error)
-    // Fallback to mock mode
-    databaseService = null
-    backupService = null
+    console.error('❌ Failed to initialize services:', error)
+    console.error('Error details:', error.stack)
+
+    // Try to initialize just the SQLite database service without migration
+    try {
+      console.log('🔄 Attempting direct SQLite initialization...')
+      const { DatabaseService } = require('../src/services/databaseService.js')
+      const dbPath = require('path').join(app.getPath('userData'), 'dental_clinic.db')
+      databaseService = new DatabaseService(dbPath)
+      console.log('✅ SQLite database service initialized successfully (direct)')
+
+      // Try to initialize backup service
+      try {
+        const { BackupService } = require('../src/services/backupService.js')
+        backupService = new BackupService(databaseService)
+        console.log('✅ Backup service initialized successfully')
+      } catch (backupError) {
+        console.error('❌ Failed to initialize backup service:', backupError)
+        backupService = null
+      }
+
+    } catch (directError) {
+      console.error('❌ Direct SQLite initialization also failed:', directError)
+      console.error('Falling back to mock mode')
+      // Fallback to mock mode
+      databaseService = null
+      backupService = null
+    }
   }
 
   createWindow()
@@ -143,22 +198,25 @@ ipcMain.handle('db:patients:getAll', async () => {
 ipcMain.handle('db:patients:create', async (_, patient) => {
   try {
     if (databaseService) {
+      console.log('📝 Creating patient with SQLite:', patient.first_name, patient.last_name)
       const newPatient = await databaseService.createPatient(patient)
-      console.log('Creating patient:', newPatient)
+      console.log('✅ Patient created successfully:', newPatient.id)
       return newPatient
     } else {
       // Fallback mock
+      console.log('⚠️ WARNING: Database service not available, using mock mode')
+      console.log('📝 Creating patient (mock):', patient.first_name, patient.last_name)
       const newPatient = {
         ...patient,
         id: Date.now().toString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
-      console.log('Creating patient (mock):', newPatient)
+      console.log('✅ Patient created (mock):', newPatient.id)
       return newPatient
     }
   } catch (error) {
-    console.error('Error creating patient:', error)
+    console.error('❌ Error creating patient:', error)
     throw error
   }
 })
@@ -363,8 +421,34 @@ ipcMain.handle('db:payments:search', async (_, query) => {
   }
 })
 
-ipcMain.handle('db:treatments:getAll', async () => [])
-ipcMain.handle('db:treatments:create', async (_, treatment) => ({ ...treatment, id: Date.now().toString() }))
+// Treatment IPC Handlers
+ipcMain.handle('db:treatments:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllTreatments()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting treatments:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:treatments:create', async (_, treatment) => {
+  try {
+    if (databaseService) {
+      return await databaseService.createTreatment(treatment)
+    } else {
+      const newTreatment = { ...treatment, id: Date.now().toString() }
+      console.log('Creating treatment (mock):', newTreatment)
+      return newTreatment
+    }
+  } catch (error) {
+    console.error('Error creating treatment:', error)
+    throw error
+  }
+})
 
 // Inventory IPC Handlers
 ipcMain.handle('db:inventory:getAll', async () => {
@@ -584,18 +668,37 @@ ipcMain.handle('db:inventoryUsage:getByAppointment', async (_, appointmentId) =>
   }
 })
 
+// Database maintenance IPC Handlers
+ipcMain.handle('db:forceCheckpoint', async () => {
+  try {
+    if (databaseService) {
+      console.log('🔧 Manual WAL checkpoint requested')
+      const result = databaseService.forceCheckpoint()
+      console.log('✅ Manual checkpoint completed:', result)
+      return result
+    } else {
+      console.log('❌ Database service not available for checkpoint')
+      return null
+    }
+  } catch (error) {
+    console.error('❌ Error forcing checkpoint:', error)
+    throw error
+  }
+})
+
 ipcMain.handle('backup:create', async () => {
   try {
     if (backupService) {
       // Ask user where to save the backup
       const timestamp = new Date().toISOString().split('T')[0]
-      const defaultName = `نسخة-احتياطية-عيادة-الاسنان-${timestamp}.json`
+      const defaultName = `نسخة-احتياطية-عيادة-الاسنان-${timestamp}.db`
 
       const result = await dialog.showSaveDialog(mainWindow, {
         title: 'اختر مكان حفظ النسخة الاحتياطية',
         defaultPath: defaultName,
         filters: [
-          { name: 'ملفات النسخ الاحتياطية', extensions: ['json'] },
+          { name: 'ملفات قاعدة البيانات', extensions: ['db', 'sqlite'] },
+          { name: 'ملفات النسخ الاحتياطية القديمة', extensions: ['json'] },
           { name: 'جميع الملفات', extensions: ['*'] }
         ],
         properties: ['createDirectory']
@@ -605,8 +708,9 @@ ipcMain.handle('backup:create', async () => {
         throw new Error('تم إلغاء العملية')
       }
 
+      console.log('📍 User selected file path:', result.filePath)
       const backupPath = await backupService.createBackup(result.filePath)
-      console.log('Backup created successfully:', backupPath)
+      console.log('✅ Backup created successfully:', backupPath)
       return backupPath
     } else {
       throw new Error('Backup service not initialized')
@@ -662,6 +766,31 @@ ipcMain.handle('backup:delete', async (_, backupName) => {
   }
 })
 
+ipcMain.handle('backup:test', async () => {
+  try {
+    console.log('🧪 Starting backup system test...')
+
+    // Import and run the backup test script
+    const { BackupTestScript } = require('../src/utils/backupTestScript.js')
+    const testScript = new BackupTestScript()
+
+    const success = await testScript.runFullTest()
+
+    console.log('🧪 Backup test completed:', success ? 'PASSED' : 'FAILED')
+    return {
+      success,
+      results: testScript.testResults || []
+    }
+  } catch (error) {
+    console.error('❌ Backup test failed:', error)
+    return {
+      success: false,
+      error: error.message,
+      results: []
+    }
+  }
+})
+
 ipcMain.handle('dialog:showOpenDialog', async (_, options) => {
   const result = await dialog.showOpenDialog(mainWindow, options)
   return result
@@ -672,29 +801,90 @@ ipcMain.handle('dialog:showSaveDialog', async (_, options) => {
   return result
 })
 
-ipcMain.handle('settings:get', async () => ({
-  id: '1',
-  clinic_name: 'عيادة الأسنان',
-  currency: 'ريال',
-  language: 'ar'
-}))
+// Settings IPC Handlers
+ipcMain.handle('settings:get', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getSettings()
+    } else {
+      return {
+        id: '1',
+        clinic_name: 'عيادة الأسنان',
+        currency: 'ريال',
+        language: 'ar'
+      }
+    }
+  } catch (error) {
+    console.error('Error getting settings:', error)
+    throw error
+  }
+})
 
-ipcMain.handle('settings:update', async (_, settings) => settings)
+ipcMain.handle('settings:update', async (_, settings) => {
+  try {
+    if (databaseService) {
+      return await databaseService.updateSettings(settings)
+    } else {
+      console.log('Updating settings (mock):', settings)
+      return settings
+    }
+  } catch (error) {
+    console.error('Error updating settings:', error)
+    throw error
+  }
+})
 
 // Dashboard IPC Handlers
-ipcMain.handle('db:dashboard:getStats', async () => ({
-  total_patients: 0,
-  total_appointments: 0,
-  total_revenue: 0,
-  pending_payments: 0,
-  today_appointments: 0,
-  this_month_revenue: 0,
-  low_stock_items: 0
-}))
+ipcMain.handle('db:dashboard:getStats', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getDashboardStats()
+    } else {
+      return {
+        total_patients: 0,
+        total_appointments: 0,
+        total_revenue: 0,
+        pending_payments: 0,
+        today_appointments: 0,
+        this_month_revenue: 0,
+        low_stock_items: 0
+      }
+    }
+  } catch (error) {
+    console.error('Error getting dashboard stats:', error)
+    throw error
+  }
+})
 
 // Treatment update and delete handlers
-ipcMain.handle('db:treatments:update', async (_, id, treatment) => ({ ...treatment, id }))
-ipcMain.handle('db:treatments:delete', async (_, id) => true)
+ipcMain.handle('db:treatments:update', async (_, id, treatment) => {
+  try {
+    if (databaseService) {
+      return await databaseService.updateTreatment(id, treatment)
+    } else {
+      const updatedTreatment = { ...treatment, id }
+      console.log('Updating treatment (mock):', updatedTreatment)
+      return updatedTreatment
+    }
+  } catch (error) {
+    console.error('Error updating treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:treatments:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      return await databaseService.deleteTreatment(id)
+    } else {
+      console.log('Deleting treatment (mock):', id)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting treatment:', error)
+    throw error
+  }
+})
 
 // Reports IPC Handlers
 ipcMain.handle('reports:generatePatientReport', async (_, filter) => {

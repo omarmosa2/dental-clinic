@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
-import { LowDBService } from '../src/services/lowdbService'
+import { DatabaseService } from '../src/services/databaseService'
+import { DataMigrationService } from '../src/services/dataMigrationService'
 import { BackupService } from '../src/services/backupService'
 import { AutoSaveService } from '../src/services/autoSaveService'
 import { ReportsService } from '../src/services/reportsService'
@@ -8,7 +9,7 @@ import { ReportsService } from '../src/services/reportsService'
 const isDev = process.env.IS_DEV === 'true'
 
 let mainWindow: BrowserWindow | null = null
-let databaseService: LowDBService
+let databaseService: DatabaseService
 let backupService: BackupService
 let autoSaveService: AutoSaveService
 let reportsService: ReportsService
@@ -47,12 +48,42 @@ function createWindow(): void {
   })
 }
 
-app.whenReady().then(() => {
-  // Initialize services
-  databaseService = new LowDBService()
-  backupService = new BackupService(databaseService)
-  autoSaveService = new AutoSaveService(databaseService)
-  reportsService = new ReportsService()
+app.whenReady().then(async () => {
+  try {
+    // Check if migration is needed and perform it
+    const migrationService = new DataMigrationService()
+    const migrationStatus = await migrationService.getMigrationStatus()
+
+    console.log('Migration status:', migrationStatus)
+
+    if (migrationStatus.migrationNeeded) {
+      console.log('🔄 Starting data migration from LowDB to SQLite...')
+      const migrationResult = await migrationService.migrateData()
+
+      if (migrationResult.success) {
+        console.log('✅ Migration completed successfully:', migrationResult.stats)
+      } else {
+        console.error('❌ Migration failed:', migrationResult.message)
+        throw new Error(`Migration failed: ${migrationResult.message}`)
+      }
+    } else {
+      console.log('✅ No migration needed, using existing SQLite database')
+    }
+
+    // Initialize services with SQLite
+    databaseService = new DatabaseService()
+    backupService = new BackupService(databaseService)
+    autoSaveService = new AutoSaveService(databaseService)
+    reportsService = new ReportsService()
+
+    // Clean up migration service
+    migrationService.close()
+
+    console.log('✅ All services initialized successfully')
+  } catch (error) {
+    console.error('❌ Failed to initialize services:', error)
+    throw error
+  }
 
   createWindow()
 
@@ -88,61 +119,158 @@ app.on('window-all-closed', () => {
 
 // IPC Handlers for Database Operations
 ipcMain.handle('db:patients:getAll', async () => {
-  return await databaseService.getAllPatients()
+  try {
+    return await databaseService.getAllPatients()
+  } catch (error) {
+    console.error('Error getting all patients:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:patients:create', async (_, patient) => {
-  return await databaseService.createPatient(patient)
+  try {
+    console.log('Creating patient:', patient)
+    const result = await databaseService.createPatient(patient)
+    console.log('Patient created successfully:', result.id)
+    return result
+  } catch (error) {
+    console.error('Error creating patient:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:patients:update', async (_, id, patient) => {
-  return await databaseService.updatePatient(id, patient)
+  try {
+    console.log('Updating patient:', id, patient)
+    const result = await databaseService.updatePatient(id, patient)
+    console.log('Patient updated successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error updating patient:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:patients:delete', async (_, id) => {
-  return await databaseService.deletePatient(id)
+  try {
+    console.log('Deleting patient:', id)
+    const result = await databaseService.deletePatient(id)
+    console.log('Patient deleted successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error deleting patient:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:patients:search', async (_, query) => {
-  return await databaseService.searchPatients(query)
+  try {
+    return await databaseService.searchPatients(query)
+  } catch (error) {
+    console.error('Error searching patients:', error)
+    throw error
+  }
 })
 
 // Appointment IPC Handlers
 ipcMain.handle('db:appointments:getAll', async () => {
-  return await databaseService.getAllAppointments()
+  try {
+    return await databaseService.getAllAppointments()
+  } catch (error) {
+    console.error('Error getting all appointments:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:appointments:create', async (_, appointment) => {
-  return await databaseService.createAppointment(appointment)
+  try {
+    console.log('Creating appointment:', appointment)
+    const result = await databaseService.createAppointment(appointment)
+    console.log('Appointment created successfully:', result.id)
+    return result
+  } catch (error) {
+    console.error('Error creating appointment:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:appointments:update', async (_, id, appointment) => {
-  return await databaseService.updateAppointment(id, appointment)
+  try {
+    console.log('Updating appointment:', id, appointment)
+    const result = await databaseService.updateAppointment(id, appointment)
+    console.log('Appointment updated successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error updating appointment:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:appointments:delete', async (_, id) => {
-  return await databaseService.deleteAppointment(id)
+  try {
+    console.log('Deleting appointment:', id)
+    const result = await databaseService.deleteAppointment(id)
+    console.log('Appointment deleted successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error deleting appointment:', error)
+    throw error
+  }
 })
 
 // Payment IPC Handlers
 ipcMain.handle('db:payments:getAll', async () => {
-  return await databaseService.getAllPayments()
+  try {
+    return await databaseService.getAllPayments()
+  } catch (error) {
+    console.error('Error getting all payments:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:payments:create', async (_, payment) => {
-  return await databaseService.createPayment(payment)
+  try {
+    console.log('Creating payment:', payment)
+    const result = await databaseService.createPayment(payment)
+    console.log('Payment created successfully:', result.id)
+    return result
+  } catch (error) {
+    console.error('Error creating payment:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:payments:update', async (_, id, payment) => {
-  return await databaseService.updatePayment(id, payment)
+  try {
+    console.log('Updating payment:', id, payment)
+    const result = await databaseService.updatePayment(id, payment)
+    console.log('Payment updated successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error updating payment:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:payments:delete', async (_, id) => {
-  return await databaseService.deletePayment(id)
+  try {
+    console.log('Deleting payment:', id)
+    const result = await databaseService.deletePayment(id)
+    console.log('Payment deleted successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error deleting payment:', error)
+    throw error
+  }
 })
 
 ipcMain.handle('db:payments:search', async (_, query) => {
-  return await databaseService.searchPayments(query)
+  try {
+    return await databaseService.searchPayments(query)
+  } catch (error) {
+    console.error('Error searching payments:', error)
+    throw error
+  }
 })
 
 // Treatment IPC Handlers
@@ -152,6 +280,52 @@ ipcMain.handle('db:treatments:getAll', async () => {
 
 ipcMain.handle('db:treatments:create', async (_, treatment) => {
   return await databaseService.createTreatment(treatment)
+})
+
+// Inventory IPC Handlers
+ipcMain.handle('db:inventory:getAll', async () => {
+  try {
+    return await databaseService.getAllInventoryItems()
+  } catch (error) {
+    console.error('Error getting all inventory items:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:inventory:create', async (_, item) => {
+  try {
+    console.log('Creating inventory item:', item)
+    const result = await databaseService.createInventoryItem(item)
+    console.log('Inventory item created successfully:', result.id)
+    return result
+  } catch (error) {
+    console.error('Error creating inventory item:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:inventory:update', async (_, id, item) => {
+  try {
+    console.log('Updating inventory item:', id, item)
+    const result = await databaseService.updateInventoryItem(id, item)
+    console.log('Inventory item updated successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error updating inventory item:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:inventory:delete', async (_, id) => {
+  try {
+    console.log('Deleting inventory item:', id)
+    const result = await databaseService.deleteInventoryItem(id)
+    console.log('Inventory item deleted successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error deleting inventory item:', error)
+    throw error
+  }
 })
 
 // Backup IPC Handlers

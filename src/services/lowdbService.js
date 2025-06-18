@@ -522,6 +522,59 @@ class LowDBService {
     await this.db.write()
   }
 
+  // Patient Images operations
+  async getAllPatientImages() {
+    await this.db.read()
+    return this.db.data?.patientImages || []
+  }
+
+  async createPatientImage(imageData) {
+    await this.db.read()
+    const now = new Date().toISOString()
+    const image = {
+      ...imageData,
+      id: uuidv4(),
+      created_at: now
+    }
+
+    this.db.data.patientImages.push(image)
+    await this.db.write()
+    return image
+  }
+
+  async getPatientImagesByPatient(patientId) {
+    await this.db.read()
+    const images = this.db.data?.patientImages || []
+    return images.filter(img => img.patient_id === patientId)
+  }
+
+  // Installment Payments operations
+  async getAllInstallmentPayments() {
+    await this.db.read()
+    return this.db.data?.installmentPayments || []
+  }
+
+  async createInstallmentPayment(installmentData) {
+    await this.db.read()
+    const now = new Date().toISOString()
+    const installment = {
+      ...installmentData,
+      id: uuidv4(),
+      created_at: now,
+      updated_at: now
+    }
+
+    this.db.data.installmentPayments.push(installment)
+    await this.db.write()
+    return installment
+  }
+
+  async getInstallmentPaymentsByPayment(paymentId) {
+    await this.db.read()
+    const installments = this.db.data?.installmentPayments || []
+    return installments.filter(inst => inst.payment_id === paymentId)
+  }
+
   // Settings operations
   async getSettings() {
     await this.db.read()

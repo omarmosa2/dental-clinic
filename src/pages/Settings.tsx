@@ -99,6 +99,37 @@ export default function Settings() {
     }
   }, [error, clearError])
 
+  // Debug: Monitor showDeleteConfirm state changes
+  useEffect(() => {
+    if (showDeleteConfirm) {
+      console.log('🔍 Delete confirmation dialog opened for:', showDeleteConfirm)
+    } else {
+      console.log('🔍 Delete confirmation dialog closed')
+    }
+  }, [showDeleteConfirm])
+
+  // Handle keyboard events for modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (showDeleteConfirm && event.key === 'Escape') {
+        setShowDeleteConfirm(null)
+      }
+    }
+
+    if (showDeleteConfirm) {
+      document.addEventListener('keydown', handleKeyDown)
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = 'unset'
+    }
+  }, [showDeleteConfirm])
+
   const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setNotification({ message, type, show: true })
     setTimeout(() => {
@@ -154,11 +185,15 @@ export default function Settings() {
 
   const handleDeleteBackup = async (backupName: string) => {
     try {
+      console.log('🗑️ Attempting to delete backup:', backupName)
       await deleteBackup(backupName)
       showNotification('تم حذف النسخة الاحتياطية بنجاح', 'success')
       setShowDeleteConfirm(null)
+      console.log('✅ Backup deleted successfully:', backupName)
     } catch (error) {
-      showNotification('فشل في حذف النسخة الاحتياطية', 'error')
+      console.error('❌ Failed to delete backup:', error)
+      showNotification(`فشل في حذف النسخة الاحتياطية: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`, 'error')
+      setShowDeleteConfirm(null) // Close dialog even on error
     }
   }
 
@@ -388,7 +423,7 @@ export default function Settings() {
             <div className="p-6 border-b border-border">
               <h3 className="text-lg font-medium text-foreground">النسخ الاحتياطية اليدوية</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                إنشاء واستعادة النسخ الاحتياطية يدوياً (تنسيق JSON)
+                إنشاء واستعادة النسخ الاحتياطية يدوياً (تنسيق SQLite)
               </p>
             </div>
             <div className="p-6">
@@ -421,7 +456,7 @@ export default function Settings() {
                       استعادة النسخة الاحتياطية ستستبدل جميع البيانات الحالية. تأكد من إنشاء نسخة احتياطية حديثة قبل الاستعادة.
                     </p>
                     <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
-                      <strong>تنسيق الملف:</strong> يدعم النظام ملفات JSON فقط للاستعادة.
+                      <strong>تنسيق الملف:</strong> يدعم النظام ملفات SQLite (.db) للنسخ الاحتياطية الجديدة، مع دعم ملفات JSON القديمة للتوافق.
                     </p>
                   </div>
                 </div>
@@ -498,9 +533,9 @@ export default function Settings() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {backups.map((backup) => (
+                  {backups.map((backup, index) => (
                     <div
-                      key={backup.name}
+                      key={`${backup.name}-${index}`}
                       className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent cursor-pointer"
                       onClick={() => handleRestoreFromPath(backup.path)}
                     >
@@ -509,7 +544,19 @@ export default function Settings() {
                           <Shield className="w-5 h-5 text-primary" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-foreground">{backup.name}</h4>
+                          <div className="flex items-center space-x-2 space-x-reverse">
+                            <h4 className="text-sm font-medium text-foreground">{backup.name}</h4>
+                            {backup.isSqliteOnly && (
+                              <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-full">
+                                SQLite
+                              </span>
+                            )}
+                            {backup.isLegacy && (
+                              <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200 rounded-full">
+                                قديم
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center space-x-4 space-x-reverse text-sm text-muted-foreground">
                             <span>{formatBackupDate(backup.created_at)}</span>
                             <span>{formatBackupSize(backup.size)}</span>
@@ -530,11 +577,14 @@ export default function Settings() {
                         </button>
                         <button
                           onClick={(e) => {
+                            e.preventDefault()
                             e.stopPropagation()
+                            console.log('🗑️ Delete button clicked for backup:', backup.name)
                             setShowDeleteConfirm(backup.name)
                           }}
-                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg"
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           title="حذف"
+                          type="button"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -670,31 +720,59 @@ export default function Settings() {
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowDeleteConfirm(null)} />
-          <div className="bg-card border border-border rounded-lg shadow-xl max-w-md w-full" dir="rtl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowDeleteConfirm(null)}
+            style={{ zIndex: 9998 }}
+          />
+
+          {/* Dialog */}
+          <div
+            className="relative bg-card border border-border rounded-lg shadow-2xl max-w-md w-full mx-4"
+            style={{ zIndex: 10000 }}
+            dir="rtl"
+          >
             <div className="p-6">
-              <div className="flex items-center">
-                <AlertTriangle className="w-6 h-6 text-red-500 ml-3" />
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center ml-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
                 <div>
-                  <h3 className="text-lg font-medium text-foreground">تأكيد الحذف</h3>
+                  <h3 className="text-lg font-semibold text-foreground">تأكيد الحذف</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    هل أنت متأكد من حذف هذه النسخة الاحتياطية؟ لا يمكن التراجع عن هذا الإجراء.
+                    هل أنت متأكد من حذف هذه النسخة الاحتياطية؟
                   </p>
                 </div>
               </div>
-              <div className="mt-6 flex justify-end space-x-2 space-x-reverse">
+
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+                <div className="flex">
+                  <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 ml-2 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-red-800 dark:text-red-200 font-medium">
+                      تحذير: لا يمكن التراجع عن هذا الإجراء
+                    </p>
+                    <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                      سيتم حذف النسخة الاحتياطية "{showDeleteConfirm}" نهائياً من النظام.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 space-x-reverse">
                 <button
                   onClick={() => setShowDeleteConfirm(null)}
-                  className="px-4 py-2 border border-input bg-background text-foreground rounded-lg hover:bg-accent"
+                  className="px-4 py-2 border border-input bg-background text-foreground rounded-lg hover:bg-accent transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   onClick={() => handleDeleteBackup(showDeleteConfirm)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                 >
-                  حذف
+                  تأكيد الحذف
                 </button>
               </div>
             </div>

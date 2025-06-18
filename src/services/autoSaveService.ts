@@ -1,11 +1,11 @@
-import { LowDBService } from './lowdbService'
+import { DatabaseService } from './databaseService'
 
 export class AutoSaveService {
   private interval: NodeJS.Timeout | null = null
   private saveInterval: number = 300000 // 5 minutes default
   private isRunning: boolean = false
 
-  constructor(private databaseService: LowDBService) {}
+  constructor(private databaseService: DatabaseService) {}
 
   start(intervalSeconds: number = 300): void {
     if (this.isRunning) {
