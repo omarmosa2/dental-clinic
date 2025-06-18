@@ -253,26 +253,7 @@ export default function Reports() {
               <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground border-b">
                 اختر تنسيق التصدير
               </div>
-              <DropdownMenuItem
-                onClick={() => handleExport('pdf')}
-                className="flex items-center space-x-2 space-x-reverse py-3"
-              >
-                <FileText className="w-4 h-4 ml-2 text-red-500" />
-                <div>
-                  <div className="font-medium">تصدير PDF</div>
-                  <div className="text-xs text-muted-foreground">ملف PDF مع الرسوم البيانية</div>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleExport('excel')}
-                className="flex items-center space-x-2 space-x-reverse py-3"
-              >
-                <FileSpreadsheet className="w-4 h-4 ml-2 text-green-500" />
-                <div>
-                  <div className="font-medium">تصدير Excel</div>
-                  <div className="text-xs text-muted-foreground">جدول بيانات قابل للتعديل</div>
-                </div>
-              </DropdownMenuItem>
+             
               <DropdownMenuItem
                 onClick={() => handleExport('csv')}
                 className="flex items-center space-x-2 space-x-reverse py-3"
