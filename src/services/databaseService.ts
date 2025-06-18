@@ -108,49 +108,152 @@ export class DatabaseService {
   }
 
   private runMigrations() {
+    // Initialize migration tracking table
     try {
-      // Add missing columns to payments table if they don't exist
-      const columns = this.db.prepare("PRAGMA table_info(payments)").all() as any[]
-      const columnNames = columns.map(col => col.name)
-
-      if (!columnNames.includes('notes')) {
-        this.db.exec('ALTER TABLE payments ADD COLUMN notes TEXT')
-      }
-
-      if (!columnNames.includes('discount_amount')) {
-        this.db.exec('ALTER TABLE payments ADD COLUMN discount_amount DECIMAL(10,2) DEFAULT 0')
-      }
-
-      if (!columnNames.includes('tax_amount')) {
-        this.db.exec('ALTER TABLE payments ADD COLUMN tax_amount DECIMAL(10,2) DEFAULT 0')
-      }
-
-      if (!columnNames.includes('total_amount')) {
-        this.db.exec('ALTER TABLE payments ADD COLUMN total_amount DECIMAL(10,2)')
-        // Update existing records
-        this.db.exec('UPDATE payments SET total_amount = amount WHERE total_amount IS NULL')
-      }
-
-      // Add new payment tracking columns
-      if (!columnNames.includes('total_amount_due')) {
-        this.db.exec('ALTER TABLE payments ADD COLUMN total_amount_due DECIMAL(10,2)')
-        // Set default value for existing records
-        this.db.exec('UPDATE payments SET total_amount_due = amount WHERE total_amount_due IS NULL')
-      }
-
-      if (!columnNames.includes('amount_paid')) {
-        this.db.exec('ALTER TABLE payments ADD COLUMN amount_paid DECIMAL(10,2)')
-        // Set default value for existing records
-        this.db.exec('UPDATE payments SET amount_paid = amount WHERE amount_paid IS NULL')
-      }
-
-      if (!columnNames.includes('remaining_balance')) {
-        this.db.exec('ALTER TABLE payments ADD COLUMN remaining_balance DECIMAL(10,2)')
-        // Calculate remaining balance for existing records
-        this.db.exec('UPDATE payments SET remaining_balance = COALESCE(total_amount_due, amount) - COALESCE(amount_paid, amount) WHERE remaining_balance IS NULL')
-      }
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+          version INTEGER PRIMARY KEY,
+          description TEXT,
+          applied_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          success BOOLEAN DEFAULT TRUE
+        )
+      `)
     } catch (error) {
-      console.error('Migration error:', error)
+      console.error('Failed to create migration tracking table:', error)
+    }
+
+    // Enhanced migration with transaction and rollback support
+    const transaction = this.db.transaction(() => {
+      try {
+        // Check what migrations have been applied
+        const appliedMigrations = new Set()
+        try {
+          const applied = this.db.prepare('SELECT version FROM schema_migrations WHERE success = TRUE').all() as { version: number }[]
+          applied.forEach(m => appliedMigrations.add(m.version))
+        } catch (error) {
+          // Migration table doesn't exist yet, continue
+        }
+
+        // Migration 1: Add missing columns to payments table
+        if (!appliedMigrations.has(1)) {
+          console.log('🔄 Applying migration 1: Enhanced payments table structure')
+
+          const columns = this.db.prepare("PRAGMA table_info(payments)").all() as any[]
+          const columnNames = columns.map(col => col.name)
+
+          if (!columnNames.includes('notes')) {
+            this.db.exec('ALTER TABLE payments ADD COLUMN notes TEXT')
+          }
+
+          if (!columnNames.includes('discount_amount')) {
+            this.db.exec('ALTER TABLE payments ADD COLUMN discount_amount DECIMAL(10,2) DEFAULT 0')
+          }
+
+          if (!columnNames.includes('tax_amount')) {
+            this.db.exec('ALTER TABLE payments ADD COLUMN tax_amount DECIMAL(10,2) DEFAULT 0')
+          }
+
+          if (!columnNames.includes('total_amount')) {
+            this.db.exec('ALTER TABLE payments ADD COLUMN total_amount DECIMAL(10,2)')
+            this.db.exec('UPDATE payments SET total_amount = amount WHERE total_amount IS NULL')
+          }
+
+          if (!columnNames.includes('total_amount_due')) {
+            this.db.exec('ALTER TABLE payments ADD COLUMN total_amount_due DECIMAL(10,2)')
+            this.db.exec('UPDATE payments SET total_amount_due = amount WHERE total_amount_due IS NULL')
+          }
+
+          if (!columnNames.includes('amount_paid')) {
+            this.db.exec('ALTER TABLE payments ADD COLUMN amount_paid DECIMAL(10,2)')
+            this.db.exec('UPDATE payments SET amount_paid = amount WHERE amount_paid IS NULL')
+          }
+
+          if (!columnNames.includes('remaining_balance')) {
+            this.db.exec('ALTER TABLE payments ADD COLUMN remaining_balance DECIMAL(10,2)')
+            this.db.exec('UPDATE payments SET remaining_balance = COALESCE(total_amount_due, amount) - COALESCE(amount_paid, amount) WHERE remaining_balance IS NULL')
+          }
+
+          // Record successful migration
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(1, 'Enhanced payments table structure')
+          console.log('✅ Migration 1 completed successfully')
+        }
+
+        // Migration 2: Add profile_image to patients if missing
+        if (!appliedMigrations.has(2)) {
+          console.log('🔄 Applying migration 2: Add profile_image to patients')
+
+          const patientColumns = this.db.prepare("PRAGMA table_info(patients)").all() as any[]
+          const patientColumnNames = patientColumns.map(col => col.name)
+
+          if (!patientColumnNames.includes('profile_image')) {
+            this.db.exec('ALTER TABLE patients ADD COLUMN profile_image TEXT')
+          }
+
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(2, 'Add profile_image to patients')
+          console.log('✅ Migration 2 completed successfully')
+        }
+
+        // Migration 3: Ensure all tables exist with proper structure
+        if (!appliedMigrations.has(3)) {
+          console.log('🔄 Applying migration 3: Ensure all tables exist')
+
+          // Check if installment_payments table exists
+          const tables = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]
+          const tableNames = tables.map(t => t.name)
+
+          if (!tableNames.includes('installment_payments')) {
+            this.db.exec(`
+              CREATE TABLE installment_payments (
+                id TEXT PRIMARY KEY,
+                payment_id TEXT NOT NULL,
+                installment_number INTEGER NOT NULL,
+                amount DECIMAL(10,2) NOT NULL,
+                due_date DATE NOT NULL,
+                paid_date DATE,
+                status TEXT DEFAULT 'pending',
+                notes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE
+              )
+            `)
+          }
+
+          if (!tableNames.includes('patient_images')) {
+            this.db.exec(`
+              CREATE TABLE patient_images (
+                id TEXT PRIMARY KEY,
+                patient_id TEXT NOT NULL,
+                appointment_id TEXT,
+                image_path TEXT NOT NULL,
+                image_type TEXT,
+                description TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+                FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+              )
+            `)
+          }
+
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(3, 'Ensure all tables exist')
+          console.log('✅ Migration 3 completed successfully')
+        }
+
+      } catch (error) {
+        console.error('❌ Migration failed:', error)
+        // Record failed migration
+        this.db.prepare('INSERT INTO schema_migrations (version, description, success) VALUES (?, ?, FALSE)').run(0, `Migration failed: ${error.message}`)
+        throw error
+      }
+    })
+
+    try {
+      transaction()
+      console.log('✅ All database migrations completed successfully')
+    } catch (error) {
+      console.error('❌ Migration transaction failed:', error)
+      throw error
     }
   }
 
@@ -901,25 +1004,277 @@ export class DatabaseService {
     transaction()
   }
 
-  // Transaction management for complex operations
-  async executeTransaction<T>(operations: () => T): Promise<T> {
+  // Enhanced transaction management for complex operations
+  async executeTransaction<T>(operations: () => T, errorMessage?: string): Promise<T> {
     const transaction = this.db.transaction(operations)
-    return transaction()
+    try {
+      const result = transaction()
+      console.log('✅ Transaction completed successfully')
+      return result
+    } catch (error) {
+      const message = errorMessage || 'Transaction failed'
+      console.error(`❌ ${message}:`, error)
+      throw new Error(`${message}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  // Enhanced error handling with rollback
-  async safeExecute<T>(operation: () => T, errorMessage: string): Promise<T> {
+  // Enhanced error handling with detailed logging
+  async safeExecute<T>(operation: () => T, errorMessage: string, context?: any): Promise<T> {
     try {
       return operation()
     } catch (error) {
-      console.error(`${errorMessage}:`, error)
+      console.error(`❌ ${errorMessage}:`, error)
+      if (context) {
+        console.error('Context:', context)
+      }
       throw new Error(`${errorMessage}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // Data integrity validation
+  async validateDataIntegrity(): Promise<{isValid: boolean, issues: string[]}> {
+    const issues: string[] = []
+
+    try {
+      // Check for orphaned appointments (appointments without valid patients)
+      const orphanedAppointments = this.db.prepare(`
+        SELECT COUNT(*) as count FROM appointments a
+        LEFT JOIN patients p ON a.patient_id = p.id
+        WHERE p.id IS NULL
+      `).get() as { count: number }
+
+      if (orphanedAppointments.count > 0) {
+        issues.push(`Found ${orphanedAppointments.count} appointments without valid patients`)
+      }
+
+      // Check for orphaned payments (payments without valid patients)
+      const orphanedPayments = this.db.prepare(`
+        SELECT COUNT(*) as count FROM payments p
+        LEFT JOIN patients pt ON p.patient_id = pt.id
+        WHERE pt.id IS NULL
+      `).get() as { count: number }
+
+      if (orphanedPayments.count > 0) {
+        issues.push(`Found ${orphanedPayments.count} payments without valid patients`)
+      }
+
+      // Check for orphaned installment payments
+      const orphanedInstallments = this.db.prepare(`
+        SELECT COUNT(*) as count FROM installment_payments ip
+        LEFT JOIN payments p ON ip.payment_id = p.id
+        WHERE p.id IS NULL
+      `).get() as { count: number }
+
+      if (orphanedInstallments.count > 0) {
+        issues.push(`Found ${orphanedInstallments.count} installment payments without valid payments`)
+      }
+
+      // Check for orphaned patient images
+      const orphanedImages = this.db.prepare(`
+        SELECT COUNT(*) as count FROM patient_images pi
+        LEFT JOIN patients p ON pi.patient_id = p.id
+        WHERE p.id IS NULL
+      `).get() as { count: number }
+
+      if (orphanedImages.count > 0) {
+        issues.push(`Found ${orphanedImages.count} patient images without valid patients`)
+      }
+
+      // Check for orphaned inventory usage
+      const orphanedUsage = this.db.prepare(`
+        SELECT COUNT(*) as count FROM inventory_usage iu
+        LEFT JOIN inventory i ON iu.inventory_id = i.id
+        WHERE i.id IS NULL
+      `).get() as { count: number }
+
+      if (orphanedUsage.count > 0) {
+        issues.push(`Found ${orphanedUsage.count} inventory usage records without valid inventory items`)
+      }
+
+      console.log(`🔍 Data integrity check completed. Issues found: ${issues.length}`)
+      return { isValid: issues.length === 0, issues }
+
+    } catch (error) {
+      console.error('❌ Data integrity validation failed:', error)
+      issues.push('Failed to validate data integrity')
+      return { isValid: false, issues }
+    }
+  }
+
+  // Clean up orphaned data
+  async cleanupOrphanedData(): Promise<{cleaned: boolean, summary: string[]}> {
+    const summary: string[] = []
+
+    try {
+      const transaction = this.db.transaction(() => {
+        // Clean orphaned installment payments
+        const deletedInstallments = this.db.prepare(`
+          DELETE FROM installment_payments
+          WHERE payment_id NOT IN (SELECT id FROM payments)
+        `).run()
+
+        if (deletedInstallments.changes > 0) {
+          summary.push(`Cleaned ${deletedInstallments.changes} orphaned installment payments`)
+        }
+
+        // Clean orphaned patient images
+        const deletedImages = this.db.prepare(`
+          DELETE FROM patient_images
+          WHERE patient_id NOT IN (SELECT id FROM patients)
+        `).run()
+
+        if (deletedImages.changes > 0) {
+          summary.push(`Cleaned ${deletedImages.changes} orphaned patient images`)
+        }
+
+        // Clean orphaned inventory usage
+        const deletedUsage = this.db.prepare(`
+          DELETE FROM inventory_usage
+          WHERE inventory_id NOT IN (SELECT id FROM inventory)
+        `).run()
+
+        if (deletedUsage.changes > 0) {
+          summary.push(`Cleaned ${deletedUsage.changes} orphaned inventory usage records`)
+        }
+      })
+
+      transaction()
+      console.log('✅ Orphaned data cleanup completed')
+      return { cleaned: true, summary }
+
+    } catch (error) {
+      console.error('❌ Orphaned data cleanup failed:', error)
+      return { cleaned: false, summary: ['Failed to cleanup orphaned data'] }
+    }
+  }
+
+  // Enhanced complex operations with transactions
+  async createAppointmentWithPayment(
+    appointmentData: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>,
+    paymentData?: Omit<Payment, 'id' | 'appointment_id' | 'created_at' | 'updated_at'>
+  ): Promise<{appointment: Appointment, payment?: Payment}> {
+    return this.executeTransaction(() => {
+      // Create appointment first
+      const appointment = this.createAppointmentSync(appointmentData)
+
+      let payment: Payment | undefined
+      if (paymentData) {
+        // Create payment linked to appointment
+        payment = this.createPaymentSync({
+          ...paymentData,
+          appointment_id: appointment.id
+        })
+      }
+
+      return { appointment, payment }
+    }, 'Failed to create appointment with payment')
+  }
+
+  async deletePatientWithAllData(patientId: string): Promise<{success: boolean, deletedCounts: any}> {
+    return this.executeTransaction(() => {
+      const deletedCounts = {
+        patient_images: 0,
+        inventory_usage: 0,
+        installment_payments: 0,
+        payments: 0,
+        appointments: 0,
+        patient: 0
+      }
+
+      // Delete in correct order due to foreign key constraints
+      deletedCounts.patient_images = this.db.prepare('DELETE FROM patient_images WHERE patient_id = ?').run(patientId).changes
+      deletedCounts.inventory_usage = this.db.prepare('DELETE FROM inventory_usage WHERE appointment_id IN (SELECT id FROM appointments WHERE patient_id = ?)').run(patientId).changes
+      deletedCounts.installment_payments = this.db.prepare('DELETE FROM installment_payments WHERE payment_id IN (SELECT id FROM payments WHERE patient_id = ?)').run(patientId).changes
+      deletedCounts.payments = this.db.prepare('DELETE FROM payments WHERE patient_id = ?').run(patientId).changes
+      deletedCounts.appointments = this.db.prepare('DELETE FROM appointments WHERE patient_id = ?').run(patientId).changes
+      deletedCounts.patient = this.db.prepare('DELETE FROM patients WHERE id = ?').run(patientId).changes
+
+      return { success: true, deletedCounts }
+    }, 'Failed to delete patient with all data')
+  }
+
+  // Synchronous versions for use within transactions
+  private createAppointmentSync(appointment: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>): Appointment {
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    // Validate patient_id exists
+    if (!appointment.patient_id) {
+      throw new Error('Patient ID is required')
+    }
+
+    const patientCheck = this.db.prepare('SELECT id FROM patients WHERE id = ?')
+    const patientExists = patientCheck.get(appointment.patient_id)
+    if (!patientExists) {
+      throw new Error(`Patient with ID '${appointment.patient_id}' does not exist`)
+    }
+
+    // Validate treatment_id if provided
+    const treatmentId = appointment.treatment_id && appointment.treatment_id.trim() !== '' ? appointment.treatment_id : null
+    if (treatmentId) {
+      const treatmentCheck = this.db.prepare('SELECT id FROM treatments WHERE id = ?')
+      const treatmentExists = treatmentCheck.get(treatmentId)
+      if (!treatmentExists) {
+        throw new Error(`Treatment with ID '${treatmentId}' does not exist`)
+      }
+    }
+
+    const stmt = this.db.prepare(`
+      INSERT INTO appointments (
+        id, patient_id, treatment_id, title, description, start_time, end_time,
+        status, cost, notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      id, appointment.patient_id, treatmentId, appointment.title,
+      appointment.description, appointment.start_time, appointment.end_time,
+      appointment.status || 'scheduled', appointment.cost, appointment.notes, now, now
+    )
+
+    return { ...appointment, id, treatment_id: treatmentId, created_at: now, updated_at: now }
+  }
+
+  private createPaymentSync(payment: Omit<Payment, 'id' | 'created_at' | 'updated_at'>): Payment {
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    const stmt = this.db.prepare(`
+      INSERT INTO payments (
+        id, patient_id, appointment_id, amount, payment_method, payment_date,
+        status, description, receipt_number, notes, discount_amount, tax_amount,
+        total_amount, total_amount_due, amount_paid, remaining_balance, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    const totalAmount = payment.total_amount || payment.amount
+    const totalAmountDue = payment.total_amount_due || totalAmount
+    const amountPaid = payment.amount_paid || payment.amount
+    const remainingBalance = totalAmountDue - amountPaid
+
+    stmt.run(
+      id, payment.patient_id, payment.appointment_id, payment.amount,
+      payment.payment_method, payment.payment_date, payment.status || 'completed',
+      payment.description, payment.receipt_number, payment.notes,
+      payment.discount_amount || 0, payment.tax_amount || 0,
+      totalAmount, totalAmountDue, amountPaid, remainingBalance, now, now
+    )
+
+    return {
+      ...payment,
+      id,
+      total_amount: totalAmount,
+      total_amount_due: totalAmountDue,
+      amount_paid: amountPaid,
+      remaining_balance: remainingBalance,
+      created_at: now,
+      updated_at: now
     }
   }
 
   // Batch operations for better performance
   async batchCreatePatients(patients: Omit<Patient, 'id' | 'created_at' | 'updated_at'>[]): Promise<Patient[]> {
-    const transaction = this.db.transaction(() => {
+    return this.executeTransaction(() => {
       const stmt = this.db.prepare(`
         INSERT INTO patients (
           id, first_name, last_name, date_of_birth, phone, email, address,
@@ -939,9 +1294,7 @@ export class DatabaseService {
         )
         return { ...patient, id, created_at: now, updated_at: now }
       })
-    })
-
-    return transaction()
+    }, 'Failed to batch create patients')
   }
 
   async batchCreateAppointments(appointments: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>[]): Promise<Appointment[]> {
@@ -966,6 +1319,131 @@ export class DatabaseService {
     })
 
     return transaction()
+  }
+
+  // Enhanced backup and restore operations
+  async createBackup(backupPath?: string): Promise<{success: boolean, path?: string, message: string}> {
+    try {
+      if (!backupPath) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+        backupPath = join(app.getPath('userData'), `backup_${timestamp}.db`)
+      }
+
+      // Validate data integrity before backup
+      const integrityCheck = await this.validateDataIntegrity()
+      if (!integrityCheck.isValid) {
+        console.warn('⚠️ Data integrity issues found before backup:', integrityCheck.issues)
+      }
+
+      // Create backup using SQLite backup API
+      const backupDb = new Database(backupPath)
+      this.db.backup(backupDb)
+      backupDb.close()
+
+      console.log('✅ Database backup created successfully:', backupPath)
+      return {
+        success: true,
+        path: backupPath,
+        message: `Backup created successfully at ${backupPath}`
+      }
+
+    } catch (error) {
+      console.error('❌ Backup creation failed:', error)
+      return {
+        success: false,
+        message: `Backup failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }
+    }
+  }
+
+  async restoreFromBackup(backupPath: string): Promise<{success: boolean, message: string}> {
+    try {
+      // Validate backup file exists
+      if (!require('fs').existsSync(backupPath)) {
+        throw new Error('Backup file does not exist')
+      }
+
+      // Create a backup of current database before restore
+      const currentBackupResult = await this.createBackup()
+      if (!currentBackupResult.success) {
+        throw new Error('Failed to create current database backup before restore')
+      }
+
+      // Close current database
+      this.close()
+
+      // Copy backup file to current database location
+      const currentDbPath = join(app.getPath('userData'), 'dental_clinic.db')
+      require('fs').copyFileSync(backupPath, currentDbPath)
+
+      // Reinitialize database
+      this.db = new Database(currentDbPath)
+      this.initializeDatabase()
+
+      console.log('✅ Database restored successfully from:', backupPath)
+      return {
+        success: true,
+        message: `Database restored successfully from ${backupPath}`
+      }
+
+    } catch (error) {
+      console.error('❌ Database restore failed:', error)
+      return {
+        success: false,
+        message: `Restore failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }
+    }
+  }
+
+  // Database health check
+  async performHealthCheck(): Promise<{healthy: boolean, issues: string[], recommendations: string[]}> {
+    const issues: string[] = []
+    const recommendations: string[] = []
+
+    try {
+      // Check database file integrity
+      const integrityCheck = this.db.pragma('integrity_check')
+      if (integrityCheck !== 'ok') {
+        issues.push('Database file integrity check failed')
+        recommendations.push('Consider running database repair or restore from backup')
+      }
+
+      // Check foreign key constraints
+      const foreignKeyCheck = this.db.pragma('foreign_key_check')
+      if (foreignKeyCheck.length > 0) {
+        issues.push(`Found ${foreignKeyCheck.length} foreign key constraint violations`)
+        recommendations.push('Run data cleanup to fix foreign key violations')
+      }
+
+      // Check data integrity
+      const dataIntegrity = await this.validateDataIntegrity()
+      if (!dataIntegrity.isValid) {
+        issues.push(...dataIntegrity.issues)
+        recommendations.push('Run orphaned data cleanup')
+      }
+
+      // Check database size and performance
+      const dbStats = this.db.prepare('SELECT COUNT(*) as count FROM sqlite_master WHERE type = "table"').get() as { count: number }
+      if (dbStats.count === 0) {
+        issues.push('No tables found in database')
+        recommendations.push('Reinitialize database schema')
+      }
+
+      console.log(`🏥 Database health check completed. Issues: ${issues.length}`)
+      return {
+        healthy: issues.length === 0,
+        issues,
+        recommendations
+      }
+
+    } catch (error) {
+      console.error('❌ Health check failed:', error)
+      return {
+        healthy: false,
+        issues: ['Health check failed to complete'],
+        recommendations: ['Check database connection and file permissions']
+      }
+    }
   }
 
   // Settings operations
