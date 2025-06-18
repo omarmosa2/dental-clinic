@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 import ExcelJS from 'exceljs'
 import type { Patient, Appointment, Payment, ReportExportOptions, PatientReportData, AppointmentReportData, FinancialReportData, InventoryReportData } from '../types'
 import { formatCurrency, formatDate } from '../lib/utils'
@@ -57,46 +58,553 @@ export class ExportService {
     }
   }
 
-  // PDF Export Functions
+  // PDF Export Functions using HTML to Canvas conversion
   static async exportToPDF(type: string, data: any, options: ReportExportOptions): Promise<string> {
-    const doc = new jsPDF({
-      orientation: options.orientation || 'landscape',
-      unit: 'mm',
-      format: options.pageSize || 'A4'
-    })
+    try {
+      // Create HTML content for the report
+      const htmlContent = this.createReportHTML(type, data, options)
 
-    // Set Arabic font support
-    doc.setLanguage('ar')
+      // Generate filename
+      const fileName = this.generateFileName(type, 'pdf', { includeTime: true })
 
-    // Header
-    this.addPDFHeader(doc, type, options)
+      // Convert HTML to PDF using html2canvas + jsPDF
+      await this.convertHTMLToPDF(htmlContent, fileName)
 
-    let yPosition = 50
+      return fileName
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+      throw new Error('فشل في تصدير التقرير إلى PDF')
+    }
+  }
 
-    switch (type) {
-      case 'patients':
-        yPosition = await this.addPatientReportToPDF(doc, data, yPosition, options)
-        break
-      case 'appointments':
-        yPosition = await this.addAppointmentReportToPDF(doc, data, yPosition, options)
-        break
-      case 'financial':
-        yPosition = await this.addFinancialReportToPDF(doc, data, yPosition, options)
-        break
-      case 'inventory':
-        yPosition = await this.addInventoryReportToPDF(doc, data, yPosition, options)
-        break
-      case 'overview':
-        yPosition = await this.addOverviewReportToPDF(doc, data, yPosition, options)
-        break
+  // Convert HTML to PDF using html2canvas + jsPDF
+  private static async convertHTMLToPDF(htmlContent: string, filename: string): Promise<void> {
+    try {
+      // Create a temporary div to render HTML
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = htmlContent
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.top = '-9999px'
+      tempDiv.style.width = '800px' // Fixed width for consistent rendering
+      tempDiv.style.fontFamily = 'Arial, sans-serif'
+      tempDiv.style.direction = 'rtl'
+      tempDiv.style.fontSize = '14px'
+      tempDiv.style.lineHeight = '1.6'
+      tempDiv.style.color = '#000'
+      tempDiv.style.background = '#fff'
+      tempDiv.style.padding = '20px'
+
+      document.body.appendChild(tempDiv)
+
+      // Wait a bit for fonts to load
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Convert HTML to canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2, // Higher quality
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: 800,
+        height: tempDiv.scrollHeight,
+        scrollX: 0,
+        scrollY: 0
+      })
+
+      // Remove temporary div
+      document.body.removeChild(tempDiv)
+
+      // Create PDF
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      })
+
+      // Calculate dimensions
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+      const imgWidth = pdfWidth - 20 // 10mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      let heightLeft = imgHeight
+      let position = 10 // 10mm top margin
+
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
+      heightLeft -= (pdfHeight - 20) // Subtract page height minus margins
+
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + 10
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
+        heightLeft -= (pdfHeight - 20)
+      }
+
+      // Save the PDF
+      pdf.save(filename)
+
+    } catch (error) {
+      console.error('Error converting HTML to PDF:', error)
+      throw new Error('فشل في تحويل التقرير إلى PDF')
+    }
+  }
+
+  // Create HTML content for reports
+  private static createReportHTML(type: string, data: any, options: ReportExportOptions): string {
+    const reportTitles = {
+      patients: 'تقرير المرضى',
+      appointments: 'تقرير المواعيد',
+      financial: 'التقرير المالي',
+      inventory: 'تقرير المخزون',
+      analytics: 'تقرير التحليلات',
+      overview: 'التقرير الشامل'
     }
 
-    // Footer
-    this.addPDFFooter(doc, options)
+    const title = reportTitles[type as keyof typeof reportTitles] || 'تقرير'
 
-    const fileName = this.generateFileName(type, 'pdf', { includeTime: true })
-    doc.save(fileName)
-    return fileName
+    return `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>${title}</title>
+        <style>
+          body {
+            font-family: 'Arial', sans-serif;
+            direction: rtl;
+            margin: 0;
+            padding: 20px;
+            background: #fff;
+            color: #000;
+            line-height: 1.6;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #0ea5e9;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .clinic-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin-bottom: 10px;
+          }
+          .report-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 5px;
+          }
+          .report-date {
+            font-size: 14px;
+            color: #64748b;
+          }
+          .summary-cards {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            flex-wrap: wrap;
+          }
+          .summary-card {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 150px;
+            margin: 5px;
+            border: 1px solid #e2e8f0;
+          }
+          .summary-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #1e293b;
+          }
+          .summary-card .number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0ea5e9;
+          }
+          .section {
+            margin: 30px 0;
+          }
+          .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 5px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+          }
+          th, td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+          }
+          th {
+            background: #f8fafc;
+            font-weight: bold;
+            color: #1e293b;
+          }
+          .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="clinic-name">عيادة الأسنان الحديثة</div>
+          <div class="report-title">${title}</div>
+          <div class="report-date">${new Date().toLocaleDateString('ar-SA')}</div>
+        </div>
+
+        ${this.generateReportContent(type, data, options)}
+
+        <div class="footer">
+          تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة - ${new Date().toLocaleString('ar-SA')}
+        </div>
+      </body>
+      </html>
+    `
+  }
+
+  // Generate specific content for each report type
+  private static generateReportContent(type: string, data: any, options: ReportExportOptions): string {
+    switch (type) {
+      case 'patients':
+        return this.generatePatientReportContent(data, options)
+      case 'appointments':
+        return this.generateAppointmentReportContent(data, options)
+      case 'financial':
+        return this.generateFinancialReportContent(data, options)
+      case 'inventory':
+        return this.generateInventoryReportContent(data, options)
+      case 'overview':
+        return this.generateOverviewReportContent(data, options)
+      default:
+        return '<div class="section">لا توجد بيانات متاحة</div>'
+    }
+  }
+
+  // Generate Patient Report HTML Content
+  private static generatePatientReportContent(data: PatientReportData, options: ReportExportOptions): string {
+    return `
+      <div class="summary-cards">
+        <div class="summary-card">
+          <h3>إجمالي المرضى</h3>
+          <div class="number">${data.totalPatients || 0}</div>
+        </div>
+        <div class="summary-card">
+          <h3>المرضى الجدد</h3>
+          <div class="number">${data.newPatientsThisMonth || 0}</div>
+        </div>
+        <div class="summary-card">
+          <h3>المرضى النشطون</h3>
+          <div class="number">${data.activePatients || 0}</div>
+        </div>
+        <div class="summary-card">
+          <h3>متوسط العمر</h3>
+          <div class="number">${data.averageAge || 0} سنة</div>
+        </div>
+      </div>
+
+      ${data.ageDistribution && data.ageDistribution.length > 0 ? `
+      <div class="section">
+        <div class="section-title">توزيع الأعمار</div>
+        <table>
+          <thead>
+            <tr>
+              <th>الفئة العمرية</th>
+              <th>العدد</th>
+              <th>النسبة المئوية</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.ageDistribution.map(item => `
+              <tr>
+                <td>${item.ageGroup || item.range}</td>
+                <td>${item.count}</td>
+                <td>${((item.count / data.totalPatients) * 100).toFixed(1)}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+
+      ${data.genderDistribution && data.genderDistribution.length > 0 ? `
+      <div class="section">
+        <div class="section-title">توزيع الجنس</div>
+        <table>
+          <thead>
+            <tr>
+              <th>الجنس</th>
+              <th>العدد</th>
+              <th>النسبة المئوية</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.genderDistribution.map(item => `
+              <tr>
+                <td>${item.gender === 'male' ? 'ذكر' : 'أنثى'}</td>
+                <td>${item.count}</td>
+                <td>${((item.count / data.totalPatients) * 100).toFixed(1)}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+
+      ${options.includeDetails && data.patients && data.patients.length > 0 ? `
+      <div class="section">
+        <div class="section-title">تفاصيل المرضى</div>
+        <table>
+          <thead>
+            <tr>
+              <th>الاسم</th>
+              <th>الهاتف</th>
+              <th>العمر</th>
+              <th>آخر زيارة</th>
+              <th>الحالة</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.patients.slice(0, 50).map(patient => `
+              <tr>
+                <td>${patient.first_name} ${patient.last_name}</td>
+                <td>${patient.phone || 'غير محدد'}</td>
+                <td>${patient.age || 'غير محدد'}</td>
+                <td>${patient.last_visit || 'لا توجد زيارات'}</td>
+                <td>${patient.status || 'نشط'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+    `
+  }
+
+  // Generate Appointment Report HTML Content
+  private static generateAppointmentReportContent(data: AppointmentReportData, options: ReportExportOptions): string {
+    return `
+      <div class="summary-cards">
+        <div class="summary-card">
+          <h3>إجمالي المواعيد</h3>
+          <div class="number">${data.totalAppointments || 0}</div>
+        </div>
+        <div class="summary-card">
+          <h3>المكتملة</h3>
+          <div class="number">${data.completedAppointments || 0}</div>
+        </div>
+        <div class="summary-card">
+          <h3>الملغية</h3>
+          <div class="number">${data.cancelledAppointments || 0}</div>
+        </div>
+        <div class="summary-card">
+          <h3>معدل الحضور</h3>
+          <div class="number">${data.attendanceRate?.toFixed(1) || 0}%</div>
+        </div>
+      </div>
+
+      ${data.appointmentsByStatus && data.appointmentsByStatus.length > 0 ? `
+      <div class="section">
+        <div class="section-title">توزيع المواعيد حسب الحالة</div>
+        <table>
+          <thead>
+            <tr>
+              <th>الحالة</th>
+              <th>العدد</th>
+              <th>النسبة المئوية</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.appointmentsByStatus.map(item => `
+              <tr>
+                <td>${this.translateStatus(item.status)}</td>
+                <td>${item.count}</td>
+                <td>${item.percentage?.toFixed(1) || 0}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+    `
+  }
+
+  // Generate Financial Report HTML Content
+  private static generateFinancialReportContent(data: FinancialReportData, options: ReportExportOptions): string {
+    return `
+      <div class="summary-cards">
+        <div class="summary-card">
+          <h3>إجمالي الإيرادات</h3>
+          <div class="number">${formatCurrency(data.totalRevenue || 0)} ريال</div>
+        </div>
+        <div class="summary-card">
+          <h3>المدفوعات المكتملة</h3>
+          <div class="number">${formatCurrency(data.completedPayments || 0)} ريال</div>
+        </div>
+        <div class="summary-card">
+          <h3>المدفوعات المعلقة</h3>
+          <div class="number">${formatCurrency(data.pendingPayments || 0)} ريال</div>
+        </div>
+        <div class="summary-card">
+          <h3>المدفوعات المتأخرة</h3>
+          <div class="number">${formatCurrency(data.overduePayments || 0)} ريال</div>
+        </div>
+      </div>
+
+      ${data.paymentMethodStats && data.paymentMethodStats.length > 0 ? `
+      <div class="section">
+        <div class="section-title">إحصائيات طرق الدفع</div>
+        <table>
+          <thead>
+            <tr>
+              <th>طريقة الدفع</th>
+              <th>المبلغ</th>
+              <th>عدد المعاملات</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.paymentMethodStats.map(item => `
+              <tr>
+                <td>${this.translatePaymentMethod(item.method)}</td>
+                <td>${formatCurrency(item.amount)} ريال</td>
+                <td>${item.count}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+    `
+  }
+
+  // Generate Inventory Report HTML Content
+  private static generateInventoryReportContent(data: InventoryReportData, options: ReportExportOptions): string {
+    return `
+      <div class="summary-cards">
+        <div class="summary-card">
+          <h3>إجمالي الأصناف</h3>
+          <div class="number">${data.totalItems || 0}</div>
+        </div>
+        <div class="summary-card">
+          <h3>القيمة الإجمالية</h3>
+          <div class="number">${formatCurrency(data.totalValue || 0)} ريال</div>
+        </div>
+        <div class="summary-card">
+          <h3>أصناف منخفضة المخزون</h3>
+          <div class="number" style="color: #f59e0b;">${data.lowStockItems || 0}</div>
+        </div>
+        <div class="summary-card">
+          <h3>أصناف منتهية الصلاحية</h3>
+          <div class="number" style="color: #ef4444;">${data.expiredItems || 0}</div>
+        </div>
+      </div>
+
+      ${data.itemsByCategory && data.itemsByCategory.length > 0 ? `
+      <div class="section">
+        <div class="section-title">توزيع الأصناف حسب الفئة</div>
+        <table>
+          <thead>
+            <tr>
+              <th>الفئة</th>
+              <th>عدد الأصناف</th>
+              <th>القيمة</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.itemsByCategory.map(item => `
+              <tr>
+                <td>${item.category}</td>
+                <td>${item.count}</td>
+                <td>${formatCurrency(item.value)} ريال</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+    `
+  }
+
+  // Generate Overview Report HTML Content
+  private static generateOverviewReportContent(data: any, options: ReportExportOptions): string {
+    return `
+      <div class="section">
+        <div class="section-title">ملخص شامل للعيادة</div>
+        <div class="summary-cards">
+          ${data.patients ? `
+          <div class="summary-card">
+            <h3>المرضى</h3>
+            <div class="number">${data.patients.totalPatients || 0}</div>
+          </div>
+          ` : ''}
+          ${data.appointments ? `
+          <div class="summary-card">
+            <h3>المواعيد</h3>
+            <div class="number">${data.appointments.totalAppointments || 0}</div>
+          </div>
+          ` : ''}
+          ${data.financial ? `
+          <div class="summary-card">
+            <h3>الإيرادات</h3>
+            <div class="number">${formatCurrency(data.financial.totalRevenue || 0)} ريال</div>
+          </div>
+          ` : ''}
+          ${data.inventory ? `
+          <div class="summary-card">
+            <h3>المخزون</h3>
+            <div class="number">${data.inventory.totalItems || 0}</div>
+          </div>
+          ` : ''}
+        </div>
+      </div>
+
+      ${data.patients ? this.generatePatientReportContent(data.patients, options) : ''}
+      ${data.appointments ? this.generateAppointmentReportContent(data.appointments, options) : ''}
+      ${data.financial ? this.generateFinancialReportContent(data.financial, options) : ''}
+      ${data.inventory ? this.generateInventoryReportContent(data.inventory, options) : ''}
+    `
+  }
+
+  // Helper methods for translations
+  private static translateStatus(status: string): string {
+    const statusMap: { [key: string]: string } = {
+      'scheduled': 'مجدول',
+      'completed': 'مكتمل',
+      'cancelled': 'ملغي',
+      'no-show': 'عدم حضور',
+      'in-progress': 'قيد التنفيذ'
+    }
+    return statusMap[status] || status
+  }
+
+  private static translatePaymentMethod(method: string): string {
+    const methodMap: { [key: string]: string } = {
+      'cash': 'نقدي',
+      'card': 'بطاقة ائتمان',
+      'bank_transfer': 'تحويل بنكي',
+      'insurance': 'تأمين',
+      'installment': 'تقسيط'
+    }
+    return methodMap[method] || method
   }
 
   static addPDFHeader(doc: jsPDF, type: string, options: ReportExportOptions): void {
