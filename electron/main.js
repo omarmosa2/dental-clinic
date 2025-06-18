@@ -898,9 +898,28 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
     }
 
     const extension = fileExtensions[options.format]
-    const dateStr = new Date().toISOString().split('T')[0]
-    const timeStr = new Date().toTimeString().split(' ')[0].replace(/:/g, '-')
-    const defaultFileName = `${type}_report_${dateStr}_${timeStr}.${extension}`
+
+    // Generate descriptive Arabic filename
+    const generateFileName = (reportType, format) => {
+      const now = new Date()
+      const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+      const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+
+      // Arabic report names mapping
+      const reportNames = {
+        'patients': 'تقرير_المرضى',
+        'appointments': 'تقرير_المواعيد',
+        'financial': 'التقرير_المالي',
+        'inventory': 'تقرير_المخزون',
+        'analytics': 'تقرير_التحليلات',
+        'overview': 'التقرير_الشامل'
+      }
+
+      const reportName = reportNames[reportType] || `تقرير_${reportType}`
+      return `${reportName}_${dateStr}_${timeStr}.${format}`
+    }
+
+    const defaultFileName = generateFileName(type, extension)
 
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Save Report',

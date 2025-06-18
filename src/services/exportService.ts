@@ -4,6 +4,36 @@ import type { Patient, Appointment, Payment, ReportExportOptions, PatientReportD
 import { formatCurrency, formatDate } from '../lib/utils'
 
 export class ExportService {
+  // Generate descriptive filename with date and time
+  static generateFileName(type: string, format: string, options?: { includeTime?: boolean, customSuffix?: string }): string {
+    const now = new Date()
+    const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+
+    // Arabic report names mapping
+    const reportNames: { [key: string]: string } = {
+      'patients': 'تقرير_المرضى',
+      'appointments': 'تقرير_المواعيد',
+      'financial': 'التقرير_المالي',
+      'inventory': 'تقرير_المخزون',
+      'analytics': 'تقرير_التحليلات',
+      'overview': 'التقرير_الشامل'
+    }
+
+    const reportName = reportNames[type] || `تقرير_${type}`
+    let fileName = `${reportName}_${dateStr}`
+
+    if (options?.includeTime) {
+      fileName += `_${timeStr}`
+    }
+
+    if (options?.customSuffix) {
+      fileName += `_${options.customSuffix}`
+    }
+
+    return `${fileName}.${format}`
+  }
+
   // Advanced Report Export Functions
   static async exportReport(
     type: 'patients' | 'appointments' | 'financial' | 'inventory' | 'analytics' | 'overview',
@@ -64,7 +94,7 @@ export class ExportService {
     // Footer
     this.addPDFFooter(doc, options)
 
-    const fileName = `${type}_report_${new Date().toISOString().split('T')[0]}.pdf`
+    const fileName = this.generateFileName(type, 'pdf', { includeTime: true })
     doc.save(fileName)
     return fileName
   }
@@ -364,7 +394,7 @@ export class ExportService {
         break
     }
 
-    const fileName = `${type}_report_${new Date().toISOString().split('T')[0]}.xlsx`
+    const fileName = this.generateFileName(type, 'xlsx', { includeTime: true })
     await workbook.xlsx.writeFile(fileName)
     return fileName
   }
@@ -570,7 +600,7 @@ export class ExportService {
         break
     }
 
-    const fileName = `${type}_report_${new Date().toISOString().split('T')[0]}.csv`
+    const fileName = this.generateFileName(type, 'csv', { includeTime: true })
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
 
     // Create download link

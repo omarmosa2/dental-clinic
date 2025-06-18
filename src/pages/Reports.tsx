@@ -332,7 +332,14 @@ export default function Reports() {
                   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
                   const link = document.createElement('a')
                   link.href = URL.createObjectURL(blob)
-                  link.download = `comprehensive_reports_${new Date().toISOString().split('T')[0]}.csv`
+
+                  // Generate descriptive filename with date and time
+                  const now = new Date()
+                  const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+                  const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+                  const fileName = `التقرير_الشامل_${dateStr}_${timeStr}.csv`
+
+                  link.download = fileName
                   document.body.appendChild(link)
                   link.click()
                   document.body.removeChild(link)

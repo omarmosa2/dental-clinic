@@ -4,13 +4,35 @@ import {
   FinancialReportData,
   InventoryReportData
 } from '../types'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
 export class PdfService {
-  // Simple PDF export using HTML and print functionality
+  // Generate descriptive filename with date and time for PDF reports
+  private static generatePDFFileName(reportType: string): string {
+    const now = new Date()
+    const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+
+    // Arabic report names mapping
+    const reportNames: { [key: string]: string } = {
+      'patients': 'تقرير_المرضى',
+      'appointments': 'تقرير_المواعيد',
+      'financial': 'التقرير_المالي',
+      'inventory': 'تقرير_المخزون',
+      'comprehensive': 'التقرير_الشامل'
+    }
+
+    const reportName = reportNames[reportType] || `تقرير_${reportType}`
+    return `${reportName}_${dateStr}_${timeStr}.pdf`
+  }
+
+  // Direct PDF export without opening print window
   static async exportPatientReport(data: PatientReportData): Promise<void> {
     try {
       const htmlContent = this.createPatientReportHTML(data)
-      this.downloadHTML(htmlContent, 'تقرير_المرضى')
+      const fileName = this.generatePDFFileName('patients')
+      await this.convertHTMLToPDF(htmlContent, fileName)
     } catch (error) {
       console.error('Error exporting patient report:', error)
       throw new Error('فشل في تصدير تقرير المرضى')
@@ -20,7 +42,8 @@ export class PdfService {
   static async exportAppointmentReport(data: AppointmentReportData): Promise<void> {
     try {
       const htmlContent = this.createAppointmentReportHTML(data)
-      this.downloadHTML(htmlContent, 'تقرير_المواعيد')
+      const fileName = this.generatePDFFileName('appointments')
+      await this.convertHTMLToPDF(htmlContent, fileName)
     } catch (error) {
       console.error('Error exporting appointment report:', error)
       throw new Error('فشل في تصدير تقرير المواعيد')
@@ -30,7 +53,8 @@ export class PdfService {
   static async exportFinancialReport(data: any): Promise<void> {
     try {
       const htmlContent = this.createFinancialReportHTML(data)
-      this.downloadHTML(htmlContent, 'التقرير_المالي')
+      const fileName = this.generatePDFFileName('financial')
+      await this.convertHTMLToPDF(htmlContent, fileName)
     } catch (error) {
       console.error('Error exporting financial report:', error)
       throw new Error('فشل في تصدير التقرير المالي')
@@ -40,7 +64,8 @@ export class PdfService {
   static async exportInventoryReport(data: InventoryReportData): Promise<void> {
     try {
       const htmlContent = this.createInventoryReportHTML(data)
-      this.downloadHTML(htmlContent, 'تقرير_المخزون')
+      const fileName = this.generatePDFFileName('inventory')
+      await this.convertHTMLToPDF(htmlContent, fileName)
     } catch (error) {
       console.error('Error exporting inventory report:', error)
       throw new Error('فشل في تصدير تقرير المخزون')
@@ -55,7 +80,8 @@ export class PdfService {
   ): Promise<void> {
     try {
       const htmlContent = this.createComprehensiveReportHTML(patientData, appointmentData, financialData, inventoryData)
-      this.downloadHTML(htmlContent, 'التقرير_الشامل')
+      const fileName = this.generatePDFFileName('comprehensive')
+      await this.convertHTMLToPDF(htmlContent, fileName)
     } catch (error) {
       console.error('Error exporting comprehensive report:', error)
       throw new Error('فشل في تصدير التقرير الشامل')
@@ -102,7 +128,7 @@ export class PdfService {
           </div>
           <div class="summary-card">
             <h3>المرضى الجدد</h3>
-            <div class="number">${data.newPatients}</div>
+            <div class="number">${data.newPatients || 0}</div>
           </div>
           <div class="summary-card">
             <h3>المرضى النشطون</h3>
@@ -110,7 +136,7 @@ export class PdfService {
           </div>
           <div class="summary-card">
             <h3>المرضى غير النشطين</h3>
-            <div class="number">${data.inactivePatients}</div>
+            <div class="number">${(data.totalPatients - data.activePatients) || 0}</div>
           </div>
         </div>
 
@@ -124,12 +150,12 @@ export class PdfService {
               </tr>
             </thead>
             <tbody>
-              ${data.ageDistribution.map(item => `
+              ${data.ageDistribution?.map(item => `
                 <tr>
                   <td>${item.ageGroup}</td>
                   <td>${item.count}</td>
                 </tr>
-              `).join('')}
+              `).join('') || '<tr><td colspan="2">لا توجد بيانات</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -144,12 +170,12 @@ export class PdfService {
               </tr>
             </thead>
             <tbody>
-              ${data.genderDistribution.map(item => `
+              ${data.genderDistribution?.map(item => `
                 <tr>
                   <td>${item.gender === 'male' ? 'ذكر' : 'أنثى'}</td>
                   <td>${item.count}</td>
                 </tr>
-              `).join('')}
+              `).join('') || '<tr><td colspan="2">لا توجد بيانات</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -206,11 +232,11 @@ export class PdfService {
           </div>
           <div class="summary-card">
             <h3>عدم الحضور</h3>
-            <div class="number">${data.noShowAppointments}</div>
+            <div class="number">${data.noShowAppointments || 0}</div>
           </div>
           <div class="summary-card">
             <h3>معدل الحضور</h3>
-            <div class="number">${data.attendanceRate.toFixed(1)}%</div>
+            <div class="number">${data.attendanceRate?.toFixed(1) || 0}%</div>
           </div>
         </div>
 
@@ -225,13 +251,13 @@ export class PdfService {
               </tr>
             </thead>
             <tbody>
-              ${data.appointmentsByStatus.map(item => `
+              ${data.appointmentsByStatus?.map(item => `
                 <tr>
                   <td>${this.translateStatus(item.status)}</td>
                   <td>${item.count}</td>
-                  <td>${item.percentage.toFixed(1)}%</td>
+                  <td>${item.percentage?.toFixed(1) || 0}%</td>
                 </tr>
-              `).join('')}
+              `).join('') || '<tr><td colspan="3">لا توجد بيانات</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -360,15 +386,15 @@ export class PdfService {
           </div>
           <div class="summary-card">
             <h3>القيمة الإجمالية</h3>
-            <div class="number">${data.totalValue.toLocaleString()} ريال</div>
+            <div class="number">${data.totalValue?.toLocaleString() || 0} ريال</div>
           </div>
           <div class="summary-card">
             <h3>أصناف منخفضة المخزون</h3>
-            <div class="number warning">${data.lowStockItems}</div>
+            <div class="number warning">${data.lowStockItems || 0}</div>
           </div>
           <div class="summary-card">
             <h3>أصناف منتهية الصلاحية</h3>
-            <div class="number danger">${data.expiredItems}</div>
+            <div class="number danger">${data.expiredItems || 0}</div>
           </div>
         </div>
 
@@ -383,18 +409,18 @@ export class PdfService {
               </tr>
             </thead>
             <tbody>
-              ${data.itemsByCategory.map(item => `
+              ${data.itemsByCategory?.map(item => `
                 <tr>
                   <td>${item.category}</td>
                   <td>${item.count}</td>
-                  <td>${item.value.toLocaleString()} ريال</td>
+                  <td>${item.value?.toLocaleString() || 0} ريال</td>
                 </tr>
-              `).join('')}
+              `).join('') || '<tr><td colspan="3">لا توجد بيانات</td></tr>'}
             </tbody>
           </table>
         </div>
 
-        ${data.stockAlerts.length > 0 ? `
+        ${data.stockAlerts && data.stockAlerts.length > 0 ? `
         <div class="section">
           <div class="section-title">تنبيهات المخزون</div>
           <table>
@@ -466,25 +492,25 @@ export class PdfService {
           <div class="summary-group">
             <h3>المرضى</h3>
             <div class="summary-item">إجمالي: ${patientData.totalPatients}</div>
-            <div class="summary-item">جدد: ${patientData.newPatients}</div>
+            <div class="summary-item">جدد: ${patientData.newPatients || 0}</div>
             <div class="summary-item">نشطون: ${patientData.activePatients}</div>
           </div>
           <div class="summary-group">
             <h3>المواعيد</h3>
             <div class="summary-item">إجمالي: ${appointmentData.totalAppointments}</div>
             <div class="summary-item">مكتملة: ${appointmentData.completedAppointments}</div>
-            <div class="summary-item">معدل الحضور: ${appointmentData.attendanceRate.toFixed(1)}%</div>
+            <div class="summary-item">معدل الحضور: ${appointmentData.attendanceRate?.toFixed(1) || 0}%</div>
           </div>
           <div class="summary-group">
             <h3>الإيرادات</h3>
-            <div class="summary-item">إجمالي: ${financialData.totalRevenue.toLocaleString()} ريال</div>
-            <div class="summary-item">مكتملة: ${financialData.totalRevenue.toLocaleString()} ريال</div>
+            <div class="summary-item">إجمالي: ${financialData.totalRevenue?.toLocaleString() || 0} ريال</div>
+            <div class="summary-item">مكتملة: ${financialData.totalRevenue?.toLocaleString() || 0} ريال</div>
           </div>
           <div class="summary-group">
             <h3>المخزون</h3>
             <div class="summary-item">إجمالي الأصناف: ${inventoryData.totalItems}</div>
-            <div class="summary-item">القيمة: ${inventoryData.totalValue.toLocaleString()} ريال</div>
-            <div class="summary-item">تنبيهات: ${inventoryData.lowStockItems + inventoryData.expiredItems}</div>
+            <div class="summary-item">القيمة: ${inventoryData.totalValue?.toLocaleString() || 0} ريال</div>
+            <div class="summary-item">تنبيهات: ${(inventoryData.lowStockItems || 0) + (inventoryData.expiredItems || 0)}</div>
           </div>
         </div>
 
@@ -500,19 +526,19 @@ export class PdfService {
             <tbody>
               <tr>
                 <td>معدل نمو المرضى</td>
-                <td>${((patientData.newPatients / patientData.totalPatients) * 100).toFixed(1)}%</td>
+                <td>${(((patientData.newPatients || 0) / patientData.totalPatients) * 100).toFixed(1)}%</td>
               </tr>
               <tr>
                 <td>معدل حضور المواعيد</td>
-                <td>${appointmentData.attendanceRate.toFixed(1)}%</td>
+                <td>${appointmentData.attendanceRate?.toFixed(1) || 0}%</td>
               </tr>
               <tr>
                 <td>معدل الإلغاء</td>
-                <td>${appointmentData.cancellationRate.toFixed(1)}%</td>
+                <td>${appointmentData.cancellationRate?.toFixed(1) || 0}%</td>
               </tr>
               <tr>
                 <td>متوسط الإيراد لكل مريض</td>
-                <td>${(financialData.totalRevenue / patientData.totalPatients).toLocaleString()} ريال</td>
+                <td>${((financialData.totalRevenue || 0) / patientData.totalPatients).toLocaleString()} ريال</td>
               </tr>
             </tbody>
           </table>
@@ -522,24 +548,79 @@ export class PdfService {
     `
   }
 
-  // Helper method to download HTML as file
-  private static downloadHTML(htmlContent: string, filename: string): void {
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = `${filename}.html`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  // Convert HTML to PDF using html2canvas + jsPDF
+  private static async convertHTMLToPDF(htmlContent: string, filename: string): Promise<void> {
+    try {
+      // Create a temporary div to render HTML
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = htmlContent
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.top = '-9999px'
+      tempDiv.style.width = '800px' // Fixed width for consistent rendering
+      tempDiv.style.fontFamily = 'Arial, sans-serif'
+      tempDiv.style.direction = 'rtl'
+      tempDiv.style.fontSize = '14px'
+      tempDiv.style.lineHeight = '1.6'
+      tempDiv.style.color = '#000'
+      tempDiv.style.background = '#fff'
+      tempDiv.style.padding = '20px'
 
-    // Also open in new window for printing
-    const printWindow = window.open('', '_blank')
-    if (printWindow) {
-      printWindow.document.write(htmlContent)
-      printWindow.document.close()
-      setTimeout(() => {
-        printWindow.print()
-      }, 500)
+      document.body.appendChild(tempDiv)
+
+      // Wait a bit for fonts to load
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Convert HTML to canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2, // Higher quality
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: 800,
+        height: tempDiv.scrollHeight,
+        scrollX: 0,
+        scrollY: 0
+      })
+
+      // Remove temporary div
+      document.body.removeChild(tempDiv)
+
+      // Create PDF
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      })
+
+      // Calculate dimensions
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+      const imgWidth = pdfWidth - 20 // 10mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      let heightLeft = imgHeight
+      let position = 10 // 10mm top margin
+
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
+      heightLeft -= (pdfHeight - 20) // Subtract page height minus margins
+
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + 10
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
+        heightLeft -= (pdfHeight - 20)
+      }
+
+      // Save the PDF
+      pdf.save(filename)
+
+    } catch (error) {
+      console.error('Error converting HTML to PDF:', error)
+      throw new Error('فشل في تحويل التقرير إلى PDF')
     }
   }
 

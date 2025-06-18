@@ -195,7 +195,14 @@ export default function Appointments() {
               const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
               const link = document.createElement('a')
               link.href = URL.createObjectURL(blob)
-              link.download = `appointments_${new Date().toISOString().split('T')[0]}.csv`
+
+              // Generate descriptive filename with date and time
+              const now = new Date()
+              const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+              const fileName = `تقرير_المواعيد_${dateStr}_${timeStr}.csv`
+
+              link.download = fileName
               document.body.appendChild(link)
               link.click()
               document.body.removeChild(link)
