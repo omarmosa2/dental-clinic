@@ -1,19 +1,17 @@
 -- Patients table
 CREATE TABLE IF NOT EXISTS patients (
     id TEXT PRIMARY KEY,
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    date_of_birth DATE,
-    phone TEXT,
+    serial_number TEXT UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    gender TEXT NOT NULL CHECK (gender IN ('male', 'female')),
+    age INTEGER NOT NULL CHECK (age > 0),
+    patient_condition TEXT NOT NULL,
+    allergies TEXT,
+    medical_conditions TEXT,
     email TEXT,
     address TEXT,
-    emergency_contact_name TEXT,
-    emergency_contact_phone TEXT,
-    medical_history TEXT,
-    allergies TEXT,
-    insurance_info TEXT,
     notes TEXT,
-    profile_image TEXT,
+    phone TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -167,10 +165,11 @@ INSERT OR IGNORE INTO treatments (id, name, description, default_cost, duration_
 
 -- Performance Indexes
 -- Patient indexes for search optimization
-CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(last_name, first_name);
+CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(full_name);
+CREATE INDEX IF NOT EXISTS idx_patients_serial ON patients(serial_number);
 CREATE INDEX IF NOT EXISTS idx_patients_phone ON patients(phone);
 CREATE INDEX IF NOT EXISTS idx_patients_email ON patients(email);
-CREATE INDEX IF NOT EXISTS idx_patients_name_phone ON patients(last_name, first_name, phone);
+CREATE INDEX IF NOT EXISTS idx_patients_name_phone ON patients(full_name, phone);
 
 -- Appointment indexes for calendar and search optimization
 CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id);

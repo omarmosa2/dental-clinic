@@ -111,10 +111,13 @@ export const usePatientStore = create<PatientStore>()(
       deletePatient: async (id) => {
         set({ isLoading: true, error: null })
         try {
+          // Get patient info before deletion for notifications
+          const { patients, selectedPatient } = get()
+          const patientToDelete = patients.find(p => p.id === id)
+
           const success = await window.electronAPI.patients.delete(id)
 
           if (success) {
-            const { patients, selectedPatient } = get()
             const updatedPatients = patients.filter(p => p.id !== id)
 
             set({
@@ -123,8 +126,20 @@ export const usePatientStore = create<PatientStore>()(
               isLoading: false
             })
 
-            // Update filtered patients
+            // Update filtered patients immediately
             get().filterPatients()
+
+            // Notify other stores about patient deletion for real-time sync
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('patient-deleted', {
+                detail: {
+                  patientId: id,
+                  patientName: patientToDelete ? patientToDelete.full_name : 'Unknown Patient'
+                }
+              }))
+            }
+
+            return { success: true, patientName: patientToDelete ? patientToDelete.full_name : 'Unknown Patient' }
           } else {
             throw new Error('Failed to delete patient')
           }
@@ -133,6 +148,7 @@ export const usePatientStore = create<PatientStore>()(
             error: error instanceof Error ? error.message : 'Failed to delete patient',
             isLoading: false
           })
+          throw error
         }
       },
 
@@ -190,10 +206,10 @@ export const usePatientStore = create<PatientStore>()(
 
         const query = searchQuery.toLowerCase()
         const filtered = patients.filter(patient =>
-          patient.first_name.toLowerCase().includes(query) ||
-          patient.last_name.toLowerCase().includes(query) ||
+          patient.full_name.toLowerCase().includes(query) ||
           patient.phone?.toLowerCase().includes(query) ||
-          patient.email?.toLowerCase().includes(query)
+          patient.email?.toLowerCase().includes(query) ||
+          patient.serial_number?.toLowerCase().includes(query)
         )
 
         set({ filteredPatients: filtered })

@@ -1,18 +1,16 @@
 export interface Patient {
   id: string
-  first_name: string
-  last_name: string
-  date_of_birth?: string
-  phone?: string
+  serial_number: string
+  full_name: string
+  gender: 'male' | 'female'
+  age: number
+  patient_condition: string
+  allergies?: string
+  medical_conditions?: string
   email?: string
   address?: string
-  emergency_contact_name?: string
-  emergency_contact_phone?: string
-  medical_history?: string
-  allergies?: string
-  insurance_info?: string
   notes?: string
-  profile_image?: string
+  phone?: string
   created_at: string
   updated_at: string
 }

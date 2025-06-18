@@ -30,10 +30,15 @@ interface DashboardStats {
   lowStockItems: number
 }
 
-export default function Dashboard() {
-  const { patients } = usePatientStore()
-  const { appointments, getAppointmentsForDate } = useAppointmentStore()
-  const { payments, totalRevenue, pendingAmount, monthlyRevenue } = usePaymentStore()
+interface DashboardProps {
+  onAddPatient?: () => void
+  onAddAppointment?: () => void
+}
+
+export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardProps) {
+  const { patients, loadPatients } = usePatientStore()
+  const { appointments, getAppointmentsForDate, loadAppointments } = useAppointmentStore()
+  const { payments, totalRevenue, pendingAmount, monthlyRevenue, loadPayments } = usePaymentStore()
   const { settings, currency } = useSettingsStore()
   const {
     items: inventoryItems,
@@ -53,9 +58,22 @@ export default function Dashboard() {
   })
 
   useEffect(() => {
-    // Load inventory data
-    loadInventoryItems()
-  }, [loadInventoryItems])
+    // Load all required data when component mounts
+    const loadAllData = async () => {
+      try {
+        await Promise.all([
+          loadPatients(),
+          loadAppointments(),
+          loadPayments(),
+          loadInventoryItems()
+        ])
+      } catch (error) {
+        console.error('Error loading dashboard data:', error)
+      }
+    }
+
+    loadAllData()
+  }, [loadPatients, loadAppointments, loadPayments, loadInventoryItems])
 
   useEffect(() => {
     // Calculate dashboard statistics
@@ -84,10 +102,10 @@ export default function Dashboard() {
     }))
 
   const appointmentStatusData = [
-    { name: 'Scheduled', value: appointments.filter(a => a.status === 'scheduled').length, color: '#3b82f6' },
-    { name: 'Completed', value: appointments.filter(a => a.status === 'completed').length, color: '#10b981' },
-    { name: 'Cancelled', value: appointments.filter(a => a.status === 'cancelled').length, color: '#ef4444' },
-    { name: 'No Show', value: appointments.filter(a => a.status === 'no_show').length, color: '#6b7280' }
+    { name: 'مجدول', value: appointments.filter(a => a.status === 'scheduled').length, color: '#3b82f6' },
+    { name: 'مكتمل', value: appointments.filter(a => a.status === 'completed').length, color: '#10b981' },
+    { name: 'ملغي', value: appointments.filter(a => a.status === 'cancelled').length, color: '#ef4444' },
+    { name: 'لم يحضر', value: appointments.filter(a => a.status === 'no_show').length, color: '#6b7280' }
   ]
 
   const todayAppointments = getAppointmentsForDate(new Date())
@@ -98,20 +116,20 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
-            Welcome to {settings?.clinic_name || 'Dental Clinic'}
+            مرحباً بك في {settings?.clinic_name || 'العيادة السنية'}
           </h1>
           <p className="text-muted-foreground mt-2">
-            Here's what's happening at your clinic today
+            إليك ما يحدث في عيادتك اليوم
           </p>
         </div>
-        <div className="flex space-x-2">
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            New Appointment
+        <div className="flex space-x-2 space-x-reverse">
+          <Button onClick={onAddAppointment}>
+            <Plus className="w-4 h-4 ml-2" />
+            موعد جديد
           </Button>
-          <Button variant="outline">
-            <Plus className="w-4 h-4 mr-2" />
-            New Patient
+          <Button variant="outline" onClick={onAddPatient}>
+            <Plus className="w-4 h-4 ml-2" />
+            مريض جديد
           </Button>
         </div>
       </div>
@@ -120,33 +138,48 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
+            <CardTitle className="text-sm font-medium">إجمالي المرضى</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPatients}</div>
             <p className="text-xs text-muted-foreground">
-              Active patient records
+              سجلات المرضى النشطة
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Appointments</CardTitle>
+            <CardTitle className="text-sm font-medium">مواعيد اليوم</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.todayAppointments}</div>
             <p className="text-xs text-muted-foreground">
-              Scheduled for today
+              مجدولة لليوم
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">المواعيد المكتملة</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {appointments.filter(a => a.status === 'completed').length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              إجمالي المواعيد المكتملة
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">إيرادات الشهر</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -154,7 +187,40 @@ export default function Dashboard() {
               {formatCurrency(stats.thisMonthRevenue, currency)}
             </div>
             <p className="text-xs text-muted-foreground">
-              This month's earnings
+              أرباح هذا الشهر
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Second Row Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">إجمالي الإيرادات</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(stats.totalRevenue, currency)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              إجمالي الإيرادات المحققة
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">المدفوعات المعلقة</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">
+              {formatCurrency(stats.pendingPayments, currency)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              مدفوعات في انتظار التحصيل
             </p>
           </CardContent>
         </Card>
@@ -190,8 +256,8 @@ export default function Dashboard() {
         {/* Revenue Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Revenue Trend</CardTitle>
-            <CardDescription>Monthly revenue over the last 6 months</CardDescription>
+            <CardTitle>اتجاه الإيرادات</CardTitle>
+            <CardDescription>الإيرادات الشهرية خلال آخر 6 أشهر</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -209,8 +275,8 @@ export default function Dashboard() {
         {/* Appointment Status Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Appointment Status</CardTitle>
-            <CardDescription>Distribution of appointment statuses</CardDescription>
+            <CardTitle>حالة المواعيد</CardTitle>
+            <CardDescription>توزيع حالات المواعيد</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -239,44 +305,47 @@ export default function Dashboard() {
       {/* Today's Appointments */}
       <Card>
         <CardHeader>
-          <CardTitle>Today's Appointments</CardTitle>
+          <CardTitle>مواعيد اليوم</CardTitle>
           <CardDescription>
-            {todayAppointments.length} appointments scheduled for {formatDate(new Date(), 'long')}
+            {todayAppointments.length} موعد مجدول لتاريخ {formatDate(new Date(), 'long')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {todayAppointments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No appointments scheduled for today</p>
+              <p>لا توجد مواعيد مجدولة لليوم</p>
             </div>
           ) : (
             <div className="space-y-4">
               {todayAppointments.slice(0, 5).map((appointment) => (
                 <div key={appointment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-4 space-x-reverse">
                     <div className="w-2 h-2 rounded-full bg-primary"></div>
                     <div>
                       <p className="font-medium">{appointment.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(appointment.start_time).toLocaleTimeString('en-US', {
+                        {new Date(appointment.start_time).toLocaleTimeString('ar-SA', {
                           hour: '2-digit',
                           minute: '2-digit'
-                        })} - {new Date(appointment.end_time).toLocaleTimeString('en-US', {
+                        })} - {new Date(appointment.end_time).toLocaleTimeString('ar-SA', {
                           hour: '2-digit',
                           minute: '2-digit'
                         })}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 space-x-reverse">
                     <span className={`px-2 py-1 text-xs rounded-full ${
                       appointment.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
                       appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
                       appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
-                      {appointment.status}
+                      {appointment.status === 'scheduled' ? 'مجدول' :
+                       appointment.status === 'completed' ? 'مكتمل' :
+                       appointment.status === 'cancelled' ? 'ملغي' :
+                       appointment.status === 'no_show' ? 'لم يحضر' : appointment.status}
                     </span>
                     <Button variant="ghost" size="sm">
                       <Eye className="w-4 h-4" />
@@ -287,7 +356,7 @@ export default function Dashboard() {
               {todayAppointments.length > 5 && (
                 <div className="text-center">
                   <Button variant="outline">
-                    View All {todayAppointments.length} Appointments
+                    عرض جميع المواعيد ({todayAppointments.length})
                   </Button>
                 </div>
               )}

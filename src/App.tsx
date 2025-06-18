@@ -6,7 +6,7 @@ import { useLicenseStore, useLicenseStatus, useLicenseUI } from './store/license
 import { licenseGuard } from './services/licenseGuard'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import PatientCard from './components/PatientCard'
-import AddPatientDialog from './components/AddPatientDialog'
+import AddPatientDialog from './components/patients/AddPatientDialog'
 import EditPatientDialog from './components/EditPatientDialog'
 import ConfirmDeleteDialog from './components/ConfirmDeleteDialog'
 import AppointmentCard from './components/AppointmentCard'
@@ -15,6 +15,7 @@ import PaymentsPage from './pages/Payments'
 import SettingsPage from './pages/Settings'
 import InventoryPage from './pages/Inventory'
 import ReportsPage from './pages/Reports'
+import Dashboard from './pages/Dashboard'
 import ThemeToggle from './components/ThemeToggle'
 import { AppSidebar } from './components/AppSidebar'
 import { AppSidebarTrigger } from './components/AppSidebarTrigger'
@@ -47,6 +48,7 @@ import {
 
 import { Search, Plus, Filter } from 'lucide-react'
 import { Patient, Appointment } from './types'
+import { useRealTimeSync } from './hooks/useRealTimeSync'
 import './App.css'
 import './styles/globals.css'
 
@@ -59,6 +61,9 @@ function AppContent() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Initialize real-time data synchronization
+  const { syncAfterPatientDeletion } = useRealTimeSync()
 
   // Appointment states
   const [showAddAppointment, setShowAddAppointment] = useState(false)
@@ -189,13 +194,34 @@ function AppContent() {
   const handleConfirmDelete = async () => {
     if (selectedPatient) {
       try {
-        await deletePatient(selectedPatient.id)
+        // Show immediate loading feedback
+        const patientName = `${selectedPatient.first_name} ${selectedPatient.last_name}`
+
+        // Call the enhanced delete function that returns patient info
+        const result = await deletePatient(selectedPatient.id)
+
+        // Close dialog and clear selection immediately
         setShowDeleteConfirm(false)
         setSelectedPatient(null)
-        showNotification("تم حذف المريض وجميع بياناته المرتبطة بنجاح", "success")
+
+        // Trigger real-time synchronization across all stores
+        syncAfterPatientDeletion(selectedPatient.id, patientName)
+
+        // Show enhanced success notification with details
+        showNotification(
+          `✅ تم حذف المريض "${result.patientName}" وجميع بياناته المرتبطة بنجاح - تم تحديث جميع الشاشات تلقائياً`,
+          "success"
+        )
+
+        console.log(`🎉 Patient deletion completed successfully: ${patientName}`)
+
       } catch (error) {
         console.error('Error deleting patient:', error)
-        showNotification("فشل في حذف المريض. يرجى المحاولة مرة أخرى", "error")
+        setShowDeleteConfirm(false)
+        showNotification(
+          `❌ فشل في حذف المريض "${selectedPatient.first_name} ${selectedPatient.last_name}". يرجى المحاولة مرة أخرى`,
+          "error"
+        )
       }
     }
   }
@@ -292,30 +318,11 @@ function AppContent() {
     return age;
   };
 
-  const StatCard = ({ title, value, icon, color = "blue" }: any) => (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold text-foreground">{value}</p>
-          </div>
-          <div className="text-primary text-2xl">
-            {icon}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
 
 
 
-  const stats = {
-    totalPatients: patients.length,
-    todayAppointments: 0, // Will be updated when appointments are implemented
-    totalRevenue: 0, // Will be updated when payments are implemented
-    completedAppointments: 0 // Will be updated when appointments are implemented
-  };
+
+
 
   const renderContent = () => {
     switch (activeTab) {
@@ -493,81 +500,10 @@ function AppContent() {
       case 'settings':
         return <SettingsPage />;
       default:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-foreground">لوحة التحكم</h2>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatCard
-                title="إجمالي المرضى"
-                value={stats.totalPatients}
-                icon="👥"
-                color="blue"
-              />
-              <StatCard
-                title="مواعيد اليوم"
-                value={stats.todayAppointments}
-                icon="📅"
-                color="green"
-              />
-              <StatCard
-                title="إجمالي الإيرادات"
-                value={formatCurrency(stats.totalRevenue)}
-                icon="💰"
-                color="yellow"
-              />
-              <StatCard
-                title="المواعيد المكتملة"
-                value={stats.completedAppointments}
-                icon="✅"
-                color="purple"
-              />
-            </div>
-
-            {/* Recent Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-foreground">المرضى الجدد</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {patients.length === 0 ? (
-                      <p className="text-muted-foreground text-center py-4">لا توجد مرضى مسجلين</p>
-                    ) : (
-                      patients.slice(0, 3).map(patient => (
-                        <div key={patient.id} className="flex items-center space-x-3 space-x-reverse">
-                          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-bold">
-                            {patient.first_name.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">{patient.first_name} {patient.last_name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {patient.date_of_birth ? formatDate(patient.date_of_birth) : 'تاريخ الميلاد غير محدد'}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-foreground">المواعيد القادمة</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <p className="text-muted-foreground text-center py-4">لا توجد مواعيد مجدولة</p>
-                    <p className="text-sm text-muted-foreground text-center">سيتم تطبيق نظام المواعيد قريباً</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        );
+        return <Dashboard
+          onAddPatient={() => setShowAddPatient(true)}
+          onAddAppointment={() => setShowAddAppointment(true)}
+        />;
     }
   };
 
@@ -630,18 +566,8 @@ function AppContent() {
 
       {/* Add Patient Dialog */}
       <AddPatientDialog
-        isOpen={showAddPatient}
-        onClose={() => setShowAddPatient(false)}
-        onSave={async (patientData) => {
-          try {
-            await createPatient(patientData)
-            setShowAddPatient(false)
-            showNotification("تم إضافة المريض الجديد بنجاح", "success")
-          } catch (error) {
-            console.error('Error creating patient:', error)
-            showNotification("فشل في إضافة المريض. يرجى المحاولة مرة أخرى", "error")
-          }
-        }}
+        open={showAddPatient}
+        onOpenChange={setShowAddPatient}
       />
 
       {/* Edit Patient Dialog */}

@@ -198,14 +198,14 @@ ipcMain.handle('db:patients:getAll', async () => {
 ipcMain.handle('db:patients:create', async (_, patient) => {
   try {
     if (databaseService) {
-      console.log('📝 Creating patient with SQLite:', patient.first_name, patient.last_name)
+      console.log('📝 Creating patient with SQLite:', patient.serial_number, patient.full_name)
       const newPatient = await databaseService.createPatient(patient)
       console.log('✅ Patient created successfully:', newPatient.id)
       return newPatient
     } else {
       // Fallback mock
       console.log('⚠️ WARNING: Database service not available, using mock mode')
-      console.log('📝 Creating patient (mock):', patient.first_name, patient.last_name)
+      console.log('📝 Creating patient (mock):', patient.serial_number, patient.full_name)
       const newPatient = {
         ...patient,
         id: Date.now().toString(),

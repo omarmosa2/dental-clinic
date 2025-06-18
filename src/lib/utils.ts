@@ -147,3 +147,30 @@ export function getStatusColor(status: string): string {
       return 'bg-muted text-muted-foreground border-border'
   }
 }
+
+// Function to get initials from full name
+export function getInitials(fullName: string): string {
+  if (!fullName) return '??'
+
+  const names = fullName.trim().split(' ')
+  if (names.length === 1) {
+    return names[0].charAt(0).toUpperCase()
+  }
+
+  // Take first letter of first name and first letter of last name
+  return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase()
+}
+
+// Function to calculate age from date of birth (keeping for backward compatibility)
+export function calculateAge(dateOfBirth: string): number {
+  const today = new Date()
+  const birthDate = new Date(dateOfBirth)
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const monthDiff = today.getMonth() - birthDate.getMonth()
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--
+  }
+
+  return age
+}

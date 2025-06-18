@@ -10,6 +10,14 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { usePatientStore } from '@/store/patientStore'
 import { useToast } from '@/hooks/use-toast'
 import type { Patient } from '@/types'
@@ -20,18 +28,16 @@ interface AddPatientDialogProps {
 }
 
 interface PatientFormData {
-  first_name: string
-  last_name: string
-  date_of_birth?: string
-  phone?: string
+  full_name: string
+  gender: 'male' | 'female'
+  age: number
+  patient_condition: string
+  allergies?: string
+  medical_conditions?: string
   email?: string
   address?: string
-  emergency_contact_name?: string
-  emergency_contact_phone?: string
-  medical_history?: string
-  allergies?: string
-  insurance_info?: string
   notes?: string
+  phone?: string
 }
 
 export default function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) {
@@ -43,23 +49,57 @@ export default function AddPatientDialog({ open, onOpenChange }: AddPatientDialo
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors }
-  } = useForm<PatientFormData>()
+  } = useForm<PatientFormData>({
+    defaultValues: {
+      full_name: '',
+      gender: undefined,
+      age: undefined,
+      patient_condition: '',
+      allergies: '',
+      medical_conditions: '',
+      email: '',
+      address: '',
+      notes: '',
+      phone: ''
+    }
+  })
 
   const onSubmit = async (data: PatientFormData) => {
+    // Validate required fields
+    if (!data.gender) {
+      toast({
+        title: "خطأ",
+        description: "يرجى اختيار الجنس",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsSubmitting(true)
     try {
-      await createPatient(data)
+      // Generate serial number (timestamp + random)
+      const serialNumber = Date.now().toString().slice(-8) + Math.floor(Math.random() * 100).toString().padStart(2, '0')
+
+      const patientData = {
+        ...data,
+        serial_number: serialNumber,
+        age: Number(data.age), // Ensure age is a number
+      }
+
+      await createPatient(patientData)
       toast({
-        title: "Success",
-        description: "Patient added successfully",
+        title: "تم بنجاح",
+        description: "تم إضافة المريض بنجاح",
       })
       reset()
       onOpenChange(false)
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to add patient",
+        title: "خطأ",
+        description: "فشل في إضافة المريض",
         variant: "destructive",
       })
     } finally {
@@ -74,179 +114,196 @@ export default function AddPatientDialog({ open, onOpenChange }: AddPatientDialo
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle>Add New Patient</DialogTitle>
+          <DialogTitle>إضافة مريض جديد</DialogTitle>
           <DialogDescription>
-            Enter the patient's information below. Fields marked with * are required.
+            أدخل معلومات المريض أدناه. الحقول المميزة بـ * مطلوبة.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Basic Information */}
+          {/* Required Fields */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Basic Information</h3>
-            
+            <h3 className="text-lg font-medium">الحقول المطلوبة</h3>
+
+            {/* Full Name */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                الاسم الكامل *
+              </label>
+              <Input
+                {...register('full_name', { required: 'الاسم الكامل مطلوب' })}
+                placeholder="أدخل الاسم الكامل"
+              />
+              {errors.full_name && (
+                <p className="text-sm text-destructive">{errors.full_name.message}</p>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
+              {/* Gender */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  First Name *
+                  الجنس *
                 </label>
-                <Input
-                  {...register('first_name', { required: 'First name is required' })}
-                  placeholder="Enter first name"
-                />
-                {errors.first_name && (
-                  <p className="text-sm text-destructive">{errors.first_name.message}</p>
+                <Select onValueChange={(value: 'male' | 'female') => setValue('gender', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر الجنس" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">ذكر</SelectItem>
+                    <SelectItem value="female">أنثى</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.gender && (
+                  <p className="text-sm text-destructive">الجنس مطلوب</p>
                 )}
               </div>
 
+              {/* Age */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  Last Name *
+                  العمر *
                 </label>
                 <Input
-                  {...register('last_name', { required: 'Last name is required' })}
-                  placeholder="Enter last name"
+                  type="number"
+                  min="1"
+                  max="120"
+                  {...register('age', {
+                    required: 'العمر مطلوب',
+                    min: { value: 1, message: 'العمر يجب أن يكون أكبر من 0' },
+                    max: { value: 120, message: 'العمر يجب أن يكون أقل من 120' }
+                  })}
+                  placeholder="أدخل العمر"
                 />
-                {errors.last_name && (
-                  <p className="text-sm text-destructive">{errors.last_name.message}</p>
+                {errors.age && (
+                  <p className="text-sm text-destructive">{errors.age.message}</p>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Date of Birth
-                </label>
-                <Input
-                  type="date"
-                  {...register('date_of_birth')}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Phone Number
-                </label>
-                <Input
-                  {...register('phone')}
-                  placeholder="Enter phone number"
-                />
-              </div>
-            </div>
-
+            {/* Patient Condition */}
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Email Address
+                حالة المريض / التشخيص *
               </label>
-              <Input
-                type="email"
-                {...register('email')}
-                placeholder="Enter email address"
+              <Textarea
+                {...register('patient_condition', { required: 'حالة المريض مطلوبة' })}
+                placeholder="أدخل وصف الحالة الطبية أو التشخيص"
+                rows={3}
               />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Address
-              </label>
-              <Input
-                {...register('address')}
-                placeholder="Enter full address"
-              />
+              {errors.patient_condition && (
+                <p className="text-sm text-destructive">{errors.patient_condition.message}</p>
+              )}
             </div>
           </div>
 
-          {/* Emergency Contact */}
+          {/* Optional Fields */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Emergency Contact</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Contact Name
-                </label>
-                <Input
-                  {...register('emergency_contact_name')}
-                  placeholder="Enter contact name"
-                />
-              </div>
+            <h3 className="text-lg font-medium">الحقول الاختيارية</h3>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Contact Phone
-                </label>
-                <Input
-                  {...register('emergency_contact_phone')}
-                  placeholder="Enter contact phone"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Medical Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Medical Information</h3>
-            
+            {/* Allergies */}
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Medical History
-              </label>
-              <textarea
-                {...register('medical_history')}
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Enter medical history"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Allergies
+                الحساسية
               </label>
               <Input
                 {...register('allergies')}
-                placeholder="Enter known allergies"
+                placeholder="أدخل معلومات الحساسية المعروفة"
               />
             </div>
 
+            {/* Medical Conditions */}
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Insurance Information
+                الحالات الطبية / الأمراض
+              </label>
+              <Textarea
+                {...register('medical_conditions')}
+                placeholder="أدخل الحالات الطبية أو الأمراض المزمنة"
+                rows={2}
+              />
+            </div>
+
+            {/* Email */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                البريد الإلكتروني
               </label>
               <Input
-                {...register('insurance_info')}
-                placeholder="Enter insurance details"
+                type="email"
+                {...register('email', {
+                  pattern: {
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    message: 'البريد الإلكتروني غير صحيح'
+                  }
+                })}
+                placeholder="أدخل البريد الإلكتروني"
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
+            </div>
+
+            {/* Address */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                العنوان
+              </label>
+              <Input
+                {...register('address')}
+                placeholder="أدخل العنوان الكامل"
               />
             </div>
 
+            {/* Phone */}
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Additional Notes
+                رقم الهاتف
               </label>
-              <textarea
+              <Input
+                type="tel"
+                {...register('phone', {
+                  pattern: {
+                    value: /^[0-9]{12}$/,
+                    message: 'رقم الهاتف يجب أن يكون 12 رقم (مثل: 963987654321)'
+                  }
+                })}
+                placeholder="963987654321"
+              />
+              {errors.phone && (
+                <p className="text-sm text-destructive">{errors.phone.message}</p>
+              )}
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                ملاحظات / تعليقات
+              </label>
+              <Textarea
                 {...register('notes')}
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Enter any additional notes"
+                placeholder="أدخل أي ملاحظات أو تعليقات إضافية"
+                rows={3}
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex justify-end space-x-4 space-x-reverse">
             <Button
               type="button"
               variant="outline"
               onClick={handleClose}
               disabled={isSubmitting}
             >
-              Cancel
+              إلغاء
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting || isLoading}
             >
-              {isSubmitting ? 'Adding...' : 'Add Patient'}
+              {isSubmitting ? 'جاري الإضافة...' : 'حفظ المريض'}
             </Button>
           </DialogFooter>
         </form>

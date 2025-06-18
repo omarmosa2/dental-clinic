@@ -15,6 +15,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface EditPatientDialogProps {
   isOpen: boolean
@@ -25,35 +32,33 @@ interface EditPatientDialogProps {
 
 export default function EditPatientDialog({ isOpen, patient, onClose, onSave }: EditPatientDialogProps) {
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    date_of_birth: '',
-    phone: '',
+    serial_number: '',
+    full_name: '',
+    gender: 'male' as 'male' | 'female',
+    age: 0,
+    patient_condition: '',
+    allergies: '',
+    medical_conditions: '',
     email: '',
     address: '',
-    emergency_contact_name: '',
-    emergency_contact_phone: '',
-    medical_history: '',
-    allergies: '',
-    insurance_info: '',
-    notes: ''
+    notes: '',
+    phone: ''
   })
 
   useEffect(() => {
     if (patient) {
       setFormData({
-        first_name: patient.first_name || '',
-        last_name: patient.last_name || '',
-        date_of_birth: patient.date_of_birth || '',
-        phone: patient.phone || '',
+        serial_number: patient.serial_number || '',
+        full_name: patient.full_name || '',
+        gender: patient.gender || 'male',
+        age: patient.age || 0,
+        patient_condition: patient.patient_condition || '',
+        allergies: patient.allergies || '',
+        medical_conditions: patient.medical_conditions || '',
         email: patient.email || '',
         address: patient.address || '',
-        emergency_contact_name: patient.emergency_contact_name || '',
-        emergency_contact_phone: patient.emergency_contact_phone || '',
-        medical_history: patient.medical_history || '',
-        allergies: patient.allergies || '',
-        insurance_info: patient.insurance_info || '',
-        notes: patient.notes || ''
+        notes: patient.notes || '',
+        phone: patient.phone || ''
       })
     }
   }, [patient])
@@ -86,183 +91,177 @@ export default function EditPatientDialog({ isOpen, patient, onClose, onSave }: 
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
+          {/* Required Fields */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">المعلومات الأساسية</h3>
+            <h3 className="text-lg font-medium">الحقول المطلوبة</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Serial Number (Read-only) */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                الرقم التسلسلي
+              </Label>
+              <Input
+                type="text"
+                name="serial_number"
+                value={formData.serial_number}
+                readOnly
+                className="bg-gray-100"
+                placeholder="الرقم التسلسلي"
+              />
+            </div>
+
+            {/* Full Name */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                الاسم الكامل *
+              </Label>
+              <Input
+                type="text"
+                name="full_name"
+                value={formData.full_name}
+                onChange={handleChange}
+                required
+                placeholder="أدخل الاسم الكامل"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Gender */}
               <div className="space-y-2">
-                <Label className="flex items-center space-x-1 space-x-reverse">
-                  <User className="w-4 h-4" />
-                  <span>الاسم الأول *</span>
+                <Label className="text-sm font-medium">
+                  الجنس *
                 </Label>
-                <Input
-                  type="text"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleChange}
-                  required
-                  placeholder="أدخل الاسم الأول"
-                />
+                <Select value={formData.gender} onValueChange={(value: 'male' | 'female') => setFormData({...formData, gender: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر الجنس" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">ذكر</SelectItem>
+                    <SelectItem value="female">أنثى</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
+              {/* Age */}
               <div className="space-y-2">
-                <Label className="flex items-center space-x-1 space-x-reverse">
-                  <User className="w-4 h-4" />
-                  <span>الاسم الأخير *</span>
+                <Label className="text-sm font-medium">
+                  العمر *
                 </Label>
                 <Input
-                  type="text"
-                  name="last_name"
-                  value={formData.last_name}
+                  type="number"
+                  min="1"
+                  max="120"
+                  name="age"
+                  value={formData.age}
                   onChange={handleChange}
                   required
-                  placeholder="أدخل الاسم الأخير"
+                  placeholder="أدخل العمر"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center space-x-1 space-x-reverse">
-                  <Calendar className="w-4 h-4" />
-                  <span>تاريخ الميلاد</span>
-                </Label>
-                <Input
-                  type="date"
-                  name="date_of_birth"
-                  value={formData.date_of_birth}
-                  onChange={handleChange}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center space-x-1 space-x-reverse">
-                  <Phone className="w-4 h-4" />
-                  <span>رقم الهاتف</span>
-                </Label>
-                <Input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="05xxxxxxxx"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center space-x-1 space-x-reverse">
-                  <Mail className="w-4 h-4" />
-                  <span>البريد الإلكتروني</span>
-                </Label>
-                <Input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="example@email.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center space-x-1 space-x-reverse">
-                  <MapPin className="w-4 h-4" />
-                  <span>العنوان</span>
-                </Label>
-                <Input
-                  type="text"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  placeholder="أدخل العنوان"
-                />
-              </div>
+            {/* Patient Condition */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                حالة المريض / التشخيص *
+              </Label>
+              <Textarea
+                name="patient_condition"
+                value={formData.patient_condition}
+                onChange={handleChange}
+                required
+                placeholder="أدخل وصف الحالة الطبية أو التشخيص"
+                rows={3}
+              />
             </div>
           </div>
 
-          {/* Emergency Contact */}
+          {/* Optional Fields */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">جهة الاتصال في حالات الطوارئ</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>اسم جهة الاتصال</Label>
-                <Input
-                  type="text"
-                  name="emergency_contact_name"
-                  value={formData.emergency_contact_name}
-                  onChange={handleChange}
-                  placeholder="اسم جهة الاتصال"
-                />
-              </div>
+            <h3 className="text-lg font-medium">الحقول الاختيارية</h3>
 
-              <div className="space-y-2">
-                <Label>رقم هاتف الطوارئ</Label>
-                <Input
-                  type="tel"
-                  name="emergency_contact_phone"
-                  value={formData.emergency_contact_phone}
-                  onChange={handleChange}
-                  placeholder="05xxxxxxxx"
-                />
-              </div>
+            {/* Allergies */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                الحساسية
+              </Label>
+              <Input
+                type="text"
+                name="allergies"
+                value={formData.allergies}
+                onChange={handleChange}
+                placeholder="أدخل معلومات الحساسية المعروفة"
+              />
             </div>
-          </div>
 
-          {/* Medical Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">المعلومات الطبية</h3>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="flex items-center space-x-1 space-x-reverse">
-                  <FileText className="w-4 h-4" />
-                  <span>التاريخ الطبي</span>
-                </Label>
-                <Textarea
-                  name="medical_history"
-                  value={formData.medical_history}
-                  onChange={handleChange}
-                  rows={3}
-                  placeholder="أدخل التاريخ الطبي للمريض"
-                />
-              </div>
+            {/* Medical Conditions */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                الحالات الطبية / الأمراض
+              </Label>
+              <Textarea
+                name="medical_conditions"
+                value={formData.medical_conditions}
+                onChange={handleChange}
+                placeholder="أدخل الحالات الطبية أو الأمراض المزمنة"
+                rows={2}
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label className="flex items-center space-x-1 space-x-reverse">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>الحساسية</span>
-                </Label>
-                <Textarea
-                  name="allergies"
-                  value={formData.allergies}
-                  onChange={handleChange}
-                  rows={2}
-                  placeholder="أدخل معلومات الحساسية"
-                />
-              </div>
+            {/* Email */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                البريد الإلكتروني
+              </Label>
+              <Input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="أدخل البريد الإلكتروني"
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label>معلومات التأمين</Label>
-                <Input
-                  type="text"
-                  name="insurance_info"
-                  value={formData.insurance_info}
-                  onChange={handleChange}
-                  placeholder="معلومات التأمين الصحي"
-                />
-              </div>
+            {/* Address */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                العنوان
+              </Label>
+              <Input
+                type="text"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="أدخل العنوان الكامل"
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label>ملاحظات إضافية</Label>
-                <Textarea
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  rows={2}
-                  placeholder="أي ملاحظات إضافية"
-                />
-              </div>
+            {/* Phone */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                رقم الهاتف
+              </Label>
+              <Input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="963987654321"
+              />
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                ملاحظات / تعليقات
+              </Label>
+              <Textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleChange}
+                placeholder="أدخل أي ملاحظات أو تعليقات إضافية"
+                rows={3}
+              />
             </div>
           </div>
 

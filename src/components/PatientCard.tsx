@@ -33,13 +33,16 @@ export default function PatientCard({ patient, onClick, onEdit, onDelete }: Pati
             </Avatar>
             <div>
               <CardTitle className="text-heading-3 arabic-enhanced">
-                {patient.first_name} {patient.last_name}
+                {patient.full_name}
               </CardTitle>
               <div className="flex items-center space-x-2 space-x-reverse text-sm text-muted-foreground mt-1">
-                {patient.date_of_birth && (
+                <div className="flex items-center space-x-1 space-x-reverse">
+                  <User className="w-4 h-4" />
+                  <span>{patient.gender === 'male' ? 'ذكر' : 'أنثى'} - {patient.age} سنة</span>
+                </div>
+                {patient.serial_number && (
                   <div className="flex items-center space-x-1 space-x-reverse">
-                    <Calendar className="w-4 h-4" />
-                    <span>{formatDate(patient.date_of_birth)}</span>
+                    <span>#{patient.serial_number}</span>
                   </div>
                 )}
               </div>

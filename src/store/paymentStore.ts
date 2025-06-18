@@ -59,23 +59,52 @@ type PaymentStore = PaymentState & PaymentActions
 
 export const usePaymentStore = create<PaymentStore>()(
   devtools(
-    (set, get) => ({
-      // Initial state
-      payments: [],
-      filteredPayments: [],
-      selectedPayment: null,
-      isLoading: false,
-      error: null,
-      searchQuery: '',
-      statusFilter: 'all',
-      paymentMethodFilter: 'all',
-      totalRevenue: 0,
-      pendingAmount: 0,
-      overdueAmount: 0,
-      totalRemainingBalance: 0,
-      partialPaymentsCount: 0,
-      monthlyRevenue: {},
-      paymentMethodStats: {},
+    (set, get) => {
+      // Listen for patient deletion events to update payments
+      if (typeof window !== 'undefined') {
+        window.addEventListener('patient-deleted', (event: any) => {
+          const { patientId } = event.detail
+          const { payments, selectedPayment } = get()
+
+          // Remove payments for deleted patient
+          const updatedPayments = payments.filter(p => p.patient_id !== patientId)
+
+          set({
+            payments: updatedPayments,
+            selectedPayment: selectedPayment?.patient_id === patientId ? null : selectedPayment
+          })
+
+          // Recalculate all analytics immediately
+          get().calculateTotalRevenue()
+          get().calculatePendingAmount()
+          get().calculateOverdueAmount()
+          get().calculateTotalRemainingBalance()
+          get().calculatePartialPaymentsCount()
+          get().calculateMonthlyRevenue()
+          get().calculatePaymentMethodStats()
+          get().filterPayments()
+
+          console.log(`💰 Removed ${payments.length - updatedPayments.length} payments for deleted patient ${patientId}`)
+        })
+      }
+
+      return {
+        // Initial state
+        payments: [],
+        filteredPayments: [],
+        selectedPayment: null,
+        isLoading: false,
+        error: null,
+        searchQuery: '',
+        statusFilter: 'all',
+        paymentMethodFilter: 'all',
+        totalRevenue: 0,
+        pendingAmount: 0,
+        overdueAmount: 0,
+        totalRemainingBalance: 0,
+        partialPaymentsCount: 0,
+        monthlyRevenue: {},
+        paymentMethodStats: {},
 
       // Data operations
       loadPayments: async () => {
@@ -366,7 +395,8 @@ export const usePaymentStore = create<PaymentStore>()(
       markAsRefunded: async (id) => {
         await get().updatePayment(id, { status: 'refunded' })
       }
-    }),
+      }
+    },
     {
       name: 'payment-store',
     }

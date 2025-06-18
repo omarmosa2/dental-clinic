@@ -208,19 +208,22 @@ export default function Patients() {
                       <div className="flex items-center space-x-4">
                         {/* Avatar */}
                         <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-medium">
-                          {getInitials(patient.first_name, patient.last_name)}
+                          {getInitials(patient.full_name)}
                         </div>
 
                         {/* Patient Info */}
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg">
-                            {patient.first_name} {patient.last_name}
+                            {patient.full_name}
                           </h3>
                           <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
-                            {patient.date_of_birth && (
+                            <div className="flex items-center">
+                              <User className="w-4 h-4 mr-1" />
+                              {patient.gender === 'male' ? 'ذكر' : 'أنثى'} - {patient.age} سنة
+                            </div>
+                            {patient.serial_number && (
                               <div className="flex items-center">
-                                <Calendar className="w-4 h-4 mr-1" />
-                                Age {calculateAge(patient.date_of_birth)}
+                                <span>#{patient.serial_number}</span>
                               </div>
                             )}
                             {patient.phone && (
@@ -277,7 +280,7 @@ export default function Patients() {
               <CardHeader>
                 <CardTitle>تفاصيل المريض</CardTitle>
                 <CardDescription>
-                  معلومات تفصيلية عن {selectedPatient.first_name} {selectedPatient.last_name}
+                  معلومات تفصيلية عن {selectedPatient.full_name}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -286,15 +289,21 @@ export default function Patients() {
                   <h4 className="font-medium mb-2">المعلومات الأساسية</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">الاسم:</span>
-                      <span>{selectedPatient.first_name} {selectedPatient.last_name}</span>
+                      <span className="text-muted-foreground">الرقم التسلسلي:</span>
+                      <span>#{selectedPatient.serial_number}</span>
                     </div>
-                    {selectedPatient.date_of_birth && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">العمر:</span>
-                        <span>{calculateAge(selectedPatient.date_of_birth)} سنة</span>
-                      </div>
-                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">الاسم:</span>
+                      <span>{selectedPatient.full_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">الجنس:</span>
+                      <span>{selectedPatient.gender === 'male' ? 'ذكر' : 'أنثى'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">العمر:</span>
+                      <span>{selectedPatient.age} سنة</span>
+                    </div>
                     {selectedPatient.phone && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">الهاتف:</span>
@@ -309,6 +318,33 @@ export default function Patients() {
                     )}
                   </div>
                 </div>
+
+                {/* Patient Condition */}
+                <div>
+                  <h4 className="font-medium mb-2">حالة المريض</h4>
+                  <p className="text-sm text-muted-foreground">{selectedPatient.patient_condition}</p>
+                </div>
+
+                {/* Medical Information */}
+                {(selectedPatient.allergies || selectedPatient.medical_conditions) && (
+                  <div>
+                    <h4 className="font-medium mb-2">المعلومات الطبية</h4>
+                    <div className="space-y-2 text-sm">
+                      {selectedPatient.allergies && (
+                        <div>
+                          <span className="text-muted-foreground">الحساسية:</span>
+                          <p className="mt-1">{selectedPatient.allergies}</p>
+                        </div>
+                      )}
+                      {selectedPatient.medical_conditions && (
+                        <div>
+                          <span className="text-muted-foreground">الحالات الطبية:</span>
+                          <p className="mt-1">{selectedPatient.medical_conditions}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Address */}
                 {selectedPatient.address && (

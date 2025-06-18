@@ -138,13 +138,13 @@ export default function Payments() {
   const getPatientName = (payment: Payment) => {
     // First try to get patient from payment object
     if (payment.patient) {
-      return `${payment.patient.first_name} ${payment.patient.last_name}`
+      return payment.patient.full_name || 'غير محدد'
     }
 
     // If not found, try to find patient from patients store
     const patient = patients.find(p => p.id === payment.patient_id)
     if (patient) {
-      return `${patient.first_name} ${patient.last_name}`
+      return patient.full_name || 'غير محدد'
     }
 
     return 'غير محدد'

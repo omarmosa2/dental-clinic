@@ -22,6 +22,7 @@ interface ConfirmDeleteDialogProps {
   onClose: () => void
   onConfirm: () => void
   isLoading?: boolean
+  deletionProgress?: string
 }
 
 export default function ConfirmDeleteDialog({
@@ -30,7 +31,8 @@ export default function ConfirmDeleteDialog({
   appointment,
   onClose,
   onConfirm,
-  isLoading = false
+  isLoading = false,
+  deletionProgress
 }: ConfirmDeleteDialogProps) {
   if (!patient && !appointment) return null
 
@@ -97,7 +99,22 @@ export default function ConfirmDeleteDialog({
                     <li>جميع المواعيد المجدولة</li>
                     <li>سجل المدفوعات</li>
                     <li>التاريخ الطبي والملاحظات</li>
+                    <li>الصور الطبية والأشعة</li>
+                    <li>سجل استخدام المخزون</li>
                   </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Show deletion progress if loading */}
+          {isLoading && deletionProgress && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3 space-x-reverse">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800">جاري المعالجة...</h4>
+                  <p className="text-sm text-blue-600 mt-1">{deletionProgress}</p>
                 </div>
               </div>
             </div>
@@ -116,7 +133,7 @@ export default function ConfirmDeleteDialog({
             {isLoading ? (
               <div className="flex items-center space-x-2 space-x-reverse">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>جاري الحذف...</span>
+                <span>{deletionProgress || 'جاري الحذف...'}</span>
               </div>
             ) : (
               'تأكيد الحذف'

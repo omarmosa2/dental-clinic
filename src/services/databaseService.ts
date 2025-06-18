@@ -12,6 +12,7 @@ import type {
   ClinicSettings,
   DashboardStats
 } from '../types'
+import { MigrationService } from './migrationService'
 
 export class DatabaseService {
   private db: Database.Database
@@ -29,6 +30,10 @@ export class DatabaseService {
 
       this.runMigrations()
       console.log('✅ Database migrations completed')
+
+      // Run patient schema migration
+      this.runPatientSchemaMigration()
+      console.log('✅ Patient schema migration completed')
 
       // Test database connection
       const testQuery = this.db.prepare('SELECT COUNT(*) as count FROM patients')
@@ -61,7 +66,8 @@ export class DatabaseService {
   private createIndexes() {
     try {
       // Patient indexes
-      this.db.exec('CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(last_name, first_name)')
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(full_name)')
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_patients_serial ON patients(serial_number)')
       this.db.exec('CREATE INDEX IF NOT EXISTS idx_patients_phone ON patients(phone)')
       this.db.exec('CREATE INDEX IF NOT EXISTS idx_patients_email ON patients(email)')
 
@@ -257,11 +263,22 @@ export class DatabaseService {
     }
   }
 
+  private runPatientSchemaMigration() {
+    try {
+      const migrationService = new MigrationService(this.db)
+      migrationService.runMigration001()
+    } catch (error) {
+      console.error('❌ Patient schema migration failed:', error)
+      // Don't throw error to prevent app from crashing
+      // The migration will be retried on next startup
+    }
+  }
+
   // Patient operations
   async getAllPatients(): Promise<Patient[]> {
     const stmt = this.db.prepare(`
       SELECT * FROM patients
-      ORDER BY last_name, first_name
+      ORDER BY full_name
     `)
     return stmt.all() as Patient[]
   }
@@ -272,24 +289,24 @@ export class DatabaseService {
 
     try {
       console.log('🏥 Creating patient:', {
-        first_name: patient.first_name,
-        last_name: patient.last_name,
+        serial_number: patient.serial_number,
+        full_name: patient.full_name,
+        gender: patient.gender,
+        age: patient.age,
         phone: patient.phone
       })
 
       const stmt = this.db.prepare(`
         INSERT INTO patients (
-          id, first_name, last_name, date_of_birth, phone, email, address,
-          emergency_contact_name, emergency_contact_phone, medical_history,
-          allergies, insurance_info, notes, profile_image, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, serial_number, full_name, gender, age, patient_condition,
+          allergies, medical_conditions, email, address, notes, phone, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       const result = stmt.run(
-        id, patient.first_name, patient.last_name, patient.date_of_birth,
-        patient.phone, patient.email, patient.address, patient.emergency_contact_name,
-        patient.emergency_contact_phone, patient.medical_history, patient.allergies,
-        patient.insurance_info, patient.notes, patient.profile_image, now, now
+        id, patient.serial_number, patient.full_name, patient.gender, patient.age,
+        patient.patient_condition, patient.allergies, patient.medical_conditions,
+        patient.email, patient.address, patient.notes, patient.phone, now, now
       )
 
       console.log('✅ Patient created successfully:', { id, changes: result.changes })
@@ -309,28 +326,25 @@ export class DatabaseService {
 
     const stmt = this.db.prepare(`
       UPDATE patients SET
-        first_name = COALESCE(?, first_name),
-        last_name = COALESCE(?, last_name),
-        date_of_birth = COALESCE(?, date_of_birth),
-        phone = COALESCE(?, phone),
+        serial_number = COALESCE(?, serial_number),
+        full_name = COALESCE(?, full_name),
+        gender = COALESCE(?, gender),
+        age = COALESCE(?, age),
+        patient_condition = COALESCE(?, patient_condition),
+        allergies = COALESCE(?, allergies),
+        medical_conditions = COALESCE(?, medical_conditions),
         email = COALESCE(?, email),
         address = COALESCE(?, address),
-        emergency_contact_name = COALESCE(?, emergency_contact_name),
-        emergency_contact_phone = COALESCE(?, emergency_contact_phone),
-        medical_history = COALESCE(?, medical_history),
-        allergies = COALESCE(?, allergies),
-        insurance_info = COALESCE(?, insurance_info),
         notes = COALESCE(?, notes),
-        profile_image = COALESCE(?, profile_image),
+        phone = COALESCE(?, phone),
         updated_at = ?
       WHERE id = ?
     `)
 
     stmt.run(
-      patient.first_name, patient.last_name, patient.date_of_birth,
-      patient.phone, patient.email, patient.address, patient.emergency_contact_name,
-      patient.emergency_contact_phone, patient.medical_history, patient.allergies,
-      patient.insurance_info, patient.notes, patient.profile_image, now, id
+      patient.serial_number, patient.full_name, patient.gender, patient.age,
+      patient.patient_condition, patient.allergies, patient.medical_conditions,
+      patient.email, patient.address, patient.notes, patient.phone, now, id
     )
 
     const getStmt = this.db.prepare('SELECT * FROM patients WHERE id = ?')
@@ -338,16 +352,40 @@ export class DatabaseService {
   }
 
   async deletePatient(id: string): Promise<boolean> {
-    const stmt = this.db.prepare('DELETE FROM patients WHERE id = ?')
-    const result = stmt.run(id)
-    return result.changes > 0
+    try {
+      console.log(`🗑️ Starting cascade deletion for patient: ${id}`)
+
+      // Use the comprehensive deletion method with transaction
+      const result = await this.deletePatientWithAllData(id)
+
+      if (result.success) {
+        console.log(`✅ Patient ${id} and all related data deleted successfully:`)
+        console.log(`- Patient images: ${result.deletedCounts.patient_images}`)
+        console.log(`- Inventory usage records: ${result.deletedCounts.inventory_usage}`)
+        console.log(`- Installment payments: ${result.deletedCounts.installment_payments}`)
+        console.log(`- Payments: ${result.deletedCounts.payments}`)
+        console.log(`- Appointments: ${result.deletedCounts.appointments}`)
+        console.log(`- Patient record: ${result.deletedCounts.patient}`)
+
+        // Force WAL checkpoint to ensure all data is written
+        this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+        return result.deletedCounts.patient > 0
+      } else {
+        console.warn(`⚠️ Patient ${id} deletion failed or patient not found`)
+        return false
+      }
+    } catch (error) {
+      console.error(`❌ Failed to delete patient ${id}:`, error)
+      throw new Error(`Failed to delete patient: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
   async searchPatients(query: string): Promise<Patient[]> {
     const stmt = this.db.prepare(`
       SELECT * FROM patients
-      WHERE first_name LIKE ? OR last_name LIKE ? OR phone LIKE ? OR email LIKE ?
-      ORDER BY last_name, first_name
+      WHERE full_name LIKE ? OR phone LIKE ? OR email LIKE ? OR serial_number LIKE ?
+      ORDER BY full_name
     `)
     const searchTerm = `%${query}%`
     return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm) as Patient[]
@@ -358,7 +396,7 @@ export class DatabaseService {
     const stmt = this.db.prepare(`
       SELECT
         a.*,
-        p.first_name || ' ' || p.last_name as patient_name,
+        p.full_name as patient_name,
         t.name as treatment_name
       FROM appointments a
       LEFT JOIN patients p ON a.patient_id = p.id
@@ -382,7 +420,7 @@ export class DatabaseService {
       const patientExists = patientCheck.get(appointment.patient_id)
       if (!patientExists) {
         // Log available patients for debugging
-        const allPatients = this.db.prepare('SELECT id, first_name, last_name FROM patients').all()
+        const allPatients = this.db.prepare('SELECT id, full_name FROM patients').all()
         console.log('Available patients:', allPatients)
         throw new Error(`Patient with ID '${appointment.patient_id}' does not exist. Available patients: ${allPatients.length}`)
       }
@@ -475,7 +513,7 @@ export class DatabaseService {
     const stmt = this.db.prepare(`
       SELECT
         p.*,
-        pt.first_name || ' ' || pt.last_name as patient_name
+        pt.full_name as patient_name
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
       ORDER BY p.payment_date DESC
@@ -611,18 +649,17 @@ export class DatabaseService {
     const stmt = this.db.prepare(`
       SELECT
         p.*,
-        pt.first_name || ' ' || pt.last_name as patient_name
+        pt.full_name as patient_name
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
       WHERE
-        pt.first_name LIKE ? OR
-        pt.last_name LIKE ? OR
+        pt.full_name LIKE ? OR
         p.receipt_number LIKE ? OR
         p.description LIKE ?
       ORDER BY p.payment_date DESC
     `)
     const searchTerm = `%${query}%`
-    return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm) as Payment[]
+    return stmt.all(searchTerm, searchTerm, searchTerm) as Payment[]
   }
 
   // Treatment operations

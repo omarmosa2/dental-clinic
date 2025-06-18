@@ -31,6 +31,9 @@ class DatabaseService {
   }
 
   initializeDatabase() {
+    // Run patient schema migration BEFORE executing schema.sql
+    this.runPatientSchemaMigration()
+
     // Read and execute schema
     const schemaPath = join(__dirname, '../database/schema.sql')
     const schema = readFileSync(schemaPath, 'utf-8')
@@ -49,7 +52,8 @@ class DatabaseService {
 
   createIndexes() {
     const indexes = [
-      'CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(last_name, first_name)',
+      'CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(full_name)',
+      'CREATE INDEX IF NOT EXISTS idx_patients_serial ON patients(serial_number)',
       'CREATE INDEX IF NOT EXISTS idx_patients_phone ON patients(phone)',
       'CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(start_time)',
       'CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id)',
@@ -142,13 +146,163 @@ class DatabaseService {
     })
   }
 
+  runPatientSchemaMigration() {
+    try {
+      console.log('🔄 Starting patient schema migration...')
+
+      // Check if patients table exists and what schema it has
+      const tableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='patients'
+      `).get()
+
+      if (!tableExists) {
+        console.log('✅ No patients table found - will be created by schema.sql')
+        return
+      }
+
+      // Check if migration is needed by checking if new columns exist
+      const tableInfo = this.db.pragma('table_info(patients)')
+      console.log('📋 Current table structure:', tableInfo.map(col => col.name))
+
+      const hasNewSchema = tableInfo.some(col => col.name === 'serial_number')
+      const hasOldSchema = tableInfo.some(col => col.name === 'first_name')
+
+      console.log('🔍 Schema analysis:')
+      console.log('  - Has new schema (serial_number):', hasNewSchema)
+      console.log('  - Has old schema (first_name):', hasOldSchema)
+
+      if (hasNewSchema && !hasOldSchema) {
+        console.log('✅ Migration already completed - new schema detected')
+        return
+      }
+
+      if (!hasOldSchema) {
+        console.log('✅ No old schema detected - no migration needed')
+        return
+      }
+
+      // Get current patient count
+      const patientCount = this.db.prepare('SELECT COUNT(*) as count FROM patients').get()
+      console.log(`📊 Found ${patientCount.count} patients to migrate`)
+
+      // Begin transaction for safe migration
+      const transaction = this.db.transaction(() => {
+        console.log('📋 Creating backup of existing patients...')
+
+        // Step 1: Create backup table
+        this.db.exec(`
+          CREATE TABLE IF NOT EXISTS patients_backup AS
+          SELECT * FROM patients
+        `)
+
+        console.log('🗑️ Dropping old patients table...')
+
+        // Step 2: Drop existing table
+        this.db.exec('DROP TABLE IF EXISTS patients')
+
+        console.log('🏗️ Creating new patients table...')
+
+        // Step 3: Create new table with updated schema
+        this.db.exec(`
+          CREATE TABLE patients (
+            id TEXT PRIMARY KEY,
+            serial_number TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            gender TEXT NOT NULL CHECK (gender IN ('male', 'female')),
+            age INTEGER NOT NULL CHECK (age > 0),
+            patient_condition TEXT NOT NULL,
+            allergies TEXT,
+            medical_conditions TEXT,
+            email TEXT,
+            address TEXT,
+            notes TEXT,
+            phone TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `)
+
+        console.log('📊 Migrating existing patient data...')
+
+        // Step 4: Migrate data from backup
+        const migrateStmt = this.db.prepare(`
+          INSERT INTO patients (
+            id, serial_number, full_name, gender, age, patient_condition,
+            allergies, medical_conditions, email, address, notes, phone,
+            created_at, updated_at
+          )
+          SELECT
+            id,
+            SUBSTR(id, 1, 8) as serial_number,
+            COALESCE(first_name, '') || ' ' || COALESCE(last_name, '') as full_name,
+            'male' as gender,
+            CASE
+              WHEN date_of_birth IS NOT NULL AND date_of_birth != ''
+              THEN CAST((julianday('now') - julianday(date_of_birth)) / 365.25 AS INTEGER)
+              ELSE 25
+            END as age,
+            COALESCE(NULLIF(medical_history, ''), 'يحتاج إلى تقييم طبي') as patient_condition,
+            allergies,
+            insurance_info as medical_conditions,
+            email,
+            address,
+            notes,
+            phone,
+            created_at,
+            updated_at
+          FROM patients_backup
+        `)
+
+        const result = migrateStmt.run()
+        console.log(`✅ Migrated ${result.changes} patient records`)
+
+        // Step 5: Clean up backup table
+        this.db.exec('DROP TABLE IF EXISTS patients_backup')
+
+        console.log('🔧 Migration completed successfully')
+      })
+
+      // Execute the transaction
+      transaction()
+
+      // Force WAL checkpoint to ensure data is written
+      this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+      console.log('✅ Patient schema migration completed successfully')
+
+    } catch (error) {
+      console.error('❌ Migration failed:', error)
+
+      // Try to restore from backup if it exists
+      try {
+        const backupExists = this.db.prepare(`
+          SELECT name FROM sqlite_master
+          WHERE type='table' AND name='patients_backup'
+        `).get()
+
+        if (backupExists) {
+          console.log('🔄 Attempting to restore from backup...')
+          this.db.exec('DROP TABLE IF EXISTS patients')
+          this.db.exec('ALTER TABLE patients_backup RENAME TO patients')
+          console.log('✅ Restored from backup')
+        }
+      } catch (restoreError) {
+        console.error('❌ Failed to restore from backup:', restoreError)
+      }
+
+      // Don't throw error to prevent app from crashing
+      console.log('⚠️ Migration failed but continuing with app startup')
+    }
+  }
+
   // Patient operations
   async getAllPatients() {
     this.ensureConnection()
 
     const stmt = this.db.prepare(`
       SELECT * FROM patients
-      ORDER BY last_name, first_name
+      ORDER BY full_name
     `)
     return stmt.all()
   }
@@ -157,22 +311,19 @@ class DatabaseService {
     const id = uuidv4()
     const now = new Date().toISOString()
 
-    console.log('📝 Creating patient in SQLite:', patient.first_name, patient.last_name)
+    console.log('📝 Creating patient in SQLite:', patient.serial_number, patient.full_name)
 
     const stmt = this.db.prepare(`
       INSERT INTO patients (
-        id, first_name, last_name, date_of_birth, phone, email, address,
-        emergency_contact_name, emergency_contact_phone, medical_history,
-        allergies, insurance_info, notes, profile_image, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, serial_number, full_name, gender, age, patient_condition,
+        allergies, medical_conditions, email, address, notes, phone, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     const result = stmt.run(
-      id, patient.first_name, patient.last_name, patient.date_of_birth,
-      patient.phone, patient.email, patient.address,
-      patient.emergency_contact_name, patient.emergency_contact_phone,
-      patient.medical_history, patient.allergies, patient.insurance_info,
-      patient.notes, patient.profile_image, now, now
+      id, patient.serial_number, patient.full_name, patient.gender, patient.age,
+      patient.patient_condition, patient.allergies, patient.medical_conditions,
+      patient.email, patient.address, patient.notes, patient.phone, now, now
     )
 
     console.log('✅ Patient inserted, changes:', result.changes)
@@ -211,8 +362,8 @@ class DatabaseService {
   async searchPatients(query) {
     const stmt = this.db.prepare(`
       SELECT * FROM patients
-      WHERE first_name LIKE ? OR last_name LIKE ? OR phone LIKE ? OR email LIKE ?
-      ORDER BY last_name, first_name
+      WHERE full_name LIKE ? OR phone LIKE ? OR email LIKE ? OR serial_number LIKE ?
+      ORDER BY full_name
     `)
     const searchTerm = `%${query}%`
     return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm)
@@ -223,7 +374,7 @@ class DatabaseService {
     this.ensureConnection()
 
     const stmt = this.db.prepare(`
-      SELECT a.*, p.first_name, p.last_name, t.name as treatment_name
+      SELECT a.*, p.full_name as patient_name, t.name as treatment_name
       FROM appointments a
       LEFT JOIN patients p ON a.patient_id = p.id
       LEFT JOIN treatments t ON a.treatment_id = t.id
@@ -246,7 +397,7 @@ class DatabaseService {
       const patientExists = patientCheck.get(appointment.patient_id)
       if (!patientExists) {
         // Log available patients for debugging
-        const allPatients = this.db.prepare('SELECT id, first_name, last_name FROM patients').all()
+        const allPatients = this.db.prepare('SELECT id, full_name FROM patients').all()
         console.log('Available patients:', allPatients)
         throw new Error(`Patient with ID '${appointment.patient_id}' does not exist. Available patients: ${allPatients.length}`)
       }
@@ -331,7 +482,7 @@ class DatabaseService {
     this.ensureConnection()
 
     const stmt = this.db.prepare(`
-      SELECT p.*, pt.first_name, pt.last_name
+      SELECT p.*, pt.full_name as patient_name
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
       ORDER BY p.payment_date DESC
@@ -394,14 +545,14 @@ class DatabaseService {
 
   async searchPayments(query) {
     const stmt = this.db.prepare(`
-      SELECT p.*, pt.first_name, pt.last_name
+      SELECT p.*, pt.full_name as patient_name
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
-      WHERE pt.first_name LIKE ? OR pt.last_name LIKE ? OR p.receipt_number LIKE ?
+      WHERE pt.full_name LIKE ? OR p.receipt_number LIKE ?
       ORDER BY p.payment_date DESC
     `)
     const searchTerm = `%${query}%`
-    return stmt.all(searchTerm, searchTerm, searchTerm)
+    return stmt.all(searchTerm, searchTerm)
   }
 
   // Treatment operations
