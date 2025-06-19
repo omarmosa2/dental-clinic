@@ -5,9 +5,7 @@ import { useSettingsStore } from './store/settingsStore'
 import { useLicenseStore, useLicenseStatus, useLicenseUI } from './store/licenseStore'
 import { licenseGuard } from './services/licenseGuard'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
-import PatientCard from './components/PatientCard'
 import AddPatientDialog from './components/patients/AddPatientDialog'
-import EditPatientDialog from './components/EditPatientDialog'
 import ConfirmDeleteDialog from './components/ConfirmDeleteDialog'
 import AppointmentCard from './components/AppointmentCard'
 import AddAppointmentDialog from './components/AddAppointmentDialog'
@@ -16,6 +14,8 @@ import SettingsPage from './pages/Settings'
 import InventoryPage from './pages/Inventory'
 import ReportsPage from './pages/Reports'
 import Dashboard from './pages/Dashboard'
+import PatientsPage from './pages/Patients'
+import AppointmentsPage from './pages/Appointments'
 import ThemeToggle from './components/ThemeToggle'
 import { AppSidebar } from './components/AppSidebar'
 import { AppSidebarTrigger } from './components/AppSidebarTrigger'
@@ -25,10 +25,7 @@ import LiveDateTime from './components/LiveDateTime'
 
 // shadcn/ui imports
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
 import {
@@ -46,9 +43,8 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
-import { Search, Plus, Filter } from 'lucide-react'
-import { Patient, Appointment } from './types'
-import { useRealTimeSync } from './hooks/useRealTimeSync'
+import { Plus, Filter, Search } from 'lucide-react'
+import { Appointment } from './types'
 import './App.css'
 import './styles/globals.css'
 
@@ -57,13 +53,8 @@ function AppContent() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showAddPatient, setShowAddPatient] = useState(false)
-  const [showEditPatient, setShowEditPatient] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
 
-  // Initialize real-time data synchronization
-  const { syncAfterPatientDeletion } = useRealTimeSync()
+
 
   // Appointment states
   const [showAddAppointment, setShowAddAppointment] = useState(false)
@@ -106,17 +97,7 @@ function AppContent() {
     })
   }
 
-  const {
-    patients,
-    filteredPatients,
-    isLoading,
-    error,
-    loadPatients,
-    createPatient,
-    updatePatient,
-    deletePatient,
-    searchPatients
-  } = usePatientStore()
+  const { loadPatients, patients } = usePatientStore()
 
   const {
     appointments,
@@ -128,11 +109,19 @@ function AppContent() {
     deleteAppointment
   } = useAppointmentStore()
 
+  // Settings store
+  const {
+    loadSettings
+  } = useSettingsStore()
+
   useEffect(() => {
     // Initialize license check first
     const initializeApp = async () => {
       await loadLicenseInfo()
       await checkLicenseStatus()
+
+      // Load settings automatically when app starts
+      await loadSettings()
 
       // Set up real-time license validation callbacks
       licenseGuard.setOnLicenseExpiredCallback(() => {
@@ -161,7 +150,7 @@ function AppContent() {
     return () => {
       licenseGuard.stopRealTimeValidation()
     }
-  }, [loadPatients, loadAppointments, loadLicenseInfo, checkLicenseStatus])
+  }, [loadPatients, loadAppointments, loadLicenseInfo, checkLicenseStatus, loadSettings])
 
   // License handlers
   const handleLicenseActivationSuccess = async () => {
@@ -169,7 +158,8 @@ function AppContent() {
     await loadLicenseInfo()
     await checkLicenseStatus()
 
-    // Load app data after successful activation
+    // Load settings and app data after successful activation
+    await loadSettings()
     loadPatients()
     loadAppointments()
   }
@@ -181,62 +171,7 @@ function AppContent() {
 
 
 
-  const handleEditPatient = (patient: Patient) => {
-    setSelectedPatient(patient)
-    setShowEditPatient(true)
-  }
 
-  const handleDeletePatient = (patient: Patient) => {
-    setSelectedPatient(patient)
-    setShowDeleteConfirm(true)
-  }
-
-  const handleConfirmDelete = async () => {
-    if (selectedPatient) {
-      try {
-        // Show immediate loading feedback
-        const patientName = `${selectedPatient.first_name} ${selectedPatient.last_name}`
-
-        // Call the enhanced delete function that returns patient info
-        const result = await deletePatient(selectedPatient.id)
-
-        // Close dialog and clear selection immediately
-        setShowDeleteConfirm(false)
-        setSelectedPatient(null)
-
-        // Trigger real-time synchronization across all stores
-        syncAfterPatientDeletion(selectedPatient.id, patientName)
-
-        // Show enhanced success notification with details
-        showNotification(
-          `✅ تم حذف المريض "${result.patientName}" وجميع بياناته المرتبطة بنجاح - تم تحديث جميع الشاشات تلقائياً`,
-          "success"
-        )
-
-        console.log(`🎉 Patient deletion completed successfully: ${patientName}`)
-
-      } catch (error) {
-        console.error('Error deleting patient:', error)
-        setShowDeleteConfirm(false)
-        showNotification(
-          `❌ فشل في حذف المريض "${selectedPatient.first_name} ${selectedPatient.last_name}". يرجى المحاولة مرة أخرى`,
-          "error"
-        )
-      }
-    }
-  }
-
-  const handleUpdatePatient = async (id: string, patientData: Partial<Patient>) => {
-    try {
-      await updatePatient(id, patientData)
-      setShowEditPatient(false)
-      setSelectedPatient(null)
-      showNotification("تم تحديث بيانات المريض بنجاح", "success")
-    } catch (error) {
-      console.error('Error updating patient:', error)
-      showNotification("فشل في تحديث بيانات المريض. يرجى المحاولة مرة أخرى", "error")
-    }
-  }
 
   // Appointment handlers
   const handleEditAppointment = (appointment: Appointment) => {
@@ -327,170 +262,9 @@ function AppContent() {
   const renderContent = () => {
     switch (activeTab) {
       case 'patients':
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <h2 className="text-2xl font-bold text-foreground">إدارة المرضى</h2>
-              <Button
-                onClick={() => setShowAddPatient(true)}
-                className="flex items-center space-x-2 space-x-reverse shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>إضافة مريض جديد</span>
-              </Button>
-            </div>
-
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-              <Input
-                type="text"
-                placeholder="البحث عن مريض..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value)
-                  if (e.target.value) {
-                    searchPatients(e.target.value)
-                  } else {
-                    loadPatients()
-                  }
-                }}
-                className="w-full pr-10"
-              />
-            </div>
-
-            {/* Loading State */}
-            {isLoading && (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                <p className="mt-2 text-muted-foreground">جاري التحميل...</p>
-              </div>
-            )}
-
-            {/* Error State */}
-            {error && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-                <p className="text-destructive">خطأ: {error}</p>
-              </div>
-            )}
-
-            {/* Patients Grid */}
-            {!isLoading && !error && (
-              <div className="grid gap-4">
-                {(searchQuery ? filteredPatients : patients).length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">لا توجد مرضى مسجلين</p>
-                  </div>
-                ) : (
-                  (searchQuery ? filteredPatients : patients).map(patient => (
-                    <PatientCard
-                      key={patient.id}
-                      patient={patient}
-                      onEdit={handleEditPatient}
-                      onDelete={handleDeletePatient}
-                    />
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        );
+        return <PatientsPage />;
       case 'appointments':
-        const filteredAppointments = appointments.filter(appointment => {
-          const matchesSearch = appointmentSearchQuery === '' ||
-            appointment.title.toLowerCase().includes(appointmentSearchQuery.toLowerCase()) ||
-            appointment.patient?.first_name?.toLowerCase().includes(appointmentSearchQuery.toLowerCase()) ||
-            appointment.patient?.last_name?.toLowerCase().includes(appointmentSearchQuery.toLowerCase())
-
-          const matchesStatus = statusFilter === 'all' || appointment.status === statusFilter
-
-          return matchesSearch && matchesStatus
-        })
-
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <h2 className="text-2xl font-bold text-foreground">المواعيد</h2>
-              <Button
-                onClick={() => setShowAddAppointment(true)}
-                className="flex items-center space-x-2 space-x-reverse shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>موعد جديد</span>
-              </Button>
-            </div>
-
-            {/* Search and Filter Bar */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                <Input
-                  type="text"
-                  placeholder="البحث في المواعيد..."
-                  value={appointmentSearchQuery}
-                  onChange={(e) => setAppointmentSearchQuery(e.target.value)}
-                  className="w-full pr-10"
-                />
-              </div>
-
-              <div className="relative shrink-0">
-                <Filter className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="pr-10 pl-4 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring min-w-[150px]"
-                >
-                  <option value="all">جميع الحالات</option>
-                  <option value="scheduled">مجدول</option>
-                  <option value="completed">مكتمل</option>
-                  <option value="cancelled">ملغي</option>
-                  <option value="no_show">لم يحضر</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Loading State */}
-            {appointmentsLoading && (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                <p className="mt-2 text-muted-foreground">جاري التحميل...</p>
-              </div>
-            )}
-
-            {/* Error State */}
-            {appointmentsError && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-                <p className="text-destructive">خطأ: {appointmentsError}</p>
-              </div>
-            )}
-
-            {/* Appointments Grid */}
-            {!appointmentsLoading && !appointmentsError && (
-              <div className="grid gap-4">
-                {filteredAppointments.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="text-6xl mb-4">📅</div>
-                    <p className="text-muted-foreground">
-                      {appointmentSearchQuery || statusFilter !== 'all'
-                        ? 'لا توجد مواعيد تطابق البحث'
-                        : 'لا توجد مواعيد مجدولة'
-                      }
-                    </p>
-                  </div>
-                ) : (
-                  filteredAppointments.map(appointment => (
-                    <AppointmentCard
-                      key={appointment.id}
-                      appointment={appointment}
-                      onEdit={handleEditAppointment}
-                      onDelete={handleDeleteAppointment}
-                    />
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        );
+        return <AppointmentsPage />;
       case 'payments':
         return <PaymentsPage />;
       case 'inventory':
@@ -568,29 +342,6 @@ function AppContent() {
       <AddPatientDialog
         open={showAddPatient}
         onOpenChange={setShowAddPatient}
-      />
-
-      {/* Edit Patient Dialog */}
-      <EditPatientDialog
-        isOpen={showEditPatient}
-        patient={selectedPatient}
-        onClose={() => {
-          setShowEditPatient(false)
-          setSelectedPatient(null)
-        }}
-        onSave={handleUpdatePatient}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <ConfirmDeleteDialog
-        isOpen={showDeleteConfirm}
-        patient={selectedPatient}
-        onClose={() => {
-          setShowDeleteConfirm(false)
-          setSelectedPatient(null)
-        }}
-        onConfirm={handleConfirmDelete}
-        isLoading={isLoading}
       />
 
       {/* Add Appointment Dialog */}

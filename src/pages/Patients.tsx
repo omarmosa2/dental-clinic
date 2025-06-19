@@ -3,9 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { usePatientStore } from '@/store/patientStore'
+import { useAppointmentStore } from '@/store/appointmentStore'
+import { usePaymentStore } from '@/store/paymentStore'
 import { formatDate, getInitials, calculateAge } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import AddPatientDialog from '@/components/patients/AddPatientDialog'
+import PatientTable from '@/components/patients/PatientTable'
+import PatientDetailsModal from '@/components/patients/PatientDetailsModal'
+import EditPatientDialog from '@/components/EditPatientDialog'
+import { Patient } from '@/types'
 import {
   Plus,
   Search,
@@ -29,33 +35,72 @@ export default function Patients() {
     setSearchQuery,
     setSelectedPatient,
     deletePatient,
+    updatePatient,
     clearError,
     loadPatients
   } = usePatientStore()
 
+  const { loadAppointments } = useAppointmentStore()
+  const { loadPayments } = usePaymentStore()
+
   const { toast } = useToast()
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [selectedPatientForDetails, setSelectedPatientForDetails] = useState<Patient | null>(null)
+  const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
 
   // Load patients on component mount
   useEffect(() => {
     loadPatients()
-  }, [loadPatients])
+    loadAppointments()
+    loadPayments()
+  }, [loadPatients, loadAppointments, loadPayments])
 
   const handleDeletePatient = async (patientId: string) => {
-    if (window.confirm('Are you sure you want to delete this patient? This action cannot be undone.')) {
+    if (window.confirm('هل أنت متأكد من حذف هذا المريض؟ لا يمكن التراجع عن هذا الإجراء.')) {
       try {
         await deletePatient(patientId)
         toast({
-          title: "Success",
-          description: "Patient deleted successfully",
+          title: "نجح",
+          description: "تم حذف المريض بنجاح",
         })
       } catch (error) {
         toast({
-          title: "Error",
-          description: "Failed to delete patient",
+          title: "خطأ",
+          description: "فشل في حذف المريض",
           variant: "destructive",
         })
       }
+    }
+  }
+
+  const handleViewDetails = (patient: Patient) => {
+    setSelectedPatientForDetails(patient)
+    setShowDetailsModal(true)
+  }
+
+  const handleEditPatient = (patient: Patient) => {
+    setSelectedPatientForEdit(patient)
+    setShowEditDialog(true)
+  }
+
+  const handleUpdatePatient = async (id: string, patientData: Partial<Patient>) => {
+    try {
+      await updatePatient(id, patientData)
+      setShowEditDialog(false)
+      setSelectedPatientForEdit(null)
+      toast({
+        title: "نجح",
+        description: "تم تحديث بيانات المريض بنجاح",
+      })
+    } catch (error) {
+      console.error('Error updating patient:', error)
+      toast({
+        title: "خطأ",
+        description: "فشل في تحديث بيانات المريض. يرجى المحاولة مرة أخرى",
+        variant: "destructive",
+      })
     }
   }
 
@@ -169,269 +214,42 @@ export default function Patients() {
         </CardContent>
       </Card>
 
-      {/* Patient List */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Patient Cards */}
-        <div className="lg:col-span-2">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="loading-spinner"></div>
-            </div>
-          ) : filteredPatients.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-8">
-                  <User className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">لا توجد مرضى</h3>
-                  <p className="text-muted-foreground mb-4">
-                    {searchQuery ? 'جرب تعديل معايير البحث' : 'ابدأ بإضافة أول مريض'}
-                  </p>
-                  <Button onClick={() => setShowAddDialog(true)}>
-                    <Plus className="w-4 h-4 ml-2" />
-                    إضافة مريض
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {filteredPatients.map((patient) => (
-                <Card
-                  key={patient.id}
-                  className={`cursor-pointer transition-all hover:shadow-md ${
-                    selectedPatient?.id === patient.id ? 'ring-2 ring-primary' : ''
-                  }`}
-                  onClick={() => setSelectedPatient(patient)}
-                >
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        {/* Avatar */}
-                        <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-medium">
-                          {getInitials(patient.full_name)}
-                        </div>
-
-                        {/* Patient Info */}
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg">
-                            {patient.full_name}
-                          </h3>
-                          <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
-                            <div className="flex items-center">
-                              <User className="w-4 h-4 mr-1" />
-                              {patient.gender === 'male' ? 'ذكر' : 'أنثى'} - {patient.age} سنة
-                            </div>
-                            {patient.serial_number && (
-                              <div className="flex items-center">
-                                <span>#{patient.serial_number}</span>
-                              </div>
-                            )}
-                            {patient.phone && (
-                              <div className="flex items-center">
-                                <Phone className="w-4 h-4 mr-1" />
-                                {patient.phone}
-                              </div>
-                            )}
-                            {patient.email && (
-                              <div className="flex items-center">
-                                <Mail className="w-4 h-4 mr-1" />
-                                {patient.email}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center space-x-1 space-x-reverse">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
-                        >
-                          <Edit className="w-4 h-4 ml-1" />
-                          <span className="text-xs">تعديل</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeletePatient(patient.id)
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4 ml-1" />
-                          <span className="text-xs">حذف</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Patient Details Panel */}
-        <div className="lg:col-span-1">
-          {selectedPatient ? (
-            <Card className="sticky top-6">
-              <CardHeader>
-                <CardTitle>تفاصيل المريض</CardTitle>
-                <CardDescription>
-                  معلومات تفصيلية عن {selectedPatient.full_name}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Basic Info */}
-                <div>
-                  <h4 className="font-medium mb-2">المعلومات الأساسية</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">الرقم التسلسلي:</span>
-                      <span>#{selectedPatient.serial_number}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">الاسم:</span>
-                      <span>{selectedPatient.full_name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">الجنس:</span>
-                      <span>{selectedPatient.gender === 'male' ? 'ذكر' : 'أنثى'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">العمر:</span>
-                      <span>{selectedPatient.age} سنة</span>
-                    </div>
-                    {selectedPatient.phone && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">الهاتف:</span>
-                        <span>{selectedPatient.phone}</span>
-                      </div>
-                    )}
-                    {selectedPatient.email && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">البريد الإلكتروني:</span>
-                        <span>{selectedPatient.email}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Patient Condition */}
-                <div>
-                  <h4 className="font-medium mb-2">حالة المريض</h4>
-                  <p className="text-sm text-muted-foreground">{selectedPatient.patient_condition}</p>
-                </div>
-
-                {/* Medical Information */}
-                {(selectedPatient.allergies || selectedPatient.medical_conditions) && (
-                  <div>
-                    <h4 className="font-medium mb-2">المعلومات الطبية</h4>
-                    <div className="space-y-2 text-sm">
-                      {selectedPatient.allergies && (
-                        <div>
-                          <span className="text-muted-foreground">الحساسية:</span>
-                          <p className="mt-1">{selectedPatient.allergies}</p>
-                        </div>
-                      )}
-                      {selectedPatient.medical_conditions && (
-                        <div>
-                          <span className="text-muted-foreground">الحالات الطبية:</span>
-                          <p className="mt-1">{selectedPatient.medical_conditions}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Address */}
-                {selectedPatient.address && (
-                  <div>
-                    <h4 className="font-medium mb-2">Address</h4>
-                    <p className="text-sm text-muted-foreground">{selectedPatient.address}</p>
-                  </div>
-                )}
-
-                {/* Emergency Contact */}
-                {(selectedPatient.emergency_contact_name || selectedPatient.emergency_contact_phone) && (
-                  <div>
-                    <h4 className="font-medium mb-2">Emergency Contact</h4>
-                    <div className="space-y-1 text-sm">
-                      {selectedPatient.emergency_contact_name && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Name:</span>
-                          <span>{selectedPatient.emergency_contact_name}</span>
-                        </div>
-                      )}
-                      {selectedPatient.emergency_contact_phone && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Phone:</span>
-                          <span>{selectedPatient.emergency_contact_phone}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Medical History */}
-                {selectedPatient.medical_history && (
-                  <div>
-                    <h4 className="font-medium mb-2">Medical History</h4>
-                    <p className="text-sm text-muted-foreground">{selectedPatient.medical_history}</p>
-                  </div>
-                )}
-
-                {/* Allergies */}
-                {selectedPatient.allergies && (
-                  <div>
-                    <h4 className="font-medium mb-2">Allergies</h4>
-                    <p className="text-sm text-muted-foreground">{selectedPatient.allergies}</p>
-                  </div>
-                )}
-
-                {/* Notes */}
-                {selectedPatient.notes && (
-                  <div>
-                    <h4 className="font-medium mb-2">Notes</h4>
-                    <p className="text-sm text-muted-foreground">{selectedPatient.notes}</p>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="pt-4 space-y-2">
-                  <Button className="w-full">
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Patient
-                  </Button>
-                  <Button variant="outline" className="w-full">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Schedule Appointment
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-8">
-                  <User className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">No patient selected</h3>
-                  <p className="text-muted-foreground">
-                    Select a patient from the list to view their details
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+      {/* Patient Table */}
+      <div className="space-y-6">
+        <PatientTable
+          patients={filteredPatients}
+          isLoading={isLoading}
+          onEdit={handleEditPatient}
+          onDelete={handleDeletePatient}
+          onViewDetails={handleViewDetails}
+        />
       </div>
+
+
 
       {/* Add Patient Dialog */}
       <AddPatientDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
+      />
+
+      {/* Patient Details Modal */}
+      <PatientDetailsModal
+        patient={selectedPatientForDetails}
+        open={showDetailsModal}
+        onOpenChange={setShowDetailsModal}
+        onEdit={handleEditPatient}
+      />
+
+      {/* Edit Patient Dialog */}
+      <EditPatientDialog
+        isOpen={showEditDialog}
+        patient={selectedPatientForEdit}
+        onClose={() => {
+          setShowEditDialog(false)
+          setSelectedPatientForEdit(null)
+        }}
+        onSave={handleUpdatePatient}
       />
     </div>
   )

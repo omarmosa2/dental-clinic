@@ -128,6 +128,7 @@ export interface InventoryUsage {
 export interface ClinicSettings {
   id: string
   clinic_name: string
+  doctor_name?: string
   clinic_address?: string
   clinic_phone?: string
   clinic_email?: string

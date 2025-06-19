@@ -130,6 +130,16 @@ class DatabaseService {
             FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
           );
         `
+      },
+      {
+        version: 4,
+        sql: `
+          -- Add doctor_name column to settings table
+          ALTER TABLE settings ADD COLUMN doctor_name TEXT DEFAULT 'د. محمد أحمد';
+
+          -- Update existing settings with default doctor name if null
+          UPDATE settings SET doctor_name = 'د. محمد أحمد' WHERE doctor_name IS NULL;
+        `
       }
     ]
 
@@ -482,12 +492,37 @@ class DatabaseService {
     this.ensureConnection()
 
     const stmt = this.db.prepare(`
-      SELECT p.*, pt.full_name as patient_name
+      SELECT
+        p.*,
+        pt.full_name as patient_name,
+        pt.full_name as patient_full_name,
+        pt.phone as patient_phone,
+        pt.email as patient_email,
+        a.title as appointment_title
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
+      LEFT JOIN appointments a ON p.appointment_id = a.id
       ORDER BY p.payment_date DESC
     `)
-    return stmt.all()
+
+    const payments = stmt.all()
+
+    // Transform the data to include patient and appointment objects
+    return payments.map(payment => ({
+      ...payment,
+      patient: payment.patient_id ? {
+        id: payment.patient_id,
+        full_name: payment.patient_full_name,
+        first_name: payment.patient_full_name?.split(' ')[0] || '',
+        last_name: payment.patient_full_name?.split(' ').slice(1).join(' ') || '',
+        phone: payment.patient_phone,
+        email: payment.patient_email
+      } : null,
+      appointment: payment.appointment_id ? {
+        id: payment.appointment_id,
+        title: payment.appointment_title
+      } : null
+    }))
   }
 
   async createPayment(payment) {
@@ -518,7 +553,25 @@ class DatabaseService {
     console.log('💾 Checkpoint result:', checkpoint)
 
     console.log('✅ Payment created successfully:', id)
-    return { ...payment, id, created_at: now, updated_at: now }
+
+    // Get patient data to include in the response
+    const patientStmt = this.db.prepare('SELECT * FROM patients WHERE id = ?')
+    const patient = patientStmt.get(payment.patient_id)
+
+    const createdPayment = { ...payment, id, created_at: now, updated_at: now }
+
+    if (patient) {
+      createdPayment.patient = {
+        id: patient.id,
+        full_name: patient.full_name,
+        first_name: patient.full_name?.split(' ')[0] || '',
+        last_name: patient.full_name?.split(' ').slice(1).join(' ') || '',
+        phone: patient.phone,
+        email: patient.email
+      }
+    }
+
+    return createdPayment
   }
 
   async updatePayment(id, updates) {
@@ -683,6 +736,7 @@ class DatabaseService {
       const defaultSettings = {
         id: uuidv4(),
         clinic_name: 'عيادة الأسنان',
+        doctor_name: 'د. محمد أحمد',
         clinic_address: '',
         clinic_phone: '',
         clinic_email: '',
@@ -732,15 +786,15 @@ class DatabaseService {
       const id = settings.id || uuidv4()
       const stmt = this.db.prepare(`
         INSERT INTO settings (
-          id, clinic_name, clinic_address, clinic_phone, clinic_email, clinic_logo,
+          id, clinic_name, doctor_name, clinic_address, clinic_phone, clinic_email, clinic_logo,
           currency, language, timezone, backup_frequency, auto_save_interval,
           appointment_duration, working_hours_start, working_hours_end, working_days,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       stmt.run(
-        id, settings.clinic_name, settings.clinic_address, settings.clinic_phone,
+        id, settings.clinic_name, settings.doctor_name, settings.clinic_address, settings.clinic_phone,
         settings.clinic_email, settings.clinic_logo, settings.currency,
         settings.language, settings.timezone, settings.backup_frequency,
         settings.auto_save_interval, settings.appointment_duration,

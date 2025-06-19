@@ -79,6 +79,7 @@ export class LowDBService {
     return {
       id: uuidv4(),
       clinic_name: 'عيادة الأسنان',
+      doctor_name: 'د. محمد أحمد',
       clinic_address: '',
       clinic_phone: '',
       clinic_email: '',

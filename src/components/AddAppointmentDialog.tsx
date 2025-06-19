@@ -1,6 +1,27 @@
 import React, { useState, useEffect } from 'react'
-import { X, Calendar, Clock, User, FileText, DollarSign } from 'lucide-react'
+import { X, Calendar, Clock, User, DollarSign } from 'lucide-react'
 import { Appointment, Patient, Treatment } from '../types'
+import { useThemeClasses } from '../contexts/ThemeContext'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import { useToast } from '@/hooks/use-toast'
 
 interface AddAppointmentDialogProps {
   isOpen: boolean
@@ -25,8 +46,7 @@ export default function AddAppointmentDialog({
 }: AddAppointmentDialogProps) {
   const [formData, setFormData] = useState({
     patient_id: '',
-    treatment_id: '',
-    title: '',
+    gender: '',
     description: '',
     start_time: '',
     end_time: '',
@@ -35,16 +55,25 @@ export default function AddAppointmentDialog({
     notes: ''
   })
 
+  const { toast } = useToast()
+
   useEffect(() => {
+    if (!isOpen) return // Don't update form when dialog is closed
+
     if (initialData) {
       // Populate form with existing appointment data for editing
+      const selectedPatient = patients.find(p => p.id === initialData.patient_id)
+
+      // Safe date parsing
+      const startDate = new Date(initialData.start_time)
+      const endDate = new Date(initialData.end_time)
+
       setFormData({
         patient_id: initialData.patient_id || '',
-        treatment_id: initialData.treatment_id || '',
-        title: initialData.title || '',
+        gender: selectedPatient?.gender === 'male' ? 'ذكر' : selectedPatient?.gender === 'female' ? 'أنثى' : '',
         description: initialData.description || '',
-        start_time: new Date(initialData.start_time).toISOString().slice(0, 16),
-        end_time: new Date(initialData.end_time).toISOString().slice(0, 16),
+        start_time: isNaN(startDate.getTime()) ? '' : startDate.toISOString().slice(0, 16),
+        end_time: isNaN(endDate.getTime()) ? '' : endDate.toISOString().slice(0, 16),
         status: initialData.status || 'scheduled',
         cost: initialData.cost?.toString() || '',
         notes: initialData.notes || ''
@@ -62,262 +91,281 @@ export default function AddAppointmentDialog({
         start_time: startDateTime.toISOString().slice(0, 16),
         end_time: endDateTime.toISOString().slice(0, 16)
       }))
+    } else {
+      // Reset form when opening for new appointment
+      // Set default time to current time + 1 hour
+      const now = new Date()
+      const defaultStart = new Date(now.getTime() + 60 * 60 * 1000) // +1 hour
+      const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000) // +1 hour from start
+
+      setFormData({
+        patient_id: '',
+        gender: '',
+        description: '',
+        start_time: defaultStart.toISOString().slice(0, 16),
+        end_time: defaultEnd.toISOString().slice(0, 16),
+        status: 'scheduled',
+        cost: '',
+        notes: ''
+      })
     }
-  }, [selectedDate, selectedTime, initialData])
+  }, [selectedDate, selectedTime, initialData, patients, isOpen])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    const appointmentData = {
-      ...formData,
-      // Convert empty strings to null/undefined for foreign keys
-      treatment_id: formData.treatment_id || undefined,
-      cost: formData.cost ? parseFloat(formData.cost) : undefined,
-      start_time: new Date(formData.start_time).toISOString(),
-      end_time: new Date(formData.end_time).toISOString()
+    // Validate required fields
+    if (!formData.patient_id || !formData.start_time || !formData.end_time) {
+      toast({
+        title: "خطأ",
+        description: "يرجى ملء جميع الحقول المطلوبة",
+        variant: "destructive",
+      })
+      return
     }
 
-    console.log('Submitting appointment data:', appointmentData)
+    // Validate dates
+    const startDate = new Date(formData.start_time)
+    const endDate = new Date(formData.end_time)
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      toast({
+        title: "خطأ",
+        description: "يرجى إدخال تواريخ صحيحة",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (endDate <= startDate) {
+      toast({
+        title: "خطأ",
+        description: "يجب أن يكون وقت النهاية بعد وقت البداية",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Generate a title automatically based on patient and date
+    const selectedPatient = patients.find(p => p.id === formData.patient_id)
+    const appointmentDate = new Date(formData.start_time)
+    const dateStr = appointmentDate.toLocaleDateString('ar-SA')
+    const timeStr = appointmentDate.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
+    const generatedTitle = selectedPatient
+      ? `موعد ${selectedPatient.full_name} - ${dateStr} ${timeStr}`
+      : `موعد جديد - ${dateStr} ${timeStr}`
+
+    // Create appointment data without gender field
+    const { gender, ...appointmentDataWithoutGender } = formData
+
+    const appointmentData = {
+      ...appointmentDataWithoutGender,
+      // Add generated title
+      title: generatedTitle,
+      cost: formData.cost ? parseFloat(formData.cost) : undefined,
+      start_time: startDate.toISOString(),
+      end_time: endDate.toISOString()
+    }
+
+    console.log('📝 Submitting appointment data:', {
+      isEdit: !!initialData,
+      appointmentId: initialData?.id,
+      appointmentData
+    })
+
     onSave(appointmentData)
 
-    // Reset form
-    setFormData({
-      patient_id: '',
-      treatment_id: '',
-      title: '',
-      description: '',
-      start_time: '',
-      end_time: '',
-      status: 'scheduled',
-      cost: '',
-      notes: ''
-    })
-    onClose()
+    // Don't reset form or close dialog here
+    // Let the parent component handle closing after successful save
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
       [name]: value
     }))
-
-    // Auto-generate title when patient and treatment are selected
-    if (name === 'patient_id' || name === 'treatment_id') {
-      const patient = patients.find(p => p.id === (name === 'patient_id' ? value : formData.patient_id))
-      const treatment = treatments.find(t => t.id === (name === 'treatment_id' ? value : formData.treatment_id))
-
-      if (patient && treatment) {
-        setFormData(prev => ({
-          ...prev,
-          [name]: value,
-          title: `${treatment.name} - ${patient.first_name} ${patient.last_name}`,
-          cost: treatment.default_cost?.toString() || ''
-        }))
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          [name]: value
-        }))
-      }
-    }
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold">
             {initialData ? 'تعديل الموعد' : 'إضافة موعد جديد'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+          </DialogTitle>
+          <DialogDescription>
+            {initialData ? 'تعديل بيانات الموعد المحدد' : 'إضافة موعد جديد للمريض'}
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Patient and Treatment Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <User className="w-4 h-4 inline ml-1" />
-                المريض *
-              </label>
-              <select
-                name="patient_id"
-                value={formData.patient_id}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">اختر المريض</option>
-                {patients.map(patient => (
-                  <option key={patient.id} value={patient.id}>
-                    {patient.first_name} {patient.last_name}
-                  </option>
-                ))}
-              </select>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Required Fields Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium border-b pb-2">
+              الحقول المطلوبة
+            </h3>
+
+            {/* Patient and Gender Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center">
+                  <User className="w-4 h-4 ml-1" />
+                  المريض *
+                </Label>
+                <Select
+                  value={formData.patient_id}
+                  onValueChange={(value) => {
+                    setFormData(prev => ({ ...prev, patient_id: value }))
+                    const patient = patients.find(p => p.id === value)
+                    if (patient) {
+                      setFormData(prev => ({
+                        ...prev,
+                        patient_id: value,
+                        gender: patient.gender === 'male' ? 'ذكر' : patient.gender === 'female' ? 'أنثى' : ''
+                      }))
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر المريض" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {patients.map(patient => (
+                      <SelectItem key={patient.id} value={patient.id}>
+                        {patient.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>الجنس</Label>
+                <Input
+                  value={formData.gender}
+                  readOnly
+                  className="bg-muted cursor-not-allowed"
+                  placeholder="سيتم ملؤه تلقائياً"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <FileText className="w-4 h-4 inline ml-1" />
-                نوع العلاج
-              </label>
-              <select
-                name="treatment_id"
-                value={formData.treatment_id}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">اختر نوع العلاج</option>
-                {treatments.map(treatment => (
-                  <option key={treatment.id} value={treatment.id}>
-                    {treatment.name} - {treatment.default_cost} ريال
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+            {/* Date and Time */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center">
+                  <Calendar className="w-4 h-4 ml-1" />
+                  تاريخ ووقت البداية *
+                </Label>
+                <Input
+                  type="datetime-local"
+                  name="start_time"
+                  value={formData.start_time}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
 
-          {/* Appointment Title */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              عنوان الموعد *
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="أدخل عنوان الموعد"
-            />
-          </div>
-
-          {/* Date and Time */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Calendar className="w-4 h-4 inline ml-1" />
-                تاريخ ووقت البداية *
-              </label>
-              <input
-                type="datetime-local"
-                name="start_time"
-                value={formData.start_time}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="space-y-2">
+                <Label className="flex items-center">
+                  <Clock className="w-4 h-4 ml-1" />
+                  تاريخ ووقت النهاية *
+                </Label>
+                <Input
+                  type="datetime-local"
+                  name="end_time"
+                  value={formData.end_time}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Clock className="w-4 h-4 inline ml-1" />
-                تاريخ ووقت النهاية *
-              </label>
-              <input
-                type="datetime-local"
-                name="end_time"
-                value={formData.end_time}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Status and Cost */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                حالة الموعد
-              </label>
-              <select
-                name="status"
+            {/* Appointment Status */}
+            <div className="space-y-2">
+              <Label>حالة الموعد *</Label>
+              <Select
                 value={formData.status}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onValueChange={(value: 'scheduled' | 'cancelled' | 'completed' | 'no_show') =>
+                  setFormData(prev => ({ ...prev, status: value }))
+                }
               >
-                <option value="scheduled">مجدول</option>
-                <option value="completed">مكتمل</option>
-                <option value="cancelled">ملغي</option>
-                <option value="no_show">لم يحضر</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر حالة الموعد" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="scheduled">مجدول</SelectItem>
+                  <SelectItem value="cancelled">ملغي</SelectItem>
+                  <SelectItem value="completed">مكتمل</SelectItem>
+                  <SelectItem value="no_show">لم يحضر</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <DollarSign className="w-4 h-4 inline ml-1" />
+          {/* Optional Fields Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium border-b pb-2">
+              الحقول الاختيارية
+            </h3>
+
+            {/* Cost */}
+            <div className="space-y-2">
+              <Label className="flex items-center">
+                <DollarSign className="w-4 h-4 ml-1" />
                 التكلفة (ريال)
-              </label>
-              <input
+              </Label>
+              <Input
                 type="number"
                 name="cost"
                 value={formData.cost}
                 onChange={handleChange}
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="0.00"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label>وصف الموعد</Label>
+              <Textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows={3}
+                placeholder="أدخل وصف الموعد"
+              />
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label>ملاحظات إضافية</Label>
+              <Textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleChange}
+                rows={2}
+                placeholder="أي ملاحظات إضافية"
               />
             </div>
           </div>
 
-          {/* Description and Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              وصف الموعد
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="أدخل وصف الموعد"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              ملاحظات إضافية
-            </label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="أي ملاحظات إضافية"
-            />
-          </div>
-
-          {/* Form Actions */}
-          <div className="flex justify-end space-x-4 space-x-reverse pt-6 border-t">
-            <button
+          <DialogFooter className="flex justify-end space-x-4 space-x-reverse">
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
             >
               إلغاء
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
+            </Button>
+            <Button type="submit">
               حفظ الموعد
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -63,7 +63,7 @@ export default function Settings() {
     getBackupStatus
   } = useBackupStore()
 
-  const { loadSettings } = useSettingsStore()
+  const { settings, updateSettings, loadSettings } = useSettingsStore()
   const { isDarkMode, toggleDarkMode } = useTheme()
 
   useEffect(() => {
@@ -225,6 +225,16 @@ export default function Settings() {
     } catch (error) {
       console.error('Error deleting license:', error)
       showNotification(`فشل في حذف الترخيص: ${error}`, 'error')
+    }
+  }
+
+  const handleUpdateSettings = async (settingsData: any) => {
+    try {
+      await updateSettings(settingsData)
+      showNotification('تم حفظ إعدادات العيادة بنجاح', 'success')
+    } catch (error) {
+      console.error('Error updating settings:', error)
+      showNotification('فشل في حفظ إعدادات العيادة', 'error')
     }
   }
 
@@ -702,17 +712,174 @@ export default function Settings() {
             <div className="p-6 border-b border-border">
               <h3 className="text-lg font-medium text-foreground">معلومات العيادة</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                إعدادات العيادة الأساسية
+                إعدادات العيادة الأساسية والمعلومات التي تظهر في الإيصالات
               </p>
             </div>
             <div className="p-6">
-              <div className="text-center py-12">
-                <SettingsIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-medium mb-2 text-foreground">إعدادات العيادة</h3>
-                <p className="text-muted-foreground">
-                  سيتم تطبيق إعدادات العيادة التفصيلية قريباً
-                </p>
-              </div>
+              <form className="space-y-6" onSubmit={(e) => {
+                e.preventDefault()
+                const formData = new FormData(e.currentTarget)
+                const clinicData = {
+                  clinic_name: formData.get('clinic_name') as string,
+                  doctor_name: formData.get('doctor_name') as string,
+                  clinic_address: formData.get('clinic_address') as string,
+                  clinic_phone: formData.get('clinic_phone') as string,
+                  clinic_email: formData.get('clinic_email') as string,
+                }
+                handleUpdateSettings(clinicData)
+              }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label htmlFor="clinic_name" className="text-sm font-medium text-foreground">
+                      اسم العيادة *
+                    </label>
+                    <input
+                      type="text"
+                      id="clinic_name"
+                      name="clinic_name"
+                      defaultValue={settings?.clinic_name || ''}
+                      className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="doctor_name" className="text-sm font-medium text-foreground">
+                      اسم الدكتور *
+                    </label>
+                    <input
+                      type="text"
+                      id="doctor_name"
+                      name="doctor_name"
+                      defaultValue={settings?.doctor_name || ''}
+                      placeholder="د. محمد أحمد"
+                      className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="clinic_phone" className="text-sm font-medium text-foreground">
+                      رقم الهاتف
+                    </label>
+                    <input
+                      type="tel"
+                      id="clinic_phone"
+                      name="clinic_phone"
+                      defaultValue={settings?.clinic_phone || ''}
+                      placeholder="+966 50 123 4567"
+                      className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="clinic_email" className="text-sm font-medium text-foreground">
+                      البريد الإلكتروني
+                    </label>
+                    <input
+                      type="email"
+                      id="clinic_email"
+                      name="clinic_email"
+                      defaultValue={settings?.clinic_email || ''}
+                      placeholder="clinic@example.com"
+                      className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="clinic_address" className="text-sm font-medium text-foreground">
+                    عنوان العيادة
+                  </label>
+                  <textarea
+                    id="clinic_address"
+                    name="clinic_address"
+                    defaultValue={settings?.clinic_address || ''}
+                    placeholder="الرياض، المملكة العربية السعودية"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Clinic Logo Section */}
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <h4 className="text-sm font-medium text-foreground">شعار العيادة</h4>
+                  <div className="flex items-start space-x-4 space-x-reverse">
+                    {/* Logo Preview */}
+                    <div className="flex-shrink-0">
+                      <div className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/50">
+                        {settings?.clinic_logo ? (
+                          <img
+                            src={settings.clinic_logo}
+                            alt="شعار العيادة"
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <div className="text-center">
+                            <div className="w-8 h-8 mx-auto mb-1 text-muted-foreground">
+                              📷
+                            </div>
+                            <span className="text-xs text-muted-foreground">لا يوجد شعار</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Logo Upload */}
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center space-x-2 space-x-reverse">
+                        <input
+                          type="file"
+                          id="clinic_logo"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              // Convert to base64
+                              const reader = new FileReader()
+                              reader.onload = async (event) => {
+                                const base64 = event.target?.result as string
+                                await handleUpdateSettings({ clinic_logo: base64 })
+                              }
+                              reader.readAsDataURL(file)
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('clinic_logo')?.click()}
+                          className="px-3 py-2 text-sm border border-input bg-background text-foreground rounded-md hover:bg-accent"
+                        >
+                          اختيار شعار
+                        </button>
+                        {settings?.clinic_logo && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateSettings({ clinic_logo: '' })}
+                            className="px-3 py-2 text-sm border border-red-200 bg-red-50 text-red-700 rounded-md hover:bg-red-100"
+                          >
+                            حذف الشعار
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        يُفضل استخدام صورة مربعة بحجم 200x200 بكسل أو أكبر. الصيغ المدعومة: JPG, PNG, GIF
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

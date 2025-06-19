@@ -4,6 +4,22 @@
  */
 
 import React, { useState, useRef } from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Upload, Key, FileText } from 'lucide-react'
 
 interface SimpleLicenseDialogProps {
   isOpen: boolean
@@ -90,72 +106,58 @@ export default function SimpleLicenseDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      dir="rtl"
-    >
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4 text-sky-600">🔑 تفعيل الترخيص</h2>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center text-xl font-bold">
+            <Key className="w-5 h-5 ml-2" />
+            تفعيل الترخيص
+          </DialogTitle>
+          <DialogDescription>
+            اختر طريقة التفعيل المناسبة لك
+          </DialogDescription>
+        </DialogHeader>
 
-        {/* طرق التفعيل */}
-        <div className="mb-4">
-          <div className="flex gap-2 mb-4">
-            <button
-              type="button"
-              onClick={() => {
-                setActivationMethod('key')
-                setError('')
-                setLicensePreview(null)
-                setSelectedFile(null)
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activationMethod === 'key'
-                  ? 'bg-sky-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              📝 مفتاح الترخيص
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActivationMethod('file')
-                setError('')
-                setLicenseKey('')
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activationMethod === 'file'
-                  ? 'bg-sky-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              📁 ملف الترخيص
-            </button>
-          </div>
-        </div>
+        <Tabs value={activationMethod} onValueChange={(value: 'key' | 'file') => {
+          setActivationMethod(value)
+          setError('')
+          if (value === 'key') {
+            setLicensePreview(null)
+            setSelectedFile(null)
+          } else {
+            setLicenseKey('')
+          }
+        }}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="key" className="flex items-center">
+              <FileText className="w-4 h-4 ml-1" />
+              مفتاح الترخيص
+            </TabsTrigger>
+            <TabsTrigger value="file" className="flex items-center">
+              <Upload className="w-4 h-4 ml-1" />
+              ملف الترخيص
+            </TabsTrigger>
+          </TabsList>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {activationMethod === 'key' ? (
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                مفتاح الترخيص
-              </label>
-              <textarea
+          <TabsContent value="key" className="space-y-4">
+            <div className="space-y-2">
+              <Label>مفتاح الترخيص</Label>
+              <Textarea
                 value={licenseKey}
                 onChange={(e) => {
                   setLicenseKey(e.target.value)
                   setError('')
                 }}
                 placeholder="الصق مفتاح الترخيص هنا..."
-                className="w-full p-3 border rounded-lg resize-none h-32 font-mono text-sm"
+                className="resize-none h-32 font-mono text-sm"
                 rows={6}
               />
             </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                اختيار ملف الترخيص
-              </label>
+          </TabsContent>
+
+          <TabsContent value="file" className="space-y-4">
+            <div className="space-y-2">
+              <Label>اختيار ملف الترخيص</Label>
               <div className="space-y-3">
                 <input
                   ref={fileInputRef}
@@ -164,63 +166,92 @@ export default function SimpleLicenseDialog({
                   onChange={handleFileUpload}
                   className="hidden"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-sky-400 transition-colors text-center"
+                  className="w-full h-auto p-4 border-2 border-dashed"
                 >
-                  <div className="text-2xl mb-2">📁</div>
-                  <div className="text-sm text-gray-600">
-                    {selectedFile ? selectedFile.name : 'اضغط لاختيار ملف الترخيص'}
+                  <div className="text-center">
+                    <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                    <div className="text-sm">
+                      {selectedFile ? selectedFile.name : 'اضغط لاختيار ملف الترخيص'}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      يدعم ملفات .key, .json, .txt
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    يدعم ملفات .key, .json, .txt
-                  </div>
-                </button>
+                </Button>
 
                 {/* معاينة الترخيص */}
                 {licensePreview && (
-                  <div className="bg-gray-50 p-3 rounded-lg text-sm">
-                    <h4 className="font-medium mb-2">معاينة الترخيص:</h4>
-                    <div className="space-y-1 text-xs">
-                      <div><strong>المعرف:</strong> {licensePreview.licenseId}</div>
-                      <div><strong>النوع:</strong> {licensePreview.licenseType}</div>
-                      <div><strong>المدة:</strong> {licensePreview.maxDays} يوم</div>
-                      <div><strong>مشفر:</strong> {licensePreview.encrypted ? '✅ نعم' : '❌ لا'}</div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">معاينة الترخيص</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">المعرف:</span>
+                        <span>{licensePreview.licenseId}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">النوع:</span>
+                        <span>{licensePreview.licenseType}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">المدة:</span>
+                        <span>{licensePreview.maxDays} يوم</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">مشفر:</span>
+                        <Badge variant={licensePreview.encrypted ? "default" : "secondary"}>
+                          {licensePreview.encrypted ? 'نعم' : 'لا'}
+                        </Badge>
+                      </div>
                       {licensePreview.features && licensePreview.features.length > 0 && (
-                        <div><strong>الميزات:</strong> {licensePreview.features.join(', ')}</div>
+                        <div>
+                          <span className="text-muted-foreground">الميزات:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {licensePreview.features.map((feature, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {feature}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
             </div>
-          )}
+          </TabsContent>
+        </Tabs>
 
-          {error && (
-            <div className="text-red-600 text-sm bg-red-50 border border-red-200 p-3 rounded-lg">
-              ❌ {error}
-            </div>
-          )}
-
-          <div className="flex gap-3 justify-end pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              إلغاء
-            </button>
-            <button
-              type="submit"
-              disabled={!licenseKey.trim()}
-              className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              🔓 تفعيل الترخيص
-            </button>
+        {error && (
+          <div className="text-destructive text-sm bg-destructive/10 border border-destructive/20 p-3 rounded-lg">
+            {error}
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+          >
+            إلغاء
+          </Button>
+          <Button
+            type="submit"
+            disabled={!licenseKey.trim()}
+            onClick={handleSubmit}
+          >
+            <Key className="w-4 h-4 ml-1" />
+            تفعيل الترخيص
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

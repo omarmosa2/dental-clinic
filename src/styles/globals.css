@@ -369,6 +369,20 @@
     @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  /* Enhanced input text visibility */
+  .input-readonly {
+    @apply bg-gray-100 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 font-medium cursor-not-allowed;
+  }
+
+  /* Enhanced text contrast for dark mode */
+  .dark input[readonly] {
+    @apply text-gray-100 bg-gray-800/50 border-gray-700;
+  }
+
+  .dark input {
+    @apply text-gray-100 bg-gray-900/50 border-gray-700;
+  }
+
   /* Status indicators - Sky Theme */
   .status-scheduled {
     @apply bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary;

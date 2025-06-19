@@ -1,9 +1,15 @@
-import React, { useRef } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import React, { useRef, useState, useEffect } from 'react'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useSettingsStore } from '@/store/settingsStore'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Printer, Download } from 'lucide-react'
+import { Printer, Download, Receipt, Building2, Phone, MapPin, QrCode, Settings, Eye } from 'lucide-react'
+import QRCode from 'qrcode'
+import JsBarcode from 'jsbarcode'
 import type { Payment } from '@/types'
 
 interface PaymentReceiptDialogProps {
@@ -16,75 +22,463 @@ export default function PaymentReceiptDialog({ open, onOpenChange, payment }: Pa
   const { settings } = useSettingsStore()
   const receiptRef = useRef<HTMLDivElement>(null)
 
+  // Print settings state
+  const [printSettings, setPrintSettings] = useState({
+    printerType: '80mm', // 58mm, 80mm, a4
+    includeQR: true,
+    includeBarcode: true,
+    includeLogo: true,
+    colorMode: 'color', // color, bw
+    qrType: 'text' // text, url
+  })
+
+  const [showPreview, setShowPreview] = useState(false)
+  const [qrCodeDataURL, setQrCodeDataURL] = useState<string>('')
+  const [barcodeDataURL, setBarcodeDataURL] = useState<string>('')
+
+  // Generate QR Code data - Human readable format
+  const generateQRData = () => {
+    const receiptNumber = payment.receipt_number || `RCP-${payment.id.slice(-6)}`
+    const patientName = payment.patient?.full_name || 'غير محدد'
+    const clinicName = settings?.clinic_name || 'عيادة الأسنان'
+    const doctorName = settings?.doctor_name || ''
+    const formattedDate = formatDate(payment.payment_date)
+    const amount = formatCurrency(payment.amount)
+
+    return `🏥 ${clinicName}
+${doctorName ? `👨‍⚕️ ${doctorName}` : ''}
+
+📋 إيصال دفع رقم: ${receiptNumber}
+👤 المريض: ${patientName}
+💰 المبلغ المدفوع: ${amount}
+📅 التاريخ: ${formattedDate}
+
+✅ هذا إيصال رسمي معتمد
+🔒 معرف التحقق: ${payment.id.slice(-12)}
+
+${settings?.clinic_phone ? `📞 للاستفسار: ${settings.clinic_phone}` : ''}
+${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` : ''}
+
+شكراً لثقتكم بنا 🙏`
+  }
+
+  // Generate QR Code and Barcode
+  useEffect(() => {
+    const generateQR = async () => {
+      try {
+        const qrData = generateQRData()
+        const dataURL = await QRCode.toDataURL(qrData, {
+          width: 200,
+          margin: 1,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        })
+        setQrCodeDataURL(dataURL)
+      } catch (error) {
+        console.error('Error generating QR code:', error)
+      }
+    }
+
+    const generateBarcodeSVG = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        const barcodeValue = generateBarcode()
+
+        JsBarcode(canvas, barcodeValue, {
+          format: 'CODE128',
+          width: 2,
+          height: 40,
+          displayValue: false,
+          margin: 0,
+          background: '#ffffff',
+          lineColor: '#000000'
+        })
+
+        setBarcodeDataURL(canvas.toDataURL())
+      } catch (error) {
+        console.error('Error generating barcode:', error)
+      }
+    }
+
+    if (open) {
+      if (printSettings.includeQR) {
+        generateQR()
+      }
+      if (printSettings.includeBarcode) {
+        generateBarcodeSVG()
+      }
+    }
+  }, [open, printSettings.includeQR, printSettings.includeBarcode, payment, settings])
+
+  // Generate unique barcode
+  const generateBarcode = () => {
+    const timestamp = new Date(payment.payment_date).getTime().toString().slice(-8)
+    const patientId = payment.patient_id.slice(-4)
+    const amount = Math.floor(payment.amount).toString().padStart(4, '0')
+    return `${timestamp}${patientId}${amount}`
+  }
+
   const handlePrint = () => {
     if (receiptRef.current) {
       const printWindow = window.open('', '_blank')
       if (printWindow) {
+        const isColorMode = printSettings.colorMode === 'color'
+        const printerWidth = printSettings.printerType === 'a4' ? '210mm' : printSettings.printerType
+
         printWindow.document.write(`
           <html>
             <head>
               <title>إيصال دفع - ${payment.receipt_number || payment.id.slice(-6)}</title>
               <style>
                 body {
-                  font-family: Arial, sans-serif;
+                  font-family: 'Arial', 'Tahoma', sans-serif;
                   direction: rtl;
-                  margin: 20px;
-                  font-size: 14px;
+                  margin: 0;
+                  padding: 0;
+                  font-size: ${printSettings.printerType === 'a4' ? '14px' : '12px'};
+                  line-height: 1.4;
+                  color: #000;
+                  background: white;
                 }
+
                 .receipt {
-                  max-width: 400px;
+                  width: ${printerWidth === 'a4' ? '100%' : printerWidth};
+                  max-width: ${printerWidth === 'a4' ? '210mm' : printerWidth};
                   margin: 0 auto;
-                  border: 1px solid #ddd;
-                  padding: 20px;
+                  background: white;
+                  font-size: ${printSettings.printerType === 'a4' ? '12px' : '11px'};
+                  padding: ${printSettings.printerType === 'a4' ? '20px' : '0'};
                 }
+
                 .header {
                   text-align: center;
-                  border-bottom: 2px solid #333;
-                  padding-bottom: 15px;
-                  margin-bottom: 20px;
+                  padding: ${printSettings.printerType === 'a4' ? '20px 10px' : '8px 4px'};
+                  background: ${isColorMode ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa'};
+                  color: ${isColorMode ? 'white' : '#000'};
+                  border-bottom: 2px solid ${isColorMode ? '#764ba2' : '#000'};
+                  margin-bottom: 8px;
+                  border-radius: ${printSettings.printerType === 'a4' ? '8px 8px 0 0' : '0'};
                 }
+
+                .clinic-logo {
+                  width: ${printSettings.printerType === 'a4' ? '60px' : '40px'};
+                  height: ${printSettings.printerType === 'a4' ? '60px' : '40px'};
+                  margin: 0 auto 8px;
+                  border-radius: 50%;
+                  background: ${isColorMode ? 'rgba(255,255,255,0.2)' : '#e9ecef'};
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: ${printSettings.printerType === 'a4' ? '24px' : '16px'};
+                  font-weight: bold;
+                  color: ${isColorMode ? 'white' : '#495057'};
+                }
+
                 .clinic-name {
-                  font-size: 20px;
+                  font-size: ${printSettings.printerType === 'a4' ? '20px' : '16px'};
                   font-weight: bold;
-                  margin-bottom: 5px;
+                  margin-bottom: 4px;
+                  text-transform: uppercase;
+                  text-shadow: ${isColorMode ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'};
                 }
+
+                .doctor-name {
+                  font-size: ${printSettings.printerType === 'a4' ? '16px' : '13px'};
+                  font-weight: bold;
+                  margin-bottom: 3px;
+                  opacity: ${isColorMode ? '0.95' : '1'};
+                }
+
+                .clinic-info {
+                  font-size: ${printSettings.printerType === 'a4' ? '12px' : '10px'};
+                  margin: 1px 0;
+                  line-height: 1.2;
+                  opacity: ${isColorMode ? '0.9' : '1'};
+                }
+
                 .receipt-title {
-                  font-size: 18px;
+                  font-size: ${printSettings.printerType === 'a4' ? '18px' : '14px'};
                   font-weight: bold;
-                  margin: 15px 0;
+                  text-align: center;
+                  padding: ${printSettings.printerType === 'a4' ? '12px 0' : '6px 0'};
+                  margin: 8px 0;
+                  background: ${isColorMode ? 'linear-gradient(90deg, #f8f9fa, #e9ecef, #f8f9fa)' : '#f8f9fa'};
+                  border-top: 1px dashed #000;
+                  border-bottom: 1px dashed #000;
+                  color: #495057;
                 }
+
+                .content {
+                  padding: ${printSettings.printerType === 'a4' ? '10px' : '4px'};
+                }
+
+                .section {
+                  margin-bottom: ${printSettings.printerType === 'a4' ? '15px' : '8px'};
+                }
+
                 .info-row {
                   display: flex;
                   justify-content: space-between;
-                  margin: 8px 0;
-                  padding: 5px 0;
+                  margin: ${printSettings.printerType === 'a4' ? '6px 0' : '3px 0'};
+                  padding: ${printSettings.printerType === 'a4' ? '4px 0' : '2px 0'};
+                  font-size: ${printSettings.printerType === 'a4' ? '13px' : '11px'};
+                  border-bottom: 1px solid #f1f3f4;
                 }
+
                 .label {
                   font-weight: bold;
+                  flex: 1;
+                  text-align: right;
+                  color: ${isColorMode ? '#495057' : '#000'};
                 }
+
+                .value {
+                  flex: 1;
+                  text-align: left;
+                  font-weight: normal;
+                  color: ${isColorMode ? '#212529' : '#000'};
+                }
+
                 .amount-section {
-                  border-top: 1px solid #ddd;
-                  margin-top: 20px;
-                  padding-top: 15px;
+                  background: ${isColorMode ? 'linear-gradient(135deg, #f8f9fa, #e9ecef)' : '#f8f9fa'};
+                  border: 1px solid ${isColorMode ? '#dee2e6' : '#000'};
+                  border-radius: ${printSettings.printerType === 'a4' ? '8px' : '4px'};
+                  padding: ${printSettings.printerType === 'a4' ? '15px' : '6px'};
+                  margin-top: 8px;
+                }
+
+                .amount-row {
+                  display: flex;
+                  justify-content: space-between;
+                  margin: ${printSettings.printerType === 'a4' ? '6px 0' : '3px 0'};
+                  font-size: ${printSettings.printerType === 'a4' ? '13px' : '11px'};
+                  font-weight: 500;
+                }
+
+                .total-amount {
+                  font-size: ${printSettings.printerType === 'a4' ? '18px' : '14px'};
+                  font-weight: bold;
+                  text-align: center;
+                  padding: ${printSettings.printerType === 'a4' ? '12px' : '6px'};
+                  margin: 6px 0;
+                  background: ${isColorMode ? 'linear-gradient(135deg, #28a745, #20c997)' : '#f0f0f0'};
+                  color: ${isColorMode ? 'white' : '#000'};
+                  border: 2px solid ${isColorMode ? '#28a745' : '#000'};
+                  border-radius: ${printSettings.printerType === 'a4' ? '8px' : '4px'};
+                  box-shadow: ${isColorMode ? '0 2px 10px rgba(40, 167, 69, 0.3)' : 'none'};
+                }
+
+                .qr-section, .barcode-section {
+                  text-align: center;
+                  margin: ${printSettings.printerType === 'a4' ? '15px 0' : '8px 0'};
+                  padding: ${printSettings.printerType === 'a4' ? '10px' : '5px'};
+                  background: ${isColorMode ? '#f8f9fa' : 'white'};
+                  border: 1px dashed ${isColorMode ? '#dee2e6' : '#000'};
+                  border-radius: ${printSettings.printerType === 'a4' ? '6px' : '3px'};
+                }
+
+                .qr-placeholder, .barcode-placeholder {
+                  width: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
+                  height: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
+                  margin: 0 auto 5px;
+                  background: ${isColorMode ? 'linear-gradient(45deg, #000, #333)' : '#000'};
+                  border-radius: 4px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-size: ${printSettings.printerType === 'a4' ? '10px' : '8px'};
+                  font-weight: bold;
+                }
+
+                .barcode-placeholder {
+                  height: ${printSettings.printerType === 'a4' ? '30px' : '20px'};
+                  width: ${printSettings.printerType === 'a4' ? '120px' : '100px'};
+                  border-radius: 2px;
+                }
+
+                .footer {
+                  text-align: center;
+                  padding: ${printSettings.printerType === 'a4' ? '15px 10px' : '6px 4px'};
+                  background: ${isColorMode ? 'linear-gradient(135deg, #f8f9fa, #e9ecef)' : '#f8f9fa'};
+                  border-top: 2px solid ${isColorMode ? '#dee2e6' : '#000'};
+                  margin-top: 8px;
+                  font-size: ${printSettings.printerType === 'a4' ? '12px' : '10px'};
+                  border-radius: ${printSettings.printerType === 'a4' ? '0 0 8px 8px' : '0'};
+                }
+
+                .thank-you {
+                  font-size: ${printSettings.printerType === 'a4' ? '16px' : '12px'};
+                  font-weight: bold;
+                  margin-bottom: 3px;
+                  color: ${isColorMode ? '#495057' : '#000'};
+                }
+
+                .date-created {
+                  font-size: ${printSettings.printerType === 'a4' ? '11px' : '9px'};
+                  color: ${isColorMode ? '#6c757d' : '#666'};
+                }
+
+                .separator {
+                  text-align: center;
+                  margin: 6px 0;
+                  font-size: 16px;
+                  letter-spacing: 2px;
+                  color: ${isColorMode ? '#dee2e6' : '#000'};
+                }
+
+                /* Print optimizations */
+                @media print {
+                  body {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: white !important;
+                  }
+
+                  .receipt {
+                    box-shadow: none !important;
+                    border: none !important;
+                    margin: 0 !important;
+                  }
+
+                  .no-print {
+                    display: none !important;
+                  }
+
+                  .info-row, .amount-row {
+                    page-break-inside: avoid;
+                  }
+
+                  ${isColorMode ? `
+                    .header {
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                      color: white !important;
+                      -webkit-print-color-adjust: exact;
+                    }
+                    .total-amount {
+                      background: linear-gradient(135deg, #28a745, #20c997) !important;
+                      color: white !important;
+                      -webkit-print-color-adjust: exact;
+                    }
+                  ` : ''}
+                }
+
+                /* Screen display styles */
+                @media screen {
+                  body {
+                    padding: 20px;
+                    background: #f5f5f5;
+                  }
+
+                  .receipt {
+                    max-width: ${printSettings.printerType === 'a4' ? '600px' : '320px'};
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                    border-radius: 12px;
+                    overflow: hidden;
+                    background: white;
+                    margin: 0 auto;
+                  }
+                }
+              </style>
+            </head>
+            <body>
+              ${receiptRef.current.innerHTML}
+            </body>
+          </html>
+        `)
+        printWindow.document.close()
+        printWindow.print()
+      }
+    }
+  }
+
+  const handleThermalPrint = () => {
+    if (receiptRef.current) {
+      const printWindow = window.open('', '_blank')
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>إيصال حراري - ${payment.receipt_number || payment.id.slice(-6)}</title>
+              <style>
+                @page {
+                  size: 80mm auto;
+                  margin: 0;
+                }
+                body {
+                  font-family: 'Courier New', monospace;
+                  direction: rtl;
+                  margin: 0;
+                  padding: 2mm;
+                  font-size: 10px;
+                  line-height: 1.2;
+                  color: #000;
+                  background: white;
+                  width: 76mm;
+                }
+                .receipt {
+                  width: 100%;
+                  font-size: 10px;
+                }
+                .header {
+                  text-align: center;
+                  margin-bottom: 4px;
+                  border-bottom: 1px solid #000;
+                  padding-bottom: 2px;
+                }
+                .clinic-name {
+                  font-size: 12px;
+                  font-weight: bold;
+                  margin-bottom: 1px;
+                }
+                .doctor-name {
+                  font-size: 10px;
+                  font-weight: bold;
+                }
+                .clinic-info {
+                  font-size: 8px;
+                  margin: 0;
+                }
+                .receipt-title {
+                  font-size: 11px;
+                  font-weight: bold;
+                  text-align: center;
+                  margin: 3px 0;
+                  border-top: 1px dashed #000;
+                  border-bottom: 1px dashed #000;
+                  padding: 2px 0;
+                }
+                .info-row, .amount-row {
+                  display: flex;
+                  justify-content: space-between;
+                  margin: 1px 0;
+                  font-size: 9px;
+                }
+                .separator {
+                  text-align: center;
+                  margin: 2px 0;
+                  font-size: 8px;
                 }
                 .total-amount {
-                  font-size: 18px;
+                  font-size: 11px;
                   font-weight: bold;
-                  border-top: 2px solid #333;
-                  padding-top: 10px;
-                  margin-top: 10px;
+                  text-align: center;
+                  margin: 3px 0;
+                  border: 1px solid #000;
+                  padding: 2px;
                 }
                 .footer {
                   text-align: center;
-                  margin-top: 30px;
-                  padding-top: 15px;
-                  border-top: 1px solid #ddd;
-                  font-size: 12px;
-                  color: #666;
+                  margin-top: 4px;
+                  border-top: 1px solid #000;
+                  padding-top: 2px;
+                  font-size: 8px;
                 }
-                @media print {
-                  body { margin: 0; }
-                  .receipt { border: none; }
+                .thank-you {
+                  font-size: 9px;
+                  font-weight: bold;
                 }
               </style>
             </head>
@@ -128,176 +522,322 @@ export default function PaymentReceiptDialog({ open, onOpenChange, payment }: Pa
     return statuses[status as keyof typeof statuses] || status
   }
 
-  if (!open) return null
-
   return (
-    <div className={`fixed inset-0 z-50 ${open ? 'block' : 'hidden'}`}>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black bg-opacity-50"
-        onClick={() => onOpenChange(false)}
-      />
-
-      {/* Dialog */}
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full" dir="rtl">
-          {/* Header */}
-          <div className="border-b p-6">
-            <h2 className="text-xl font-semibold">إيصال الدفع</h2>
-            <p className="text-gray-600 mt-2">
-              إيصال رقم {payment.receipt_number || payment.id.slice(-6)}
-            </p>
-          </div>
-
-          {/* Content */}
-          <div className="p-6">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center text-xl font-semibold">
+            <Receipt className="w-5 h-5 ml-2" />
+            إيصال الدفع
+          </DialogTitle>
+          <DialogDescription>
+            إيصال رقم {payment.receipt_number || payment.id.slice(-6)}
+          </DialogDescription>
+        </DialogHeader>
 
         <div ref={receiptRef} className="receipt">
-          {/* Header */}
+          {/* Clinic Header */}
           <div className="header">
+            {/* Clinic Logo */}
+            {printSettings.includeLogo && (
+              <div className="clinic-logo">
+                {settings?.clinic_logo ? (
+                  <img
+                    src={settings.clinic_logo}
+                    alt="شعار العيادة"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                  />
+                ) : (
+                  <span>{(settings?.clinic_name || 'عيادة الأسنان').charAt(0)}</span>
+                )}
+              </div>
+            )}
+
             <div className="clinic-name">
               {settings?.clinic_name || 'عيادة الأسنان'}
             </div>
-            {settings?.clinic_address && (
-              <div className="text-sm text-muted-foreground">
-                {settings.clinic_address}
+            {settings?.doctor_name && (
+              <div className="doctor-name">
+                {settings.doctor_name}
               </div>
             )}
             {settings?.clinic_phone && (
-              <div className="text-sm text-muted-foreground">
-                هاتف: {settings.clinic_phone}
+              <div className="clinic-info">
+                📞 {settings.clinic_phone}
               </div>
             )}
-            <div className="receipt-title">إيصال دفع</div>
-          </div>
-
-          {/* Receipt Details */}
-          <div className="space-y-2">
-            <div className="info-row">
-              <span className="label">رقم الإيصال:</span>
-              <span>{payment.receipt_number || `#${payment.id.slice(-6)}`}</span>
-            </div>
-
-            <div className="info-row">
-              <span className="label">التاريخ:</span>
-              <span>{formatDate(payment.payment_date)}</span>
-            </div>
-
-            <div className="info-row">
-              <span className="label">المريض:</span>
-              <span>
-                {payment.patient
-                  ? `${payment.patient.first_name} ${payment.patient.last_name}`
-                  : 'غير محدد'}
-              </span>
-            </div>
-
-            {payment.patient?.phone && (
-              <div className="info-row">
-                <span className="label">الهاتف:</span>
-                <span>{payment.patient.phone}</span>
+            {settings?.clinic_address && (
+              <div className="clinic-info">
+                📍 {settings.clinic_address}
               </div>
             )}
-
-            {payment.appointment && (
-              <div className="info-row">
-                <span className="label">الموعد:</span>
-                <span>{payment.appointment.title}</span>
-              </div>
-            )}
-
-            <div className="info-row">
-              <span className="label">طريقة الدفع:</span>
-              <span>{getPaymentMethodLabel(payment.payment_method)}</span>
-            </div>
-
-            <div className="info-row">
-              <span className="label">الحالة:</span>
-              <span>{getStatusLabel(payment.status)}</span>
-            </div>
-
-            {payment.description && (
-              <div className="info-row">
-                <span className="label">الوصف:</span>
-                <span>{payment.description}</span>
+            {settings?.clinic_email && (
+              <div className="clinic-info">
+                ✉️ {settings.clinic_email}
               </div>
             )}
           </div>
 
-          {/* Amount Section */}
-          <div className="amount-section">
-            <div className="info-row">
-              <span className="label">المبلغ الأساسي:</span>
-              <span>{formatCurrency(payment.amount)}</span>
+          <div className="separator">═══════════════════</div>
+
+          <div className="receipt-title">
+            إيصال دفع رقم {payment.receipt_number || `RCP-${payment.id.slice(-6)}`}
+          </div>
+
+          <div className="content">
+            {/* Patient and Receipt Details */}
+            <div className="section">
+              <div className="info-row">
+                <span className="label">التاريخ:</span>
+                <span className="value">{formatDate(payment.payment_date)}</span>
+              </div>
+
+              <div className="info-row">
+                <span className="label">المريض:</span>
+                <span className="value">
+                  {payment.patient
+                    ? (payment.patient.full_name || `${payment.patient.first_name || ''} ${payment.patient.last_name || ''}`.trim())
+                    : 'غير محدد'}
+                </span>
+              </div>
+
+              {payment.patient?.phone && (
+                <div className="info-row">
+                  <span className="label">الهاتف:</span>
+                  <span className="value">{payment.patient.phone}</span>
+                </div>
+              )}
+
+              <div className="info-row">
+                <span className="label">طريقة الدفع:</span>
+                <span className="value">{getPaymentMethodLabel(payment.payment_method)}</span>
+              </div>
+
+              {payment.description && (
+                <div className="info-row">
+                  <span className="label">الوصف:</span>
+                  <span className="value">{payment.description}</span>
+                </div>
+              )}
             </div>
 
-            {payment.discount_amount && payment.discount_amount > 0 && (
-              <div className="info-row">
-                <span className="label">الخصم:</span>
-                <span>-{formatCurrency(payment.discount_amount)}</span>
-              </div>
-            )}
+            <div className="separator">- - - - - - - - - - - - - - - -</div>
 
-            {payment.tax_amount && payment.tax_amount > 0 && (
-              <div className="info-row">
-                <span className="label">الضريبة:</span>
-                <span>+{formatCurrency(payment.tax_amount)}</span>
+            {/* Amount Section */}
+            <div className="amount-section">
+              <div className="amount-row">
+                <span>المبلغ المدفوع:</span>
+                <span>{formatCurrency(payment.amount)}</span>
               </div>
-            )}
 
-            <div className="info-row total-amount">
-              <span className="label">المبلغ الإجمالي:</span>
-              <span>
-                {formatCurrency(
+              {payment.discount_amount && payment.discount_amount > 0 && (
+                <div className="amount-row">
+                  <span>الخصم:</span>
+                  <span>-{formatCurrency(payment.discount_amount)}</span>
+                </div>
+              )}
+
+              {payment.tax_amount && payment.tax_amount > 0 && (
+                <div className="amount-row">
+                  <span>الضريبة:</span>
+                  <span>+{formatCurrency(payment.tax_amount)}</span>
+                </div>
+              )}
+
+              <div className="separator">═══════════════════</div>
+
+              <div className="total-amount">
+                المبلغ الإجمالي: {formatCurrency(
                   payment.total_amount ||
                   (payment.amount + (payment.tax_amount || 0) - (payment.discount_amount || 0))
                 )}
-              </span>
+              </div>
             </div>
-          </div>
 
-          {payment.notes && (
-            <div className="mt-4 p-3 bg-muted rounded">
-              <div className="label">ملاحظات:</div>
-              <div className="text-sm">{payment.notes}</div>
-            </div>
-          )}
+            {/* QR Code Section */}
+            {printSettings.includeQR && (
+              <div className="qr-section">
+                {qrCodeDataURL ? (
+                  <img
+                    src={qrCodeDataURL}
+                    alt="QR Code للتحقق من الإيصال"
+                    style={{
+                      width: printSettings.printerType === 'a4' ? '80px' : '60px',
+                      height: printSettings.printerType === 'a4' ? '80px' : '60px',
+                      margin: '0 auto'
+                    }}
+                  />
+                ) : (
+                  <div className="qr-placeholder">
+                    QR
+                  </div>
+                )}
+                <div style={{ fontSize: '8px', color: '#666', marginTop: '4px' }}>
+                  امسح للتحقق من الإيصال
+                </div>
+              </div>
+            )}
+
+            {/* Barcode Section */}
+            {printSettings.includeBarcode && (
+              <div className="barcode-section">
+                {barcodeDataURL ? (
+                  <img
+                    src={barcodeDataURL}
+                    alt="باركود الإيصال"
+                    style={{
+                      width: printSettings.printerType === 'a4' ? '120px' : '100px',
+                      height: printSettings.printerType === 'a4' ? '30px' : '20px',
+                      margin: '0 auto'
+                    }}
+                  />
+                ) : (
+                  <div className="barcode-placeholder">
+                    {generateBarcode()}
+                  </div>
+                )}
+                <div style={{ fontSize: '8px', color: '#666', marginTop: '2px' }}>
+                  {generateBarcode()}
+                </div>
+              </div>
+            )}
+
+            {payment.notes && (
+              <div className="section">
+                <div className="separator">- - - - - - - - - - - - - - - -</div>
+                <div style={{ textAlign: 'center', fontSize: '10px', margin: '4px 0', fontStyle: 'italic' }}>
+                  ملاحظات: {payment.notes}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Footer */}
           <div className="footer">
-            <div>شكراً لثقتكم بنا</div>
-            <div className="text-xs mt-2">
-              تم الإنشاء في: {formatDate(new Date().toISOString())}
+            <div className="separator">═══════════════════</div>
+            <div className="thank-you">شكراً لثقتكم بنا</div>
+            <div className="date-created">
+              تم الإنشاء: {formatDate(new Date().toISOString())}
             </div>
+            <div className="separator">═══════════════════</div>
           </div>
         </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-2 space-x-reverse mt-6 pt-4 border-t">
-            <button
-              onClick={() => onOpenChange(false)}
-              className="px-4 py-2 border border-input bg-background text-foreground rounded-md hover:bg-accent"
+        {/* Print Settings Panel */}
+        <div className="border-t bg-muted/30 p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium flex items-center">
+              <Settings className="w-4 h-4 ml-2" />
+              إعدادات الطباعة
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowPreview(!showPreview)}
+              className="text-xs"
             >
-              إغلاق
-            </button>
-            <button
-              onClick={handleDownload}
-              className="px-4 py-2 border border-input bg-background text-foreground rounded-md hover:bg-accent flex items-center"
-            >
-              <Download className="w-4 h-4 ml-2" />
-              تحميل PDF
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center"
-            >
-              <Printer className="w-4 h-4 ml-2" />
-              طباعة
-            </button>
+              <Eye className="w-3 h-3 ml-1" />
+              {showPreview ? 'إخفاء المعاينة' : 'معاينة'}
+            </Button>
           </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Printer Type */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium">نوع الطابعة</label>
+              <Select
+                value={printSettings.printerType}
+                onValueChange={(value) => setPrintSettings(prev => ({ ...prev, printerType: value }))}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="58mm">حرارية 58mm</SelectItem>
+                  <SelectItem value="80mm">حرارية 80mm</SelectItem>
+                  <SelectItem value="a4">عادية A4</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Color Mode */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium">نمط الألوان</label>
+              <Select
+                value={printSettings.colorMode}
+                onValueChange={(value) => setPrintSettings(prev => ({ ...prev, colorMode: value }))}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="color">ملون</SelectItem>
+                  <SelectItem value="bw">أبيض وأسود</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Include Logo */}
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <input
+                type="checkbox"
+                id="includeLogo"
+                checked={printSettings.includeLogo}
+                onChange={(e) => setPrintSettings(prev => ({ ...prev, includeLogo: e.target.checked }))}
+                className="rounded border-gray-300"
+              />
+              <label htmlFor="includeLogo" className="text-xs font-medium">
+                تضمين الشعار
+              </label>
+            </div>
+
+            {/* Include QR */}
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <input
+                type="checkbox"
+                id="includeQR"
+                checked={printSettings.includeQR}
+                onChange={(e) => setPrintSettings(prev => ({ ...prev, includeQR: e.target.checked }))}
+                className="rounded border-gray-300"
+              />
+              <label htmlFor="includeQR" className="text-xs font-medium">
+                QR Code
+              </label>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 space-x-reverse">
+            <input
+              type="checkbox"
+              id="includeBarcode"
+              checked={printSettings.includeBarcode}
+              onChange={(e) => setPrintSettings(prev => ({ ...prev, includeBarcode: e.target.checked }))}
+              className="rounded border-gray-300"
+            />
+            <label htmlFor="includeBarcode" className="text-xs font-medium">
+              تضمين الباركود
+            </label>
           </div>
         </div>
-      </div>
-    </div>
+
+        <DialogFooter className="flex justify-end space-x-2 space-x-reverse">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            إغلاق
+          </Button>
+          <Button variant="outline" onClick={handleDownload}>
+            <Download className="w-4 h-4 ml-2" />
+            تحميل PDF
+          </Button>
+          <Button variant="outline" onClick={handleThermalPrint} className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200">
+            <Printer className="w-4 h-4 ml-2" />
+            طباعة حرارية
+          </Button>
+          <Button onClick={handlePrint} className="bg-green-600 hover:bg-green-700 text-white">
+            <Printer className="w-4 h-4 ml-2" />
+            طباعة ذكية
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

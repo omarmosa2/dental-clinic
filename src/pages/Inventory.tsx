@@ -41,6 +41,7 @@ import ConfirmDeleteInventoryDialog from '../components/ConfirmDeleteInventoryDi
 import UsageDialog from '../components/UsageDialog'
 import InventoryAlerts from '../components/InventoryAlerts'
 import UsageHistoryDialog from '../components/UsageHistoryDialog'
+import InventoryTable from '../components/inventory/InventoryTable'
 
 export default function Inventory() {
   const { toast } = useToast()
@@ -106,6 +107,24 @@ export default function Inventory() {
   const handleItemClick = (item: any) => {
     setSelectedItem(item)
     setShowEditItem(true)
+  }
+
+  const handleViewDetails = (item: any) => {
+    setSelectedItem(item)
+    setShowUsageHistory(true)
+  }
+
+  const handleEditFromTable = (item: any) => {
+    setSelectedItem(item)
+    setShowEditItem(true)
+  }
+
+  const handleDeleteFromTable = (itemId: string) => {
+    const item = items.find(i => i.id === itemId)
+    if (item) {
+      setSelectedItem(item)
+      setShowDeleteItem(true)
+    }
   }
 
   const formatCurrency = (amount: number) => {
@@ -294,62 +313,6 @@ export default function Inventory() {
             />
           </div>
 
-          {/* Search and Filter Bar */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-              <Input
-                type="text"
-                placeholder="البحث في المخزون..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pr-10"
-              />
-            </div>
-
-            <div className="flex gap-2 shrink-0">
-              <Select
-                value={filters.category || 'all'}
-                onValueChange={(value) => setFilters({ ...filters, category: value === 'all' ? undefined : value })}
-              >
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="الفئة" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الفئات</SelectItem>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category}>{category}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={filters.status || 'all'}
-                onValueChange={(value) => setFilters({ ...filters, status: value === 'all' ? undefined : value as any })}
-              >
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="الحالة" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الحالات</SelectItem>
-                  <SelectItem value="in_stock">متوفر</SelectItem>
-                  <SelectItem value="low_stock">مخزون منخفض</SelectItem>
-                  <SelectItem value="out_of_stock">نفد المخزون</SelectItem>
-                  <SelectItem value="expired">منتهي الصلاحية</SelectItem>
-                  <SelectItem value="expiring_soon">ينتهي قريباً</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-2 text-muted-foreground">جاري التحميل...</p>
-            </div>
-          )}
-
           {/* Error State */}
           {error && (
             <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
@@ -360,136 +323,14 @@ export default function Inventory() {
             </div>
           )}
 
-          {/* Inventory Grid */}
-          {!isLoading && !error && (
-            <div className="grid gap-4">
-              {filteredItems.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">لا توجد عناصر مخزون</h3>
-                  <p className="text-muted-foreground mb-4">
-                    {searchQuery || filters.category || filters.status
-                      ? 'لا توجد عناصر تطابق البحث'
-                      : 'ابدأ بإضافة عناصر المخزون'
-                    }
-                  </p>
-                  {!searchQuery && !filters.category && !filters.status && (
-                    <Button onClick={() => setShowAddItem(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      إضافة عنصر جديد
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredItems.map(item => (
-                    <Card key={item.id} className="hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg font-semibold text-foreground">
-                              {item.name}
-                            </CardTitle>
-                            {item.description && (
-                              <CardDescription className="mt-1">
-                                {item.description}
-                              </CardDescription>
-                            )}
-                          </div>
-                          {getStatusBadge(item)}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">الكمية:</span>
-                            <span className="font-medium">
-                              {item.quantity} {item.unit || 'قطعة'}
-                            </span>
-                          </div>
-
-                          {item.category && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">الفئة:</span>
-                              <span>{item.category}</span>
-                            </div>
-                          )}
-
-                          {item.cost_per_unit && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">التكلفة:</span>
-                              <span>{formatCurrency(item.cost_per_unit)}</span>
-                            </div>
-                          )}
-
-                          {item.expiry_date && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">تاريخ الانتهاء:</span>
-                              <span>{new Date(item.expiry_date).toLocaleDateString('ar-SA')}</span>
-                            </div>
-                          )}
-
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">الحد الأدنى:</span>
-                            <span>{item.minimum_stock}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-1 mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => {
-                              setSelectedItem(item)
-                              setShowEditItem(true)
-                            }}
-                          >
-                            <Edit className="w-3 h-3 mr-1" />
-                            تعديل
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedItem(item)
-                              setShowUsageDialog(true)
-                            }}
-                            disabled={item.quantity === 0}
-                          >
-                            <Activity className="w-3 h-3 mr-1" />
-                            استخدام
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedItem(item)
-                              setShowUsageHistory(true)
-                            }}
-                            title="عرض تاريخ الاستخدام"
-                          >
-                            <Calendar className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedItem(item)
-                              setShowDeleteItem(true)
-                            }}
-                            title="حذف العنصر"
-                          >
-                            <Trash2 className="w-3 h-3 text-destructive" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Inventory Table */}
+          <InventoryTable
+            items={filteredItems}
+            isLoading={isLoading}
+            onEdit={handleEditFromTable}
+            onDelete={handleDeleteFromTable}
+            onViewDetails={handleViewDetails}
+          />
         </TabsContent>
 
         <TabsContent value="alerts" className="space-y-6">

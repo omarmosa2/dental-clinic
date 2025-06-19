@@ -26,6 +26,18 @@ interface PatientActions {
   // Search and filter
   searchPatients: (query: string) => Promise<void>
   filterPatients: () => void
+
+  // Patient-related data
+  getPatientAppointments: (patientId: string) => Promise<any[]>
+  getPatientPayments: (patientId: string) => Promise<any[]>
+  getPatientStats: (patientId: string) => Promise<{
+    totalAppointments: number
+    completedAppointments: number
+    totalPayments: number
+    totalAmountPaid: number
+    lastAppointment?: string
+    lastPayment?: string
+  }>
 }
 
 type PatientStore = PatientState & PatientActions
@@ -213,6 +225,68 @@ export const usePatientStore = create<PatientStore>()(
         )
 
         set({ filteredPatients: filtered })
+      },
+
+      // Patient-related data methods
+      getPatientAppointments: async (patientId: string) => {
+        try {
+          const appointments = await window.electronAPI?.appointments?.getByPatient?.(patientId) || []
+          return appointments
+        } catch (error) {
+          console.error('Error fetching patient appointments:', error)
+          return []
+        }
+      },
+
+      getPatientPayments: async (patientId: string) => {
+        try {
+          const payments = await window.electronAPI?.payments?.getByPatient?.(patientId) || []
+          return payments
+        } catch (error) {
+          console.error('Error fetching patient payments:', error)
+          return []
+        }
+      },
+
+      getPatientStats: async (patientId: string) => {
+        try {
+          const [appointments, payments] = await Promise.all([
+            get().getPatientAppointments(patientId),
+            get().getPatientPayments(patientId)
+          ])
+
+          const totalAppointments = appointments.length
+          const completedAppointments = appointments.filter((apt: any) => apt.status === 'completed').length
+          const totalPayments = payments.length
+          const totalAmountPaid = payments
+            .filter((payment: any) => payment.status === 'completed')
+            .reduce((sum: number, payment: any) => sum + payment.amount, 0)
+
+          const lastAppointment = appointments.length > 0
+            ? appointments.sort((a: any, b: any) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())[0].start_time
+            : undefined
+
+          const lastPayment = payments.length > 0
+            ? payments.sort((a: any, b: any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())[0].payment_date
+            : undefined
+
+          return {
+            totalAppointments,
+            completedAppointments,
+            totalPayments,
+            totalAmountPaid,
+            lastAppointment,
+            lastPayment
+          }
+        } catch (error) {
+          console.error('Error calculating patient stats:', error)
+          return {
+            totalAppointments: 0,
+            completedAppointments: 0,
+            totalPayments: 0,
+            totalAmountPaid: 0
+          }
+        }
       }
     }),
     {

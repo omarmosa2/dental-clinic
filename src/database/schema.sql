@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS inventory_usage (
 CREATE TABLE IF NOT EXISTS settings (
     id TEXT PRIMARY KEY DEFAULT 'clinic_settings',
     clinic_name TEXT DEFAULT 'Dental Clinic',
+    doctor_name TEXT DEFAULT 'د. محمد أحمد',
     clinic_address TEXT,
     clinic_phone TEXT,
     clinic_email TEXT,

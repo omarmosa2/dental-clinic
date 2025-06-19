@@ -246,6 +246,22 @@ export class DatabaseService {
           console.log('✅ Migration 3 completed successfully')
         }
 
+        // Migration 4: Add doctor_name to settings table
+        if (!appliedMigrations.has(4)) {
+          console.log('🔄 Applying migration 4: Add doctor_name to settings')
+
+          const settingsColumns = this.db.prepare("PRAGMA table_info(settings)").all() as any[]
+          const settingsColumnNames = settingsColumns.map(col => col.name)
+
+          if (!settingsColumnNames.includes('doctor_name')) {
+            this.db.exec('ALTER TABLE settings ADD COLUMN doctor_name TEXT DEFAULT \'د. محمد أحمد\'')
+            this.db.exec('UPDATE settings SET doctor_name = \'د. محمد أحمد\' WHERE doctor_name IS NULL')
+          }
+
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(4, 'Add doctor_name to settings')
+          console.log('✅ Migration 4 completed successfully')
+        }
+
       } catch (error) {
         console.error('❌ Migration failed:', error)
         // Record failed migration
@@ -397,13 +413,34 @@ export class DatabaseService {
       SELECT
         a.*,
         p.full_name as patient_name,
+        p.first_name,
+        p.last_name,
+        p.phone,
+        p.email,
+        p.gender,
         t.name as treatment_name
       FROM appointments a
       LEFT JOIN patients p ON a.patient_id = p.id
       LEFT JOIN treatments t ON a.treatment_id = t.id
       ORDER BY a.start_time
     `)
-    return stmt.all() as Appointment[]
+    const appointments = stmt.all() as Appointment[]
+
+    // Add patient object for compatibility
+    return appointments.map(appointment => {
+      if (appointment.patient_name) {
+        appointment.patient = {
+          id: appointment.patient_id,
+          full_name: appointment.patient_name,
+          first_name: appointment.first_name,
+          last_name: appointment.last_name,
+          phone: appointment.phone,
+          email: appointment.email,
+          gender: appointment.gender
+        } as any
+      }
+      return appointment
+    })
   }
 
   async createAppointment(appointment: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>): Promise<Appointment> {
@@ -466,7 +503,38 @@ export class DatabaseService {
       // Force WAL checkpoint to ensure data is written
       this.db.pragma('wal_checkpoint(TRUNCATE)')
 
-      return { ...appointment, id, created_at: now, updated_at: now }
+      // Get the created appointment with patient and treatment data
+      const getStmt = this.db.prepare(`
+        SELECT
+          a.*,
+          p.full_name as patient_name,
+          p.first_name,
+          p.last_name,
+          p.phone,
+          p.email,
+          p.gender,
+          t.name as treatment_name
+        FROM appointments a
+        LEFT JOIN patients p ON a.patient_id = p.id
+        LEFT JOIN treatments t ON a.treatment_id = t.id
+        WHERE a.id = ?
+      `)
+      const createdAppointment = getStmt.get(id) as Appointment
+
+      // Add patient object for compatibility
+      if (createdAppointment && createdAppointment.patient_name) {
+        createdAppointment.patient = {
+          id: createdAppointment.patient_id,
+          full_name: createdAppointment.patient_name,
+          first_name: createdAppointment.first_name,
+          last_name: createdAppointment.last_name,
+          phone: createdAppointment.phone,
+          email: createdAppointment.email,
+          gender: createdAppointment.gender
+        } as any
+      }
+
+      return createdAppointment
     } catch (error) {
       console.error('❌ Failed to create appointment:', error)
       console.error('Appointment data:', appointment)
@@ -476,6 +544,8 @@ export class DatabaseService {
 
   async updateAppointment(id: string, appointment: Partial<Appointment>): Promise<Appointment> {
     const now = new Date().toISOString()
+
+    console.log('🔄 Updating appointment:', { id, appointment })
 
     const stmt = this.db.prepare(`
       UPDATE appointments SET
@@ -492,14 +562,55 @@ export class DatabaseService {
       WHERE id = ?
     `)
 
-    stmt.run(
+    const result = stmt.run(
       appointment.patient_id, appointment.treatment_id, appointment.title,
       appointment.description, appointment.start_time, appointment.end_time,
       appointment.status, appointment.cost, appointment.notes, now, id
     )
 
-    const getStmt = this.db.prepare('SELECT * FROM appointments WHERE id = ?')
-    return getStmt.get(id) as Appointment
+    console.log('✅ Appointment update result:', { changes: result.changes, lastInsertRowid: result.lastInsertRowid })
+
+    if (result.changes === 0) {
+      throw new Error(`No appointment found with id: ${id}`)
+    }
+
+    // Force WAL checkpoint to ensure data is written
+    this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+    // Get the updated appointment with patient and treatment data
+    const getStmt = this.db.prepare(`
+      SELECT
+        a.*,
+        p.full_name as patient_name,
+        p.first_name,
+        p.last_name,
+        p.phone,
+        p.email,
+        p.gender,
+        t.name as treatment_name
+      FROM appointments a
+      LEFT JOIN patients p ON a.patient_id = p.id
+      LEFT JOIN treatments t ON a.treatment_id = t.id
+      WHERE a.id = ?
+    `)
+    const updatedAppointment = getStmt.get(id) as Appointment
+
+    // Add patient object for compatibility
+    if (updatedAppointment && updatedAppointment.patient_name) {
+      updatedAppointment.patient = {
+        id: updatedAppointment.patient_id,
+        full_name: updatedAppointment.patient_name,
+        first_name: updatedAppointment.first_name,
+        last_name: updatedAppointment.last_name,
+        phone: updatedAppointment.phone,
+        email: updatedAppointment.email,
+        gender: updatedAppointment.gender
+      } as any
+    }
+
+    console.log('📋 Retrieved updated appointment with patient data:', updatedAppointment)
+
+    return updatedAppointment
   }
 
   async deleteAppointment(id: string): Promise<boolean> {
@@ -513,12 +624,35 @@ export class DatabaseService {
     const stmt = this.db.prepare(`
       SELECT
         p.*,
-        pt.full_name as patient_name
+        pt.full_name as patient_name,
+        pt.full_name as patient_full_name,
+        pt.phone as patient_phone,
+        pt.email as patient_email,
+        a.title as appointment_title
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
+      LEFT JOIN appointments a ON p.appointment_id = a.id
       ORDER BY p.payment_date DESC
     `)
-    return stmt.all() as Payment[]
+
+    const payments = stmt.all() as any[]
+
+    // Transform the data to include patient and appointment objects
+    return payments.map(payment => ({
+      ...payment,
+      patient: payment.patient_id ? {
+        id: payment.patient_id,
+        full_name: payment.patient_full_name,
+        first_name: payment.patient_full_name?.split(' ')[0] || '',
+        last_name: payment.patient_full_name?.split(' ').slice(1).join(' ') || '',
+        phone: payment.patient_phone,
+        email: payment.patient_email
+      } : null,
+      appointment: payment.appointment_id ? {
+        id: payment.appointment_id,
+        title: payment.appointment_title
+      } : null
+    }))
   }
 
   async createPayment(payment: Omit<Payment, 'id' | 'created_at' | 'updated_at'>): Promise<Payment> {
@@ -1495,6 +1629,7 @@ export class DatabaseService {
     const stmt = this.db.prepare(`
       UPDATE settings SET
         clinic_name = COALESCE(?, clinic_name),
+        doctor_name = COALESCE(?, doctor_name),
         clinic_address = COALESCE(?, clinic_address),
         clinic_phone = COALESCE(?, clinic_phone),
         clinic_email = COALESCE(?, clinic_email),
@@ -1513,7 +1648,7 @@ export class DatabaseService {
     `)
 
     stmt.run(
-      settings.clinic_name, settings.clinic_address, settings.clinic_phone,
+      settings.clinic_name, settings.doctor_name, settings.clinic_address, settings.clinic_phone,
       settings.clinic_email, settings.clinic_logo, settings.currency,
       settings.language, settings.timezone, settings.backup_frequency,
       settings.auto_save_interval, settings.appointment_duration,

@@ -77,6 +77,11 @@ export const useAppointmentStore = create<AppointmentStore>()(
         set({ isLoading: true, error: null })
         try {
           const appointments = await window.electronAPI.appointments.getAll()
+          console.log('🏪 Store: Loaded appointments:', appointments.length)
+          if (appointments.length > 0) {
+            console.log('🏪 Store: First appointment sample:', appointments[0])
+          }
+
           set({
             appointments,
             isLoading: false
@@ -85,6 +90,7 @@ export const useAppointmentStore = create<AppointmentStore>()(
           // Convert to calendar events
           get().convertToCalendarEvents()
         } catch (error) {
+          console.error('🏪 Store: Failed to load appointments:', error)
           set({
             error: error instanceof Error ? error.message : 'Failed to load appointments',
             isLoading: false
@@ -117,12 +123,17 @@ export const useAppointmentStore = create<AppointmentStore>()(
       updateAppointment: async (id, appointmentData) => {
         set({ isLoading: true, error: null })
         try {
+          console.log('🏪 Store: Updating appointment:', { id, appointmentData })
           const updatedAppointment = await window.electronAPI.appointments.update(id, appointmentData)
+          console.log('🏪 Store: Received updated appointment:', updatedAppointment)
+
           const { appointments, selectedAppointment } = get()
 
           const updatedAppointments = appointments.map(a =>
             a.id === id ? updatedAppointment : a
           )
+
+          console.log('🏪 Store: Updated appointments array, found:', updatedAppointments.filter(a => a.id === id).length)
 
           set({
             appointments: updatedAppointments,
@@ -132,11 +143,17 @@ export const useAppointmentStore = create<AppointmentStore>()(
 
           // Update calendar events
           get().convertToCalendarEvents()
+          console.log('🏪 Store: Update completed successfully')
+
+          // Reload appointments to ensure we have the latest data with patient info
+          await get().loadAppointments()
         } catch (error) {
+          console.error('🏪 Store: Update failed:', error)
           set({
             error: error instanceof Error ? error.message : 'Failed to update appointment',
             isLoading: false
           })
+          throw error // Re-throw to let the UI handle it
         }
       },
 

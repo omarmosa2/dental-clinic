@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
 const { join } = require('path')
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -137,12 +137,23 @@ app.whenReady().then(async () => {
         backupService = null
       }
 
+      // Try to initialize reports service again after database is ready
+      try {
+        const { ReportsService } = require('../src/services/reportsService.js')
+        reportsService = new ReportsService()
+        console.log('✅ Reports service initialized successfully (fallback)')
+      } catch (reportsError) {
+        console.error('❌ Failed to initialize reports service (fallback):', reportsError)
+        reportsService = null
+      }
+
     } catch (directError) {
       console.error('❌ Direct SQLite initialization also failed:', directError)
       console.error('Falling back to mock mode')
       // Fallback to mock mode
       databaseService = null
       backupService = null
+      reportsService = null
     }
   }
 
@@ -799,6 +810,36 @@ ipcMain.handle('dialog:showOpenDialog', async (_, options) => {
 ipcMain.handle('dialog:showSaveDialog', async (_, options) => {
   const result = await dialog.showSaveDialog(mainWindow, options)
   return result
+})
+
+// System IPC Handlers
+ipcMain.handle('system:openExternal', async (_, url) => {
+  try {
+    await shell.openExternal(url)
+    return { success: true }
+  } catch (error) {
+    console.error('Error opening external URL:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('system:getVersion', async () => {
+  return app.getVersion()
+})
+
+ipcMain.handle('system:getPath', async (_, name) => {
+  return app.getPath(name)
+})
+
+// Shell IPC Handlers (alternative method)
+ipcMain.handle('shell:openExternal', async (_, url) => {
+  try {
+    await shell.openExternal(url)
+    return { success: true }
+  } catch (error) {
+    console.error('Error opening external URL via shell:', error)
+    return { success: false, error: error.message }
+  }
 })
 
 // Settings IPC Handlers

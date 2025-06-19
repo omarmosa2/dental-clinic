@@ -93,6 +93,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openExternal: (url) => ipcRenderer.invoke('system:openExternal', url)
   },
 
+  // Shell operations (direct access)
+  shell: {
+    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
+  },
+
   // Dialog operations
   dialog: {
     showOpenDialog: (options) => ipcRenderer.invoke('dialog:showOpenDialog', options),
