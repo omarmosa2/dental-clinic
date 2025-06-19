@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useReportsStore } from '@/store/reportsStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import PatientReports from '@/components/reports/PatientReports'
 import InventoryReports from '@/components/reports/InventoryReports'
 import AppointmentReports from '@/components/reports/AppointmentReports'
@@ -155,6 +156,8 @@ export default function Reports() {
     setActiveReportType(selectedTab as any)
   }, [selectedTab, setActiveReportType])
 
+
+
   const StatCard = ({
     title,
     value,
@@ -170,12 +173,12 @@ export default function Reports() {
     trend?: { value: number; isPositive: boolean }
     description?: string
   }) => (
-    <Card>
+    <Card className={getCardStyles(color)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <Icon className={`h-4 w-4 text-${color}-600`} />
+        <Icon className={`h-4 w-4 ${getIconStyles(color)}`} />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold text-foreground">{value}</div>
@@ -253,7 +256,7 @@ export default function Reports() {
               <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground border-b">
                 اختر تنسيق التصدير
               </div>
-             
+
               <DropdownMenuItem
                 onClick={() => handleExport('csv')}
                 className="flex items-center space-x-2 space-x-reverse py-3"
@@ -414,21 +417,21 @@ export default function Reports() {
               title="المواعيد هذا الشهر"
               value={appointmentReports?.totalAppointments || 0}
               icon={Calendar}
-              color="green"
+              color="purple"
               description="مواعيد الشهر الحالي"
             />
             <StatCard
               title="إجمالي الإيرادات"
               value={<CurrencyDisplay amount={financialReports?.totalRevenue || 0} currency={currency} />}
               icon={DollarSign}
-              color="yellow"
+              color="green"
               description="الإيرادات المحققة"
             />
             <StatCard
               title="عناصر المخزون"
               value={inventoryReports?.totalItems || 0}
               icon={Package}
-              color="purple"
+              color="orange"
               description="إجمالي عناصر المخزون"
             />
           </div>

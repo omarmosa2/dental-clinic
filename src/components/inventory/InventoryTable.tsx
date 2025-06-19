@@ -317,33 +317,24 @@ export default function InventoryTable({
 
   return (
     <div className="space-y-4" dir="rtl">
-      {/* Search and Filter Controls */}
+      {/* Search and Filter Controls - RTL Layout: Search → Status → Category */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex flex-col sm:flex-row gap-2 flex-1">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-col sm:flex-row gap-3 flex-1 items-start sm:items-center">
+          {/* Search Field - First in RTL order */}
+          <div className="relative flex-1 max-w-sm order-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               placeholder="البحث في المخزون..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 arabic-enhanced text-right"
+              className="pl-10 arabic-enhanced text-right border-2 focus:border-primary/50 transition-colors"
             />
           </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[180px]">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="تصفية حسب الفئة" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع الفئات</SelectItem>
-              {categories.map(category => (
-                <SelectItem key={category} value={category}>{category}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
+          {/* Status Filter - Second in RTL order */}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <Filter className="w-4 h-4 mr-2" />
+            <SelectTrigger className="w-[200px] order-2 border-2 focus:border-primary/50 transition-colors">
+              <Filter className="w-4 h-4 mr-2 text-orange-500" />
               <SelectValue placeholder="تصفية حسب الحالة" />
             </SelectTrigger>
             <SelectContent>
@@ -355,9 +346,25 @@ export default function InventoryTable({
               <SelectItem value="expired">منتهي الصلاحية</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Category Filter - Third in RTL order */}
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[200px] order-3 border-2 focus:border-primary/50 transition-colors">
+              <Filter className="w-4 h-4 mr-2 text-blue-500" />
+              <SelectValue placeholder="تصفية حسب الفئة" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">جميع الفئات</SelectItem>
+              {categories.map(category => (
+                <SelectItem key={category} value={category}>{category}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="text-sm text-muted-foreground arabic-enhanced">
-          إجمالي العناصر: {enhancedItems.length}
+
+        {/* Items Count */}
+        <div className="text-sm text-muted-foreground arabic-enhanced bg-muted/30 px-3 py-2 rounded-lg border">
+          إجمالي العناصر: <span className="font-semibold text-foreground">{enhancedItems.length}</span>
         </div>
       </div>
 

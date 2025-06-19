@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { usePaymentStore } from '@/store/paymentStore'
 import { usePatientStore } from '@/store/patientStore'
 import { useToast } from '@/hooks/use-toast'
 import { formatCurrency } from '@/lib/utils'
+import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import AddPaymentDialog from '@/components/payments/AddPaymentDialog'
 import EditPaymentDialog from '@/components/payments/EditPaymentDialog'
 import DeletePaymentDialog from '@/components/payments/DeletePaymentDialog'
@@ -17,7 +26,10 @@ import {
   AlertTriangle,
   TrendingUp,
   RefreshCw,
-  Download
+  Download,
+  Search,
+  Filter,
+  X
 } from 'lucide-react'
 import type { Payment } from '@/types'
 
@@ -29,10 +41,16 @@ export default function Payments() {
   const [showReceiptDialog, setShowReceiptDialog] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
 
+
+
   const {
     payments,
+    filteredPayments,
     isLoading,
     error,
+    searchQuery,
+    statusFilter,
+    paymentMethodFilter,
     totalRevenue,
     pendingAmount,
     overdueAmount,
@@ -41,7 +59,10 @@ export default function Payments() {
     paymentMethodStats,
     loadPayments,
     deletePayment,
-    clearError
+    clearError,
+    setSearchQuery,
+    setStatusFilter,
+    setPaymentMethodFilter
   } = usePaymentStore()
 
   const { loadPatients, patients } = usePatientStore()
@@ -81,6 +102,14 @@ export default function Payments() {
     console.log('Add payment clicked')
     setShowAddDialog(true)
   }
+
+  const clearAllFilters = () => {
+    setSearchQuery('')
+    setStatusFilter('all')
+    setPaymentMethodFilter('all')
+  }
+
+  const hasActiveFilters = searchQuery !== '' || statusFilter !== 'all' || paymentMethodFilter !== 'all'
 
 
 
@@ -178,65 +207,65 @@ export default function Payments() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <Card>
+        <Card className={getCardStyles("green")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إجمالي الإيرادات</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي الإيرادات</CardTitle>
+            <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">
               من المدفوعات المكتملة
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("yellow")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المبالغ المعلقة</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">المبالغ المعلقة</CardTitle>
+            <Clock className={`h-4 w-4 ${getIconStyles("yellow")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(pendingAmount)}</div>
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(pendingAmount)}</div>
             <p className="text-xs text-muted-foreground">
               في انتظار الدفع
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("red")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المبالغ المتأخرة</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">المبالغ المتأخرة</CardTitle>
+            <AlertTriangle className={`h-4 w-4 ${getIconStyles("red")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(overdueAmount)}</div>
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(overdueAmount)}</div>
             <p className="text-xs text-muted-foreground">
               تحتاج متابعة
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("orange")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المبالغ المتبقية</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">المبالغ المتبقية</CardTitle>
+            <AlertTriangle className={`h-4 w-4 ${getIconStyles("orange")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalRemainingBalance)}</div>
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(totalRemainingBalance)}</div>
             <p className="text-xs text-muted-foreground">
               {partialPaymentsCount} دفعة جزئية
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("blue")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إجمالي المدفوعات</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي المدفوعات</CardTitle>
+            <TrendingUp className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{payments.length}</div>
+            <div className="text-2xl font-bold text-foreground">{payments.length}</div>
             <p className="text-xs text-muted-foreground">
               عملية دفع مسجلة
             </p>
@@ -244,9 +273,75 @@ export default function Payments() {
         </Card>
       </div>
 
+      {/* Search and Filter Controls */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg arabic-enhanced">البحث والتصفية</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-2 flex-1">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="البحث في المدفوعات..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 arabic-enhanced text-right"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="تصفية حسب الحالة" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">جميع الحالات</SelectItem>
+                  <SelectItem value="completed">مكتمل</SelectItem>
+                  <SelectItem value="pending">معلق</SelectItem>
+                  <SelectItem value="partial">جزئي</SelectItem>
+                  <SelectItem value="overdue">متأخر</SelectItem>
+                  <SelectItem value="failed">فاشل</SelectItem>
+                  <SelectItem value="refunded">مسترد</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="تصفية حسب طريقة الدفع" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">جميع طرق الدفع</SelectItem>
+                  <SelectItem value="cash">نقداً</SelectItem>
+                  <SelectItem value="card">بطاقة ائتمان</SelectItem>
+                  <SelectItem value="bank_transfer">تحويل بنكي</SelectItem>
+                  <SelectItem value="check">شيك</SelectItem>
+                  <SelectItem value="insurance">تأمين</SelectItem>
+                </SelectContent>
+              </Select>
+              {hasActiveFilters && (
+                <Button
+                  variant="outline"
+                  onClick={clearAllFilters}
+                  className="flex items-center gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  مسح الفلاتر
+                </Button>
+              )}
+            </div>
+          </div>
+          {hasActiveFilters && (
+            <div className="mt-4 text-sm text-muted-foreground arabic-enhanced">
+              عرض {filteredPayments.length} من أصل {payments.length} مدفوعة
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Payments Table */}
       <PaymentTable
-        payments={payments}
+        payments={filteredPayments}
         patients={patients}
         isLoading={isLoading}
         onEdit={handleEditPayment}

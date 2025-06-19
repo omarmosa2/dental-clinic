@@ -4,6 +4,43 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  safelist: [
+    // Card backgrounds for light mode
+    'bg-green-50', 'bg-yellow-50', 'bg-orange-50', 'bg-red-50',
+    'bg-blue-50', 'bg-purple-50', 'bg-emerald-50', 'bg-cyan-50',
+    'bg-indigo-50', 'bg-pink-50', 'bg-slate-50', 'bg-gray-50',
+
+    // Card backgrounds for dark mode
+    'dark:bg-green-950', 'dark:bg-yellow-950', 'dark:bg-orange-950', 'dark:bg-red-950',
+    'dark:bg-blue-950', 'dark:bg-purple-950', 'dark:bg-emerald-950', 'dark:bg-cyan-950',
+    'dark:bg-indigo-950', 'dark:bg-pink-950', 'dark:bg-slate-950', 'dark:bg-gray-950',
+
+    // Card borders for light mode
+    'border-green-200', 'border-yellow-200', 'border-orange-200', 'border-red-200',
+    'border-blue-200', 'border-purple-200', 'border-emerald-200', 'border-cyan-200',
+    'border-indigo-200', 'border-pink-200', 'border-slate-200', 'border-gray-200',
+
+    // Card borders for dark mode
+    'dark:border-green-800', 'dark:border-yellow-800', 'dark:border-orange-800', 'dark:border-red-800',
+    'dark:border-blue-800', 'dark:border-purple-800', 'dark:border-emerald-800', 'dark:border-cyan-800',
+    'dark:border-indigo-800', 'dark:border-pink-800', 'dark:border-slate-800', 'dark:border-gray-800',
+
+    // Icon colors for light mode
+    'text-green-700', 'text-yellow-700', 'text-orange-700', 'text-red-700',
+    'text-blue-700', 'text-purple-700', 'text-emerald-700', 'text-cyan-700',
+    'text-indigo-700', 'text-pink-700', 'text-slate-700', 'text-gray-700',
+
+    // Icon colors for dark mode
+    'dark:text-green-300', 'dark:text-yellow-300', 'dark:text-orange-300', 'dark:text-red-300',
+    'dark:text-blue-300', 'dark:text-purple-300', 'dark:text-emerald-300', 'dark:text-cyan-300',
+    'dark:text-indigo-300', 'dark:text-pink-300', 'dark:text-slate-300', 'dark:text-gray-300',
+
+    // Custom card classes
+    'card-green', 'card-blue', 'card-purple', 'card-emerald', 'card-yellow', 'card-orange', 'card-red',
+
+    // Common utility classes
+    'transition-all', 'duration-200', 'hover:shadow-lg', 'border', 'rounded-lg'
+  ],
   darkMode: ['class', "class"], // Enable class-based dark mode
   theme: {
   	extend: {

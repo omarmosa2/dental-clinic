@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useReportsStore } from '@/store/reportsStore'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useSettingsStore } from '@/store/settingsStore'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { PdfService } from '@/services/pdfService'
@@ -57,8 +58,10 @@ export default function InventoryReports() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [alertFilter, setAlertFilter] = useState('all')
 
+
+
   const StatCard = ({ title, value, icon: Icon, color, trend, description }: StatCardProps) => (
-    <Card>
+    <Card className={getCardStyles(color)}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -79,8 +82,8 @@ export default function InventoryReports() {
               )}
             </div>
           </div>
-          <div className={`p-3 rounded-full bg-${color}-100 dark:bg-${color}-900/20`}>
-            <Icon className={`w-6 h-6 text-${color}-600 dark:text-${color}-400`} />
+          <div className={`p-3 rounded-full ${getIconStyles(color)}`}>
+            <Icon className="w-6 h-6" />
           </div>
         </div>
         {description && (

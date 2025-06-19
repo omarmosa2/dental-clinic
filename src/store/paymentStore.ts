@@ -113,6 +113,7 @@ export const usePaymentStore = create<PaymentStore>()(
           const payments = await window.electronAPI.payments.getAll()
           set({
             payments,
+            filteredPayments: payments, // Initialize filtered payments with all payments
             isLoading: false
           })
 

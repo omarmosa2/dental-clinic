@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Edit,
@@ -24,8 +24,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Search,
-  Filter,
+
   DollarSign
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
@@ -54,9 +53,6 @@ export default function PaymentTable({
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all')
 
   // Create a map of patient IDs to patient objects for quick lookup
   const patientMap = useMemo(() => {
@@ -82,23 +78,12 @@ export default function PaymentTable({
     return patient?.full_name || 'مريض غير معروف'
   }
 
-  // Filter and sort payments
-  const filteredAndSortedPayments = useMemo(() => {
-    let filtered = payments.filter(payment => {
-      const patientName = getPatientName(payment)
-      const matchesSearch = searchQuery === '' ||
-        patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        payment.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        payment.description?.toLowerCase().includes(searchQuery.toLowerCase())
-
-      const matchesStatus = statusFilter === 'all' || payment.status === statusFilter
-      const matchesPaymentMethod = paymentMethodFilter === 'all' || payment.payment_method === paymentMethodFilter
-
-      return matchesSearch && matchesStatus && matchesPaymentMethod
-    })
+  // Sort payments (filtering is now handled by the store)
+  const sortedPayments = useMemo(() => {
+    let sorted = [...payments]
 
     // Sort payments
-    filtered.sort((a, b) => {
+    sorted.sort((a, b) => {
       let aValue: any
       let bValue: any
 
@@ -136,13 +121,13 @@ export default function PaymentTable({
       return 0
     })
 
-    return filtered
-  }, [payments, searchQuery, statusFilter, paymentMethodFilter, sortField, sortDirection, patientMap])
+    return sorted
+  }, [payments, sortField, sortDirection, patientMap])
 
   // Pagination
-  const totalPages = Math.ceil(filteredAndSortedPayments.length / pageSize)
+  const totalPages = Math.ceil(sortedPayments.length / pageSize)
   const startIndex = (currentPage - 1) * pageSize
-  const paginatedPayments = filteredAndSortedPayments.slice(startIndex, startIndex + pageSize)
+  const paginatedPayments = sortedPayments.slice(startIndex, startIndex + pageSize)
 
   // Handle sorting
   const handleSort = (field: SortField) => {
@@ -229,7 +214,7 @@ export default function PaymentTable({
     )
   }
 
-  if (filteredAndSortedPayments.length === 0) {
+  if (sortedPayments.length === 0) {
     return (
       <div className="border rounded-lg">
         <Table>
@@ -252,9 +237,7 @@ export default function PaymentTable({
                 <div className="flex flex-col items-center space-y-2">
                   <DollarSign className="w-12 h-12 text-muted-foreground opacity-50" />
                   <p className="text-muted-foreground">
-                    {searchQuery || statusFilter !== 'all' || paymentMethodFilter !== 'all'
-                      ? 'لم يتم العثور على مدفوعات تطابق معايير البحث'
-                      : 'لم يتم تسجيل أي مدفوعات بعد'}
+                    لم يتم تسجيل أي مدفوعات بعد
                   </p>
                 </div>
               </TableCell>
@@ -267,50 +250,6 @@ export default function PaymentTable({
 
   return (
     <div className="space-y-4" dir="rtl">
-      {/* Search and Filter Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex flex-col sm:flex-row gap-2 flex-1">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="البحث في المدفوعات..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 arabic-enhanced text-right"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="تصفية حسب الحالة" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع الحالات</SelectItem>
-              <SelectItem value="completed">مكتمل</SelectItem>
-              <SelectItem value="pending">معلق</SelectItem>
-              <SelectItem value="partial">جزئي</SelectItem>
-              <SelectItem value="overdue">متأخر</SelectItem>
-              <SelectItem value="failed">فاشل</SelectItem>
-              <SelectItem value="refunded">مسترد</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
-            <SelectTrigger className="w-[180px]">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="تصفية حسب طريقة الدفع" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع طرق الدفع</SelectItem>
-              <SelectItem value="cash">نقداً</SelectItem>
-              <SelectItem value="card">بطاقة ائتمان</SelectItem>
-              <SelectItem value="bank_transfer">تحويل بنكي</SelectItem>
-              <SelectItem value="check">شيك</SelectItem>
-              <SelectItem value="insurance">تأمين</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
       {/* Table */}
       <div className="border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
@@ -439,7 +378,7 @@ export default function PaymentTable({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 space-x-reverse">
             <p className="text-sm text-muted-foreground">
-              عرض {startIndex + 1} إلى {Math.min(startIndex + pageSize, filteredAndSortedPayments.length)} من {filteredAndSortedPayments.length} مدفوعة
+              عرض {startIndex + 1} إلى {Math.min(startIndex + pageSize, sortedPayments.length)} من {sortedPayments.length} مدفوعة
             </p>
           </div>
           <div className="flex items-center space-x-2 space-x-reverse">

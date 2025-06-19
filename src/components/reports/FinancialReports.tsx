@@ -6,6 +6,7 @@ import { useReportsStore } from '@/store/reportsStore'
 import { usePaymentStore } from '@/store/paymentStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { PdfService } from '@/services/pdfService'
 import {
@@ -57,6 +58,8 @@ export default function FinancialReports() {
     generateReport('financial')
     loadPayments()
   }, [generateReport, loadPayments])
+
+
 
   // Calculate financial statistics
   const calculateStats = () => {
@@ -266,13 +269,13 @@ export default function FinancialReports() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className={getCardStyles("green")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إجمالي الإيرادات</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي الإيرادات</CardTitle>
+            <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-foreground">
               <CurrencyDisplay amount={totalRevenue} currency={currency} />
             </div>
             <p className="text-xs text-muted-foreground">
@@ -281,13 +284,13 @@ export default function FinancialReports() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("yellow")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المبالغ المعلقة</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">المبالغ المعلقة</CardTitle>
+            <Clock className={`h-4 w-4 ${getIconStyles("yellow")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
+            <div className="text-2xl font-bold text-foreground">
               <CurrencyDisplay amount={pendingAmount} currency={currency} />
             </div>
             <p className="text-xs text-muted-foreground">
@@ -296,13 +299,13 @@ export default function FinancialReports() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("red")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المبالغ المتأخرة</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">المبالغ المتأخرة</CardTitle>
+            <AlertTriangle className={`h-4 w-4 ${getIconStyles("red")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold text-foreground">
               <CurrencyDisplay amount={overdueAmount} currency={currency} />
             </div>
             <p className="text-xs text-muted-foreground">
@@ -311,13 +314,13 @@ export default function FinancialReports() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("blue")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">معدل النجاح</CardTitle>
-            <TrendingUp className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">معدل النجاح</CardTitle>
+            <TrendingUp className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.successRate}%</div>
+            <div className="text-2xl font-bold text-foreground">{stats.successRate}%</div>
             <p className="text-xs text-muted-foreground">
               من إجمالي {stats.totalTransactions} معاملة
             </p>

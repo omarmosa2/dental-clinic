@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
+import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import {
   Package,
   Plus,
@@ -161,8 +162,10 @@ export default function Inventory() {
     return <Badge variant="default">متوفر</Badge>
   }
 
+
+
   const StatCard = ({ title, value, icon, color = "blue", trend }: any) => (
-    <Card>
+    <Card className={getCardStyles(color)}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -181,7 +184,7 @@ export default function Inventory() {
               </div>
             )}
           </div>
-          <div className="text-primary text-2xl">
+          <div className={`text-2xl ${getIconStyles(color)}`}>
             {icon}
           </div>
         </div>

@@ -418,10 +418,10 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
             <CardContent className="space-y-4">
               {/* Auto Calculations Info */}
               {formData.patient_id && (
-                <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/30 shadow-sm">
+                <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200 dark:border-blue-800 shadow-sm transition-all duration-200">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <Sparkles className="w-4 h-4 text-primary" />
+                      <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       <span className="text-sm font-medium text-primary">الحسابات التلقائية</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -493,7 +493,11 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
 
               {/* Remaining Balance Display */}
               {formData.total_amount_due && (
-                <Card className="bg-muted/50 border-border">
+                <Card className={`shadow-sm transition-all duration-200 ${
+                  calculateRemainingBalance() > 0
+                    ? "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/50 dark:to-orange-900/30 border-orange-200 dark:border-orange-800"
+                    : "bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/30 border-green-200 dark:border-green-800"
+                }`}>
                   <CardContent className="p-4">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium text-foreground">المبلغ المتبقي:</span>

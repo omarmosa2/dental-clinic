@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { useReportsStore } from '@/store/reportsStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
 import { formatDate } from '@/lib/utils'
+import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { PdfService } from '@/services/pdfService'
 import {
   Calendar,
@@ -43,6 +44,8 @@ export default function AppointmentReports() {
     generateReport('appointments')
     loadAppointments()
   }, [generateReport, loadAppointments])
+
+
 
   // Calculate appointment statistics
   const calculateStats = () => {
@@ -241,52 +244,52 @@ export default function AppointmentReports() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className={getCardStyles("purple")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إجمالي المواعيد</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي المواعيد</CardTitle>
+            <Calendar className={`h-4 w-4 ${getIconStyles("purple")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
             <p className="text-xs text-muted-foreground">
               جميع المواعيد المسجلة
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("emerald")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المواعيد المكتملة</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">المواعيد المكتملة</CardTitle>
+            <CheckCircle className={`h-4 w-4 ${getIconStyles("emerald")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.completed}</div>
             <p className="text-xs text-muted-foreground">
               معدل الحضور: {stats.attendanceRate}%
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("orange")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المواعيد الملغية</CardTitle>
-            <XCircle className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">المواعيد الملغية</CardTitle>
+            <XCircle className={`h-4 w-4 ${getIconStyles("orange")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.cancelled}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.cancelled}</div>
             <p className="text-xs text-muted-foreground">
               معدل الإلغاء: {stats.cancellationRate}%
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("blue")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المواعيد المجدولة</CardTitle>
-            <Clock className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">المواعيد المجدولة</CardTitle>
+            <Clock className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.pending}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.pending}</div>
             <p className="text-xs text-muted-foreground">
               في انتظار التنفيذ
             </p>

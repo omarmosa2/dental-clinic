@@ -7,6 +7,7 @@ import { usePaymentStore } from '@/store/paymentStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useInventoryStore } from '@/store/inventoryStore'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import {
   Users,
   Calendar,
@@ -136,39 +137,39 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className={getCardStyles("blue")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إجمالي المرضى</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي المرضى</CardTitle>
+            <Users className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalPatients}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.totalPatients}</div>
             <p className="text-xs text-muted-foreground">
               سجلات المرضى النشطة
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("purple")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">مواعيد اليوم</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">مواعيد اليوم</CardTitle>
+            <Calendar className={`h-4 w-4 ${getIconStyles("purple")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.todayAppointments}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.todayAppointments}</div>
             <p className="text-xs text-muted-foreground">
               مجدولة لليوم
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("emerald")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المواعيد المكتملة</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">المواعيد المكتملة</CardTitle>
+            <TrendingUp className={`h-4 w-4 ${getIconStyles("emerald")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-foreground">
               {appointments.filter(a => a.status === 'completed').length}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -177,13 +178,13 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("green")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إيرادات الشهر</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">إيرادات الشهر</CardTitle>
+            <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-foreground">
               {formatCurrency(stats.thisMonthRevenue, currency)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -195,13 +196,13 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
 
       {/* Second Row Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card>
+        <Card className={getCardStyles("green")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إجمالي الإيرادات</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي الإيرادات</CardTitle>
+            <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-foreground">
               {formatCurrency(stats.totalRevenue, currency)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -210,13 +211,13 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("yellow")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المدفوعات المعلقة</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">المدفوعات المعلقة</CardTitle>
+            <Clock className={`h-4 w-4 ${getIconStyles("yellow")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
+            <div className="text-2xl font-bold text-foreground">
               {formatCurrency(stats.pendingPayments, currency)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -225,13 +226,13 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={getCardStyles("orange")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">تنبيهات المخزون</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">تنبيهات المخزون</CardTitle>
+            <Package className={`h-4 w-4 ${getIconStyles("orange")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{stats.lowStockItems}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.lowStockItems}</div>
             <p className="text-xs text-muted-foreground">
               عناصر تحتاج انتباه
             </p>
@@ -239,11 +240,11 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
               <div className="mt-2 text-xs">
                 <div className="flex justify-between">
                   <span>مخزون منخفض:</span>
-                  <span className="text-yellow-600">{lowStockCount}</span>
+                  <span className={getIconStyles("yellow").replace('h-4 w-4', '')}>{lowStockCount}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>منتهي الصلاحية:</span>
-                  <span className="text-destructive">{expiredCount + expiringSoonCount}</span>
+                  <span className={getIconStyles("red").replace('h-4 w-4', '')}>{expiredCount + expiringSoonCount}</span>
                 </div>
               </div>
             )}

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useReportsStore } from '@/store/reportsStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { formatDate } from '@/lib/utils'
+import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { PdfService } from '@/services/pdfService'
 import {
   Users,
@@ -56,6 +57,8 @@ export default function PatientReports() {
     generateReport('patients')
   }, [generateReport])
 
+
+
   const StatCard = ({
     title,
     value,
@@ -71,12 +74,12 @@ export default function PatientReports() {
     trend?: { value: number; isPositive: boolean }
     description?: string
   }) => (
-    <Card>
+    <Card className={getCardStyles(color)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <Icon className={`h-4 w-4 text-${color}-600`} />
+        <Icon className={`h-4 w-4 ${getIconStyles(color)}`} />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold text-foreground">{value}</div>
