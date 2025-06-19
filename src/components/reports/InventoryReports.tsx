@@ -470,19 +470,19 @@ export default function InventoryReports() {
             </div>
           </div>
 
-          {/* Stock Alerts Table */}
-          <div className="border rounded-lg overflow-hidden">
+          {/* Stock Alerts Table - RTL Layout with Centered Headers */}
+          <div className="border rounded-lg overflow-hidden" dir="rtl">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-muted">
                   <tr>
-                    <th className="text-right p-3 font-medium">اسم العنصر</th>
-                    <th className="text-right p-3 font-medium">الفئة</th>
-                    <th className="text-right p-3 font-medium">الكمية الحالية</th>
-                    <th className="text-right p-3 font-medium">الحد الأدنى</th>
-                    <th className="text-right p-3 font-medium">تاريخ الانتهاء</th>
-                    <th className="text-right p-3 font-medium">نوع التنبيه</th>
-                    <th className="text-right p-3 font-medium">الإجراءات</th>
+                    <th className="text-center p-3 font-medium">اسم العنصر</th>
+                    <th className="text-center p-3 font-medium">الفئة</th>
+                    <th className="text-center p-3 font-medium">الكمية الحالية</th>
+                    <th className="text-center p-3 font-medium">الحد الأدنى</th>
+                    <th className="text-center p-3 font-medium">تاريخ الانتهاء</th>
+                    <th className="text-center p-3 font-medium">نوع التنبيه</th>
+                    <th className="text-center p-3 font-medium">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -516,21 +516,21 @@ export default function InventoryReports() {
 
                     return (
                       <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/50'}>
-                        <td className="p-3 font-medium">{item.name}</td>
-                        <td className="p-3 text-muted-foreground">{item.category || '-'}</td>
-                        <td className="p-3 text-muted-foreground">
+                        <td className="p-3 font-medium text-center">{item.name}</td>
+                        <td className="p-3 text-muted-foreground text-center">{item.category || '-'}</td>
+                        <td className="p-3 text-muted-foreground text-center">
                           {item.quantity} {item.unit || 'قطعة'}
                         </td>
-                        <td className="p-3 text-muted-foreground">
+                        <td className="p-3 text-muted-foreground text-center">
                           {item.minimum_stock} {item.unit || 'قطعة'}
                         </td>
-                        <td className="p-3 text-muted-foreground">
+                        <td className="p-3 text-muted-foreground text-center">
                           {item.expiry_date ? formatDate(item.expiry_date) : '-'}
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 text-center">
                           <Badge variant={alertColor as any}>{alertType}</Badge>
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 text-center">
                           <Button variant="ghost" size="sm">
                             <Eye className="w-4 h-4" />
                           </Button>

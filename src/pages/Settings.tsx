@@ -17,7 +17,11 @@ import {
   Palette,
   Moon,
   Sun,
-  Key
+  Key,
+  Users,
+  Phone,
+  Mail,
+  Info
 } from 'lucide-react'
 import LicenseInfoCard from '../components/LicenseInfoCard'
 import LicenseActivationDialog from '../components/LicenseActivationDialog'
@@ -298,7 +302,8 @@ export default function Settings() {
             { id: 'license', name: 'الترخيص', icon: Shield },
             { id: 'backup', name: 'النسخ الاحتياطية', icon: Database },
             { id: 'appearance', name: 'المظهر', icon: Palette },
-            { id: 'clinic', name: 'إعدادات العيادة', icon: SettingsIcon }
+            { id: 'clinic', name: 'إعدادات العيادة', icon: SettingsIcon },
+            { id: 'development', name: 'فريق التطوير', icon: Users }
           ].map(tab => (
             <button
               key={tab.id}
@@ -688,18 +693,7 @@ export default function Settings() {
                 </div>
               </div>
 
-              {/* Additional Settings */}
-              <div className="pt-4 border-t border-border">
-                <h4 className="text-sm font-medium text-foreground mb-3">إعدادات إضافية</h4>
-                <div className="text-sm text-muted-foreground">
-                  <p>سيتم إضافة المزيد من خيارات التخصيص قريباً:</p>
-                  <ul className="mt-2 space-y-1 mr-4">
-                    <li>• اختيار الألوان الأساسية</li>
-                    <li>• حجم الخط</li>
-                    <li>• كثافة العناصر</li>
-                  </ul>
-                </div>
-              </div>
+
             </div>
           </div>
         </div>
@@ -880,6 +874,87 @@ export default function Settings() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Development Team Tab */}
+      {activeTab === 'development' && (
+        <div className="space-y-6">
+          <div className="bg-card rounded-lg shadow border border-border">
+            <div className="p-6 border-b border-border">
+              <h3 className="text-lg font-medium text-foreground">معلومات فريق التطوير</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                تواصل مع فريق التطوير للدعم الفني والاستفسارات
+              </p>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* Team Name */}
+              <div className="flex items-center space-x-4 space-x-reverse p-4 bg-muted/50 rounded-lg">
+                <div className="p-3 bg-primary/10 rounded-lg">
+                  <Users className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-foreground">اسم الفريق</h4>
+                  <p className="text-lg font-bold text-foreground">Augment Code Team</p>
+                  <p className="text-sm text-muted-foreground">فريق تطوير تطبيقات إدارة العيادات</p>
+                </div>
+              </div>
+
+              {/* Contact Phone */}
+              <div className="flex items-center space-x-4 space-x-reverse p-4 bg-muted/50 rounded-lg">
+                <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <Phone className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-foreground">رقم التواصل</h4>
+                  <p className="text-lg font-bold text-foreground">+966 50 123 4567</p>
+                  <p className="text-sm text-muted-foreground">متاح للدعم الفني من 9 صباحاً إلى 6 مساءً</p>
+                </div>
+                <button
+                  onClick={() => window.open('https://api.whatsapp.com/send/?phone=966501234567', '_blank')}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  تواصل عبر واتساب
+                </button>
+              </div>
+
+              {/* Contact Email */}
+              <div className="flex items-center space-x-4 space-x-reverse p-4 bg-muted/50 rounded-lg">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-foreground">البريد الإلكتروني</h4>
+                  <p className="text-lg font-bold text-foreground">support@augmentcode.com</p>
+                  <p className="text-sm text-muted-foreground">للاستفسارات والدعم الفني</p>
+                </div>
+                <button
+                  onClick={() => window.open('mailto:support@augmentcode.com', '_blank')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  إرسال إيميل
+                </button>
+              </div>
+
+              {/* Additional Info */}
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                <div className="flex items-start space-x-3 space-x-reverse">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Info className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-foreground mb-2">معلومات إضافية</h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• نقدم دعماً فنياً شاملاً لجميع مستخدمي التطبيق</li>
+                      <li>• نستقبل اقتراحاتكم لتطوير وتحسين التطبيق</li>
+                      <li>• نوفر تدريباً مجانياً على استخدام التطبيق</li>
+                      <li>• نضمن الاستجابة السريعة لجميع الاستفسارات</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

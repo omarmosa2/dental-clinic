@@ -37,7 +37,7 @@ import {
 const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
 
 export default function AppointmentReports() {
-  const { appointmentReports, isLoading, isExporting, generateReport } = useReportsStore()
+  const { appointmentReports, isLoading, isExporting, generateReport, clearCache } = useReportsStore()
   const { appointments, loadAppointments } = useAppointmentStore()
 
   useEffect(() => {
@@ -107,6 +107,8 @@ export default function AppointmentReports() {
             size="sm"
             onClick={async () => {
               try {
+                // Clear cache to force fresh data
+                clearCache()
                 await generateReport('appointments')
                 await loadAppointments()
                 // Show success message
@@ -119,6 +121,7 @@ export default function AppointmentReports() {
                 })
                 window.dispatchEvent(event)
               } catch (error) {
+                console.error('Error refreshing appointment reports:', error)
                 const event = new CustomEvent('showToast', {
                   detail: {
                     title: 'خطأ في التحديث',
@@ -243,7 +246,7 @@ export default function AppointmentReports() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
         <Card className={getCardStyles("purple")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي المواعيد</CardTitle>
@@ -298,7 +301,7 @@ export default function AppointmentReports() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
         {/* Status Distribution Chart */}
         <Card>
           <CardHeader>
@@ -342,11 +345,18 @@ export default function AppointmentReports() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyChartData}>
+              <BarChart data={monthlyChartData} layout="horizontal">
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
+                <XAxis
+                  dataKey="month"
+                  tick={{ textAnchor: 'end', direction: 'rtl' }}
+                  reversed={true}
+                />
                 <YAxis />
-                <Tooltip />
+                <Tooltip
+                  labelStyle={{ direction: 'rtl', textAlign: 'right' }}
+                  contentStyle={{ direction: 'rtl', textAlign: 'right' }}
+                />
                 <Bar dataKey="count" fill="#0ea5e9" />
               </BarChart>
             </ResponsiveContainer>

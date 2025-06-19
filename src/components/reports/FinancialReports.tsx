@@ -42,7 +42,7 @@ import {
 const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
 
 export default function FinancialReports() {
-  const { financialReports, isLoading, isExporting, generateReport } = useReportsStore()
+  const { financialReports, isLoading, isExporting, generateReport, clearCache } = useReportsStore()
   const {
     payments,
     totalRevenue,
@@ -125,6 +125,8 @@ export default function FinancialReports() {
             size="sm"
             onClick={async () => {
               try {
+                // Clear cache to force fresh data
+                clearCache()
                 await generateReport('financial')
                 await loadPayments()
                 // Show success message
@@ -137,6 +139,7 @@ export default function FinancialReports() {
                 })
                 window.dispatchEvent(event)
               } catch (error) {
+                console.error('Error refreshing financial reports:', error)
                 const event = new CustomEvent('showToast', {
                   detail: {
                     title: 'خطأ في التحديث',
@@ -267,8 +270,8 @@ export default function FinancialReports() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Stats Cards - RTL Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" dir="rtl">
         <Card className={getCardStyles("green")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي الإيرادات</CardTitle>
@@ -310,19 +313,6 @@ export default function FinancialReports() {
             </div>
             <p className="text-xs text-muted-foreground">
               تحتاج متابعة عاجلة
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={getCardStyles("blue")}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">معدل النجاح</CardTitle>
-            <TrendingUp className={`h-4 w-4 ${getIconStyles("blue")}`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.successRate}%</div>
-            <p className="text-xs text-muted-foreground">
-              من إجمالي {stats.totalTransactions} معاملة
             </p>
           </CardContent>
         </Card>

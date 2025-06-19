@@ -14,6 +14,14 @@ import AppointmentReports from '@/components/reports/AppointmentReports'
 import FinancialReports from '@/components/reports/FinancialReports'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
   BarChart3,
   Users,
   Calendar,
@@ -436,35 +444,115 @@ export default function Reports() {
             />
           </div>
 
-          {/* Quick Stats Cards */}
+          {/* Quick Stats Table */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>ملخص سريع</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  ملخص سريع
+                </CardTitle>
                 <CardDescription>أهم الإحصائيات لهذا الشهر</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">المرضى الجدد</span>
-                  <Badge variant="secondary">{patientReports?.newPatients || 0}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">معدل الحضور</span>
-                  <Badge variant="secondary">
-                    {appointmentReports?.attendanceRate?.toFixed(1) || 0}%
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">المدفوعات المعلقة</span>
-                  <Badge variant="destructive">
-                    <CurrencyDisplay amount={financialReports?.totalPending || 0} currency={currency} />
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">تنبيهات المخزون</span>
-                  <Badge variant="destructive">
-                    {(inventoryReports?.lowStockItems || 0) + (inventoryReports?.expiredItems || 0) + (inventoryReports?.expiringSoonItems || 0)}
-                  </Badge>
+              <CardContent>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="text-right">
+                          <span className="arabic-enhanced font-medium">البيان</span>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <span className="arabic-enhanced font-medium">القيمة</span>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <span className="arabic-enhanced font-medium">الحالة</span>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow className="hover:bg-muted/50">
+                        <TableCell className="font-medium text-right">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-blue-500" />
+                            <span className="arabic-enhanced">المرضى الجدد</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold">
+                          {patientReports?.newPatients || 0}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary" className="arabic-enhanced">
+                            {(patientReports?.newPatients || 0) > 0 ? 'نشط' : 'منخفض'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow className="hover:bg-muted/50">
+                        <TableCell className="font-medium text-right">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-purple-500" />
+                            <span className="arabic-enhanced">معدل الحضور</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold">
+                          {appointmentReports?.attendanceRate?.toFixed(1) || 0}%
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={(appointmentReports?.attendanceRate || 0) >= 80 ? "default" : "secondary"}
+                            className="arabic-enhanced"
+                          >
+                            {(appointmentReports?.attendanceRate || 0) >= 80 ? 'ممتاز' : 'يحتاج تحسين'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow className="hover:bg-muted/50">
+                        <TableCell className="font-medium text-right">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-red-500" />
+                            <span className="arabic-enhanced">المدفوعات المعلقة</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold">
+                          <CurrencyDisplay amount={financialReports?.totalPending || 0} currency={currency} />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={(financialReports?.totalPending || 0) > 0 ? "destructive" : "default"}
+                            className="arabic-enhanced"
+                          >
+                            {(financialReports?.totalPending || 0) > 0 ? 'يتطلب متابعة' : 'مكتمل'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow className="hover:bg-muted/50">
+                        <TableCell className="font-medium text-right">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-orange-500" />
+                            <span className="arabic-enhanced">تنبيهات المخزون</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold">
+                          {(inventoryReports?.lowStockItems || 0) + (inventoryReports?.expiredItems || 0) + (inventoryReports?.expiringSoonItems || 0)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={
+                              ((inventoryReports?.lowStockItems || 0) + (inventoryReports?.expiredItems || 0) + (inventoryReports?.expiringSoonItems || 0)) > 0
+                                ? "destructive"
+                                : "default"
+                            }
+                            className="arabic-enhanced"
+                          >
+                            {((inventoryReports?.lowStockItems || 0) + (inventoryReports?.expiredItems || 0) + (inventoryReports?.expiringSoonItems || 0)) > 0
+                              ? 'يحتاج انتباه'
+                              : 'طبيعي'
+                            }
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>

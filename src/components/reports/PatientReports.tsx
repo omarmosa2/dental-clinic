@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useReportsStore } from '@/store/reportsStore'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useToast } from '@/hooks/use-toast'
 import { formatDate } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { PdfService } from '@/services/pdfService'
@@ -46,8 +47,9 @@ import {
 const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
 
 export default function PatientReports() {
-  const { patientReports, isLoading, isExporting, generateReport, exportReport, currentFilter, setFilter } = useReportsStore()
+  const { patientReports, isLoading, isExporting, generateReport, exportReport, currentFilter, setFilter, clearCache } = useReportsStore()
   const { currency } = useSettingsStore()
+  const { toast } = useToast()
 
   const [searchTerm, setSearchTerm] = useState('')
   const [ageFilter, setAgeFilter] = useState('all')
@@ -160,31 +162,27 @@ export default function PatientReports() {
             size="sm"
             onClick={async () => {
               try {
+                // Clear cache to force fresh data
+                clearCache()
                 await generateReport('patients')
-                // Show success message
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'تم التحديث بنجاح',
-                    description: 'تم تحديث تقارير المرضى',
-                    type: 'success'
-                  }
+
+                toast({
+                  title: "تم التحديث بنجاح",
+                  description: "تم تحديث تقارير المرضى بأحدث البيانات",
                 })
-                window.dispatchEvent(event)
               } catch (error) {
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'خطأ في التحديث',
-                    description: 'فشل في تحديث التقارير',
-                    type: 'error'
-                  }
+                console.error('Error refreshing patient reports:', error)
+                toast({
+                  title: "خطأ في التحديث",
+                  description: "فشل في تحديث التقارير. يرجى المحاولة مرة أخرى.",
+                  variant: "destructive",
                 })
-                window.dispatchEvent(event)
               }
             }}
             disabled={isLoading}
           >
             <RefreshCw className={`w-4 h-4 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
-            تحديث
+            {isLoading ? 'جاري التحديث...' : 'تحديث'}
           </Button>
           <Button
             variant="outline"
@@ -192,48 +190,64 @@ export default function PatientReports() {
             onClick={() => {
               // Export patient reports data
               if (!patientReports || Object.keys(patientReports).length === 0) {
-                alert('لا توجد بيانات تقارير مرضى للتصدير')
+                toast({
+                  title: "لا توجد بيانات",
+                  description: "لا توجد بيانات تقارير مرضى للتصدير",
+                  variant: "destructive",
+                })
                 return
               }
 
-              const reportData = {
-                'إجمالي المرضى': patientReports.totalPatients || 0,
-                'المرضى الجدد هذا الشهر': patientReports.newPatientsThisMonth || 0,
-                'المرضى النشطون': patientReports.activePatientsThisMonth || 0,
-                'متوسط العمر': patientReports.averageAge || 0,
-                'توزيع الأعمار - أطفال (0-12)': patientReports.ageDistribution?.children || 0,
-                'توزيع الأعمار - مراهقون (13-19)': patientReports.ageDistribution?.teens || 0,
-                'توزيع الأعمار - بالغون (20-59)': patientReports.ageDistribution?.adults || 0,
-                'توزيع الأعمار - كبار السن (60+)': patientReports.ageDistribution?.seniors || 0,
-                'توزيع الجنس - ذكور': patientReports.genderDistribution?.male || 0,
-                'توزيع الجنس - إناث': patientReports.genderDistribution?.female || 0,
-                'تاريخ التقرير': new Date().toLocaleString('ar-SA')
+              try {
+                const reportData = {
+                  'إجمالي المرضى': patientReports.totalPatients || 0,
+                  'المرضى الجدد هذا الشهر': patientReports.newPatientsThisMonth || 0,
+                  'المرضى النشطون': patientReports.activePatientsThisMonth || 0,
+                  'متوسط العمر': patientReports.averageAge || 0,
+                  'توزيع الأعمار - أطفال (0-12)': patientReports.ageDistribution?.children || 0,
+                  'توزيع الأعمار - مراهقون (13-19)': patientReports.ageDistribution?.teens || 0,
+                  'توزيع الأعمار - بالغون (20-59)': patientReports.ageDistribution?.adults || 0,
+                  'توزيع الأعمار - كبار السن (60+)': patientReports.ageDistribution?.seniors || 0,
+                  'توزيع الجنس - ذكور': patientReports.genderDistribution?.male || 0,
+                  'توزيع الجنس - إناث': patientReports.genderDistribution?.female || 0,
+                  'تاريخ التقرير': new Date().toLocaleString('ar-SA')
+                }
+
+                // Create CSV with BOM for Arabic support
+                const csvContent = '\uFEFF' + [
+                  'المؤشر,القيمة',
+                  ...Object.entries(reportData).map(([key, value]) =>
+                    `"${key}","${value}"`
+                  )
+                ].join('\n')
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
+
+                // Generate descriptive filename with date and time
+                const now = new Date()
+                const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+                const fileName = `تقرير_إحصائيات_المرضى_${dateStr}_${timeStr}.csv`
+
+                link.download = fileName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+
+                toast({
+                  title: "تم التصدير بنجاح",
+                  description: "تم تصدير تقرير المرضى كملف CSV",
+                })
+              } catch (error) {
+                console.error('Error exporting CSV:', error)
+                toast({
+                  title: "خطأ في التصدير",
+                  description: "فشل في تصدير التقرير. يرجى المحاولة مرة أخرى.",
+                  variant: "destructive",
+                })
               }
-
-              // Create CSV with BOM for Arabic support
-              const csvContent = '\uFEFF' + [
-                'المؤشر,القيمة',
-                ...Object.entries(reportData).map(([key, value]) =>
-                  `"${key}","${value}"`
-                )
-              ].join('\n')
-
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-              const link = document.createElement('a')
-              link.href = URL.createObjectURL(blob)
-
-              // Generate descriptive filename with date and time
-              const now = new Date()
-              const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-              const fileName = `تقرير_إحصائيات_المرضى_${dateStr}_${timeStr}.csv`
-
-              link.download = fileName
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
-
-              alert('تم تصدير تقرير المرضى بنجاح!')
             }}
             disabled={isExporting}
           >
@@ -246,36 +260,33 @@ export default function PatientReports() {
             onClick={async () => {
               try {
                 if (!patientReports || Object.keys(patientReports).length === 0) {
-                  alert('لا توجد بيانات تقارير مرضى للتصدير')
+                  toast({
+                    title: "لا توجد بيانات",
+                    description: "لا توجد بيانات تقارير مرضى للتصدير",
+                    variant: "destructive",
+                  })
                   return
                 }
 
                 await PdfService.exportPatientReport(patientReports)
 
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'تم التصدير بنجاح',
-                    description: 'تم تصدير تقرير المرضى كملف PDF',
-                    type: 'success'
-                  }
+                toast({
+                  title: "تم التصدير بنجاح",
+                  description: "تم تصدير تقرير المرضى كملف PDF",
                 })
-                window.dispatchEvent(event)
               } catch (error) {
                 console.error('Error exporting PDF:', error)
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'خطأ في التصدير',
-                    description: 'فشل في تصدير التقرير كملف PDF',
-                    type: 'error'
-                  }
+                toast({
+                  title: "خطأ في التصدير",
+                  description: "فشل في تصدير التقرير كملف PDF. يرجى المحاولة مرة أخرى.",
+                  variant: "destructive",
                 })
-                window.dispatchEvent(event)
               }
             }}
             disabled={isExporting}
           >
             <Download className="w-4 h-4 ml-2" />
-            تصدير PDF
+            {isExporting ? 'جاري التصدير...' : 'تصدير PDF'}
           </Button>
         </div>
       </div>
@@ -294,7 +305,14 @@ export default function PatientReports() {
           value={patientReports.newPatients}
           icon={UserPlus}
           color="green"
-          trend={{ value: 12.5, isPositive: true }}
+          trend={
+            patientReports.totalPatients > 0
+              ? {
+                  value: Math.round((patientReports.newPatients / patientReports.totalPatients) * 100),
+                  isPositive: patientReports.newPatients > 0
+                }
+              : undefined
+          }
           description="المرضى المسجلين في الفترة المحددة"
         />
         <StatCard
@@ -393,9 +411,9 @@ export default function PatientReports() {
       </Card>
 
       {/* Patients List */}
-      <Card>
+      <Card dir="rtl">
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2 space-x-reverse">
+          <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
             <span>قائمة المرضى</span>
           </CardTitle>
@@ -403,24 +421,25 @@ export default function PatientReports() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6" dir="rtl">
             <div className="flex-1">
               <Label htmlFor="search">البحث</Label>
               <div className="relative">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   id="search"
                   placeholder="البحث بالاسم، الهاتف، أو البريد الإلكتروني..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pr-10"
+                  className="pl-10"
+                  dir="rtl"
                 />
               </div>
             </div>
             <div>
               <Label htmlFor="age-filter">الفئة العمرية</Label>
               <Select value={ageFilter} onValueChange={setAgeFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-40" dir="rtl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -435,7 +454,7 @@ export default function PatientReports() {
             <div>
               <Label htmlFor="status-filter">الحالة</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-32" dir="rtl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -448,42 +467,45 @@ export default function PatientReports() {
           </div>
 
           {/* Patients Table */}
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-hidden" dir="rtl">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-muted">
+              <table className="w-full" dir="rtl">
+                <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-right p-3 font-medium">الاسم</th>
-                    <th className="text-right p-3 font-medium">الهاتف</th>
-                    <th className="text-right p-3 font-medium">البريد الإلكتروني</th>
-                    <th className="text-right p-3 font-medium">تاريخ التسجيل</th>
-                    <th className="text-right p-3 font-medium">العمر</th>
-                    <th className="text-right p-3 font-medium">الحالة</th>
-                    <th className="text-right p-3 font-medium">الإجراءات</th>
+                    <th className="text-center p-3 font-medium arabic-enhanced">الاسم</th>
+                    <th className="text-center p-3 font-medium arabic-enhanced">الهاتف</th>
+                    <th className="text-center p-3 font-medium arabic-enhanced">البريد الإلكتروني</th>
+                    <th className="text-center p-3 font-medium arabic-enhanced">تاريخ التسجيل</th>
+                    <th className="text-center p-3 font-medium arabic-enhanced">العمر</th>
+                    <th className="text-center p-3 font-medium arabic-enhanced">الحالة</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredPatients.map((patient, index) => (
-                    <tr key={patient.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/50'}>
-                      <td className="p-3 font-medium">{`${patient.first_name} ${patient.last_name}`}</td>
-                      <td className="p-3 text-muted-foreground">{patient.phone || '-'}</td>
-                      <td className="p-3 text-muted-foreground">{patient.email || '-'}</td>
-                      <td className="p-3 text-muted-foreground">
+                    <tr key={patient.id} className={`hover:bg-muted/50 ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}>
+                      <td className="p-3 font-medium text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
+                            {patient.full_name ? patient.full_name.charAt(0) : (patient.first_name || '').charAt(0)}
+                          </div>
+                          <span className="arabic-enhanced">
+                            {patient.full_name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim()}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-3 text-muted-foreground text-center arabic-enhanced">{patient.phone || '-'}</td>
+                      <td className="p-3 text-muted-foreground text-center arabic-enhanced">{patient.email || '-'}</td>
+                      <td className="p-3 text-muted-foreground text-center arabic-enhanced">
                         {formatDate(patient.created_at)}
                       </td>
-                      <td className="p-3 text-muted-foreground">
-                        {patient.date_of_birth
+                      <td className="p-3 text-muted-foreground text-center arabic-enhanced">
+                        {patient.age || (patient.date_of_birth
                           ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()
                           : '-'
-                        }
+                        )}
                       </td>
-                      <td className="p-3">
-                        <Badge variant="secondary">نشط</Badge>
-                      </td>
-                      <td className="p-3">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                      <td className="p-3 text-center">
+                        <Badge variant="secondary" className="arabic-enhanced">نشط</Badge>
                       </td>
                     </tr>
                   ))}
