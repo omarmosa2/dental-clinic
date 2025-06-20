@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CreditCard, DollarSign, Receipt, Calculator, Sparkles } from 'lucide-react'
+import { formatDate } from '@/lib/utils'
 import type { Payment } from '@/types'
 
 interface AddPaymentDialogProps {
@@ -326,7 +327,7 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
                       <SelectItem value="none">بدون موعد محدد</SelectItem>
                       {filteredAppointments.map((appointment) => (
                         <SelectItem key={appointment.id} value={appointment.id}>
-                          {appointment.title} - {new Date(appointment.start_time).toLocaleDateString('ar-SA')}
+                          {appointment.title} - {formatDate(appointment.start_time)}
                         </SelectItem>
                       ))}
                     </SelectContent>

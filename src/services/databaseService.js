@@ -741,7 +741,7 @@ class DatabaseService {
         clinic_phone: '',
         clinic_email: '',
         clinic_logo: '',
-        currency: 'SAR',
+        currency: 'USD',
         language: 'ar',
         timezone: 'Asia/Riyadh',
         backup_frequency: 'daily',
@@ -812,8 +812,8 @@ class DatabaseService {
 
     const totalPatients = this.db.prepare('SELECT COUNT(*) as count FROM patients').get().count
     const totalAppointments = this.db.prepare('SELECT COUNT(*) as count FROM appointments').get().count
-    const totalRevenue = this.db.prepare('SELECT SUM(total_amount) as total FROM payments WHERE status = "completed"').get().total || 0
-    const pendingPayments = this.db.prepare('SELECT SUM(total_amount) as total FROM payments WHERE status = "pending"').get().total || 0
+    const totalRevenue = this.db.prepare('SELECT SUM(total_amount) as total FROM payments WHERE status = ?').get('completed').total || 0
+    const pendingPayments = this.db.prepare('SELECT SUM(total_amount) as total FROM payments WHERE status = ?').get('pending').total || 0
 
     // Today's appointments
     const today = new Date().toISOString().split('T')[0]
@@ -821,7 +821,7 @@ class DatabaseService {
 
     // This month's revenue
     const thisMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
-    const thisMonthRevenue = this.db.prepare('SELECT SUM(total_amount) as total FROM payments WHERE status = "completed" AND payment_date LIKE ?').get(`${thisMonth}%`).total || 0
+    const thisMonthRevenue = this.db.prepare('SELECT SUM(total_amount) as total FROM payments WHERE status = ? AND payment_date LIKE ?').get('completed', `${thisMonth}%`).total || 0
 
     // Low stock items
     const lowStockItems = this.db.prepare('SELECT COUNT(*) as count FROM inventory WHERE quantity <= minimum_stock').get().count

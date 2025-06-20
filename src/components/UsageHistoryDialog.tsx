@@ -10,10 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { 
-  Activity, 
-  Calendar, 
-  User, 
+import {
+  Activity,
+  Calendar,
+  User,
   FileText,
   Package,
   RefreshCw
@@ -34,7 +34,7 @@ export default function UsageHistoryDialog({
 }: UsageHistoryDialogProps) {
   const [usageHistory, setUsageHistory] = useState<InventoryUsage[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  
+
   const { getUsageHistory } = useInventoryStore()
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function UsageHistoryDialog({
 
   const loadUsageHistory = async () => {
     if (!item) return
-    
+
     setIsLoading(true)
     try {
       const history = getUsageHistory(item.id)
@@ -58,13 +58,20 @@ export default function UsageHistoryDialog({
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ar-SA', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    const date = new Date(dateString)
+    const day = date.getDate()
+    const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
+    const year = date.getFullYear()
+    const hours = date.getHours()
+    const minutes = date.getMinutes()
+
+    // Format date as DD/MM/YYYY HH:MM
+    const formattedDay = day.toString().padStart(2, '0')
+    const formattedMonth = month.toString().padStart(2, '0')
+    const formattedHours = hours.toString().padStart(2, '0')
+    const formattedMinutes = minutes.toString().padStart(2, '0')
+
+    return `${formattedDay}/${formattedMonth}/${year} ${formattedHours}:${formattedMinutes}`
   }
 
   const getTotalUsed = () => {
@@ -124,9 +131,9 @@ export default function UsageHistoryDialog({
                 <Calendar className="h-4 w-4" />
                 سجل الاستخدام
               </CardTitle>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={loadUsageHistory}
                 disabled={isLoading}
               >
@@ -163,7 +170,7 @@ export default function UsageHistoryDialog({
                       <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                         <Activity className="h-4 w-4 text-primary" />
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -175,14 +182,14 @@ export default function UsageHistoryDialog({
                             </span>
                           </div>
                         </div>
-                        
+
                         {usage.appointment_id && (
                           <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
                             <User className="h-3 w-3" />
                             <span>مرتبط بموعد</span>
                           </div>
                         )}
-                        
+
                         {usage.notes && (
                           <div className="flex items-start gap-1 text-sm">
                             <FileText className="h-3 w-3 mt-0.5 text-muted-foreground" />

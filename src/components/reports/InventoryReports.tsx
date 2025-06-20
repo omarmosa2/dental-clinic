@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useReportsStore } from '@/store/reportsStore'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { useRealTimeReportsByType } from '@/hooks/useRealTimeReports'
+import { formatCurrency, formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useTheme } from '@/contexts/ThemeContext'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { PdfService } from '@/services/pdfService'
 import {
@@ -40,8 +42,6 @@ import {
   Area
 } from 'recharts'
 
-const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
-
 interface StatCardProps {
   title: string
   value: number | string | React.ReactNode
@@ -53,10 +53,19 @@ interface StatCardProps {
 
 export default function InventoryReports() {
   const { currency } = useSettingsStore()
-  const { inventoryReports, isLoading, isExporting, generateReport, exportReport } = useReportsStore()
+  const { inventoryReports, isLoading, isExporting, generateReport, exportReport, clearCache } = useReportsStore()
+  const { isDarkMode } = useTheme()
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [alertFilter, setAlertFilter] = useState('all')
+
+  // Use real-time reports hook for automatic updates
+  useRealTimeReportsByType('inventory')
+
+  // Get professional chart colors
+  const categoricalColors = getChartColors('categorical', isDarkMode)
+  const primaryColors = getChartColors('primary', isDarkMode)
+  const chartConfiguration = getChartConfig(isDarkMode)
 
 
 
@@ -230,7 +239,7 @@ export default function InventoryReports() {
                 'أعلى الفئات استهلاكاً': inventoryReports.topCategories?.map(cat => `${cat.name}: ${cat.count}`).join('; ') || '',
                 'أعلى الموردين': inventoryReports.topSuppliers?.map(sup => `${sup.name}: ${sup.count}`).join('; ') || '',
                 'معدل دوران المخزون': inventoryReports.turnoverRate || 0,
-                'تاريخ التقرير': new Date().toLocaleString('ar-SA')
+                'تاريخ التقرير': formatDate(new Date())
               }
 
               // Create CSV with BOM for Arabic support
@@ -347,23 +356,36 @@ export default function InventoryReports() {
             <CardDescription>توزيع عناصر المخزون حسب الفئات</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RechartsPieChart>
+            <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+              <RechartsPieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                 <Pie
-                  data={inventoryReports.itemsByCategory}
+                  data={inventoryReports.itemsByCategory.filter(item => item.count > 0)}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ category, count }) => `${category}: ${count}`}
-                  outerRadius={80}
+                  label={({ category, count, percent }) =>
+                    count > 0 ? `${category}: ${count} (${(percent * 100).toFixed(0)}%)` : ''
+                  }
+                  outerRadius={120}
+                  innerRadius={50}
                   fill="#8884d8"
                   dataKey="count"
+                  stroke={isDarkMode ? '#1f2937' : '#ffffff'}
+                  strokeWidth={2}
+                  paddingAngle={2}
                 >
-                  {inventoryReports.itemsByCategory.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {inventoryReports.itemsByCategory.filter(item => item.count > 0).map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={categoricalColors[index % categoricalColors.length]}
+                    />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip
+                  formatter={(value, name) => [value, 'عدد العناصر']}
+                  labelFormatter={(label) => `الفئة: ${label}`}
+                  contentStyle={chartConfiguration.tooltip}
+                />
               </RechartsPieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -379,13 +401,42 @@ export default function InventoryReports() {
             <CardDescription>توزيع عناصر المخزون حسب الموردين</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={inventoryReports.itemsBySupplier.slice(0, 8)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="supplier" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#0ea5e9" />
+            <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+              <BarChart
+                data={inventoryReports.itemsBySupplier.filter(item => item.count > 0).slice(0, 8)}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                barCategoryGap="20%"
+              >
+                <CartesianGrid
+                  strokeDasharray={chartConfiguration.grid.strokeDasharray}
+                  stroke={chartConfiguration.grid.stroke}
+                  strokeOpacity={chartConfiguration.grid.strokeOpacity}
+                />
+                <XAxis
+                  dataKey="supplier"
+                  tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                  axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  interval={0}
+                />
+                <YAxis
+                  tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                  axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  domain={[0, 'dataMax + 1']}
+                />
+                <Tooltip
+                  formatter={(value, name) => [value, 'عدد العناصر']}
+                  labelFormatter={(label) => `المورد: ${label}`}
+                  contentStyle={chartConfiguration.tooltip}
+                />
+                <Bar
+                  dataKey="count"
+                  fill={primaryColors[1]}
+                  radius={[4, 4, 0, 0]}
+                  minPointSize={5}
+                  maxBarSize={100}
+                />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -402,13 +453,35 @@ export default function InventoryReports() {
           <CardDescription>معدل استخدام المخزون شهرياً</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={inventoryReports.usageTrend}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" />
-              <YAxis />
-              <Tooltip />
-              <Area type="monotone" dataKey="usage" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} />
+          <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+            <AreaChart data={inventoryReports.usageTrend} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+              <CartesianGrid
+                strokeDasharray={chartConfiguration.grid.strokeDasharray}
+                stroke={chartConfiguration.grid.stroke}
+                strokeOpacity={chartConfiguration.grid.strokeOpacity}
+              />
+              <XAxis
+                dataKey="period"
+                tick={{ fontSize: 12, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+              />
+              <YAxis
+                tick={{ fontSize: 12, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+              />
+              <Tooltip
+                formatter={(value, name) => [value, 'معدل الاستخدام']}
+                labelFormatter={(label) => `الفترة: ${label}`}
+                contentStyle={chartConfiguration.tooltip}
+              />
+              <Area
+                type="monotone"
+                dataKey="usage"
+                stroke={primaryColors[3]}
+                fill={primaryColors[3]}
+                fillOpacity={0.3}
+                strokeWidth={3}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </CardContent>

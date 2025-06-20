@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS settings (
     clinic_phone TEXT,
     clinic_email TEXT,
     clinic_logo TEXT,
-    currency TEXT DEFAULT 'SAR',
+    currency TEXT DEFAULT 'USD',
     language TEXT DEFAULT 'en',
     timezone TEXT DEFAULT 'UTC',
     backup_frequency TEXT DEFAULT 'daily', -- hourly, daily, weekly

@@ -7,6 +7,7 @@ import { useAppointmentStore } from '@/store/appointmentStore'
 import { usePaymentStore } from '@/store/paymentStore'
 import { formatDate, getInitials, calculateAge } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import AddPatientDialog from '@/components/patients/AddPatientDialog'
 import PatientTable from '@/components/patients/PatientTable'
 import PatientDetailsModal from '@/components/patients/PatientDetailsModal'
@@ -26,6 +27,9 @@ import {
 } from 'lucide-react'
 
 export default function Patients() {
+  // Enable real-time synchronization for automatic updates
+  useRealTimeSync()
+
   const {
     filteredPatients,
     selectedPatient,
@@ -126,14 +130,6 @@ export default function Patients() {
           </p>
         </div>
         <div className="flex items-center space-x-2 space-x-reverse">
-          <Button
-            variant="outline"
-            onClick={() => window.location.reload()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
-            تحديث
-          </Button>
           <Button
             variant="outline"
             onClick={() => {

@@ -112,6 +112,17 @@ export const useAppointmentStore = create<AppointmentStore>()(
 
           // Update calendar events
           get().convertToCalendarEvents()
+
+          // Emit event for real-time sync
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('appointment-changed', {
+              detail: {
+                type: 'created',
+                appointmentId: newAppointment.id,
+                appointment: newAppointment
+              }
+            }))
+          }
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Failed to create appointment',
@@ -147,6 +158,17 @@ export const useAppointmentStore = create<AppointmentStore>()(
 
           // Reload appointments to ensure we have the latest data with patient info
           await get().loadAppointments()
+
+          // Emit event for real-time sync
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('appointment-changed', {
+              detail: {
+                type: 'updated',
+                appointmentId: id,
+                appointment: updatedAppointment
+              }
+            }))
+          }
         } catch (error) {
           console.error('🏪 Store: Update failed:', error)
           set({
@@ -174,6 +196,16 @@ export const useAppointmentStore = create<AppointmentStore>()(
 
             // Update calendar events
             get().convertToCalendarEvents()
+
+            // Emit event for real-time sync
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('appointment-changed', {
+                detail: {
+                  type: 'deleted',
+                  appointmentId: id
+                }
+              }))
+            }
           } else {
             throw new Error('Failed to delete appointment')
           }

@@ -127,6 +127,24 @@ export const useInventoryStore = create<InventoryStore>()(
           get().updateCategories()
           get().updateSuppliers()
           get().filterItems()
+
+          // Emit events for real-time sync
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('inventory-changed', {
+              detail: {
+                type: 'created',
+                itemId: newItem.id,
+                item: newItem
+              }
+            }))
+            window.dispatchEvent(new CustomEvent('inventory-added', {
+              detail: {
+                type: 'created',
+                itemId: newItem.id,
+                item: newItem
+              }
+            }))
+          }
         } catch (error) {
           console.error('Error creating inventory item:', error)
           set({
@@ -157,6 +175,24 @@ export const useInventoryStore = create<InventoryStore>()(
           get().updateCategories()
           get().updateSuppliers()
           get().filterItems()
+
+          // Emit events for real-time sync
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('inventory-changed', {
+              detail: {
+                type: 'updated',
+                itemId: id,
+                item: updatedItem
+              }
+            }))
+            window.dispatchEvent(new CustomEvent('inventory-updated', {
+              detail: {
+                type: 'updated',
+                itemId: id,
+                item: updatedItem
+              }
+            }))
+          }
         } catch (error) {
           console.error('Error updating inventory item:', error)
           set({
@@ -186,6 +222,22 @@ export const useInventoryStore = create<InventoryStore>()(
             get().updateCategories()
             get().updateSuppliers()
             get().filterItems()
+
+            // Emit events for real-time sync
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('inventory-changed', {
+                detail: {
+                  type: 'deleted',
+                  itemId: id
+                }
+              }))
+              window.dispatchEvent(new CustomEvent('inventory-deleted', {
+                detail: {
+                  type: 'deleted',
+                  itemId: id
+                }
+              }))
+            }
           } else {
             throw new Error('Failed to delete inventory item')
           }
@@ -336,23 +388,46 @@ export const useInventoryStore = create<InventoryStore>()(
         const today = new Date()
 
         const totalItems = items.length
-        const totalValue = items.reduce((sum, item) =>
-          sum + (item.quantity * (item.cost_per_unit || 0)), 0
-        )
 
-        const lowStockCount = items.filter(item =>
-          item.quantity <= item.minimum_stock && item.quantity > 0
-        ).length
+        // Calculate total value with validation
+        const totalValue = items.reduce((sum, item) => {
+          const quantity = typeof item.quantity === 'number' ? item.quantity : 0
+          const costPerUnit = typeof item.cost_per_unit === 'number' ? item.cost_per_unit : 0
+          return sum + (quantity * costPerUnit)
+        }, 0)
 
-        const expiredCount = items.filter(item =>
-          item.expiry_date && new Date(item.expiry_date) < today
-        ).length
+        // Calculate low stock count with validation
+        const lowStockCount = items.filter(item => {
+          const quantity = typeof item.quantity === 'number' ? item.quantity : 0
+          const minimumStock = typeof item.minimum_stock === 'number' ? item.minimum_stock : 0
+          return quantity <= minimumStock && quantity > 0
+        }).length
 
+        // Calculate expired count with date validation
+        const expiredCount = items.filter(item => {
+          if (!item.expiry_date) return false
+          try {
+            const expiryDate = new Date(item.expiry_date)
+            return !isNaN(expiryDate.getTime()) && expiryDate < today
+          } catch (error) {
+            console.warn('Invalid expiry date:', item.expiry_date, error)
+            return false
+          }
+        }).length
+
+        // Calculate expiring soon count with date validation
         const expiringSoonCount = items.filter(item => {
           if (!item.expiry_date) return false
-          const expiryDate = new Date(item.expiry_date)
-          const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-          return daysUntilExpiry <= 30 && daysUntilExpiry > 0
+          try {
+            const expiryDate = new Date(item.expiry_date)
+            if (isNaN(expiryDate.getTime())) return false
+
+            const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+            return daysUntilExpiry <= 30 && daysUntilExpiry > 0
+          } catch (error) {
+            console.warn('Invalid expiry date:', item.expiry_date, error)
+            return false
+          }
         }).length
 
         set({

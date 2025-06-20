@@ -6,13 +6,16 @@ import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useReportsStore } from '@/store/reportsStore'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useRealTimeReports } from '@/hooks/useRealTimeReports'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import PatientReports from '@/components/reports/PatientReports'
 import InventoryReports from '@/components/reports/InventoryReports'
 import AppointmentReports from '@/components/reports/AppointmentReports'
 import FinancialReports from '@/components/reports/FinancialReports'
+import CalculationValidator from '@/components/admin/CalculationValidator'
 import CurrencyDisplay from '@/components/ui/currency-display'
+import RealTimeIndicator from '@/components/ui/real-time-indicator'
 import {
   Table,
   TableBody,
@@ -64,13 +67,24 @@ export default function Reports() {
   const [selectedTab, setSelectedTab] = useState('overview')
 
   useEffect(() => {
-    // Load initial reports
+    // Load initial reports with fresh data
+    console.log('🔄 Loading initial reports...')
+    clearError()
     generateAllReports()
-  }, [generateAllReports])
+  }, [generateAllReports, clearError])
 
   useEffect(() => {
     if (error) {
-      console.error('Reports error:', error)
+      console.error('❌ Reports error:', error)
+      // Show error notification
+      const event = new CustomEvent('showToast', {
+        detail: {
+          title: 'خطأ في التقارير',
+          description: error,
+          type: 'error'
+        }
+      })
+      window.dispatchEvent(event)
     }
   }, [error])
 
@@ -81,6 +95,18 @@ export default function Reports() {
     // Generate specific report if not already loaded
     if (value !== 'overview') {
       generateReport(value as any)
+    }
+  }
+
+  const handleRefresh = async () => {
+    try {
+      console.log('🔄 Refreshing all reports...')
+      clearError()
+      await generateAllReports()
+      console.log('✅ All reports refreshed successfully')
+    } catch (error) {
+      console.error('❌ Error refreshing reports:', error)
+      throw error
     }
   }
 
@@ -133,25 +159,17 @@ export default function Reports() {
     }
   }
 
-  const handleRefresh = async () => {
-    try {
-      if (selectedTab === 'overview') {
-        await generateAllReports()
-      } else {
-        await generateReport(selectedTab as any)
-      }
-      console.log('تم تحديث التقارير بنجاح')
-    } catch (error) {
-      console.error('خطأ في تحديث التقارير:', error)
-    }
-  }
 
-  // Use the store's auto-refresh functionality
+
+  // Use real-time reports hook for automatic updates
+  const { refreshReports } = useRealTimeReports(['overview'])
+
+  // Use the store's auto-refresh functionality with shorter interval as backup
   useEffect(() => {
     const { startAutoRefresh, stopAutoRefresh } = useReportsStore.getState()
 
-    // Start auto-refresh when component mounts
-    startAutoRefresh(5) // 5 minutes interval
+    // Start auto-refresh when component mounts with 1 minute interval as backup
+    startAutoRefresh(1) // 1 minute interval as backup
 
     // Cleanup on unmount
     return () => {
@@ -214,42 +232,15 @@ export default function Reports() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">التقارير والتحليلات</h1>
-          <p className="text-muted-foreground mt-2">
-            تقارير شاملة ومفصلة لجميع جوانب العيادة
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold text-foreground">التقارير والتحليلات</h1>
+            <RealTimeIndicator isActive={true} />
+          </div>
+          <p className="text-muted-foreground">
+            تقارير شاملة ومفصلة لجميع جوانب العيادة - تحديث تلقائي في الوقت الفعلي
           </p>
         </div>
         <div className="flex items-center space-x-2 space-x-reverse">
-          <Button
-            variant="outline"
-            onClick={async () => {
-              try {
-                await handleRefresh()
-                // Show success message
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'تم التحديث بنجاح',
-                    description: 'تم تحديث جميع التقارير',
-                    type: 'success'
-                  }
-                })
-                window.dispatchEvent(event)
-              } catch (error) {
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'خطأ في التحديث',
-                    description: 'فشل في تحديث التقارير',
-                    type: 'error'
-                  }
-                })
-                window.dispatchEvent(event)
-              }
-            }}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
-            تحديث
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -310,7 +301,13 @@ export default function Reports() {
                     'المدفوعات المعلقة': financialReports?.pendingPayments || 0,
                     'المدفوعات المتأخرة': financialReports?.overduePayments || 0,
 
-                    'تاريخ التقرير الشامل': new Date().toLocaleString('ar-SA')
+                    'تاريخ التقرير الشامل': (() => {
+                      const date = new Date()
+                      const day = date.getDate().toString().padStart(2, '0')
+                      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+                      const year = date.getFullYear()
+                      return `${day}/${month}/${year}`
+                    })()
                   }
 
                   // Create CSV with BOM for Arabic support
@@ -384,7 +381,7 @@ export default function Reports() {
 
       {/* Reports Tabs */}
       <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="flex items-center space-x-2 space-x-reverse">
             <BarChart3 className="w-4 h-4" />
             <span>نظرة عامة</span>
@@ -408,6 +405,10 @@ export default function Reports() {
           <TabsTrigger value="analytics" className="flex items-center space-x-2 space-x-reverse">
             <Activity className="w-4 h-4" />
             <span>التحليلات</span>
+          </TabsTrigger>
+          <TabsTrigger value="validation" className="flex items-center space-x-2 space-x-reverse">
+            <FileText className="w-4 h-4" />
+            <span>التحقق من الدقة</span>
           </TabsTrigger>
         </TabsList>
 
@@ -583,6 +584,10 @@ export default function Reports() {
             <h3 className="text-lg font-medium text-foreground mb-2">التحليلات المتقدمة</h3>
             <p className="text-muted-foreground">سيتم تطوير هذا القسم قريباً</p>
           </div>
+        </TabsContent>
+
+        <TabsContent value="validation">
+          <CalculationValidator />
         </TabsContent>
       </Tabs>
     </div>

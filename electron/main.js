@@ -851,7 +851,7 @@ ipcMain.handle('settings:get', async () => {
       return {
         id: '1',
         clinic_name: 'عيادة الأسنان',
-        currency: 'ريال',
+        currency: 'USD',
         language: 'ar'
       }
     }
@@ -1182,7 +1182,12 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
       // Enhanced CSV export
       content = '\uFEFF' // BOM for UTF-8 support
       content += `Report ${type} - Modern Dental Clinic\n`
-      content += `Report Date: ${new Date().toLocaleDateString()}\n\n`
+      const currentDate = new Date()
+      const day = currentDate.getDate().toString().padStart(2, '0')
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
+      const year = currentDate.getFullYear()
+      const formattedDate = `${day}/${month}/${year}`
+      content += `Report Date: ${formattedDate}\n\n`
 
       if (reportData) {
         if (type === 'overview') {
@@ -1191,8 +1196,8 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
           content += `"New Patients","${reportData.patients?.newPatientsThisMonth || 0}"\n`
           content += `"Total Appointments","${reportData.appointments?.totalAppointments || 0}"\n`
           content += `"Completed Appointments","${reportData.appointments?.completedAppointments || 0}"\n`
-          content += `"Total Revenue","${reportData.financial?.totalRevenue || 0} SAR"\n`
-          content += `"Pending Payments","${reportData.financial?.pendingPayments || 0} SAR"\n`
+          content += `"Total Revenue","$${reportData.financial?.totalRevenue || 0}"\n`
+          content += `"Pending Payments","$${reportData.financial?.pendingPayments || 0}"\n`
           content += `"Inventory Items","${reportData.inventory?.totalItems || 0}"\n`
           content += `"Low Stock Items","${reportData.inventory?.lowStockItems || 0}"\n`
         } else if (type === 'patients') {
@@ -1209,14 +1214,14 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
           content += `"Attendance Rate","${reportData.attendanceRate || 0}%"\n`
         } else if (type === 'financial') {
           content += 'Indicator,Value\n'
-          content += `"Total Revenue","${reportData.totalRevenue || 0} SAR"\n`
-          content += `"Completed Payments","${reportData.completedPayments || 0} SAR"\n`
-          content += `"Pending Payments","${reportData.pendingPayments || 0} SAR"\n`
-          content += `"Overdue Payments","${reportData.overduePayments || 0} SAR"\n`
+          content += `"Total Revenue","$${reportData.totalRevenue || 0}"\n`
+          content += `"Completed Payments","$${reportData.completedPayments || 0}"\n`
+          content += `"Pending Payments","$${reportData.pendingPayments || 0}"\n`
+          content += `"Overdue Payments","$${reportData.overduePayments || 0}"\n`
         } else if (type === 'inventory') {
           content += 'Indicator,Value\n'
           content += `"Total Items","${reportData.totalItems || 0}"\n`
-          content += `"Total Value","${reportData.totalValue || 0} SAR"\n`
+          content += `"Total Value","$${reportData.totalValue || 0}"\n`
           content += `"Low Stock Items","${reportData.lowStockItems || 0}"\n`
           content += `"Expired Items","${reportData.expiredItems || 0}"\n`
         }
@@ -1225,7 +1230,12 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
       // Enhanced Excel-like format (actually TSV for simplicity)
       content = '\uFEFF' // BOM for Arabic support
       content += `تقرير ${type} - عيادة الأسنان الحديثة\n`
-      content += `تاريخ التقرير: ${new Date().toLocaleString('ar-SA')}\n\n`
+      const currentDate = new Date()
+      const day = currentDate.getDate().toString().padStart(2, '0')
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
+      const year = currentDate.getFullYear()
+      const formattedDate = `${day}/${month}/${year}`
+      content += `تاريخ التقرير: ${formattedDate}\n\n`
 
       if (reportData) {
         content += 'المؤشر\tالقيمة\tالوصف\n'
@@ -1234,7 +1244,7 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
           content += `المرضى الجدد\t${reportData.patients?.newPatientsThisMonth || 0}\tالمرضى الجدد هذا الشهر\n`
           content += `إجمالي المواعيد\t${reportData.appointments?.totalAppointments || 0}\tجميع المواعيد المجدولة\n`
           content += `المواعيد المكتملة\t${reportData.appointments?.completedAppointments || 0}\tالمواعيد التي تم إنجازها\n`
-          content += `إجمالي الإيرادات\t${reportData.financial?.totalRevenue || 0}\tالإيرادات المحققة بالريال\n`
+          content += `إجمالي الإيرادات\t$${reportData.financial?.totalRevenue || 0}\tالإيرادات المحققة بالدولار\n`
           content += `المدفوعات المعلقة\t${reportData.financial?.pendingPayments || 0}\tالمدفوعات غير المكتملة\n`
           content += `عناصر المخزون\t${reportData.inventory?.totalItems || 0}\tإجمالي عناصر المخزون\n`
           content += `تنبيهات المخزون\t${reportData.inventory?.lowStockItems || 0}\tعناصر تحتاج إعادة تموين\n`
@@ -1288,8 +1298,8 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
               `New Patients This Month: ${reportData.patients?.newPatientsThisMonth || 0}`,
               `Total Appointments: ${reportData.appointments?.totalAppointments || 0}`,
               `Completed Appointments: ${reportData.appointments?.completedAppointments || 0}`,
-              `Total Revenue: ${reportData.financial?.totalRevenue || 0} SAR`,
-              `Pending Payments: ${reportData.financial?.pendingPayments || 0} SAR`,
+              `Total Revenue: $${reportData.financial?.totalRevenue || 0}`,
+              `Pending Payments: $${reportData.financial?.pendingPayments || 0}`,
               `Inventory Items: ${reportData.inventory?.totalItems || 0}`,
               `Low Stock Alerts: ${reportData.inventory?.lowStockItems || 0}`
             ]
@@ -1324,10 +1334,10 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
             })
           } else if (type === 'financial') {
             const stats = [
-              `Total Revenue: ${reportData.totalRevenue || 0} SAR`,
-              `Completed Payments: ${reportData.completedPayments || 0} SAR`,
-              `Pending Payments: ${reportData.pendingPayments || 0} SAR`,
-              `Overdue Payments: ${reportData.overduePayments || 0} SAR`
+              `Total Revenue: $${reportData.totalRevenue || 0}`,
+              `Completed Payments: $${reportData.completedPayments || 0}`,
+              `Pending Payments: $${reportData.pendingPayments || 0}`,
+              `Overdue Payments: $${reportData.overduePayments || 0}`
             ]
 
             stats.forEach(stat => {
@@ -1337,7 +1347,7 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
           } else if (type === 'inventory') {
             const stats = [
               `Total Items: ${reportData.totalItems || 0}`,
-              `Total Value: ${reportData.totalValue || 0} SAR`,
+              `Total Value: $${reportData.totalValue || 0}`,
               `Low Stock Items: ${reportData.lowStockItems || 0}`,
               `Expired Items: ${reportData.expiredItems || 0}`
             ]
@@ -1378,8 +1388,8 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
           content += `• New Patients This Month: ${reportData.patients?.newPatientsThisMonth || 0}\n`
           content += `• Total Appointments: ${reportData.appointments?.totalAppointments || 0}\n`
           content += `• Completed Appointments: ${reportData.appointments?.completedAppointments || 0}\n`
-          content += `• Total Revenue: ${reportData.financial?.totalRevenue || 0} SAR\n`
-          content += `• Pending Payments: ${reportData.financial?.pendingPayments || 0} SAR\n`
+          content += `• Total Revenue: $${reportData.financial?.totalRevenue || 0}\n`
+          content += `• Pending Payments: $${reportData.financial?.pendingPayments || 0}\n`
           content += `• Inventory Items: ${reportData.inventory?.totalItems || 0}\n`
           content += `• Low Stock Alerts: ${reportData.inventory?.lowStockItems || 0}\n`
         }
@@ -1431,8 +1441,8 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
               ['New Patients', reportData.patients?.newPatientsThisMonth || 0, 'New patients this month'],
               ['Total Appointments', reportData.appointments?.totalAppointments || 0, 'All scheduled appointments'],
               ['Completed Appointments', reportData.appointments?.completedAppointments || 0, 'Successfully completed appointments'],
-              ['Total Revenue', `${reportData.financial?.totalRevenue || 0} SAR`, 'Total revenue generated'],
-              ['Pending Payments', `${reportData.financial?.pendingPayments || 0} SAR`, 'Outstanding payments'],
+              ['Total Revenue', `$${reportData.financial?.totalRevenue || 0}`, 'Total revenue generated'],
+              ['Pending Payments', `$${reportData.financial?.pendingPayments || 0}`, 'Outstanding payments'],
               ['Inventory Items', reportData.inventory?.totalItems || 0, 'Total inventory items'],
               ['Stock Alerts', reportData.inventory?.lowStockItems || 0, 'Items requiring restocking']
             ]
@@ -1473,10 +1483,10 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
             })
           } else if (type === 'financial') {
             const data = [
-              ['Total Revenue', `${reportData.totalRevenue || 0} SAR`, 'Total revenue generated'],
-              ['Completed Payments', `${reportData.completedPayments || 0} SAR`, 'Successfully collected payments'],
-              ['Pending Payments', `${reportData.pendingPayments || 0} SAR`, 'Outstanding payments'],
-              ['Overdue Payments', `${reportData.overduePayments || 0} SAR`, 'Overdue payment amounts']
+              ['Total Revenue', `$${reportData.totalRevenue || 0}`, 'Total revenue generated'],
+              ['Completed Payments', `$${reportData.completedPayments || 0}`, 'Successfully collected payments'],
+              ['Pending Payments', `$${reportData.pendingPayments || 0}`, 'Outstanding payments'],
+              ['Overdue Payments', `$${reportData.overduePayments || 0}`, 'Overdue payment amounts']
             ]
 
             data.forEach(([indicator, value, description]) => {
@@ -1523,8 +1533,8 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
             content += `New Patients\t${reportData.patients?.newPatientsThisMonth || 0}\tNew patients this month\n`
             content += `Total Appointments\t${reportData.appointments?.totalAppointments || 0}\tAll scheduled appointments\n`
             content += `Completed Appointments\t${reportData.appointments?.completedAppointments || 0}\tSuccessfully completed appointments\n`
-            content += `Total Revenue\t${reportData.financial?.totalRevenue || 0} SAR\tTotal revenue generated\n`
-            content += `Pending Payments\t${reportData.financial?.pendingPayments || 0} SAR\tOutstanding payments\n`
+            content += `Total Revenue\t$${reportData.financial?.totalRevenue || 0}\tTotal revenue generated\n`
+            content += `Pending Payments\t$${reportData.financial?.pendingPayments || 0}\tOutstanding payments\n`
             content += `Inventory Items\t${reportData.inventory?.totalItems || 0}\tTotal inventory items\n`
             content += `Stock Alerts\t${reportData.inventory?.lowStockItems || 0}\tItems requiring restocking\n`
           }

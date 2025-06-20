@@ -44,7 +44,7 @@ export const useSettingsStore = create<SettingsStore>()(
         error: null,
         isDarkMode: false,
         language: 'en',
-        currency: 'SAR',
+        currency: 'USD',
 
         // Data operations
         loadSettings: async () => {
@@ -54,7 +54,7 @@ export const useSettingsStore = create<SettingsStore>()(
             set({
               settings,
               language: settings?.language || 'ar',
-              currency: settings?.currency || 'SAR',
+              currency: settings?.currency || 'USD',
               isLoading: false
             })
           } catch (error) {

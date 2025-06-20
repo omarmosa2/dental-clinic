@@ -90,23 +90,93 @@ const generateCacheKey = (type: string, filter: ReportFilter): string => {
 
 export const useReportsStore = create<ReportsStore>()(
   devtools(
-    (set, get) => ({
-      // Initial state
-      reportData: null,
-      patientReports: null,
-      appointmentReports: null,
-      financialReports: null,
-      inventoryReports: null,
-      analyticsReports: null,
-      isLoading: false,
-      isExporting: false,
-      error: null,
-      activeReportType: 'overview',
-      currentFilter: getDefaultFilter(),
-      savedFilters: [],
-      cachedReports: new Map(),
-      cacheExpiry: 5 * 60 * 1000, // 5 minutes
-      autoRefreshInterval: null,
+    (set, get) => {
+      // Listen for patient-related events to auto-refresh reports
+      if (typeof window !== 'undefined') {
+        // Auto-refresh when patient is deleted
+        window.addEventListener('patient-deleted', async (event: any) => {
+          const { clearCache, generateReport } = get()
+          clearCache()
+          try {
+            await generateReport('patients')
+          } catch (error) {
+            console.error('Error refreshing reports after patient deletion:', error)
+          }
+        })
+
+        // Auto-refresh when patient is added
+        window.addEventListener('patient-added', async (event: any) => {
+          const { clearCache, generateReport } = get()
+          clearCache()
+          try {
+            await generateReport('patients')
+          } catch (error) {
+            console.error('Error refreshing reports after patient addition:', error)
+          }
+        })
+
+        // Auto-refresh when patient is updated
+        window.addEventListener('patient-updated', async (event: any) => {
+          const { clearCache, generateReport } = get()
+          clearCache()
+          try {
+            await generateReport('patients')
+          } catch (error) {
+            console.error('Error refreshing reports after patient update:', error)
+          }
+        })
+
+        // Auto-refresh when appointment is added/updated/deleted
+        window.addEventListener('appointment-changed', async (event: any) => {
+          const { clearCache, generateReport } = get()
+          clearCache()
+          try {
+            await generateReport('appointments')
+          } catch (error) {
+            console.error('Error refreshing appointment reports:', error)
+          }
+        })
+
+        // Auto-refresh when payment is added/updated/deleted
+        window.addEventListener('payment-changed', async (event: any) => {
+          const { clearCache, generateReport } = get()
+          clearCache()
+          try {
+            await generateReport('financial')
+          } catch (error) {
+            console.error('Error refreshing financial reports:', error)
+          }
+        })
+
+        // Auto-refresh when inventory is added/updated/deleted
+        window.addEventListener('inventory-changed', async (event: any) => {
+          const { clearCache, generateReport } = get()
+          clearCache()
+          try {
+            await generateReport('inventory')
+          } catch (error) {
+            console.error('Error refreshing inventory reports:', error)
+          }
+        })
+      }
+
+      return {
+        // Initial state
+        reportData: null,
+        patientReports: null,
+        appointmentReports: null,
+        financialReports: null,
+        inventoryReports: null,
+        analyticsReports: null,
+        isLoading: false,
+        isExporting: false,
+        error: null,
+        activeReportType: 'overview',
+        currentFilter: getDefaultFilter(),
+        savedFilters: [],
+        cachedReports: new Map(),
+        cacheExpiry: 5 * 60 * 1000, // 5 minutes
+        autoRefreshInterval: null,
 
       // Data operations
       generateReport: async (type, filterOverride) => {
@@ -133,22 +203,27 @@ export const useReportsStore = create<ReportsStore>()(
               break
             case 'appointments':
               reportData = await window.electronAPI?.reports?.generateAppointmentReport(filter)
+              console.log(`✅ Appointment report generated:`, reportData)
               set({ appointmentReports: reportData })
               break
             case 'financial':
               reportData = await window.electronAPI?.reports?.generateFinancialReport(filter)
+              console.log(`✅ Financial report generated:`, reportData)
               set({ financialReports: reportData })
               break
             case 'inventory':
               reportData = await window.electronAPI?.reports?.generateInventoryReport(filter)
+              console.log(`✅ Inventory report generated:`, reportData)
               set({ inventoryReports: reportData })
               break
             case 'analytics':
               reportData = await window.electronAPI?.reports?.generateAnalyticsReport(filter)
+              console.log(`✅ Analytics report generated:`, reportData)
               set({ analyticsReports: reportData })
               break
             case 'overview':
               reportData = await window.electronAPI?.reports?.generateOverviewReport(filter)
+              console.log(`✅ Overview report generated:`, reportData)
               set({ reportData })
               break
           }
@@ -156,11 +231,12 @@ export const useReportsStore = create<ReportsStore>()(
           // Cache the result
           if (reportData) {
             setCachedReport(cacheKey, reportData)
+            console.log(`💾 Report cached with key: ${cacheKey}`)
           }
 
           set({ isLoading: false })
         } catch (error) {
-          console.error(`Error generating ${type} report:`, error)
+          console.error(`❌ Error generating ${type} report:`, error)
           set({
             error: error instanceof Error ? error.message : `Failed to generate ${type} report`,
             isLoading: false
@@ -177,11 +253,15 @@ export const useReportsStore = create<ReportsStore>()(
         set({ isLoading: true, error: null })
 
         try {
-          await Promise.all(
-            reportTypes.map(type => generateReport(type, filterOverride))
-          )
+          // Generate reports sequentially to avoid overwhelming the system
+          for (const type of reportTypes) {
+            await generateReport(type, filterOverride)
+          }
+
+          console.log('✅ All reports generated successfully')
+          set({ isLoading: false })
         } catch (error) {
-          console.error('Error generating all reports:', error)
+          console.error('❌ Error generating all reports:', error)
           set({
             error: error instanceof Error ? error.message : 'Failed to generate reports',
             isLoading: false
@@ -368,9 +448,9 @@ export const useReportsStore = create<ReportsStore>()(
         newCache.set(key, { data, timestamp: Date.now() })
         set({ cachedReports: newCache })
       }
+      }
     }),
     {
       name: 'reports-store'
     }
   )
-)

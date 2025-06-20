@@ -93,7 +93,12 @@ export class ReportsService {
     appointments: Appointment[],
     filter: ReportFilter
   ): Promise<PatientReportData> {
+    console.log('🚀 Starting patient report generation...')
+    console.log('📊 Total patients received:', patients.length)
+    console.log('📅 Filter:', filter)
+
     const filteredPatients = this.filterByDateRange(patients, filter.dateRange)
+    console.log('📊 Filtered patients:', filteredPatients.length)
 
     // Calculate basic stats
     const totalPatients = patients.length
@@ -112,19 +117,18 @@ export class ReportsService {
     const inactivePatients = totalPatients - activePatients
 
     // Age distribution
+    console.log('🔢 Calculating age distribution...')
     const ageDistribution = this.calculateAgeDistribution(patients)
 
-    // Gender distribution (if we had gender field, we'd calculate it here)
-    const genderDistribution = [
-      { gender: 'ذكر', count: Math.floor(totalPatients * 0.45) },
-      { gender: 'أنثى', count: Math.floor(totalPatients * 0.55) }
-    ]
+    // Gender distribution - calculate from actual patient data
+    console.log('👥 Calculating gender distribution...')
+    const genderDistribution = this.calculateGenderDistribution(patients)
 
     // Registration trend
     const registrationTrend = this.groupByPeriod(filteredPatients, 'month')
       .map(group => ({ period: group.period, count: group.count }))
 
-    return {
+    const result = {
       totalPatients,
       newPatients,
       activePatients,
@@ -134,34 +138,111 @@ export class ReportsService {
       registrationTrend,
       patientsList: filteredPatients
     }
+
+    console.log('✅ Patient report generated:', result)
+    return result
   }
 
   private calculateAgeDistribution(patients: Patient[]): { ageGroup: string; count: number }[] {
+    console.log('🔍 Calculating age distribution for patients:', patients.length)
+
     const ageGroups = {
-      '0-17': 0,
-      '18-30': 0,
-      '31-45': 0,
-      '46-60': 0,
-      '60+': 0,
+      'أطفال (0-17)': 0,
+      'شباب (18-30)': 0,
+      'بالغين (31-45)': 0,
+      'متوسطي العمر (46-60)': 0,
+      'مسنين (60+)': 0,
       'غير محدد': 0
     }
 
     patients.forEach(patient => {
-      if (!patient.date_of_birth) {
+      console.log(`👤 Processing patient: ${patient.full_name}, age: ${patient.age}`)
+
+      // استخدام حقل العمر مباشرة من قاعدة البيانات
+      if (!patient.age || typeof patient.age !== 'number') {
         ageGroups['غير محدد']++
+        console.log(`  ➡️ Age not specified, adding to 'غير محدد'`)
         return
       }
 
-      const age = this.calculateAge(patient.date_of_birth)
+      const age = patient.age
+      console.log(`  ➡️ Patient age: ${age}`)
 
-      if (age < 18) ageGroups['0-17']++
-      else if (age <= 30) ageGroups['18-30']++
-      else if (age <= 45) ageGroups['31-45']++
-      else if (age <= 60) ageGroups['46-60']++
-      else ageGroups['60+']++
+      if (age >= 0 && age <= 17) {
+        ageGroups['أطفال (0-17)']++
+        console.log(`  ➡️ Added to 'أطفال (0-17)'`)
+      } else if (age >= 18 && age <= 30) {
+        ageGroups['شباب (18-30)']++
+        console.log(`  ➡️ Added to 'شباب (18-30)'`)
+      } else if (age >= 31 && age <= 45) {
+        ageGroups['بالغين (31-45)']++
+        console.log(`  ➡️ Added to 'بالغين (31-45)'`)
+      } else if (age >= 46 && age <= 60) {
+        ageGroups['متوسطي العمر (46-60)']++
+        console.log(`  ➡️ Added to 'متوسطي العمر (46-60)'`)
+      } else if (age > 60) {
+        ageGroups['مسنين (60+)']++
+        console.log(`  ➡️ Added to 'مسنين (60+)'`)
+      } else {
+        ageGroups['غير محدد']++
+        console.log(`  ➡️ Invalid age, adding to 'غير محدد'`)
+      }
     })
 
-    return Object.entries(ageGroups).map(([ageGroup, count]) => ({ ageGroup, count }))
+    console.log('📈 Age groups:', ageGroups)
+
+    // فقط إرجاع الفئات العمرية التي لديها مرضى فعلاً
+    const result = Object.entries(ageGroups)
+      .filter(([ageGroup, count]) => count > 0)
+      .map(([ageGroup, count]) => ({ ageGroup, count }))
+
+    console.log('✅ Final age distribution:', result)
+    return result
+  }
+
+  private calculateGenderDistribution(patients: Patient[]): { gender: string; count: number }[] {
+    console.log('🔍 Calculating gender distribution for patients:', patients.length)
+    console.log('📊 Patient data sample:', patients.slice(0, 5).map(p => ({ id: p.id, gender: p.gender, age: p.age, name: p.full_name })))
+
+    const genderCounts = {
+      'male': 0,
+      'female': 0,
+      'غير محدد': 0
+    }
+
+    patients.forEach(patient => {
+      console.log(`👤 Processing patient: ${patient.full_name}, gender: ${patient.gender}`)
+
+      if (!patient.gender) {
+        genderCounts['غير محدد']++
+        return
+      }
+
+      if (patient.gender === 'male') {
+        genderCounts['male']++
+      } else if (patient.gender === 'female') {
+        genderCounts['female']++
+      } else {
+        genderCounts['غير محدد']++
+      }
+    })
+
+    console.log('📈 Gender counts:', genderCounts)
+
+    // فقط إرجاع الأجناس التي لديها مرضى فعلاً
+    const result = []
+    if (genderCounts['male'] > 0) {
+      result.push({ gender: 'ذكر', count: genderCounts['male'] })
+    }
+    if (genderCounts['female'] > 0) {
+      result.push({ gender: 'أنثى', count: genderCounts['female'] })
+    }
+    if (genderCounts['غير محدد'] > 0) {
+      result.push({ gender: 'غير محدد', count: genderCounts['غير محدد'] })
+    }
+
+    console.log('✅ Final gender distribution:', result)
+    return result
   }
 
   // Generate Appointment Reports
@@ -179,17 +260,45 @@ export class ReportsService {
     const noShowAppointments = filteredAppointments.filter(apt => apt.status === 'no_show').length
     const scheduledAppointments = filteredAppointments.filter(apt => apt.status === 'scheduled').length
 
-    // Calculate rates
-    const attendanceRate = totalAppointments > 0 ? (completedAppointments / totalAppointments) * 100 : 0
-    const cancellationRate = totalAppointments > 0 ? (cancelledAppointments / totalAppointments) * 100 : 0
+    // Calculate rates with proper validation and rounding
+    const attendanceRate = totalAppointments > 0 ?
+      Math.round((completedAppointments / totalAppointments) * 10000) / 100 : 0
+    const cancellationRate = totalAppointments > 0 ?
+      Math.round((cancelledAppointments / totalAppointments) * 10000) / 100 : 0
 
-    // Appointments by status
+    // Appointments by status with validated percentages
     const appointmentsByStatus = [
-      { status: 'مكتمل', count: completedAppointments, percentage: (completedAppointments / totalAppointments) * 100 },
-      { status: 'مجدول', count: scheduledAppointments, percentage: (scheduledAppointments / totalAppointments) * 100 },
-      { status: 'ملغي', count: cancelledAppointments, percentage: (cancelledAppointments / totalAppointments) * 100 },
-      { status: 'لم يحضر', count: noShowAppointments, percentage: (noShowAppointments / totalAppointments) * 100 }
+      {
+        status: 'مكتمل',
+        count: completedAppointments,
+        percentage: totalAppointments > 0 ?
+          Math.round((completedAppointments / totalAppointments) * 10000) / 100 : 0
+      },
+      {
+        status: 'مجدول',
+        count: scheduledAppointments,
+        percentage: totalAppointments > 0 ?
+          Math.round((scheduledAppointments / totalAppointments) * 10000) / 100 : 0
+      },
+      {
+        status: 'ملغي',
+        count: cancelledAppointments,
+        percentage: totalAppointments > 0 ?
+          Math.round((cancelledAppointments / totalAppointments) * 10000) / 100 : 0
+      },
+      {
+        status: 'لم يحضر',
+        count: noShowAppointments,
+        percentage: totalAppointments > 0 ?
+          Math.round((noShowAppointments / totalAppointments) * 10000) / 100 : 0
+      }
     ]
+
+    // Validate that percentages add up to 100% (within rounding tolerance)
+    const totalPercentage = appointmentsByStatus.reduce((sum, item) => sum + item.percentage, 0)
+    if (Math.abs(totalPercentage - 100) > 0.1 && totalAppointments > 0) {
+      console.warn('Appointment percentages do not add up to 100%:', totalPercentage)
+    }
 
     // Appointments by treatment
     const treatmentCounts: { [key: string]: number } = {}
@@ -264,22 +373,43 @@ export class ReportsService {
   ): Promise<FinancialReportData> {
     const filteredPayments = this.filterByDateRange(payments, filter.dateRange, 'payment_date')
 
-    // Basic financial stats
+    // Basic financial stats with enhanced validation
+    const validateAmount = (amount: any): number => {
+      const num = Number(amount)
+      return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+    }
+
     const totalRevenue = filteredPayments
       .filter(p => p.status === 'completed')
-      .reduce((sum, p) => sum + p.amount, 0)
+      .reduce((sum, p) => {
+        const amount = validateAmount(p.amount)
+        return sum + amount
+      }, 0)
 
     const totalPaid = filteredPayments
       .filter(p => p.status === 'completed')
-      .reduce((sum, p) => sum + p.amount, 0)
+      .reduce((sum, p) => {
+        const amount = validateAmount(p.amount)
+        return sum + amount
+      }, 0)
 
     const totalPending = filteredPayments
       .filter(p => p.status === 'pending')
-      .reduce((sum, p) => sum + (p.remaining_balance || p.amount), 0)
+      .reduce((sum, p) => {
+        const remainingBalance = validateAmount(p.remaining_balance)
+        const amount = validateAmount(p.amount)
+        const finalAmount = remainingBalance > 0 ? remainingBalance : amount
+        return sum + finalAmount
+      }, 0)
 
     const totalOverdue = filteredPayments
       .filter(p => p.status === 'overdue')
-      .reduce((sum, p) => sum + (p.remaining_balance || p.amount), 0)
+      .reduce((sum, p) => {
+        const remainingBalance = validateAmount(p.remaining_balance)
+        const amount = validateAmount(p.amount)
+        const finalAmount = remainingBalance > 0 ? remainingBalance : amount
+        return sum + finalAmount
+      }, 0)
 
     // Revenue by payment method
     const paymentMethodCounts: { [key: string]: number } = {}
@@ -294,17 +424,27 @@ export class ReportsService {
     filteredPayments
       .filter(p => p.status === 'completed')
       .forEach(payment => {
-        const method = paymentMethodNames[payment.payment_method] || payment.payment_method
-        paymentMethodCounts[method] = (paymentMethodCounts[method] || 0) + payment.amount
+        const method = paymentMethodNames[payment.payment_method] || payment.payment_method || 'غير محدد'
+        const amount = validateAmount(payment.amount)
+        const currentTotal = paymentMethodCounts[method] || 0
+        const newTotal = currentTotal + amount
+        paymentMethodCounts[method] = validateAmount(newTotal)
       })
 
     const revenueByPaymentMethod = Object.entries(paymentMethodCounts)
+      .filter(([method, amount]) => validateAmount(amount) > 0)
       .map(([method, amount]) => ({
         method,
-        amount,
-        percentage: totalRevenue > 0 ? (amount / totalRevenue) * 100 : 0
+        amount: validateAmount(amount),
+        percentage: totalRevenue > 0 ? Math.round((validateAmount(amount) / totalRevenue) * 10000) / 100 : 0
       }))
       .sort((a, b) => b.amount - a.amount)
+
+    // Validate that payment method percentages add up to 100% (within rounding tolerance)
+    const totalMethodPercentage = revenueByPaymentMethod.reduce((sum, item) => sum + item.percentage, 0)
+    if (Math.abs(totalMethodPercentage - 100) > 0.1 && totalRevenue > 0) {
+      console.warn('Payment method percentages do not add up to 100%:', totalMethodPercentage)
+    }
 
     // Revenue by treatment
     const treatmentRevenue: { [key: string]: { amount: number; count: number } } = {}
@@ -339,7 +479,8 @@ export class ReportsService {
       'payment_date'
     ).map(group => ({
       period: group.period,
-      amount: group.data.reduce((sum, p) => sum + p.amount, 0)
+      amount: group.data.reduce((sum, p) => sum + validateAmount(p.amount), 0),
+      revenue: group.data.reduce((sum, p) => sum + validateAmount(p.amount), 0) // Add revenue field for compatibility
     }))
 
     // Cash flow (simplified - only income for now)

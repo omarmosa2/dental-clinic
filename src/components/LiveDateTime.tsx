@@ -19,35 +19,23 @@ export default function LiveDateTime() {
 
   const formatGregorianDateTime = (date: Date): string => {
     const day = date.getDate()
-    const month = date.getMonth()
+    const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
     const year = date.getFullYear()
     const hours = date.getHours()
     const minutes = date.getMinutes()
     const seconds = date.getSeconds()
 
-    // Gregorian months in Arabic
-    const gregorianMonths = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-    ]
+    // Format date as DD/MM/YYYY
+    const formattedDay = day.toString().padStart(2, '0')
+    const formattedMonth = month.toString().padStart(2, '0')
+    const formattedHours = hours.toString().padStart(2, '0')
+    const formattedMinutes = minutes.toString().padStart(2, '0')
+    const formattedSeconds = seconds.toString().padStart(2, '0')
 
-    // Arabic-Indic numerals
-    const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
-    const toArabicNumerals = (num: number): string => {
-      return num.toString().split('').map(digit => arabicNumerals[parseInt(digit)]).join('')
-    }
+    // Format: 20/06/2025 - 12:30:45
+    const dateNumbers = `${formattedDay}/${formattedMonth}/${year}`
+    const timeNumbers = `${formattedHours}:${formattedMinutes}:${formattedSeconds}`
 
-    const arabicDay = toArabicNumerals(day)
-    const arabicYear = toArabicNumerals(year)
-    const arabicHours = toArabicNumerals(hours.toString().padStart(2, '0'))
-    const arabicMinutes = toArabicNumerals(minutes.toString().padStart(2, '0'))
-    const arabicSeconds = toArabicNumerals(seconds.toString().padStart(2, '0'))
-    const monthName = gregorianMonths[month]
-
-    // Format: ٢٠٢٥/٦/١٧ - ١٢:٣٠:٤٥
-    const dateNumbers = `${arabicYear}/${toArabicNumerals(month + 1)}/${arabicDay}`
-    const timeNumbers = `${arabicHours}:${arabicMinutes}:${arabicSeconds}`
-    
     return `${dateNumbers} - ${timeNumbers}`
   }
 

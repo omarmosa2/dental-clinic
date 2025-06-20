@@ -242,30 +242,18 @@ export const useBackupStore = create<BackupStore>()(
       formatBackupDate: (dateString: string) => {
         const date = new Date(dateString)
         const day = date.getDate()
-        const month = date.getMonth()
+        const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
         const year = date.getFullYear()
         const hours = date.getHours()
         const minutes = date.getMinutes()
 
-        // Gregorian months in Arabic
-        const gregorianMonths = [
-          'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-          'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-        ]
+        // Format date as DD/MM/YYYY
+        const formattedDay = day.toString().padStart(2, '0')
+        const formattedMonth = month.toString().padStart(2, '0')
+        const formattedHours = hours.toString().padStart(2, '0')
+        const formattedMinutes = minutes.toString().padStart(2, '0')
 
-        // Arabic-Indic numerals
-        const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
-        const toArabicNumerals = (num: number): string => {
-          return num.toString().split('').map(digit => arabicNumerals[parseInt(digit)]).join('')
-        }
-
-        const arabicDay = toArabicNumerals(day)
-        const arabicYear = toArabicNumerals(year)
-        const arabicHours = toArabicNumerals(hours)
-        const arabicMinutes = toArabicNumerals(minutes.toString().padStart(2, '0'))
-        const monthName = gregorianMonths[month]
-
-        return `${arabicDay} ${monthName} ${arabicYear}م في ${arabicHours}:${arabicMinutes}`
+        return `${formattedDay}/${formattedMonth}/${year} في ${formattedHours}:${formattedMinutes}`
       },
 
       getBackupStatus: () => {
@@ -288,26 +276,15 @@ export const useBackupStore = create<BackupStore>()(
               break
           }
 
-          // Format next scheduled backup date in Gregorian
+          // Format next scheduled backup date in DD/MM/YYYY format
           const nextDay = nextDate.getDate()
-          const nextMonth = nextDate.getMonth()
+          const nextMonth = nextDate.getMonth() + 1 // Add 1 because getMonth() returns 0-11
           const nextYear = nextDate.getFullYear()
 
-          const gregorianMonths = [
-            'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-            'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-          ]
+          const formattedNextDay = nextDay.toString().padStart(2, '0')
+          const formattedNextMonth = nextMonth.toString().padStart(2, '0')
 
-          const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
-          const toArabicNumerals = (num: number): string => {
-            return num.toString().split('').map(digit => arabicNumerals[parseInt(digit)]).join('')
-          }
-
-          const arabicNextDay = toArabicNumerals(nextDay)
-          const arabicNextYear = toArabicNumerals(nextYear)
-          const nextMonthName = gregorianMonths[nextMonth]
-
-          nextScheduledBackup = `${arabicNextDay} ${nextMonthName} ${arabicNextYear}م`
+          nextScheduledBackup = `${formattedNextDay}/${formattedNextMonth}/${nextYear}`
         }
 
         return {

@@ -86,6 +86,16 @@ export const usePatientStore = create<PatientStore>()(
 
           // Update filtered patients if there's a search query
           get().filterPatients()
+
+          // Notify other stores about patient addition for real-time sync
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('patient-added', {
+              detail: {
+                patientId: newPatient.id,
+                patientName: newPatient.full_name || 'New Patient'
+              }
+            }))
+          }
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Failed to create patient',
@@ -112,6 +122,16 @@ export const usePatientStore = create<PatientStore>()(
 
           // Update filtered patients
           get().filterPatients()
+
+          // Notify other stores about patient update for real-time sync
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('patient-updated', {
+              detail: {
+                patientId: id,
+                patientName: updatedPatient.full_name || 'Updated Patient'
+              }
+            }))
+          }
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Failed to update patient',
@@ -255,26 +275,51 @@ export const usePatientStore = create<PatientStore>()(
             get().getPatientPayments(patientId)
           ])
 
-          const totalAppointments = appointments.length
-          const completedAppointments = appointments.filter((apt: any) => apt.status === 'completed').length
-          const totalPayments = payments.length
+          const totalAppointments = Math.max(0, appointments.length)
+          const completedAppointments = Math.max(0, appointments.filter((apt: any) => apt.status === 'completed').length)
+          const totalPayments = Math.max(0, payments.length)
+
+          // Calculate total amount paid with validation
           const totalAmountPaid = payments
             .filter((payment: any) => payment.status === 'completed')
-            .reduce((sum: number, payment: any) => sum + payment.amount, 0)
+            .reduce((sum: number, payment: any) => {
+              const amount = typeof payment.amount === 'number' ? payment.amount : 0
+              return sum + amount
+            }, 0)
 
-          const lastAppointment = appointments.length > 0
-            ? appointments.sort((a: any, b: any) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())[0].start_time
-            : undefined
+          // Get last appointment with date validation
+          let lastAppointment: string | undefined
+          if (appointments.length > 0) {
+            try {
+              const sortedAppointments = appointments
+                .filter((apt: any) => apt.start_time && !isNaN(new Date(apt.start_time).getTime()))
+                .sort((a: any, b: any) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
 
-          const lastPayment = payments.length > 0
-            ? payments.sort((a: any, b: any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())[0].payment_date
-            : undefined
+              lastAppointment = sortedAppointments.length > 0 ? sortedAppointments[0].start_time : undefined
+            } catch (error) {
+              console.warn('Error sorting appointments by date:', error)
+            }
+          }
+
+          // Get last payment with date validation
+          let lastPayment: string | undefined
+          if (payments.length > 0) {
+            try {
+              const sortedPayments = payments
+                .filter((payment: any) => payment.payment_date && !isNaN(new Date(payment.payment_date).getTime()))
+                .sort((a: any, b: any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+
+              lastPayment = sortedPayments.length > 0 ? sortedPayments[0].payment_date : undefined
+            } catch (error) {
+              console.warn('Error sorting payments by date:', error)
+            }
+          }
 
           return {
             totalAppointments,
             completedAppointments,
             totalPayments,
-            totalAmountPaid,
+            totalAmountPaid: Math.round(totalAmountPaid * 100) / 100, // Round to 2 decimal places
             lastAppointment,
             lastPayment
           }

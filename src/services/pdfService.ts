@@ -214,7 +214,7 @@ export class PdfService {
         <div class="header">
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">تقرير المواعيد</div>
-          <div class="report-date">${new Date().toLocaleDateString('ar-SA')}</div>
+          <div class="report-date">${new Date().toLocaleDateString('en-GB')}</div>
         </div>
 
         <div class="summary-cards">
@@ -296,25 +296,31 @@ export class PdfService {
         <div class="header">
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">التقرير المالي</div>
-          <div class="report-date">${new Date().toLocaleDateString('ar-SA')}</div>
+          <div class="report-date">${(() => {
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          })()}</div>
         </div>
 
         <div class="summary-cards">
           <div class="summary-card">
             <h3>إجمالي الإيرادات</h3>
-            <div class="number">${data.totalRevenue?.toLocaleString() || 0} ريال</div>
+            <div class="number">$${data.totalRevenue?.toLocaleString() || 0}</div>
           </div>
           <div class="summary-card">
             <h3>المدفوعات المكتملة</h3>
-            <div class="number">${data.totalRevenue?.toLocaleString() || 0} ريال</div>
+            <div class="number">$${data.totalRevenue?.toLocaleString() || 0}</div>
           </div>
           <div class="summary-card">
             <h3>المدفوعات المعلقة</h3>
-            <div class="number">${data.pendingPayments?.toLocaleString() || 0} ريال</div>
+            <div class="number">$${data.pendingPayments?.toLocaleString() || 0}</div>
           </div>
           <div class="summary-card">
             <h3>المدفوعات المتأخرة</h3>
-            <div class="number">${data.overduePayments?.toLocaleString() || 0} ريال</div>
+            <div class="number">$${data.overduePayments?.toLocaleString() || 0}</div>
           </div>
         </div>
 
@@ -376,7 +382,13 @@ export class PdfService {
         <div class="header">
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">تقرير المخزون</div>
-          <div class="report-date">${new Date().toLocaleDateString('ar-SA')}</div>
+          <div class="report-date">${(() => {
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          })()}</div>
         </div>
 
         <div class="summary-cards">
@@ -485,7 +497,7 @@ export class PdfService {
         <div class="header">
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">التقرير الشامل</div>
-          <div class="report-date">${new Date().toLocaleDateString('ar-SA')}</div>
+          <div class="report-date">${new Date().toLocaleDateString('en-GB')}</div>
         </div>
 
         <div class="summary-section">
@@ -538,7 +550,7 @@ export class PdfService {
               </tr>
               <tr>
                 <td>متوسط الإيراد لكل مريض</td>
-                <td>${((financialData.totalRevenue || 0) / patientData.totalPatients).toLocaleString()} ريال</td>
+                <td>$${((financialData.totalRevenue || 0) / patientData.totalPatients).toLocaleString()}</td>
               </tr>
             </tbody>
           </table>

@@ -87,26 +87,14 @@ export default function LicenseInfoCard({
     try {
       const date = new Date(dateString)
       const day = date.getDate()
-      const month = date.getMonth()
+      const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
       const year = date.getFullYear()
 
-      // Gregorian months in Arabic
-      const gregorianMonths = [
-        'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-        'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-      ]
+      // Format as DD/MM/YYYY
+      const formattedDay = day.toString().padStart(2, '0')
+      const formattedMonth = month.toString().padStart(2, '0')
 
-      // Arabic-Indic numerals
-      const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
-      const toArabicNumerals = (num: number): string => {
-        return num.toString().split('').map(digit => arabicNumerals[parseInt(digit)]).join('')
-      }
-
-      const arabicDay = toArabicNumerals(day)
-      const arabicYear = toArabicNumerals(year)
-      const monthName = gregorianMonths[month]
-
-      return `${arabicDay} ${monthName} ${arabicYear}م`
+      return `${formattedDay}/${formattedMonth}/${year}`
     } catch {
       return dateString
     }

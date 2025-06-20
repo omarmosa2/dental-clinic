@@ -34,11 +34,21 @@
     --medical-success: 142 76% 36%;
     --medical-warning: 38 92% 50%;
     --medical-error: 0 84% 60%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+
+    /* Professional chart colors - Light mode */
+    --chart-1: 200.4 98% 39.4%;    /* Sky blue */
+    --chart-2: 142 76% 36%;         /* Emerald green */
+    --chart-3: 38 92% 50%;          /* Amber */
+    --chart-4: 0 84% 60%;           /* Red */
+    --chart-5: 262 83% 58%;         /* Purple */
+    --chart-6: 188 94% 37%;         /* Cyan */
+    --chart-7: 25 95% 53%;          /* Orange */
+    --chart-8: 339 82% 52%;         /* Pink */
+
+    /* Chart grid and axis colors */
+    --chart-grid: 214 32% 91%;      /* Light gray */
+    --chart-axis: 215 28% 17%;      /* Dark gray */
+    --chart-text: 215 28% 17%;      /* Text color */
     --sidebar-background: 186.2 83.5% 97.1%;
     --sidebar-foreground: 201.3 96.3% 32.2%;
     --sidebar-primary: 200.4 98% 39.4%;
@@ -77,11 +87,21 @@
     --medical-success: 142 76% 46%;
     --medical-warning: 38 92% 60%;
     --medical-error: 0 84% 70%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+
+    /* Professional chart colors - Dark mode (brighter) */
+    --chart-1: 200.4 98% 55%;       /* Brighter sky blue */
+    --chart-2: 142 76% 50%;         /* Brighter emerald green */
+    --chart-3: 38 92% 65%;          /* Brighter amber */
+    --chart-4: 0 84% 70%;           /* Brighter red */
+    --chart-5: 262 83% 70%;         /* Brighter purple */
+    --chart-6: 188 94% 50%;         /* Brighter cyan */
+    --chart-7: 25 95% 65%;          /* Brighter orange */
+    --chart-8: 339 82% 65%;         /* Brighter pink */
+
+    /* Chart grid and axis colors - Dark mode */
+    --chart-grid: 215 28% 25%;      /* Dark gray */
+    --chart-axis: 214 32% 91%;      /* Light gray */
+    --chart-text: 214 32% 91%;      /* Light text color */
     --sidebar-background: 201.3 96.3% 10%;
     --sidebar-foreground: 186.2 83.5% 87.1%;
     --sidebar-primary: 198.6 88.7% 48.4%;
@@ -497,6 +517,48 @@
     background: linear-gradient(135deg, #172554 0%, #1e3a8a 50%, #1d4ed8 100%);
     border-color: #3b82f6;
     box-shadow: 0 1px 3px rgba(59, 130, 246, 0.2);
+  }
+
+  /* Professional chart styling */
+  .chart-container {
+    font-family: 'Tajawal', system-ui, sans-serif;
+    direction: rtl;
+  }
+
+  .chart-tooltip {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    font-size: 14px;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    padding: 12px;
+    text-align: right;
+    direction: rtl;
+  }
+
+  .dark .chart-tooltip {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  }
+
+  .chart-grid {
+    stroke: hsl(var(--chart-grid));
+    stroke-dasharray: 3 3;
+    stroke-opacity: 0.5;
+  }
+
+  .chart-axis {
+    stroke: hsl(var(--chart-axis));
+    font-size: 12px;
+    fill: hsl(var(--chart-text));
+  }
+
+  .chart-legend {
+    font-family: 'Tajawal', system-ui, sans-serif;
+    font-size: 12px;
+    fill: hsl(var(--chart-text));
+    direction: rtl;
   }
 
   .card-purple {

@@ -269,13 +269,25 @@ export class ExportService {
         <div class="header">
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">${title}</div>
-          <div class="report-date">${new Date().toLocaleDateString('ar-SA')}</div>
+          <div class="report-date">${(() => {
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          })()}</div>
         </div>
 
         ${this.generateReportContent(type, data, options)}
 
         <div class="footer">
-          تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة - ${new Date().toLocaleString('ar-SA')}
+          تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة - ${(() => {
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          })()}
         </div>
       </body>
       </html>
@@ -454,19 +466,19 @@ export class ExportService {
       <div class="summary-cards">
         <div class="summary-card">
           <h3>إجمالي الإيرادات</h3>
-          <div class="number">${formatCurrency(data.totalRevenue || 0)} ريال</div>
+          <div class="number">${formatCurrency(data.totalRevenue || 0, 'USD')}</div>
         </div>
         <div class="summary-card">
           <h3>المدفوعات المكتملة</h3>
-          <div class="number">${formatCurrency(data.completedPayments || 0)} ريال</div>
+          <div class="number">${formatCurrency(data.completedPayments || 0, 'USD')}</div>
         </div>
         <div class="summary-card">
           <h3>المدفوعات المعلقة</h3>
-          <div class="number">${formatCurrency(data.pendingPayments || 0)} ريال</div>
+          <div class="number">${formatCurrency(data.pendingPayments || 0, 'USD')}</div>
         </div>
         <div class="summary-card">
           <h3>المدفوعات المتأخرة</h3>
-          <div class="number">${formatCurrency(data.overduePayments || 0)} ريال</div>
+          <div class="number">${formatCurrency(data.overduePayments || 0, 'USD')}</div>
         </div>
       </div>
 
@@ -630,7 +642,12 @@ export class ExportService {
 
     // Date and time
     doc.setFontSize(12)
-    doc.text(`تاريخ التقرير: ${new Date().toLocaleString('ar-SA')}`, pageWidth - 20, 45, { align: 'right' })
+    const currentDate = new Date()
+    const day = currentDate.getDate().toString().padStart(2, '0')
+    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
+    const year = currentDate.getFullYear()
+    const formattedDate = `${day}/${month}/${year}`
+    doc.text(`تاريخ التقرير: ${formattedDate}`, pageWidth - 20, 45, { align: 'right' })
 
     // Line separator
     doc.setLineWidth(0.5)

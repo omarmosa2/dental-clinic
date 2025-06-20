@@ -92,7 +92,7 @@ export default function UsageDialog({
         notes: data.notes || undefined,
         usage_date: data.usage_date,
       }
-      
+
       await onSave(usageData)
       form.reset({
         quantity_used: 1,
@@ -126,7 +126,7 @@ export default function UsageDialog({
 
   // Get today's appointments
   const today = new Date().toISOString().split('T')[0]
-  const todayAppointments = appointments.filter(apt => 
+  const todayAppointments = appointments.filter(apt =>
     apt.start_time.startsWith(today)
   )
 
@@ -152,14 +152,14 @@ export default function UsageDialog({
             <span className="font-medium text-foreground">{item.name}</span>
             <span className="text-sm text-muted-foreground">العنصر:</span>
           </div>
-          
+
           <div className="flex justify-between">
             <span className="text-sm">
               {item.quantity} {item.unit || 'قطعة'}
             </span>
             <span className="text-sm text-muted-foreground">الكمية المتوفرة:</span>
           </div>
-          
+
           <div className="flex justify-between">
             <span className="text-sm">{item.minimum_stock}</span>
             <span className="text-sm text-muted-foreground">الحد الأدنى:</span>
@@ -265,7 +265,13 @@ export default function UsageDialog({
                         <SelectItem key={appointment.id} value={appointment.id}>
                           {appointment.title} - {appointment.patient?.first_name} {appointment.patient?.last_name}
                           <span className="text-xs text-muted-foreground ml-2">
-                            ({new Date(appointment.start_time).toLocaleDateString('ar-SA')})
+                            ({(() => {
+                              const date = new Date(appointment.start_time)
+                              const day = date.getDate().toString().padStart(2, '0')
+                              const month = (date.getMonth() + 1).toString().padStart(2, '0')
+                              const year = date.getFullYear()
+                              return `${day}/${month}/${year}`
+                            })()})
                           </span>
                         </SelectItem>
                       ))}
@@ -305,8 +311,8 @@ export default function UsageDialog({
               >
                 إلغاء
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isLoading || isOutOfStock || form.watch('quantity_used') > item.quantity}
               >
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

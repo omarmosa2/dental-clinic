@@ -12,8 +12,9 @@ import {
 import { usePaymentStore } from '@/store/paymentStore'
 import { usePatientStore } from '@/store/patientStore'
 import { useToast } from '@/hooks/use-toast'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
+import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import AddPaymentDialog from '@/components/payments/AddPaymentDialog'
 import EditPaymentDialog from '@/components/payments/EditPaymentDialog'
 import DeletePaymentDialog from '@/components/payments/DeletePaymentDialog'
@@ -34,6 +35,9 @@ import {
 import type { Payment } from '@/types'
 
 export default function Payments() {
+  // Enable real-time synchronization for automatic updates
+  useRealTimeSync()
+
   const { toast } = useToast()
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -126,14 +130,6 @@ export default function Payments() {
         <div className="flex items-center space-x-2 space-x-reverse">
           <Button
             variant="outline"
-            onClick={loadPayments}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
-            تحديث
-          </Button>
-          <Button
-            variant="outline"
             onClick={() => {
               // Export payments data
               if (payments.length === 0) {
@@ -164,7 +160,7 @@ export default function Payments() {
                 'المبلغ': payment.amount,
                 'طريقة الدفع': getPaymentMethodLabel(payment.payment_method),
                 'الحالة': payment.status,
-                'تاريخ الدفع': new Date(payment.payment_date).toLocaleDateString('ar-SA'),
+                'تاريخ الدفع': formatDate(payment.payment_date),
                 'الوصف': payment.description || ''
               }))
 

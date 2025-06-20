@@ -4,8 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useReportsStore } from '@/store/reportsStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
-import { formatDate } from '@/lib/utils'
+import { useRealTimeReportsByType } from '@/hooks/useRealTimeReports'
+import { formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue } from '@/lib/utils'
+import { validateNumericData, validateDateData, transformToChartData, groupDataByPeriod, ensureAppointmentStatusData } from '@/lib/chartDataHelpers'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
+import { useTheme } from '@/contexts/ThemeContext'
 import { PdfService } from '@/services/pdfService'
 import {
   Calendar,
@@ -34,11 +37,13 @@ import {
   Cell
 } from 'recharts'
 
-const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
-
 export default function AppointmentReports() {
   const { appointmentReports, isLoading, isExporting, generateReport, clearCache } = useReportsStore()
   const { appointments, loadAppointments } = useAppointmentStore()
+  const { isDarkMode } = useTheme()
+
+  // Use real-time reports hook for automatic updates
+  useRealTimeReportsByType('appointments')
 
   useEffect(() => {
     generateReport('appointments')
@@ -47,16 +52,31 @@ export default function AppointmentReports() {
 
 
 
-  // Calculate appointment statistics
-  const calculateStats = () => {
+  // Use data from reports service if available, otherwise fallback to store data
+  const getReportData = () => {
+    if (appointmentReports) {
+      return {
+        total: appointmentReports.totalAppointments || 0,
+        completed: appointmentReports.completedAppointments || 0,
+        cancelled: appointmentReports.cancelledAppointments || 0,
+        pending: appointmentReports.scheduledAppointments || 0,
+        noShow: appointmentReports.noShowAppointments || 0,
+        attendanceRate: appointmentReports.attendanceRate?.toFixed(1) || '0.0',
+        cancellationRate: appointmentReports.cancellationRate?.toFixed(1) || '0.0',
+        appointmentsByStatus: appointmentReports.appointmentsByStatus || [],
+        appointmentTrend: appointmentReports.appointmentTrend || []
+      }
+    }
+
+    // Fallback to calculating from store data
     const total = appointments.length
     const completed = appointments.filter(apt => apt.status === 'completed').length
     const cancelled = appointments.filter(apt => apt.status === 'cancelled').length
     const pending = appointments.filter(apt => apt.status === 'scheduled').length
     const noShow = appointments.filter(apt => apt.status === 'no_show').length
 
-    const attendanceRate = total > 0 ? ((completed / total) * 100).toFixed(1) : '0'
-    const cancellationRate = total > 0 ? ((cancelled / total) * 100).toFixed(1) : '0'
+    const attendanceRate = total > 0 ? Math.round((completed / total) * 1000) / 10 : 0
+    const cancellationRate = total > 0 ? Math.round((cancelled / total) * 1000) / 10 : 0
 
     return {
       total,
@@ -64,32 +84,109 @@ export default function AppointmentReports() {
       cancelled,
       pending,
       noShow,
-      attendanceRate,
-      cancellationRate
+      attendanceRate: attendanceRate.toFixed(1),
+      cancellationRate: cancellationRate.toFixed(1),
+      appointmentsByStatus: [],
+      appointmentTrend: []
     }
   }
 
-  const stats = calculateStats()
+  const stats = getReportData()
 
-  // Prepare chart data
-  const statusData = [
-    { name: 'مكتمل', value: stats.completed, color: '#10b981' },
-    { name: 'ملغي', value: stats.cancelled, color: '#ef4444' },
-    { name: 'مجدول', value: stats.pending, color: '#f59e0b' },
-    { name: 'لم يحضر', value: stats.noShow, color: '#6b7280' }
-  ]
+  // Get professional chart colors
+  const categoricalColors = getChartColors('categorical', isDarkMode)
+  const primaryColors = getChartColors('primary', isDarkMode)
+  const statusColors = getChartColorsWithFallback('status', isDarkMode, 8)
+  const chartConfiguration = getChartConfig(isDarkMode)
 
-  // Monthly appointments data
-  const monthlyData = appointments.reduce((acc, apt) => {
-    const month = new Date(apt.start_time).toLocaleDateString('ar-SA', { month: 'short', year: 'numeric' })
-    acc[month] = (acc[month] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
+  // Enhanced appointment status data with validation
+  const statusData = (() => {
+    try {
+      const data = [
+        { name: 'مكتمل', value: stats.completed, color: statusColors[0] }, // Green for completed
+        { name: 'مجدول', value: stats.pending, color: statusColors[4] }, // Purple for scheduled
+        { name: 'ملغي', value: stats.cancelled, color: statusColors[2] }, // Red for cancelled
+        { name: 'لم يحضر', value: stats.noShow, color: statusColors[3] } // Gray for no show
+      ].map(item => ({
+        ...item,
+        percentage: stats.total > 0 ? Math.round((item.value / stats.total) * 100) : 0
+      }))
 
-  const monthlyChartData = Object.entries(monthlyData).map(([month, count]) => ({
-    month,
-    count
-  }))
+      return ensureAppointmentStatusData(data)
+    } catch (error) {
+      console.error('Appointment Reports: Error processing status data:', error)
+      return []
+    }
+  })()
+
+  // Enhanced monthly appointments data with comprehensive validation
+  const monthlyChartData = (() => {
+    try {
+      // Use data from reports service if available
+      if (appointmentReports?.appointmentTrend && appointmentReports.appointmentTrend.length > 0) {
+        return appointmentReports.appointmentTrend.map(item => ({
+          month: item.period,
+          count: item.count,
+          formattedCount: `${item.count} موعد`
+        }))
+      }
+
+      // Fallback to calculating from store data
+      if (!validateDateData(appointments, 'start_time')) {
+        console.warn('Appointment Reports: Invalid date data detected')
+      }
+
+      const monthlyData = appointments.reduce((acc, apt) => {
+        try {
+          if (!apt || !apt.start_time) return acc
+
+          const date = new Date(apt.start_time)
+          // Enhanced date validation
+          if (isNaN(date.getTime()) || date.getFullYear() < 1900 || date.getFullYear() > 2100) {
+            console.warn('Invalid appointment start_time:', apt.start_time)
+            return acc
+          }
+
+          // Use Arabic month format for better display
+          const monthName = date.toLocaleDateString('ar-SA', {
+            month: 'short',
+            year: 'numeric'
+          })
+
+          acc[monthName] = (acc[monthName] || 0) + 1
+          return acc
+        } catch (error) {
+          console.warn('Error processing appointment date:', apt.start_time, error)
+          return acc
+        }
+      }, {} as Record<string, number>)
+
+      const chartData = Object.entries(monthlyData)
+        .map(([month, count]) => ({
+          month,
+          count,
+          formattedCount: `${count} موعد`
+        }))
+        .sort((a, b) => {
+          // Sort chronologically
+          const dateA = new Date(a.month)
+          const dateB = new Date(b.month)
+          return dateA.getTime() - dateB.getTime()
+        })
+        .filter(item => item.count > 0) // Only include months with appointments
+
+      // Validate the final data
+      if (!validateNumericData(chartData)) {
+        console.warn('Appointment Reports: Invalid monthly chart data')
+        return []
+      }
+
+      return chartData
+    } catch (error) {
+      console.error('Appointment Reports: Error processing monthly data:', error)
+      return []
+    }
+  })()
 
   return (
     <div className="space-y-6">
@@ -155,7 +252,7 @@ export default function AppointmentReports() {
                 'عدم الحضور': stats.noShow,
                 'معدل الحضور (%)': stats.attendanceRate,
                 'معدل الإلغاء (%)': stats.cancellationRate,
-                'تاريخ التقرير': new Date().toLocaleString('ar-SA')
+                'تاريخ التقرير': formatDate(new Date())
               }
 
               // Create CSV with BOM for Arabic support
@@ -302,64 +399,166 @@ export default function AppointmentReports() {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
-        {/* Status Distribution Chart */}
+        {/* Enhanced Status Distribution Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <PieChart className="w-5 h-5" />
               <span>توزيع حالات المواعيد</span>
             </CardTitle>
-            <CardDescription>توزيع المواعيد حسب الحالة</CardDescription>
+            <CardDescription>
+              توزيع المواعيد حسب الحالة ({stats.total} موعد إجمالي)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RechartsPieChart>
-                <Pie
-                  data={statusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </RechartsPieChart>
-            </ResponsiveContainer>
+            {statusData.length === 0 ? (
+              <div className="flex items-center justify-center h-80 text-muted-foreground">
+                <div className="text-center">
+                  <PieChart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>لا توجد بيانات مواعيد متاحة</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+                <RechartsPieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <Pie
+                    data={statusData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value, percent }) =>
+                      value > 0 ? `${name}: ${value} (${(percent * 100).toFixed(0)}%)` : ''
+                    }
+                    outerRadius={120}
+                    innerRadius={50}
+                    fill="#8884d8"
+                    dataKey="value"
+                    stroke={isDarkMode ? '#1f2937' : '#ffffff'}
+                    strokeWidth={2}
+                    paddingAngle={2}
+                  >
+                    {statusData.map((entry, index) => (
+                      <Cell key={`appointment-status-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, name) => [
+                      `${value} موعد`,
+                      'العدد'
+                    ]}
+                    labelFormatter={(label) => `الحالة: ${label}`}
+                    contentStyle={chartConfiguration.tooltip}
+                  />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            )}
+
+            {/* Status Legend */}
+            {statusData.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                {statusData.map((status, index) => (
+                  <div key={`status-legend-${index}`} className="flex items-center space-x-2 space-x-reverse">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: status.color }}
+                    />
+                    <span className="text-muted-foreground">
+                      {status.name}: {status.value} ({status.percentage}%)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Monthly Appointments Chart */}
+        {/* Enhanced Monthly Appointments Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <BarChart3 className="w-5 h-5" />
               <span>المواعيد الشهرية</span>
             </CardTitle>
-            <CardDescription>عدد المواعيد حسب الشهر</CardDescription>
+            <CardDescription>
+              عدد المواعيد حسب الشهر ({monthlyChartData.length} شهر)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyChartData} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ textAnchor: 'end', direction: 'rtl' }}
-                  reversed={true}
-                />
-                <YAxis />
-                <Tooltip
-                  labelStyle={{ direction: 'rtl', textAlign: 'right' }}
-                  contentStyle={{ direction: 'rtl', textAlign: 'right' }}
-                />
-                <Bar dataKey="count" fill="#0ea5e9" />
-              </BarChart>
-            </ResponsiveContainer>
+            {monthlyChartData.length === 0 ? (
+              <div className="flex items-center justify-center h-80 text-muted-foreground">
+                <div className="text-center">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>لا توجد بيانات مواعيد شهرية متاحة</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+                <BarChart
+                  data={monthlyChartData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                  barCategoryGap={chartConfiguration.bar.barCategoryGap}
+                >
+                  <CartesianGrid
+                    strokeDasharray={chartConfiguration.grid.strokeDasharray}
+                    stroke={chartConfiguration.grid.stroke}
+                    strokeOpacity={chartConfiguration.grid.strokeOpacity}
+                  />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                    axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                    axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    domain={[0, 'dataMax + 1']}
+                    tickFormatter={(value) => `${value} موعد`}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [`${value} موعد`, 'العدد']}
+                    labelFormatter={(label) => `الشهر: ${label}`}
+                    contentStyle={chartConfiguration.tooltip}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill={primaryColors[1]}
+                    radius={[4, 4, 0, 0]}
+                    minPointSize={5}
+                    maxBarSize={100}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+
+            {/* Monthly Summary */}
+            {monthlyChartData.length > 0 && (
+              <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+                <div className="text-center p-3 bg-muted/50 rounded">
+                  <div className="text-xs text-muted-foreground">أعلى شهر</div>
+                  <div className="font-semibold">
+                    {Math.max(...monthlyChartData.map(d => d.count))} موعد
+                  </div>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded">
+                  <div className="text-xs text-muted-foreground">متوسط شهري</div>
+                  <div className="font-semibold">
+                    {Math.round(monthlyChartData.reduce((sum, d) => sum + d.count, 0) / monthlyChartData.length)} موعد
+                  </div>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded">
+                  <div className="text-xs text-muted-foreground">أقل شهر</div>
+                  <div className="font-semibold">
+                    {Math.min(...monthlyChartData.map(d => d.count))} موعد
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

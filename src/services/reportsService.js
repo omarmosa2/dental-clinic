@@ -75,21 +75,70 @@ class ReportsService {
     }
 
     patients.forEach(patient => {
-      if (!patient.date_of_birth) {
+      // استخدام حقل العمر مباشرة من قاعدة البيانات
+      if (!patient.age || typeof patient.age !== 'number') {
         ageGroups['غير محدد']++
         return
       }
 
-      const age = this.calculateAge(patient.date_of_birth)
+      const age = patient.age
 
-      if (age < 18) ageGroups['0-17']++
-      else if (age <= 30) ageGroups['18-30']++
-      else if (age <= 45) ageGroups['31-45']++
-      else if (age <= 60) ageGroups['46-60']++
-      else ageGroups['60+']++
+      if (age >= 0 && age <= 17) {
+        ageGroups['0-17']++
+      } else if (age >= 18 && age <= 30) {
+        ageGroups['18-30']++
+      } else if (age >= 31 && age <= 45) {
+        ageGroups['31-45']++
+      } else if (age >= 46 && age <= 60) {
+        ageGroups['46-60']++
+      } else if (age > 60) {
+        ageGroups['60+']++
+      } else {
+        ageGroups['غير محدد']++
+      }
     })
 
-    return Object.entries(ageGroups).map(([ageGroup, count]) => ({ ageGroup, count }))
+    // فقط إرجاع الفئات العمرية التي لديها مرضى فعلاً
+    return Object.entries(ageGroups)
+      .filter(([ageGroup, count]) => count > 0)
+      .map(([ageGroup, count]) => ({ ageGroup, count }))
+  }
+
+  calculateGenderDistribution(patients) {
+    const genderCounts = {
+      'male': 0,
+      'female': 0,
+      'غير محدد': 0
+    }
+
+    patients.forEach(patient => {
+      if (!patient.gender) {
+        genderCounts['غير محدد']++
+        return
+      }
+
+      if (patient.gender === 'male') {
+        genderCounts['male']++
+      } else if (patient.gender === 'female') {
+        genderCounts['female']++
+      } else {
+        genderCounts['غير محدد']++
+      }
+    })
+
+    // فقط إرجاع الأجناس التي لديها مرضى فعلاً
+    const result = []
+    if (genderCounts['male'] > 0) {
+      result.push({ gender: 'ذكر', count: genderCounts['male'] })
+    }
+    if (genderCounts['female'] > 0) {
+      result.push({ gender: 'أنثى', count: genderCounts['female'] })
+    }
+    if (genderCounts['غير محدد'] > 0) {
+      result.push({ gender: 'غير محدد', count: genderCounts['غير محدد'] })
+    }
+
+    return result
   }
 
   // Generate Patient Reports
@@ -115,11 +164,8 @@ class ReportsService {
     // Age distribution
     const ageDistribution = this.calculateAgeDistribution(patients)
 
-    // Gender distribution (if we had gender field, we'd calculate it here)
-    const genderDistribution = [
-      { gender: 'ذكر', count: Math.floor(totalPatients * 0.45) },
-      { gender: 'أنثى', count: Math.floor(totalPatients * 0.55) }
-    ]
+    // Gender distribution - calculate from actual patient data
+    const genderDistribution = this.calculateGenderDistribution(patients)
 
     // Registration trend
     const registrationTrend = this.groupByPeriod(filteredPatients, 'month')

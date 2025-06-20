@@ -2,11 +2,11 @@ import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { 
-  AlertTriangle, 
-  Calendar, 
-  Package, 
-  X, 
+import {
+  AlertTriangle,
+  Calendar,
+  Package,
+  X,
   Eye,
   EyeOff,
   RefreshCw
@@ -24,30 +24,30 @@ interface InventoryAlertsProps {
   onItemClick?: (item: InventoryItem) => void
 }
 
-export default function InventoryAlerts({ 
-  items, 
+export default function InventoryAlerts({
+  items,
   onRefresh,
-  onItemClick 
+  onItemClick
 }: InventoryAlertsProps) {
   const [showLowStock, setShowLowStock] = useState(true)
   const [showExpired, setShowExpired] = useState(true)
   const [showExpiringSoon, setShowExpiringSoon] = useState(true)
 
   const today = new Date()
-  
+
   // Calculate alerts
-  const lowStockItems = items.filter(item => 
+  const lowStockItems = items.filter(item =>
     item.quantity <= item.minimum_stock && item.quantity > 0
   )
-  
-  const outOfStockItems = items.filter(item => 
+
+  const outOfStockItems = items.filter(item =>
     item.quantity === 0
   )
-  
-  const expiredItems = items.filter(item => 
+
+  const expiredItems = items.filter(item =>
     item.expiry_date && new Date(item.expiry_date) < today
   )
-  
+
   const expiringSoonItems = items.filter(item => {
     if (!item.expiry_date) return false
     const expiryDate = new Date(item.expiry_date)
@@ -56,9 +56,9 @@ export default function InventoryAlerts({
   })
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ar-SA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'SAR'
+      currency: 'USD'
     }).format(amount)
   }
 
@@ -68,14 +68,14 @@ export default function InventoryAlerts({
     return days
   }
 
-  const AlertSection = ({ 
-    title, 
-    items: alertItems, 
-    icon, 
-    color, 
-    isVisible, 
+  const AlertSection = ({
+    title,
+    items: alertItems,
+    icon,
+    color,
+    isVisible,
     onToggle,
-    emptyMessage 
+    emptyMessage
   }: {
     title: string
     items: InventoryItem[]
@@ -110,7 +110,7 @@ export default function InventoryAlerts({
             </div>
           </CollapsibleTrigger>
         </CardHeader>
-        
+
         <CollapsibleContent>
           <CardContent className="pt-0">
             {alertItems.length === 0 ? (
@@ -136,7 +136,7 @@ export default function InventoryAlerts({
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between mt-1 text-sm text-muted-foreground">
                         <div>
                           الكمية: {item.quantity} {item.unit || 'قطعة'}
@@ -146,7 +146,7 @@ export default function InventoryAlerts({
                             </span>
                           )}
                         </div>
-                        
+
                         {item.expiry_date && (
                           <div className="text-left">
                             {expiredItems.includes(item) ? (
@@ -159,13 +159,19 @@ export default function InventoryAlerts({
                               </span>
                             ) : (
                               <span>
-                                ينتهي: {new Date(item.expiry_date).toLocaleDateString('ar-SA')}
+                                ينتهي: {(() => {
+                                  const date = new Date(item.expiry_date)
+                                  const day = date.getDate().toString().padStart(2, '0')
+                                  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+                                  const year = date.getFullYear()
+                                  return `${day}/${month}/${year}`
+                                })()}
                               </span>
                             )}
                           </div>
                         )}
                       </div>
-                      
+
                       {item.cost_per_unit && (
                         <div className="text-xs text-muted-foreground mt-1">
                           القيمة الإجمالية: {formatCurrency(item.quantity * item.cost_per_unit)}
@@ -197,9 +203,9 @@ export default function InventoryAlerts({
               جميع عناصر المخزون في حالة جيدة
             </p>
             {onRefresh && (
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={onRefresh}
                 className="mt-3"
               >

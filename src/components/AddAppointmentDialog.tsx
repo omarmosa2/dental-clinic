@@ -149,7 +149,10 @@ export default function AddAppointmentDialog({
     // Generate a title automatically based on patient and date
     const selectedPatient = patients.find(p => p.id === formData.patient_id)
     const appointmentDate = new Date(formData.start_time)
-    const dateStr = appointmentDate.toLocaleDateString('ar-SA')
+    const day = appointmentDate.getDate().toString().padStart(2, '0')
+    const month = (appointmentDate.getMonth() + 1).toString().padStart(2, '0')
+    const year = appointmentDate.getFullYear()
+    const dateStr = `${day}/${month}/${year}`
     const timeStr = appointmentDate.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
     const generatedTitle = selectedPatient
       ? `موعد ${selectedPatient.full_name} - ${dateStr} ${timeStr}`

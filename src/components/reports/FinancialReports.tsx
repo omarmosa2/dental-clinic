@@ -5,8 +5,12 @@ import { Badge } from '@/components/ui/badge'
 import { useReportsStore } from '@/store/reportsStore'
 import { usePaymentStore } from '@/store/paymentStore'
 import { useSettingsStore } from '@/store/settingsStore'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { useRealTimeReportsByType } from '@/hooks/useRealTimeReports'
+import { formatCurrency, formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue } from '@/lib/utils'
+import { validateNumericData, processFinancialData, groupDataByPeriod, ensurePaymentStatusData, ensurePaymentMethodData } from '@/lib/chartDataHelpers'
+import { validatePayments, validateMonthlyRevenue, validatePaymentMethodStats, sanitizeFinancialResult } from '@/utils/dataValidation'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
+import { useTheme } from '@/contexts/ThemeContext'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { PdfService } from '@/services/pdfService'
 import {
@@ -39,8 +43,6 @@ import {
   AreaChart
 } from 'recharts'
 
-const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
-
 export default function FinancialReports() {
   const { financialReports, isLoading, isExporting, generateReport, clearCache } = useReportsStore()
   const {
@@ -53,61 +55,307 @@ export default function FinancialReports() {
     loadPayments
   } = usePaymentStore()
   const { currency } = useSettingsStore()
+  const { isDarkMode } = useTheme()
+
+  // Use real-time reports hook for automatic updates
+  useRealTimeReportsByType('financial')
 
   useEffect(() => {
     generateReport('financial')
     loadPayments()
   }, [generateReport, loadPayments])
 
+  // Validate payments data on load
+  useEffect(() => {
+    if (payments.length > 0) {
+      const validation = validatePayments(payments)
+      if (validation.totalErrors > 0) {
+        console.warn(`Found ${validation.totalErrors} errors in ${validation.invalidPayments.length} payments`)
+      }
+      if (validation.totalWarnings > 0) {
+        console.warn(`Found ${validation.totalWarnings} warnings in payment data`)
+      }
+    }
+  }, [payments])
 
 
-  // Calculate financial statistics
-  const calculateStats = () => {
-    const completedPayments = payments.filter(p => p.status === 'completed')
-    const pendingPayments = payments.filter(p => p.status === 'pending')
-    const failedPayments = payments.filter(p => p.status === 'failed')
-    const refundedPayments = payments.filter(p => p.status === 'refunded')
 
-    const totalTransactions = payments.length
-    const successRate = totalTransactions > 0 ? ((completedPayments.length / totalTransactions) * 100).toFixed(1) : '0'
-    const averageTransaction = completedPayments.length > 0 ? (totalRevenue / completedPayments.length).toFixed(2) : '0'
+  // Use data from reports service if available, otherwise fallback to store data
+  const getReportData = () => {
+    // Validate payments first
+    const validation = validatePayments(payments)
+    const validPayments = validation.validPayments
+
+    if (financialReports) {
+      return {
+        totalRevenue: sanitizeFinancialResult(financialReports.totalRevenue),
+        totalPaid: sanitizeFinancialResult(financialReports.totalPaid),
+        totalPending: sanitizeFinancialResult(financialReports.totalPending),
+        totalOverdue: sanitizeFinancialResult(financialReports.totalOverdue),
+        revenueByPaymentMethod: financialReports.revenueByPaymentMethod || {},
+        revenueTrend: financialReports.revenueTrend || [],
+        recentTransactions: financialReports.recentTransactions || [],
+        outstandingPayments: financialReports.outstandingPayments || []
+      }
+    }
+
+    // Fallback to calculating from store data with validation
+    const completedPayments = validPayments.filter(p => p.status === 'completed')
+    const pendingPayments = validPayments.filter(p => p.status === 'pending')
+    const failedPayments = validPayments.filter(p => p.status === 'failed')
+    const refundedPayments = validPayments.filter(p => p.status === 'refunded')
+
+    // Calculate totals with proper validation
+    const calculatedTotalRevenue = sanitizeFinancialResult(totalRevenue)
+    const calculatedPendingAmount = sanitizeFinancialResult(pendingAmount)
+    const calculatedOverdueAmount = sanitizeFinancialResult(overdueAmount)
+
+    // Validate monthly revenue and payment method stats
+    const validatedMonthlyRevenue = validateMonthlyRevenue(monthlyRevenue || {})
+    const validatedMethodStats = validatePaymentMethodStats(paymentMethodStats || {})
+
+    const totalTransactions = validPayments.length
+    const successRate = totalTransactions > 0 ?
+      Math.round((completedPayments.length / totalTransactions) * 1000) / 10 : 0
+    const averageTransaction = completedPayments.length > 0 && calculatedTotalRevenue > 0 ?
+      Math.round((calculatedTotalRevenue / completedPayments.length) * 100) / 100 : 0
 
     return {
+      totalRevenue: calculatedTotalRevenue,
+      totalPaid: calculatedTotalRevenue,
+      totalPending: calculatedPendingAmount,
+      totalOverdue: calculatedOverdueAmount,
+      revenueByPaymentMethod: validatedMethodStats.validStats,
+      revenueTrend: [],
+      recentTransactions: [],
+      outstandingPayments: [],
       totalTransactions,
       completedCount: completedPayments.length,
       pendingCount: pendingPayments.length,
       failedCount: failedPayments.length,
       refundedCount: refundedPayments.length,
-      successRate,
-      averageTransaction
+      successRate: isNaN(successRate) ? '0.0' : successRate.toFixed(1),
+      averageTransaction: isNaN(averageTransaction) ? '0.00' : averageTransaction.toFixed(2),
+      validatedPayments: validPayments // Add validated payments for use in charts
     }
   }
 
-  const stats = calculateStats()
+  const reportData = getReportData()
+  const stats = {
+    totalTransactions: reportData.totalTransactions || payments.length,
+    completedCount: reportData.completedCount || payments.filter(p => p.status === 'completed').length,
+    pendingCount: reportData.pendingCount || payments.filter(p => p.status === 'pending').length,
+    failedCount: reportData.failedCount || payments.filter(p => p.status === 'failed').length,
+    refundedCount: reportData.refundedCount || payments.filter(p => p.status === 'refunded').length,
+    successRate: reportData.successRate || '0.0',
+    averageTransaction: reportData.averageTransaction || '0.00'
+  }
 
-  // Prepare payment method chart data
-  const paymentMethodData = Object.entries(paymentMethodStats).map(([method, amount]) => ({
-    method: method === 'cash' ? 'نقداً' :
-            method === 'card' ? 'بطاقة ائتمان' :
-            method === 'bank_transfer' ? 'تحويل بنكي' :
-            method === 'check' ? 'شيك' :
-            method === 'insurance' ? 'تأمين' : method,
-    amount
-  }))
+  // Get professional chart colors
+  const categoricalColors = getChartColors('categorical', isDarkMode)
+  const primaryColors = getChartColors('primary', isDarkMode)
+  const financialColors = getChartColorsWithFallback('financial', isDarkMode, 8)
+  const statusColors = getChartColorsWithFallback('status', isDarkMode, 8)
+  const chartConfiguration = getChartConfig(isDarkMode)
 
-  // Prepare monthly revenue chart data
-  const monthlyRevenueData = Object.entries(monthlyRevenue).map(([month, revenue]) => ({
-    month,
-    revenue
-  }))
+  // Enhanced payment method chart data with validation
+  const paymentMethodData = (() => {
+    try {
+      const methodMapping = {
+        'cash': 'نقداً',
+        'card': 'بطاقة ائتمان',
+        'bank_transfer': 'تحويل بنكي',
+        'check': 'شيك',
+        'insurance': 'تأمين'
+      }
 
-  // Payment status data for pie chart
-  const statusData = [
-    { name: 'مكتمل', value: stats.completedCount, color: '#10b981' },
-    { name: 'معلق', value: stats.pendingCount, color: '#f59e0b' },
-    { name: 'فاشل', value: stats.failedCount, color: '#ef4444' },
-    { name: 'مسترد', value: stats.refundedCount, color: '#6b7280' }
-  ]
+      // Validate amount function
+      const validateAmount = (amount) => {
+        const num = Number(amount)
+        return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+      }
+
+      // Use data from reports service if available
+      const methodStats = reportData.revenueByPaymentMethod || paymentMethodStats || {}
+
+      // If no data, calculate from payments directly using validated payments
+      const validatedPayments = reportData.validatedPayments || payments
+      if (Object.keys(methodStats).length === 0 && validatedPayments.length > 0) {
+        const calculatedStats = {}
+        validatedPayments
+          .filter(p => p.status === 'completed')
+          .forEach(payment => {
+            const method = payment.payment_method || 'unknown'
+            const amount = validateAmount(payment.amount)
+            calculatedStats[method] = (calculatedStats[method] || 0) + amount
+          })
+
+        const data = Object.entries(calculatedStats)
+          .filter(([method, amount]) => amount > 0)
+          .map(([method, amount]) => ({
+            method: methodMapping[method] || method,
+            amount: validateAmount(amount),
+            formattedAmount: formatCurrency(amount, currency),
+            count: payments.filter(p => p.payment_method === method && p.status === 'completed').length
+          }))
+          .sort((a, b) => b.amount - a.amount)
+
+        return ensurePaymentMethodData(data)
+      }
+
+      const data = Object.entries(methodStats)
+        .filter(([method, amount]) => {
+          const validAmount = validateAmount(amount)
+          return validAmount > 0
+        })
+        .map(([method, amount]) => ({
+          method: methodMapping[method] || method,
+          amount: validateAmount(amount),
+          formattedAmount: formatCurrency(validateAmount(amount), currency),
+          count: payments.filter(p => p.payment_method === method && p.status === 'completed').length
+        }))
+        .sort((a, b) => b.amount - a.amount) // Sort by amount descending
+
+      return ensurePaymentMethodData(data)
+    } catch (error) {
+      console.error('Financial Reports: Error processing payment method data:', error)
+      return []
+    }
+  })()
+
+  // Enhanced monthly revenue chart data with validation
+  const monthlyRevenueData = (() => {
+    try {
+      // Validate amount function
+      const validateAmount = (amount) => {
+        const num = Number(amount)
+        return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+      }
+
+      // Use data from reports service if available
+      if (reportData.revenueTrend && reportData.revenueTrend.length > 0) {
+        return reportData.revenueTrend.map(item => ({
+          month: item.period,
+          revenue: validateAmount(item.revenue || item.amount),
+          formattedRevenue: formatCurrency(validateAmount(item.revenue || item.amount), currency)
+        }))
+      }
+
+      // If no monthly revenue data, calculate from payments directly using validated payments
+      const validatedPayments = reportData.validatedPayments || payments
+      if (!monthlyRevenue || Object.keys(monthlyRevenue).length === 0) {
+        const calculatedMonthlyRevenue = {}
+
+        validatedPayments
+          .filter(p => p.status === 'completed')
+          .forEach(payment => {
+            try {
+              const paymentDate = new Date(payment.payment_date)
+              if (isNaN(paymentDate.getTime())) {
+                console.warn('Invalid payment date:', payment.payment_date)
+                return
+              }
+
+              const month = paymentDate.toISOString().slice(0, 7) // YYYY-MM
+              const amount = validateAmount(payment.amount)
+              calculatedMonthlyRevenue[month] = (calculatedMonthlyRevenue[month] || 0) + amount
+            } catch (error) {
+              console.warn('Error processing payment date:', payment.payment_date, error)
+            }
+          })
+
+        const data = Object.entries(calculatedMonthlyRevenue)
+          .filter(([month, revenue]) => {
+            const isValidMonth = month.match(/^\d{4}-\d{2}$/)
+            const isValidRevenue = validateAmount(revenue) > 0
+            return isValidMonth && isValidRevenue
+          })
+          .map(([month, revenue]) => {
+            // Convert to Arabic month format
+            const [year, monthNum] = month.split('-')
+            const monthName = new Date(Number(year), Number(monthNum) - 1).toLocaleDateString('ar-SA', {
+              month: 'short',
+              year: 'numeric'
+            })
+
+            return {
+              month: monthName,
+              revenue: validateAmount(revenue),
+              formattedRevenue: formatCurrency(validateAmount(revenue), currency)
+            }
+          })
+          .sort((a, b) => {
+            // Sort chronologically by parsing the month string back to date
+            const parseMonth = (monthStr) => {
+              // This is a simplified approach - in production you might want more robust parsing
+              return new Date(monthStr).getTime() || 0
+            }
+            return parseMonth(a.month) - parseMonth(b.month)
+          })
+
+        return data
+      }
+
+      // Fallback to calculating from store data
+      const data = Object.entries(monthlyRevenue || {})
+        .filter(([month, revenue]) => {
+          const isValidMonth = month.match(/^\d{4}-\d{2}$/)
+          const isValidRevenue = validateAmount(revenue) > 0
+          return isValidMonth && isValidRevenue
+        })
+        .map(([month, revenue]) => {
+          // Convert to Arabic month format
+          const [year, monthNum] = month.split('-')
+          const monthName = new Date(Number(year), Number(monthNum) - 1).toLocaleDateString('ar-SA', {
+            month: 'short',
+            year: 'numeric'
+          })
+
+          return {
+            month: monthName,
+            revenue: validateAmount(revenue),
+            formattedRevenue: formatCurrency(validateAmount(revenue), currency)
+          }
+        })
+        .sort((a, b) => {
+          // Sort chronologically
+          const parseMonth = (monthStr) => {
+            return new Date(monthStr).getTime() || 0
+          }
+          return parseMonth(a.month) - parseMonth(b.month)
+        })
+
+      if (!validateNumericData(data)) {
+        console.warn('Financial Reports: Invalid monthly revenue data')
+        return []
+      }
+
+      return data
+    } catch (error) {
+      console.error('Financial Reports: Error processing monthly revenue data:', error)
+      return []
+    }
+  })()
+
+  // Enhanced payment status data for pie chart with validation
+  const statusData = (() => {
+    try {
+      const data = [
+        { name: 'مكتمل', value: stats.completedCount, color: statusColors[0] }, // Green for completed
+        { name: 'معلق', value: stats.pendingCount, color: statusColors[1] }, // Amber for pending
+        { name: 'فاشل', value: stats.failedCount, color: statusColors[2] }, // Red for failed
+        { name: 'مسترد', value: stats.refundedCount, color: statusColors[3] } // Gray for refunded
+      ].map(item => ({
+        ...item,
+        percentage: stats.totalTransactions > 0 ? Math.round((item.value / stats.totalTransactions) * 100) : 0
+      }))
+
+      return ensurePaymentStatusData(data)
+    } catch (error) {
+      console.error('Financial Reports: Error processing status data:', error)
+      return []
+    }
+  })()
 
   return (
     <div className="space-y-6">
@@ -177,7 +425,7 @@ export default function FinancialReports() {
                 'معدل النجاح (%)': stats.successRate,
                 'متوسط قيمة المعاملة': stats.averageTransaction,
                 'العملة': currency,
-                'تاريخ التقرير': new Date().toLocaleString('ar-SA')
+                'تاريخ التقرير': formatDate(new Date())
               }
 
               // Create CSV with BOM for Arabic support
@@ -279,7 +527,7 @@ export default function FinancialReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              <CurrencyDisplay amount={totalRevenue} currency={currency} />
+              <CurrencyDisplay amount={reportData.totalRevenue} currency={currency} />
             </div>
             <p className="text-xs text-muted-foreground">
               من {stats.completedCount} معاملة مكتملة
@@ -294,7 +542,7 @@ export default function FinancialReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              <CurrencyDisplay amount={pendingAmount} currency={currency} />
+              <CurrencyDisplay amount={reportData.totalPending} currency={currency} />
             </div>
             <p className="text-xs text-muted-foreground">
               {stats.pendingCount} معاملة معلقة
@@ -309,7 +557,7 @@ export default function FinancialReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              <CurrencyDisplay amount={overdueAmount} currency={currency} />
+              <CurrencyDisplay amount={reportData.totalOverdue} currency={currency} />
             </div>
             <p className="text-xs text-muted-foreground">
               تحتاج متابعة عاجلة
@@ -320,84 +568,258 @@ export default function FinancialReports() {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Payment Status Distribution */}
+        {/* Enhanced Payment Status Distribution */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <PieChart className="w-5 h-5" />
               <span>توزيع حالات المدفوعات</span>
             </CardTitle>
-            <CardDescription>توزيع المدفوعات حسب الحالة</CardDescription>
+            <CardDescription>
+              توزيع المدفوعات حسب الحالة ({stats.totalTransactions} معاملة إجمالية)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RechartsPieChart>
-                <Pie
-                  data={statusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </RechartsPieChart>
-            </ResponsiveContainer>
+            {statusData.length === 0 ? (
+              <div className="flex items-center justify-center h-80 text-muted-foreground">
+                <div className="text-center">
+                  <PieChart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>لا توجد بيانات مدفوعات متاحة</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+                <RechartsPieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <Pie
+                    data={statusData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value, percent }) =>
+                      value > 0 ? `${name}: ${value} (${(percent * 100).toFixed(0)}%)` : ''
+                    }
+                    outerRadius={120}
+                    innerRadius={50}
+                    fill="#8884d8"
+                    dataKey="value"
+                    stroke={isDarkMode ? '#1f2937' : '#ffffff'}
+                    strokeWidth={2}
+                    paddingAngle={2}
+                  >
+                    {statusData.map((entry, index) => (
+                      <Cell key={`payment-status-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, name) => [
+                      `${value} معاملة`,
+                      'العدد'
+                    ]}
+                    labelFormatter={(label) => `الحالة: ${label}`}
+                    contentStyle={chartConfiguration.tooltip}
+                  />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            )}
+
+            {/* Status Legend */}
+            {statusData.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                {statusData.map((status, index) => (
+                  <div key={`status-legend-${index}`} className="flex items-center space-x-2 space-x-reverse">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: status.color }}
+                    />
+                    <span className="text-muted-foreground">
+                      {status.name}: {status.value} ({status.percentage}%)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Payment Methods Distribution */}
+        {/* Enhanced Payment Methods Distribution */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <BarChart3 className="w-5 h-5" />
               <span>طرق الدفع</span>
             </CardTitle>
-            <CardDescription>الإيرادات حسب طريقة الدفع</CardDescription>
+            <CardDescription>
+              الإيرادات حسب طريقة الدفع ({formatCurrency(totalRevenue, currency)} إجمالي)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={paymentMethodData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="method" />
-                <YAxis />
-                <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'المبلغ']} />
-                <Bar dataKey="amount" fill="#0ea5e9" />
-              </BarChart>
-            </ResponsiveContainer>
+            {paymentMethodData.length === 0 ? (
+              <div className="flex items-center justify-center h-80 text-muted-foreground">
+                <div className="text-center">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>لا توجد بيانات طرق دفع متاحة</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+                <BarChart
+                  data={paymentMethodData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                  barCategoryGap={chartConfiguration.bar.barCategoryGap}
+                >
+                  <CartesianGrid
+                    strokeDasharray={chartConfiguration.grid.strokeDasharray}
+                    stroke={chartConfiguration.grid.stroke}
+                    strokeOpacity={chartConfiguration.grid.strokeOpacity}
+                  />
+                  <XAxis
+                    dataKey="method"
+                    tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                    axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                    axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    tickFormatter={(value) => formatChartValue(value, 'currency', currency)}
+                    domain={[0, 'dataMax + 100']}
+                  />
+                  <Tooltip
+                    formatter={(value, name, props) => [
+                      formatCurrency(Number(value), currency),
+                      'المبلغ',
+                      `${props.payload.count} معاملة`
+                    ]}
+                    labelFormatter={(label) => `طريقة الدفع: ${label}`}
+                    contentStyle={chartConfiguration.tooltip}
+                  />
+                  <Bar
+                    dataKey="amount"
+                    fill={primaryColors[1]}
+                    radius={[4, 4, 0, 0]}
+                    minPointSize={5}
+                    maxBarSize={100}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+
+            {/* Payment Methods Summary */}
+            {paymentMethodData.length > 0 && (
+              <div className="mt-4 grid grid-cols-1 gap-2 text-sm">
+                {paymentMethodData.slice(0, 3).map((method, index) => (
+                  <div key={`method-summary-${index}`} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                    <span className="font-medium">{method.method}</span>
+                    <div className="text-left">
+                      <div className="font-semibold">{method.formattedAmount}</div>
+                      <div className="text-xs text-muted-foreground">{method.count} معاملة</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Monthly Revenue Chart */}
-      {monthlyRevenueData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2 space-x-reverse">
-              <TrendingUp className="w-5 h-5" />
-              <span>الإيرادات الشهرية</span>
-            </CardTitle>
-            <CardDescription>تطور الإيرادات عبر الأشهر</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={400}>
-              <AreaChart data={monthlyRevenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'الإيرادات']} />
-                <Area type="monotone" dataKey="revenue" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} />
+      {/* Enhanced Monthly Revenue Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2 space-x-reverse">
+            <TrendingUp className="w-5 h-5" />
+            <span>الإيرادات الشهرية</span>
+          </CardTitle>
+          <CardDescription>
+            تطور الإيرادات عبر الأشهر ({monthlyRevenueData.length} شهر)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {monthlyRevenueData.length === 0 ? (
+            <div className="flex items-center justify-center h-96 text-muted-foreground">
+              <div className="text-center">
+                <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>لا توجد بيانات إيرادات شهرية متاحة</p>
+              </div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={chartConfiguration.responsive.large.height}>
+              <AreaChart
+                data={monthlyRevenueData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              >
+                <CartesianGrid
+                  strokeDasharray={chartConfiguration.grid.strokeDasharray}
+                  stroke={chartConfiguration.grid.stroke}
+                  strokeOpacity={chartConfiguration.grid.strokeOpacity}
+                />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 12, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                  axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis
+                  tick={{ fontSize: 12, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                  axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  tickFormatter={(value) => formatChartValue(value, 'currency', currency)}
+                  domain={[0, 'dataMax + 100']}
+                />
+                <Tooltip
+                  formatter={(value) => [formatCurrency(Number(value), currency), 'الإيرادات']}
+                  labelFormatter={(label) => `الشهر: ${label}`}
+                  contentStyle={chartConfiguration.tooltip}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke={primaryColors[0]}
+                  fill={primaryColors[0]}
+                  fillOpacity={0.3}
+                  strokeWidth={3}
+                  connectNulls={false}
+                />
               </AreaChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
+          )}
+
+          {/* Revenue Summary */}
+          {monthlyRevenueData.length > 0 && (
+            <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+              <div className="text-center p-3 bg-muted/50 rounded">
+                <div className="text-xs text-muted-foreground">أعلى شهر</div>
+                <div className="font-semibold">
+                  {formatCurrency(Math.max(...monthlyRevenueData.map(d => d.revenue)), currency)}
+                </div>
+              </div>
+              <div className="text-center p-3 bg-muted/50 rounded">
+                <div className="text-xs text-muted-foreground">متوسط شهري</div>
+                <div className="font-semibold">
+                  {formatCurrency(
+                    monthlyRevenueData.reduce((sum, d) => sum + d.revenue, 0) / monthlyRevenueData.length,
+                    currency
+                  )}
+                </div>
+              </div>
+              <div className="text-center p-3 bg-muted/50 rounded">
+                <div className="text-xs text-muted-foreground">أقل شهر</div>
+                <div className="font-semibold">
+                  {formatCurrency(Math.min(...monthlyRevenueData.map(d => d.revenue)), currency)}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

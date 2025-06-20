@@ -6,8 +6,13 @@ import { useAppointmentStore } from '@/store/appointmentStore'
 import { usePaymentStore } from '@/store/paymentStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useInventoryStore } from '@/store/inventoryStore'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, formatTime, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue } from '@/lib/utils'
+import { validateNumericData, validateDateData, transformToChartData, groupDataByPeriod, processFinancialData } from '@/lib/chartDataHelpers'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
+import { useTheme } from '@/contexts/ThemeContext'
+import { useRealTimeSync } from '@/hooks/useRealTimeSync'
+import { useRealTimeDashboard } from '@/hooks/useRealTimeReports'
+import RealTimeIndicator from '@/components/ui/real-time-indicator'
 import {
   Users,
   Calendar,
@@ -48,6 +53,12 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
     expiringSoonCount,
     loadItems: loadInventoryItems
   } = useInventoryStore()
+  const { isDarkMode } = useTheme()
+
+  // Enable real-time synchronization for automatic updates
+  useRealTimeSync()
+  useRealTimeDashboard()
+
   const [stats, setStats] = useState<DashboardStats>({
     totalPatients: 0,
     totalAppointments: 0,
@@ -76,38 +87,125 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
     loadAllData()
   }, [loadPatients, loadAppointments, loadPayments, loadInventoryItems])
 
+
+
   useEffect(() => {
-    // Calculate dashboard statistics
+    // Calculate dashboard statistics with validation
     const today = new Date()
     const todayAppointments = getAppointmentsForDate(today)
     const thisMonth = today.toISOString().slice(0, 7)
-    const thisMonthRevenue = monthlyRevenue[thisMonth] || 0
+    const thisMonthRevenue = typeof monthlyRevenue[thisMonth] === 'number' ? monthlyRevenue[thisMonth] : 0
 
-    setStats({
-      totalPatients: patients.length,
-      totalAppointments: appointments.length,
-      totalRevenue,
-      pendingPayments: pendingAmount,
-      todayAppointments: todayAppointments.length,
-      thisMonthRevenue,
-      lowStockItems: lowStockCount + expiredCount + expiringSoonCount
-    })
+    // Validate all numeric values
+    const validatedStats = {
+      totalPatients: Math.max(0, patients.length),
+      totalAppointments: Math.max(0, appointments.length),
+      totalRevenue: Math.max(0, totalRevenue || 0),
+      pendingPayments: Math.max(0, pendingAmount || 0),
+      todayAppointments: Math.max(0, todayAppointments.length),
+      thisMonthRevenue: Math.max(0, thisMonthRevenue),
+      lowStockItems: Math.max(0, (lowStockCount || 0) + (expiredCount || 0) + (expiringSoonCount || 0))
+    }
+
+    // Round financial values to 2 decimal places
+    validatedStats.totalRevenue = Math.round(validatedStats.totalRevenue * 100) / 100
+    validatedStats.pendingPayments = Math.round(validatedStats.pendingPayments * 100) / 100
+    validatedStats.thisMonthRevenue = Math.round(validatedStats.thisMonthRevenue * 100) / 100
+
+    setStats(validatedStats)
   }, [patients, appointments, totalRevenue, pendingAmount, monthlyRevenue, getAppointmentsForDate, lowStockCount, expiredCount, expiringSoonCount])
 
-  // Prepare chart data
-  const revenueData = Object.entries(monthlyRevenue)
-    .slice(-6)
-    .map(([month, revenue]) => ({
-      month: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short' }),
-      revenue
-    }))
+  // Enhanced revenue data preparation with comprehensive validation
+  const revenueData = (() => {
+    try {
+      const entries = Object.entries(monthlyRevenue)
+        .filter(([month, revenue]) => {
+          // Enhanced validation for month format and revenue value
+          const isValidMonth = month.match(/^\d{4}-\d{2}$/)
+          const isValidRevenue = typeof revenue === 'number' && !isNaN(revenue) && isFinite(revenue) && revenue >= 0
+          return isValidMonth && isValidRevenue
+        })
+        .slice(-6) // Last 6 months
+        .map(([month, revenue]) => {
+          // Convert to DD/MM/YYYY format for better Arabic display
+          const [year, monthNum] = month.split('-')
+          const monthName = new Date(Number(year), Number(monthNum) - 1).toLocaleDateString('ar-SA', {
+            month: 'short',
+            year: 'numeric'
+          })
 
-  const appointmentStatusData = [
-    { name: 'مجدول', value: appointments.filter(a => a.status === 'scheduled').length, color: '#3b82f6' },
-    { name: 'مكتمل', value: appointments.filter(a => a.status === 'completed').length, color: '#10b981' },
-    { name: 'ملغي', value: appointments.filter(a => a.status === 'cancelled').length, color: '#ef4444' },
-    { name: 'لم يحضر', value: appointments.filter(a => a.status === 'no_show').length, color: '#6b7280' }
-  ]
+          return {
+            month: monthName,
+            revenue: Math.round(revenue * 100) / 100, // Round to 2 decimal places
+            formattedRevenue: formatCurrency(revenue, currency)
+          }
+        })
+        .sort((a, b) => {
+          // Sort by actual date for proper chronological order
+          const dateA = new Date(a.month)
+          const dateB = new Date(b.month)
+          return dateA.getTime() - dateB.getTime()
+        })
+
+      // Validate the final data
+      if (!validateNumericData(entries)) {
+        console.warn('Dashboard: Invalid revenue data detected')
+        return []
+      }
+
+      return entries
+    } catch (error) {
+      console.error('Dashboard: Error processing revenue data:', error)
+      return []
+    }
+  })()
+
+  // Get professional chart colors
+  const categoricalColors = getChartColors('categorical', isDarkMode)
+  const primaryColors = getChartColors('primary', isDarkMode)
+  const statusColors = getChartColorsWithFallback('status', isDarkMode, 8)
+  const financialColors = getChartColorsWithFallback('financial', isDarkMode, 4)
+  const chartConfiguration = getChartConfig(isDarkMode)
+
+  // Enhanced appointment status data with comprehensive validation
+  const appointmentStatusData = (() => {
+    try {
+      // Define status mapping with proper Arabic labels and colors
+      const statusMapping = [
+        { status: 'completed', name: 'مكتمل', color: statusColors[0] }, // Green for completed
+        { status: 'scheduled', name: 'مجدول', color: statusColors[4] }, // Purple for scheduled
+        { status: 'cancelled', name: 'ملغي', color: statusColors[2] }, // Red for cancelled
+        { status: 'no_show', name: 'لم يحضر', color: statusColors[3] } // Gray for no show
+      ]
+
+      const statusData = statusMapping.map(({ status, name, color }) => {
+        const count = appointments.filter(a => a && a.status === status).length
+        return {
+          name,
+          value: Math.max(0, count),
+          color,
+          percentage: appointments.length > 0 ? Math.round((count / appointments.length) * 100) : 0
+        }
+      }).filter(item => item.value > 0) // Only include statuses with data
+
+      // Enhanced validation
+      const totalStatusCount = statusData.reduce((sum, item) => sum + item.value, 0)
+      const validAppointments = appointments.filter(a => a && typeof a === 'object')
+
+      if (totalStatusCount !== validAppointments.length && validAppointments.length > 0) {
+        console.warn('Dashboard appointment status counts mismatch:', {
+          totalStatusCount,
+          validAppointmentsLength: validAppointments.length,
+          statusBreakdown: statusData.map(s => ({ name: s.name, value: s.value }))
+        })
+      }
+
+      return statusData
+    } catch (error) {
+      console.error('Dashboard: Error processing appointment status data:', error)
+      return []
+    }
+  })()
 
   const todayAppointments = getAppointmentsForDate(new Date())
 
@@ -116,11 +214,14 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
       {/* Welcome Section */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            مرحباً بك في {settings?.clinic_name || 'العيادة السنية'}
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            إليك ما يحدث في عيادتك اليوم
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold text-foreground">
+              مرحباً بك في {settings?.clinic_name || 'العيادة السنية'}
+            </h1>
+            <RealTimeIndicator isActive={true} />
+          </div>
+          <p className="text-muted-foreground">
+            إليك ما يحدث في عيادتك اليوم - تحديث تلقائي في الوقت الفعلي
           </p>
         </div>
         <div className="flex space-x-2 space-x-reverse">
@@ -254,51 +355,154 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
+        {/* Enhanced Revenue Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>اتجاه الإيرادات</CardTitle>
-            <CardDescription>الإيرادات الشهرية خلال آخر 6 أشهر</CardDescription>
+            <CardTitle className="flex items-center space-x-2 space-x-reverse">
+              <TrendingUp className="w-5 h-5" />
+              <span>اتجاه الإيرادات</span>
+            </CardTitle>
+            <CardDescription>
+              الإيرادات الشهرية خلال آخر 6 أشهر ({formatCurrency(stats.totalRevenue, currency)} إجمالي)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(Number(value), currency)} />
-                <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
+            {revenueData.length === 0 ? (
+              <div className="flex items-center justify-center h-80 text-muted-foreground">
+                <div className="text-center">
+                  <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>لا توجد بيانات إيرادات متاحة</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+                <LineChart
+                  data={revenueData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray={chartConfiguration.grid.strokeDasharray}
+                    stroke={chartConfiguration.grid.stroke}
+                    strokeOpacity={chartConfiguration.grid.strokeOpacity}
+                  />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 12, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                    axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                    axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    tickFormatter={(value) => formatChartValue(value, 'currency', currency)}
+                    domain={[0, 'dataMax + 100']}
+                  />
+                  <Tooltip
+                    formatter={(value) => [formatCurrency(Number(value), currency), 'الإيرادات']}
+                    labelFormatter={(label) => `الشهر: ${label}`}
+                    contentStyle={chartConfiguration.tooltip}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke={financialColors[0]}
+                    strokeWidth={chartConfiguration.line.strokeWidth}
+                    dot={{
+                      fill: financialColors[0],
+                      strokeWidth: chartConfiguration.line.dot.strokeWidth,
+                      r: chartConfiguration.line.dot.r
+                    }}
+                    activeDot={{
+                      r: chartConfiguration.line.activeDot.r,
+                      stroke: financialColors[0],
+                      strokeWidth: chartConfiguration.line.activeDot.strokeWidth
+                    }}
+                    connectNulls={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
-        {/* Appointment Status Chart */}
+        {/* Enhanced Appointment Status Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>حالة المواعيد</CardTitle>
-            <CardDescription>توزيع حالات المواعيد</CardDescription>
+            <CardTitle className="flex items-center space-x-2 space-x-reverse">
+              <Calendar className="w-5 h-5" />
+              <span>حالة المواعيد</span>
+            </CardTitle>
+            <CardDescription>
+              توزيع حالات المواعيد ({appointments.length} موعد إجمالي)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={appointmentStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {appointmentStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {appointmentStatusData.length === 0 ? (
+              <div className="flex items-center justify-center h-80 text-muted-foreground">
+                <div className="text-center">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>لا توجد مواعيد متاحة</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+                <PieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <Pie
+                    data={appointmentStatusData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent, value }) =>
+                      value > 0 ? `${name}: ${value} (${(percent * 100).toFixed(0)}%)` : ''
+                    }
+                    outerRadius={120}
+                    innerRadius={50}
+                    fill="#8884d8"
+                    dataKey="value"
+                    stroke={isDarkMode ? '#1f2937' : '#ffffff'}
+                    strokeWidth={2}
+                    paddingAngle={2}
+                  >
+                    {appointmentStatusData.map((entry, index) => (
+                      <Cell
+                        key={`appointment-status-${index}`}
+                        fill={entry.color}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, name) => [
+                      `${value} موعد`,
+                      'العدد'
+                    ]}
+                    labelFormatter={(label) => `الحالة: ${label}`}
+                    contentStyle={chartConfiguration.tooltip}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+
+            {/* Status Legend */}
+            {appointmentStatusData.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                {appointmentStatusData.map((status, index) => (
+                  <div key={`legend-${index}`} className="flex items-center space-x-2 space-x-reverse">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: status.color }}
+                    />
+                    <span className="text-muted-foreground">
+                      {status.name}: {status.value} ({status.percentage}%)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -326,13 +530,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
                     <div>
                       <p className="font-medium">{appointment.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(appointment.start_time).toLocaleTimeString('ar-SA', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })} - {new Date(appointment.end_time).toLocaleTimeString('ar-SA', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}
                       </p>
                     </div>
                   </div>

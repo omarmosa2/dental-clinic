@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
+import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import {
   Package,
   Plus,
@@ -45,6 +46,9 @@ import UsageHistoryDialog from '../components/UsageHistoryDialog'
 import InventoryTable from '../components/inventory/InventoryTable'
 
 export default function Inventory() {
+  // Enable real-time synchronization for automatic updates
+  useRealTimeSync()
+
   const { toast } = useToast()
   const [showAddItem, setShowAddItem] = useState(false)
   const [showEditItem, setShowEditItem] = useState(false)
@@ -88,6 +92,8 @@ export default function Inventory() {
     loadAppointments()
   }, [loadItems, loadAppointments])
 
+
+
   // Handler functions
   const handleAddItem = async (data: any) => {
     await createItem(data)
@@ -129,9 +135,9 @@ export default function Inventory() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ar-SA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'SAR'
+      currency: 'USD'
     }).format(amount)
   }
 
@@ -203,14 +209,6 @@ export default function Inventory() {
           </p>
         </div>
         <div className="flex items-center space-x-2 space-x-reverse">
-          <Button
-            variant="outline"
-            onClick={loadItems}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
-            تحديث
-          </Button>
           <Button
             variant="outline"
             onClick={() => {

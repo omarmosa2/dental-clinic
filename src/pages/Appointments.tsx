@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAppointmentStore } from '@/store/appointmentStore'
 import { usePatientStore } from '@/store/patientStore'
 import { useToast } from '@/hooks/use-toast'
-import { formatDate, formatDateTime, getStatusColor } from '@/lib/utils'
+import { formatDate, formatDateTime, formatTime, getStatusColor } from '@/lib/utils'
+import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import { Calendar, Plus, ChevronLeft, ChevronRight, Clock, User, RefreshCw, Download, Table } from 'lucide-react'
 import AppointmentTable from '@/components/appointments/AppointmentTable'
 import AddAppointmentDialog from '@/components/AddAppointmentDialog'
@@ -35,6 +36,9 @@ const getStatusInArabic = (status: string) => {
 }
 
 export default function Appointments() {
+  // Enable real-time synchronization for automatic updates
+  useRealTimeSync()
+
   const {
     appointments,
     calendarEvents,
@@ -218,14 +222,6 @@ export default function Appointments() {
         <div className="flex items-center space-x-2 space-x-reverse">
           <Button
             variant="outline"
-            onClick={() => window.location.reload()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
-            تحديث
-          </Button>
-          <Button
-            variant="outline"
             onClick={() => {
               // Export appointments data
               if (appointments.length === 0) {
@@ -240,8 +236,8 @@ export default function Appointments() {
               const csvData = appointments.map(appointment => ({
                 'العنوان': appointment.title || '',
                 'المريض': appointment.patient ? `${appointment.patient.first_name} ${appointment.patient.last_name}` : '',
-                'تاريخ البداية': new Date(appointment.start_time).toLocaleString('ar-SA'),
-                'تاريخ النهاية': new Date(appointment.end_time).toLocaleString('ar-SA'),
+                'تاريخ البداية': formatDateTime(appointment.start_time),
+                'تاريخ النهاية': formatDateTime(appointment.end_time),
                 'الحالة': appointment.status || '',
                 'الوصف': appointment.description || '',
                 'العلاج': appointment.treatment?.name || '',
@@ -501,10 +497,7 @@ export default function Appointments() {
                       <div>
                         <p className="text-sm font-medium arabic-enhanced">{appointment.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(appointment.start_time).toLocaleTimeString('ar-SA', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {formatTime(appointment.start_time)}
                         </p>
                       </div>
                       <Badge

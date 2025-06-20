@@ -5,6 +5,7 @@ import { useSettingsStore } from './store/settingsStore'
 import { useLicenseStore, useLicenseStatus, useLicenseUI } from './store/licenseStore'
 import { licenseGuard } from './services/licenseGuard'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
+import { useRealTimeSync } from './hooks/useRealTimeSync'
 import AddPatientDialog from './components/patients/AddPatientDialog'
 import ConfirmDeleteDialog from './components/ConfirmDeleteDialog'
 import AppointmentCard from './components/AppointmentCard'
@@ -51,6 +52,10 @@ import './styles/globals.css'
 function AppContent() {
   const { isDarkMode } = useTheme()
   const { toast } = useToast()
+
+  // Enable real-time synchronization for the entire application
+  useRealTimeSync()
+
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showAddPatient, setShowAddPatient] = useState(false)
 
@@ -211,35 +216,23 @@ function AppContent() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ar-SA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'SAR'
+      currency: 'USD'
     }).format(amount);
   };
 
   const formatDate = (date: string) => {
     const dateObj = new Date(date)
     const day = dateObj.getDate()
-    const month = dateObj.getMonth()
+    const month = dateObj.getMonth() + 1 // Add 1 because getMonth() returns 0-11
     const year = dateObj.getFullYear()
 
-    // Gregorian months in Arabic
-    const gregorianMonths = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-    ]
+    // Format as DD/MM/YYYY
+    const formattedDay = day.toString().padStart(2, '0')
+    const formattedMonth = month.toString().padStart(2, '0')
 
-    // Arabic-Indic numerals
-    const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
-    const toArabicNumerals = (num: number): string => {
-      return num.toString().split('').map(digit => arabicNumerals[parseInt(digit)]).join('')
-    }
-
-    const arabicDay = toArabicNumerals(day)
-    const arabicYear = toArabicNumerals(year)
-    const monthName = gregorianMonths[month]
-
-    return `${arabicDay} ${monthName} ${arabicYear}م`
+    return `${formattedDay}/${formattedMonth}/${year}`
   };
 
   const calculateAge = (birthDate: string) => {

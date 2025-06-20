@@ -8,11 +8,11 @@ interface CurrencyDisplayProps {
   fallbackFormat?: boolean
 }
 
-export function CurrencyDisplay({ 
-  amount, 
-  currency = 'SAR', 
+export function CurrencyDisplay({
+  amount,
+  currency = 'USD',
   className = '',
-  fallbackFormat = true 
+  fallbackFormat = true
 }: CurrencyDisplayProps) {
   try {
     return (
@@ -22,21 +22,21 @@ export function CurrencyDisplay({
     )
   } catch (error) {
     console.warn('Error formatting currency:', error)
-    
+
     if (fallbackFormat) {
       // Fallback formatting
-      const formattedNumber = new Intl.NumberFormat('ar-SA', {
+      const formattedNumber = new Intl.NumberFormat('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }).format(amount)
-      
+
       return (
         <span className={className}>
           {formattedNumber} {currency}
         </span>
       )
     }
-    
+
     return (
       <span className={className}>
         {amount} {currency}

@@ -155,6 +155,24 @@ export const usePaymentStore = create<PaymentStore>()(
           get().calculateMonthlyRevenue()
           get().calculatePaymentMethodStats()
           get().filterPayments()
+
+          // Emit events for real-time sync
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('payment-changed', {
+              detail: {
+                type: 'created',
+                paymentId: newPayment.id,
+                payment: newPayment
+              }
+            }))
+            window.dispatchEvent(new CustomEvent('payment-added', {
+              detail: {
+                type: 'created',
+                paymentId: newPayment.id,
+                payment: newPayment
+              }
+            }))
+          }
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Failed to create payment',
@@ -188,6 +206,24 @@ export const usePaymentStore = create<PaymentStore>()(
           get().calculateMonthlyRevenue()
           get().calculatePaymentMethodStats()
           get().filterPayments()
+
+          // Emit events for real-time sync
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('payment-changed', {
+              detail: {
+                type: 'updated',
+                paymentId: id,
+                payment: updatedPayment
+              }
+            }))
+            window.dispatchEvent(new CustomEvent('payment-updated', {
+              detail: {
+                type: 'updated',
+                paymentId: id,
+                payment: updatedPayment
+              }
+            }))
+          }
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Failed to update payment',
@@ -219,6 +255,22 @@ export const usePaymentStore = create<PaymentStore>()(
           get().calculateMonthlyRevenue()
           get().calculatePaymentMethodStats()
           get().filterPayments()
+
+          // Emit events for real-time sync
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('payment-changed', {
+              detail: {
+                type: 'deleted',
+                paymentId: id
+              }
+            }))
+            window.dispatchEvent(new CustomEvent('payment-deleted', {
+              detail: {
+                type: 'deleted',
+                paymentId: id
+              }
+            }))
+          }
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Failed to delete payment',
@@ -294,37 +346,69 @@ export const usePaymentStore = create<PaymentStore>()(
       // Analytics
       calculateTotalRevenue: () => {
         const { payments } = get()
+        // Only count completed payments for total revenue
         const total = payments
           .filter(p => p.status === 'completed')
-          .reduce((sum, payment) => sum + payment.amount, 0)
+          .reduce((sum, payment) => {
+            // Ensure amount is a valid number with proper validation
+            const amount = Number(payment.amount)
+            if (isNaN(amount) || !isFinite(amount)) {
+              console.warn('Invalid payment amount:', payment.amount, 'for payment:', payment.id)
+              return sum
+            }
+            return sum + amount
+          }, 0)
 
-        set({ totalRevenue: total })
+        const validTotal = isNaN(total) || !isFinite(total) ? 0 : Math.round(total * 100) / 100
+        set({ totalRevenue: validTotal }) // Round to 2 decimal places
       },
 
       calculatePendingAmount: () => {
         const { payments } = get()
         const pending = payments
           .filter(p => p.status === 'pending')
-          .reduce((sum, payment) => sum + payment.amount, 0)
+          .reduce((sum, payment) => {
+            // Ensure amount is a valid number with proper validation
+            const amount = Number(payment.amount)
+            if (isNaN(amount) || !isFinite(amount)) {
+              console.warn('Invalid pending payment amount:', payment.amount, 'for payment:', payment.id)
+              return sum
+            }
+            return sum + amount
+          }, 0)
 
-        set({ pendingAmount: pending })
+        const validPending = isNaN(pending) || !isFinite(pending) ? 0 : Math.round(pending * 100) / 100
+        set({ pendingAmount: validPending })
       },
 
       calculateOverdueAmount: () => {
         const { payments } = get()
         const overdue = payments
           .filter(p => p.status === 'overdue')
-          .reduce((sum, payment) => sum + payment.amount, 0)
+          .reduce((sum, payment) => {
+            // Ensure amount is a valid number with proper validation
+            const amount = Number(payment.amount)
+            if (isNaN(amount) || !isFinite(amount)) {
+              console.warn('Invalid overdue payment amount:', payment.amount, 'for payment:', payment.id)
+              return sum
+            }
+            return sum + amount
+          }, 0)
 
-        set({ overdueAmount: overdue })
+        const validOverdue = isNaN(overdue) || !isFinite(overdue) ? 0 : Math.round(overdue * 100) / 100
+        set({ overdueAmount: validOverdue })
       },
 
       calculateTotalRemainingBalance: () => {
         const { payments } = get()
         const totalRemaining = payments
-          .reduce((sum, payment) => sum + (payment.remaining_balance || 0), 0)
+          .reduce((sum, payment) => {
+            // Ensure remaining_balance is a valid number
+            const remainingBalance = typeof payment.remaining_balance === 'number' ? payment.remaining_balance : 0
+            return sum + remainingBalance
+          }, 0)
 
-        set({ totalRemainingBalance: totalRemaining })
+        set({ totalRemainingBalance: Math.round(totalRemaining * 100) / 100 }) // Round to 2 decimal places
       },
 
       calculatePartialPaymentsCount: () => {
@@ -341,8 +425,34 @@ export const usePaymentStore = create<PaymentStore>()(
         payments
           .filter(p => p.status === 'completed')
           .forEach(payment => {
-            const month = new Date(payment.payment_date).toISOString().slice(0, 7) // YYYY-MM
-            monthlyData[month] = (monthlyData[month] || 0) + payment.amount
+            try {
+              const paymentDate = new Date(payment.payment_date)
+              // Validate date
+              if (isNaN(paymentDate.getTime())) {
+                console.warn('Invalid payment date:', payment.payment_date)
+                return
+              }
+
+              const month = paymentDate.toISOString().slice(0, 7) // YYYY-MM
+              const amount = Number(payment.amount)
+
+              if (isNaN(amount) || !isFinite(amount)) {
+                console.warn('Invalid payment amount for monthly revenue:', payment.amount, 'for payment:', payment.id)
+                return
+              }
+
+              const currentMonthTotal = monthlyData[month] || 0
+              const newTotal = currentMonthTotal + amount
+
+              if (isNaN(newTotal) || !isFinite(newTotal)) {
+                console.warn('Invalid monthly total calculation for month:', month)
+                return
+              }
+
+              monthlyData[month] = Math.round(newTotal * 100) / 100
+            } catch (error) {
+              console.warn('Error processing payment date:', payment.payment_date, error)
+            }
           })
 
         set({ monthlyRevenue: monthlyData })
@@ -355,7 +465,23 @@ export const usePaymentStore = create<PaymentStore>()(
         payments
           .filter(p => p.status === 'completed')
           .forEach(payment => {
-            methodStats[payment.payment_method] = (methodStats[payment.payment_method] || 0) + payment.amount
+            const method = payment.payment_method || 'unknown'
+            const amount = Number(payment.amount)
+
+            if (isNaN(amount) || !isFinite(amount)) {
+              console.warn('Invalid payment amount for method stats:', payment.amount, 'for payment:', payment.id)
+              return
+            }
+
+            const currentMethodTotal = methodStats[method] || 0
+            const newTotal = currentMethodTotal + amount
+
+            if (isNaN(newTotal) || !isFinite(newTotal)) {
+              console.warn('Invalid method total calculation for method:', method)
+              return
+            }
+
+            methodStats[method] = Math.round(newTotal * 100) / 100
           })
 
         set({ paymentMethodStats: methodStats })

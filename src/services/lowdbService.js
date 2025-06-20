@@ -148,7 +148,7 @@ class LowDBService {
       clinic_phone: '',
       clinic_email: '',
       clinic_logo: '',
-      currency: 'SAR',
+      currency: 'USD',
       language: 'ar',
       timezone: 'Asia/Riyadh',
       backup_frequency: 'daily',

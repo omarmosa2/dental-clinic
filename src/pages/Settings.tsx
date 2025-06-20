@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useBackupStore } from '@/store/backupStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useTheme } from '@/contexts/ThemeContext'
+import { formatDate } from '@/lib/utils'
 import {
   Download,
   Upload,
@@ -273,7 +274,7 @@ export default function Settings() {
                 'إجمالي النسخ الاحتياطية': backupStatus.totalBackups,
                 'آخر نسخة احتياطية': backupStatus.lastBackup || 'لا توجد',
                 'معلومات الترخيص': licenseInfo ? 'متوفرة' : 'غير متوفرة',
-                'تاريخ التصدير': new Date().toLocaleString('ar-SA')
+                'تاريخ التصدير': formatDate(new Date())
               }
 
               const csvContent = [

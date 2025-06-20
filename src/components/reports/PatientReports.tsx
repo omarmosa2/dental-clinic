@@ -6,10 +6,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useReportsStore } from '@/store/reportsStore'
+import { useRealTimeReportsByType } from '@/hooks/useRealTimeReports'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useToast } from '@/hooks/use-toast'
-import { formatDate } from '@/lib/utils'
+import { formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
+import { useTheme } from '@/contexts/ThemeContext'
+import { ensureGenderDistribution, ensureAgeDistribution, formatChartData } from '@/lib/chartDataHelpers'
 import { PdfService } from '@/services/pdfService'
 import {
   Users,
@@ -44,12 +47,11 @@ import {
   AreaChart
 } from 'recharts'
 
-const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
-
 export default function PatientReports() {
   const { patientReports, isLoading, isExporting, generateReport, exportReport, currentFilter, setFilter, clearCache } = useReportsStore()
   const { currency } = useSettingsStore()
   const { toast } = useToast()
+  const { isDarkMode } = useTheme()
 
   const [searchTerm, setSearchTerm] = useState('')
   const [ageFilter, setAgeFilter] = useState('all')
@@ -58,6 +60,11 @@ export default function PatientReports() {
   useEffect(() => {
     generateReport('patients')
   }, [generateReport])
+
+  // Use real-time reports hook for automatic updates
+  useRealTimeReportsByType('patients')
+
+
 
 
 
@@ -210,7 +217,7 @@ export default function PatientReports() {
                   'توزيع الأعمار - كبار السن (60+)': patientReports.ageDistribution?.seniors || 0,
                   'توزيع الجنس - ذكور': patientReports.genderDistribution?.male || 0,
                   'توزيع الجنس - إناث': patientReports.genderDistribution?.female || 0,
-                  'تاريخ التقرير': new Date().toLocaleString('ar-SA')
+                  'تاريخ التقرير': formatDate(new Date())
                 }
 
                 // Create CSV with BOM for Arabic support
@@ -331,82 +338,291 @@ export default function PatientReports() {
         />
       </div>
 
-      {/* Charts Section */}
+      {/* Enhanced Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Age Distribution Chart */}
+        {/* Enhanced Age Distribution Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <PieChart className="w-5 h-5" />
               <span>التوزيع العمري</span>
             </CardTitle>
-            <CardDescription>توزيع المرضى حسب الفئات العمرية</CardDescription>
+            <CardDescription>
+              توزيع المرضى حسب الفئات العمرية ({patientReports.totalPatients} مريض إجمالي)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RechartsPieChart>
-                <Pie
-                  data={patientReports.ageDistribution}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ ageGroup, count }) => `${ageGroup}: ${count}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                >
-                  {patientReports.ageDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            {(() => {
+              const ageData = ensureAgeDistribution(patientReports.ageDistribution)
+              const categoricalColors = getChartColors('categorical', isDarkMode)
+              const primaryColors = getChartColors('primary', isDarkMode)
+              const demographicsColors = getChartColorsWithFallback('demographics', isDarkMode, ageData.length)
+              const chartConfiguration = getChartConfig(isDarkMode)
+
+              return ageData.length === 0 ? (
+                <div className="flex items-center justify-center h-80 text-muted-foreground">
+                  <div className="text-center">
+                    <PieChart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>لا توجد بيانات توزيع عمري متاحة</p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+                  <RechartsPieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                    <Pie
+                      data={ageData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ ageGroup, count, percent }) =>
+                        count > 0 ? `${ageGroup}: ${count} (${(percent * 100).toFixed(0)}%)` : ''
+                      }
+                      outerRadius={120}
+                      innerRadius={50}
+                      fill="#8884d8"
+                      dataKey="count"
+                      stroke={isDarkMode ? '#1f2937' : '#ffffff'}
+                      strokeWidth={2}
+                      paddingAngle={2}
+                    >
+                      {ageData.map((entry, index) => (
+                        <Cell
+                          key={`age-${index}`}
+                          fill={demographicsColors[index % demographicsColors.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value, name) => [`${value} مريض`, 'العدد']}
+                      labelFormatter={(label) => `الفئة العمرية: ${label}`}
+                      contentStyle={chartConfiguration.tooltip}
+                    />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              )
+            })()}
+
+            {/* Age Distribution Legend */}
+            {(() => {
+              const ageData = ensureAgeDistribution(patientReports.ageDistribution)
+              const demographicsColors = getChartColorsWithFallback('demographics', isDarkMode, ageData.length)
+
+              return ageData.length > 0 && (
+                <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                  {ageData.map((age, index) => (
+                    <div key={`age-legend-${index}`} className="flex items-center space-x-2 space-x-reverse">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: demographicsColors[index % demographicsColors.length] }}
+                      />
+                      <span className="text-muted-foreground">
+                        {age.ageGroup}: {age.count} ({Math.round((age.count / patientReports.totalPatients) * 100)}%)
+                      </span>
+                    </div>
                   ))}
-                </Pie>
-                <Tooltip />
-              </RechartsPieChart>
-            </ResponsiveContainer>
+                </div>
+              )
+            })()}
           </CardContent>
         </Card>
 
-        {/* Gender Distribution Chart */}
+        {/* Enhanced Gender Distribution Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <BarChart3 className="w-5 h-5" />
               <span>التوزيع حسب الجنس</span>
             </CardTitle>
-            <CardDescription>توزيع المرضى حسب الجنس</CardDescription>
+            <CardDescription>
+              توزيع المرضى حسب الجنس ({patientReports.totalPatients} مريض إجمالي)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={patientReports.genderDistribution}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="gender" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#0ea5e9" />
-              </BarChart>
-            </ResponsiveContainer>
+            {(() => {
+              const genderData = ensureGenderDistribution(patientReports.genderDistribution)
+              const demographicsColors = getChartColorsWithFallback('demographics', isDarkMode, 2)
+              const primaryColors = getChartColors('primary', isDarkMode)
+              const chartConfiguration = getChartConfig(isDarkMode)
+
+              return genderData.length === 0 ? (
+                <div className="flex items-center justify-center h-80 text-muted-foreground">
+                  <div className="text-center">
+                    <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>لا توجد بيانات توزيع جنس متاحة</p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+                  <BarChart
+                    data={genderData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    barCategoryGap={chartConfiguration.bar.barCategoryGap}
+                  >
+                    <CartesianGrid
+                      strokeDasharray={chartConfiguration.grid.strokeDasharray}
+                      stroke={chartConfiguration.grid.stroke}
+                      strokeOpacity={chartConfiguration.grid.strokeOpacity}
+                    />
+                    <XAxis
+                      dataKey="gender"
+                      tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                      axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                      tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                      axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                      tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                      domain={[0, 'dataMax + 1']}
+                      allowDecimals={false}
+                      tickFormatter={(value) => `${Math.round(value)} مريض`}
+                    />
+                    <Tooltip
+                      formatter={(value, name) => [`${value} مريض`, 'العدد']}
+                      labelFormatter={(label) => `الجنس: ${label}`}
+                      contentStyle={chartConfiguration.tooltip}
+                    />
+                    <Bar
+                      dataKey="count"
+                      fill={primaryColors[1]}
+                      radius={[4, 4, 0, 0]}
+                      minPointSize={5}
+                      maxBarSize={100}
+                    >
+                      {genderData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={demographicsColors[index % demographicsColors.length]}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )
+            })()}
+
+            {/* Gender Distribution Summary */}
+            {(() => {
+              const genderData = ensureGenderDistribution(patientReports.genderDistribution)
+
+              return genderData.length > 0 && (
+                <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                  {genderData.map((gender, index) => (
+                    <div key={`gender-summary-${index}`} className="text-center p-3 bg-muted/50 rounded">
+                      <div className="text-xs text-muted-foreground">
+                        {gender.gender}
+                      </div>
+                      <div className="font-semibold">
+                        {gender.count} مريض ({Math.round((gender.count / patientReports.totalPatients) * 100)}%)
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </CardContent>
         </Card>
       </div>
 
-      {/* Registration Trend Chart */}
+      {/* Enhanced Registration Trend Chart */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2 space-x-reverse">
             <TrendingUp className="w-5 h-5" />
             <span>اتجاه التسجيل</span>
           </CardTitle>
-          <CardDescription>عدد المرضى المسجلين شهرياً</CardDescription>
+          <CardDescription>
+            عدد المرضى المسجلين شهرياً ({patientReports.registrationTrend?.length || 0} فترة)
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={patientReports.registrationTrend}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" />
-              <YAxis />
-              <Tooltip />
-              <Area type="monotone" dataKey="count" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} />
-            </AreaChart>
-          </ResponsiveContainer>
+          {(() => {
+            const registrationData = patientReports.registrationTrend || []
+            const primaryColors = getChartColors('primary', isDarkMode)
+            const medicalColors = getChartColorsWithFallback('medical', isDarkMode, 1)
+            const chartConfiguration = getChartConfig(isDarkMode)
+
+            return registrationData.length === 0 ? (
+              <div className="flex items-center justify-center h-96 text-muted-foreground">
+                <div className="text-center">
+                  <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>لا توجد بيانات اتجاه تسجيل متاحة</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={chartConfiguration.responsive.large.height}>
+                <AreaChart
+                  data={registrationData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray={chartConfiguration.grid.strokeDasharray}
+                    stroke={chartConfiguration.grid.stroke}
+                    strokeOpacity={chartConfiguration.grid.strokeOpacity}
+                  />
+                  <XAxis
+                    dataKey="period"
+                    tick={{ fontSize: 12, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                    axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                    axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                    domain={[0, 'dataMax + 1']}
+                    tickFormatter={(value) => `${value} مريض`}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [`${value} مريض`, 'عدد المسجلين']}
+                    labelFormatter={(label) => `الفترة: ${label}`}
+                    contentStyle={chartConfiguration.tooltip}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke={primaryColors[0]}
+                    fill={primaryColors[0]}
+                    fillOpacity={0.3}
+                    strokeWidth={3}
+                    connectNulls={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )
+          })()}
+
+          {/* Registration Trend Summary */}
+          {(() => {
+            const registrationData = patientReports.registrationTrend || []
+
+            return registrationData.length > 0 && (
+              <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+                <div className="text-center p-3 bg-muted/50 rounded">
+                  <div className="text-xs text-muted-foreground">أعلى فترة</div>
+                  <div className="font-semibold">
+                    {Math.max(...registrationData.map(d => d.count))} مريض
+                  </div>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded">
+                  <div className="text-xs text-muted-foreground">متوسط شهري</div>
+                  <div className="font-semibold">
+                    {Math.round(registrationData.reduce((sum, d) => sum + d.count, 0) / registrationData.length)} مريض
+                  </div>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded">
+                  <div className="text-xs text-muted-foreground">إجمالي المسجلين</div>
+                  <div className="font-semibold">
+                    {registrationData.reduce((sum, d) => sum + d.count, 0)} مريض
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
         </CardContent>
       </Card>
 
