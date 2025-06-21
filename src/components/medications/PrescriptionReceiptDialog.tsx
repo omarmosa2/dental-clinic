@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useSettingsStore } from '@/store/settingsStore'
 import { formatDate } from '@/lib/utils'
 import { notify } from '@/services/notificationService'
@@ -39,8 +40,17 @@ export default function PrescriptionReceiptDialog({
   onOpenChange,
   prescription
 }: PrescriptionReceiptDialogProps) {
-  const { settings } = useSettingsStore()
+  const { settings, loadSettings } = useSettingsStore()
   const receiptRef = useRef<HTMLDivElement>(null)
+
+  // Load settings when component mounts or dialog opens
+  useEffect(() => {
+    if (open && !settings) {
+      loadSettings()
+    }
+  }, [open, settings, loadSettings])
+
+
 
   // Print settings state
   const [printSettings, setPrintSettings] = useState({
@@ -52,7 +62,7 @@ export default function PrescriptionReceiptDialog({
     qrType: 'text' // text, url
   })
 
-  const [showPreview, setShowPreview] = useState(false)
+  const [showPreview, setShowPreview] = useState(true)
   const [qrCodeDataURL, setQrCodeDataURL] = useState<string>('')
   const [barcodeDataURL, setBarcodeDataURL] = useState<string>('')
 
@@ -172,17 +182,21 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
                   padding-bottom: 4px;
                 }
                 .clinic-logo {
-                  width: 50px;
-                  height: 50px;
-                  margin: 0 auto 4px;
+                  width: 40px;
+                  height: 40px;
+                  margin: 0 auto 3px;
                   border-radius: 50%;
                   overflow: hidden;
-                  border: 2px solid #000;
+                  border: 1px solid #000;
+                  flex-shrink: 0;
                 }
                 .clinic-logo img {
                   width: 100%;
                   height: 100%;
                   object-fit: cover;
+                  border-radius: 50%;
+                  max-width: 40px;
+                  max-height: 40px;
                 }
                 .clinic-name {
                   font-size: 14px;
@@ -243,9 +257,50 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
                   border-top: 1px solid #000;
                   font-size: 9px;
                 }
+                .bottom-section {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: flex-start;
+                  margin: 6px 0;
+                  gap: 8px;
+                  flex-wrap: wrap;
+                }
                 .qr-section, .barcode-section {
                   text-align: center;
                   margin: 4px 0;
+                  flex: 1;
+                  min-width: 60px;
+                }
+                .signature-section {
+                  flex: 1;
+                  min-width: 80px;
+                  text-align: center;
+                }
+                .signature-line {
+                  width: 60px;
+                  height: 1px;
+                  border-bottom: 1px solid #000;
+                  margin: 0 auto 2px;
+                }
+                .signature-label {
+                  font-size: 7px;
+                  margin-bottom: 3px;
+                }
+                .stamp-area {
+                  width: 45px;
+                  height: 35px;
+                  border: 1px dashed #000;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin: 0 auto;
+                  background: rgba(0,0,0,0.02);
+                }
+                .stamp-placeholder {
+                  font-size: 6px;
+                  text-align: center;
+                  line-height: 1.1;
                 }
                 .notes {
                   border: 1px solid #000;
@@ -306,19 +361,23 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
                 }
 
                 .clinic-logo {
-                  width: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
-                  height: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
-                  margin: 0 auto 8px;
+                  width: ${printSettings.printerType === 'a4' ? '60px' : '45px'};
+                  height: ${printSettings.printerType === 'a4' ? '60px' : '45px'};
+                  margin: 0 auto 6px;
                   border-radius: 50%;
                   overflow: hidden;
-                  border: 3px solid #e0e0e0;
+                  border: 2px solid #e0e0e0;
                   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                  flex-shrink: 0;
                 }
 
                 .clinic-logo img {
                   width: 100%;
                   height: 100%;
                   object-fit: cover;
+                  border-radius: 50%;
+                  max-width: ${printSettings.printerType === 'a4' ? '60px' : '45px'};
+                  max-height: ${printSettings.printerType === 'a4' ? '60px' : '45px'};
                 }
 
                 .clinic-name {
@@ -398,9 +457,58 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
                   font-size: ${printSettings.printerType === 'a4' ? '10px' : '9px'};
                 }
 
+                .bottom-section {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: flex-start;
+                  margin: 15px 0;
+                  gap: 20px;
+                  flex-wrap: wrap;
+                }
+
                 .qr-section, .barcode-section {
                   text-align: center;
                   margin: 10px 0;
+                  flex: 1;
+                  min-width: 100px;
+                }
+
+                .signature-section {
+                  flex: 1;
+                  min-width: 120px;
+                  text-align: center;
+                }
+
+                .signature-line {
+                  width: ${printSettings.printerType === 'a4' ? '120px' : '100px'};
+                  height: 1px;
+                  border-bottom: 1px solid #333;
+                  margin: 0 auto 4px;
+                }
+
+                .signature-label {
+                  font-size: ${printSettings.printerType === 'a4' ? '11px' : '9px'};
+                  color: #666;
+                  margin-bottom: 6px;
+                }
+
+                .stamp-area {
+                  width: ${printSettings.printerType === 'a4' ? '90px' : '70px'};
+                  height: ${printSettings.printerType === 'a4' ? '70px' : '55px'};
+                  border: 2px dashed #999;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin: 0 auto;
+                  background: rgba(0,0,0,0.02);
+                }
+
+                .stamp-placeholder {
+                  font-size: ${printSettings.printerType === 'a4' ? '10px' : '8px'};
+                  color: #999;
+                  text-align: center;
+                  line-height: 1.2;
                 }
 
                 .notes {
@@ -462,66 +570,106 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Print Settings */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4" dir="rtl">
-          <div>
-            <label className="text-sm font-medium text-right block mb-2">نوع الطابعة</label>
-            <select
-              value={printSettings.printerType}
-              onChange={(e) => setPrintSettings(prev => ({ ...prev, printerType: e.target.value }))}
-              className="w-full p-2 border rounded text-right"
+        {/* Print Settings Panel */}
+        <div className="border-t bg-muted/30 p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium flex items-center">
+              <Settings className="w-4 h-4 ml-2" />
+              إعدادات الطباعة
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowPreview(!showPreview)}
+              className="text-xs"
             >
-              <option value="58mm">طابعة حرارية 58mm</option>
-              <option value="80mm">طابعة حرارية 80mm</option>
-              <option value="a4">طابعة A4 عادية</option>
-            </select>
+              <Eye className="w-3 h-3 ml-1" />
+              {showPreview ? 'إخفاء المعاينة' : 'معاينة'}
+            </Button>
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-right block mb-2">نمط الألوان</label>
-            <select
-              value={printSettings.colorMode}
-              onChange={(e) => setPrintSettings(prev => ({ ...prev, colorMode: e.target.value }))}
-              className="w-full p-2 border rounded text-right"
-            >
-              <option value="color">ملون</option>
-              <option value="bw">أبيض وأسود</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-right block">خيارات إضافية</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Printer Type */}
             <div className="space-y-1">
-              <label className="flex items-center gap-2 text-right">
-                <input
-                  type="checkbox"
-                  checked={printSettings.includeQR}
-                  onChange={(e) => setPrintSettings(prev => ({ ...prev, includeQR: e.target.checked }))}
-                />
-                <span className="text-sm">تضمين رمز QR</span>
-              </label>
-              <label className="flex items-center gap-2 text-right">
-                <input
-                  type="checkbox"
-                  checked={printSettings.includeBarcode}
-                  onChange={(e) => setPrintSettings(prev => ({ ...prev, includeBarcode: e.target.checked }))}
-                />
-                <span className="text-sm">تضمين الباركود</span>
-              </label>
-              <label className="flex items-center gap-2 text-right">
-                <input
-                  type="checkbox"
-                  checked={printSettings.includeLogo}
-                  onChange={(e) => setPrintSettings(prev => ({ ...prev, includeLogo: e.target.checked }))}
-                />
-                <span className="text-sm">تضمين شعار العيادة</span>
+              <label className="text-xs font-medium">نوع الطابعة</label>
+              <Select
+                value={printSettings.printerType}
+                onValueChange={(value) => setPrintSettings(prev => ({ ...prev, printerType: value }))}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="58mm">حرارية 58mm</SelectItem>
+                  <SelectItem value="80mm">حرارية 80mm</SelectItem>
+                  <SelectItem value="a4">عادية A4</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Color Mode */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium">نمط الألوان</label>
+              <Select
+                value={printSettings.colorMode}
+                onValueChange={(value) => setPrintSettings(prev => ({ ...prev, colorMode: value }))}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="color">ملون</SelectItem>
+                  <SelectItem value="bw">أبيض وأسود</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Include Logo */}
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <input
+                type="checkbox"
+                id="includeLogo"
+                checked={printSettings.includeLogo}
+                onChange={(e) => setPrintSettings(prev => ({ ...prev, includeLogo: e.target.checked }))}
+                className="rounded border-gray-300"
+              />
+              <label htmlFor="includeLogo" className="text-xs font-medium">
+                تضمين الشعار
               </label>
             </div>
+
+            {/* Include QR */}
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <input
+                type="checkbox"
+                id="includeQR"
+                checked={printSettings.includeQR}
+                onChange={(e) => setPrintSettings(prev => ({ ...prev, includeQR: e.target.checked }))}
+                className="rounded border-gray-300"
+              />
+              <label htmlFor="includeQR" className="text-xs font-medium">
+                QR Code
+              </label>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 space-x-reverse">
+            <input
+              type="checkbox"
+              id="includeBarcode"
+              checked={printSettings.includeBarcode}
+              onChange={(e) => setPrintSettings(prev => ({ ...prev, includeBarcode: e.target.checked }))}
+              className="rounded border-gray-300"
+            />
+            <label htmlFor="includeBarcode" className="text-xs font-medium">
+              تضمين الباركود
+            </label>
           </div>
         </div>
 
         {/* Receipt Preview */}
-        <div className="border rounded-lg p-4 bg-gray-50 max-h-96 overflow-y-auto">
+        {showPreview && (
+          <div className="border rounded-lg p-4 bg-gray-50 max-h-96 overflow-y-auto">
           <div ref={receiptRef} className="receipt bg-white p-4 mx-auto" style={{
             maxWidth: printSettings.printerType === 'a4' ? '600px' : '320px',
             fontFamily: 'Arial, Tahoma, sans-serif',
@@ -530,19 +678,31 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
             {/* Header */}
             <div className="header text-center mb-4 pb-3 border-b-2 border-black">
               {/* Clinic Logo */}
-              {printSettings.includeLogo && settings?.clinic_logo && (
-                <div className="clinic-logo mb-3">
+              {printSettings.includeLogo && settings?.clinic_logo && settings.clinic_logo.trim() !== '' && (
+                <div className="clinic-logo mb-3" style={{
+                  width: printSettings.printerType === 'a4' ? '60px' : '45px',
+                  height: printSettings.printerType === 'a4' ? '60px' : '45px',
+                  margin: '0 auto 8px',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #e0e0e0',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  flexShrink: 0
+                }}>
                   <img
                     src={settings.clinic_logo}
                     alt="شعار العيادة"
                     style={{
-                      width: printSettings.printerType === 'a4' ? '80px' : '60px',
-                      height: printSettings.printerType === 'a4' ? '80px' : '60px',
+                      width: '100%',
+                      height: '100%',
                       objectFit: 'cover',
                       borderRadius: '50%',
-                      margin: '0 auto',
-                      border: '3px solid #e0e0e0',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                      maxWidth: printSettings.printerType === 'a4' ? '60px' : '45px',
+                      maxHeight: printSettings.printerType === 'a4' ? '60px' : '45px'
+                    }}
+                    onError={(e) => {
+                      console.log('Prescription logo failed to load:', settings.clinic_logo)
+                      e.currentTarget.style.display = 'none'
                     }}
                   />
                 </div>
@@ -624,29 +784,67 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
               </div>
             )}
 
-            {/* QR Code Section */}
-            {printSettings.includeQR && (
-              <div className="qr-section text-center mb-3">
-                {qrCodeDataURL ? (
-                  <img
-                    src={qrCodeDataURL}
-                    alt="رمز QR للوصفة الطبية"
+            {/* QR Code and Signature Section */}
+            <div className="bottom-section flex justify-between items-start mb-4 gap-4 flex-wrap">
+              {printSettings.includeQR && (
+                <div className="qr-section text-center flex-1 min-w-[100px]">
+                  {qrCodeDataURL ? (
+                    <img
+                      src={qrCodeDataURL}
+                      alt="رمز QR للوصفة الطبية"
+                      style={{
+                        width: printSettings.printerType === 'a4' ? '100px' : '80px',
+                        height: printSettings.printerType === 'a4' ? '100px' : '80px',
+                        margin: '0 auto'
+                      }}
+                    />
+                  ) : (
+                    <div className="qr-placeholder bg-gray-200 p-4 text-sm">
+                      رمز QR
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-600 mt-1">
+                    امسح الرمز لعرض تفاصيل الوصفة
+                  </div>
+                </div>
+              )}
+
+              {/* Doctor Signature Section */}
+              <div className="signature-section text-center flex-1 min-w-[120px]">
+                <div className="signature-box mb-3">
+                  <div
+                    className="signature-line mx-auto mb-2"
                     style={{
                       width: printSettings.printerType === 'a4' ? '120px' : '100px',
-                      height: printSettings.printerType === 'a4' ? '120px' : '100px',
-                      margin: '0 auto'
+                      height: '1px',
+                      borderBottom: '1px solid #333'
                     }}
-                  />
-                ) : (
-                  <div className="qr-placeholder bg-gray-200 p-4 text-sm">
-                    رمز QR
+                  ></div>
+                  <div
+                    className="signature-label text-gray-600 mb-3"
+                    style={{ fontSize: printSettings.printerType === 'a4' ? '11px' : '9px' }}
+                  >
+                    توقيع الطبيب
                   </div>
-                )}
-                <div className="text-xs text-gray-600 mt-1">
-                  امسح الرمز لعرض تفاصيل الوصفة
+                </div>
+                <div className="stamp-box">
+                  <div
+                    className="stamp-area border-2 border-dashed border-gray-400 rounded-full flex items-center justify-center mx-auto bg-gray-50"
+                    style={{
+                      width: printSettings.printerType === 'a4' ? '90px' : '70px',
+                      height: printSettings.printerType === 'a4' ? '70px' : '55px'
+                    }}
+                  >
+                    <div
+                      className="stamp-placeholder text-gray-500 text-center leading-tight"
+                      style={{ fontSize: printSettings.printerType === 'a4' ? '10px' : '8px' }}
+                    >
+                      ختم العيادة
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Barcode Section */}
             {printSettings.includeBarcode && (
@@ -682,27 +880,23 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
             </div>
           </div>
         </div>
+        )}
 
         <DialogFooter className="flex justify-end space-x-2 space-x-reverse">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            <X className="w-4 h-4 ml-2" />
             إغلاق
-          </Button>
-          <Button variant="outline" onClick={() => setShowPreview(!showPreview)}>
-            <Eye className="w-4 h-4 ml-2" />
-            {showPreview ? 'إخفاء المعاينة' : 'معاينة'}
           </Button>
           <Button variant="outline" onClick={handleDownload}>
             <Download className="w-4 h-4 ml-2" />
             تحميل PDF
           </Button>
-          <Button onClick={handleThermalPrint} className="bg-green-600 hover:bg-green-700 text-white">
+          <Button variant="outline" onClick={handleThermalPrint} className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200">
             <Printer className="w-4 h-4 ml-2" />
             طباعة حرارية
           </Button>
-          <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={handlePrint} className="bg-green-600 hover:bg-green-700 text-white">
             <Printer className="w-4 h-4 ml-2" />
-            طباعة عادية
+            طباعة ذكية
           </Button>
         </DialogFooter>
       </DialogContent>

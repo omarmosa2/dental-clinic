@@ -97,6 +97,8 @@ export class PdfService {
     const clinicPhone = settings?.clinic_phone || ''
     const clinicLogo = settings?.clinic_logo || ''
 
+
+
     // Format date as DD/MM/YYYY (Gregorian calendar)
     const currentDate = (() => {
       const date = new Date()
@@ -110,7 +112,7 @@ export class PdfService {
       <div class="enhanced-header">
         <div class="header-content">
           <div class="clinic-info">
-            ${clinicLogo ? `
+            ${clinicLogo && clinicLogo.trim() !== '' ? `
               <div class="clinic-logo">
                 <img src="${clinicLogo}" alt="شعار العيادة" />
               </div>
@@ -190,14 +192,15 @@ export class PdfService {
         }
 
         .clinic-logo {
-          width: 90px;
-          height: 90px;
+          width: 70px;
+          height: 70px;
           border-radius: 50%;
           overflow: hidden;
           background: ${this.COLORS.white};
-          padding: 6px;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-          border: 3px solid rgba(255,255,255,0.8);
+          padding: 4px;
+          box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+          border: 2px solid rgba(255,255,255,0.8);
+          flex-shrink: 0;
         }
 
         .clinic-logo img {
@@ -205,6 +208,8 @@ export class PdfService {
           height: 100%;
           object-fit: cover;
           border-radius: 50%;
+          max-width: 70px;
+          max-height: 70px;
         }
 
         .clinic-details h1.clinic-name {

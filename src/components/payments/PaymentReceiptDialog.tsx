@@ -19,8 +19,17 @@ interface PaymentReceiptDialogProps {
 }
 
 export default function PaymentReceiptDialog({ open, onOpenChange, payment }: PaymentReceiptDialogProps) {
-  const { settings } = useSettingsStore()
+  const { settings, loadSettings } = useSettingsStore()
   const receiptRef = useRef<HTMLDivElement>(null)
+
+  // Load settings when component mounts or dialog opens
+  useEffect(() => {
+    if (open && !settings) {
+      loadSettings()
+    }
+  }, [open, settings, loadSettings])
+
+
 
   // Print settings state
   const [printSettings, setPrintSettings] = useState({
@@ -163,20 +172,21 @@ ${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` :
                 }
 
                 .clinic-logo {
-                  width: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
-                  height: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
-                  margin: 0 auto 8px;
+                  width: ${printSettings.printerType === 'a4' ? '60px' : '45px'};
+                  height: ${printSettings.printerType === 'a4' ? '60px' : '45px'};
+                  margin: 0 auto 6px;
                   border-radius: 50%;
                   background: ${isColorMode ? 'rgba(255,255,255,0.15)' : '#e9ecef'};
                   display: flex;
                   align-items: center;
                   justify-content: center;
-                  font-size: ${printSettings.printerType === 'a4' ? '24px' : '16px'};
+                  font-size: ${printSettings.printerType === 'a4' ? '20px' : '14px'};
                   font-weight: bold;
                   color: ${isColorMode ? 'white' : '#495057'};
-                  border: 3px solid ${isColorMode ? 'rgba(255,255,255,0.3)' : '#dee2e6'};
-                  box-shadow: ${isColorMode ? '0 4px 15px rgba(0,0,0,0.2)' : '0 2px 8px rgba(0,0,0,0.1)'};
+                  border: 2px solid ${isColorMode ? 'rgba(255,255,255,0.3)' : '#dee2e6'};
+                  box-shadow: ${isColorMode ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 4px rgba(0,0,0,0.1)'};
                   overflow: hidden;
+                  flex-shrink: 0;
                 }
 
                 .clinic-logo img {
@@ -184,6 +194,8 @@ ${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` :
                   height: 100%;
                   object-fit: cover;
                   border-radius: 50%;
+                  max-width: ${printSettings.printerType === 'a4' ? '60px' : '45px'};
+                  max-height: ${printSettings.printerType === 'a4' ? '60px' : '45px'};
                 }
 
                 .clinic-name {
@@ -307,6 +319,67 @@ ${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` :
                   height: ${printSettings.printerType === 'a4' ? '30px' : '20px'};
                   width: ${printSettings.printerType === 'a4' ? '120px' : '100px'};
                   border-radius: 2px;
+                }
+
+                .bottom-section {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: flex-start;
+                  margin: 12px 0;
+                  gap: 15px;
+                  flex-wrap: wrap;
+                }
+
+                .qr-section {
+                  text-align: center;
+                  flex: 1;
+                  min-width: 80px;
+                }
+
+                .signature-section {
+                  flex: 1;
+                  min-width: 120px;
+                  text-align: center;
+                }
+
+                .signature-box {
+                  margin-bottom: 8px;
+                }
+
+                .signature-line {
+                  width: ${printSettings.printerType === 'a4' ? '100px' : '80px'};
+                  height: 1px;
+                  border-bottom: 1px solid #333;
+                  margin: 0 auto 4px;
+                }
+
+                .signature-label {
+                  font-size: ${printSettings.printerType === 'a4' ? '10px' : '8px'};
+                  color: #666;
+                  margin-bottom: 6px;
+                }
+
+                .stamp-box {
+                  margin-top: 6px;
+                }
+
+                .stamp-area {
+                  width: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
+                  height: ${printSettings.printerType === 'a4' ? '60px' : '45px'};
+                  border: 2px dashed #999;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin: 0 auto;
+                  background: rgba(0,0,0,0.02);
+                }
+
+                .stamp-placeholder {
+                  font-size: ${printSettings.printerType === 'a4' ? '9px' : '7px'};
+                  color: #999;
+                  text-align: center;
+                  line-height: 1.2;
                 }
 
                 .footer {
@@ -490,6 +563,50 @@ ${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` :
                   font-size: 9px;
                   font-weight: bold;
                 }
+                .bottom-section {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: flex-start;
+                  margin: 4px 0;
+                  gap: 6px;
+                  flex-wrap: wrap;
+                }
+                .qr-section {
+                  text-align: center;
+                  flex: 1;
+                  min-width: 50px;
+                }
+                .signature-section {
+                  flex: 1;
+                  min-width: 70px;
+                  text-align: center;
+                }
+                .signature-line {
+                  width: 50px;
+                  height: 1px;
+                  border-bottom: 1px solid #000;
+                  margin: 0 auto 2px;
+                }
+                .signature-label {
+                  font-size: 6px;
+                  margin-bottom: 2px;
+                }
+                .stamp-area {
+                  width: 35px;
+                  height: 25px;
+                  border: 1px dashed #000;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin: 0 auto;
+                  background: rgba(0,0,0,0.02);
+                }
+                .stamp-placeholder {
+                  font-size: 5px;
+                  text-align: center;
+                  line-height: 1.1;
+                }
               </style>
             </head>
             <body>
@@ -550,15 +667,41 @@ ${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` :
           <div className="header">
             {/* Clinic Logo */}
             {printSettings.includeLogo && (
-              <div className="clinic-logo">
-                {settings?.clinic_logo ? (
+              <div className="clinic-logo" style={{
+                width: '60px',
+                height: '60px',
+                margin: '0 auto 8px',
+                borderRadius: '50%',
+                overflow: 'hidden',
+                border: '2px solid #e0e0e0',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#f8f9fa'
+              }}>
+                {settings?.clinic_logo && settings.clinic_logo.trim() !== '' ? (
                   <img
                     src={settings.clinic_logo}
                     alt="شعار العيادة"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      borderRadius: '50%',
+                      maxWidth: '60px',
+                      maxHeight: '60px'
+                    }}
+                    onError={(e) => {
+                      console.log('Logo failed to load:', settings.clinic_logo)
+                      e.currentTarget.style.display = 'none'
+                    }}
                   />
                 ) : (
-                  <span>{(settings?.clinic_name || 'عيادة الأسنان').charAt(0)}</span>
+                  <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#495057' }}>
+                    {(settings?.clinic_name || 'عيادة الأسنان').charAt(0)}
+                  </span>
                 )}
               </div>
             )}
@@ -664,29 +807,44 @@ ${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` :
               </div>
             </div>
 
-            {/* QR Code Section */}
-            {printSettings.includeQR && (
-              <div className="qr-section">
-                {qrCodeDataURL ? (
-                  <img
-                    src={qrCodeDataURL}
-                    alt="QR Code للتحقق من الإيصال"
-                    style={{
-                      width: printSettings.printerType === 'a4' ? '80px' : '60px',
-                      height: printSettings.printerType === 'a4' ? '80px' : '60px',
-                      margin: '0 auto'
-                    }}
-                  />
-                ) : (
-                  <div className="qr-placeholder">
-                    QR
+            {/* QR Code and Signature Section */}
+            <div className="bottom-section">
+              {printSettings.includeQR && (
+                <div className="qr-section">
+                  {qrCodeDataURL ? (
+                    <img
+                      src={qrCodeDataURL}
+                      alt="QR Code للتحقق من الإيصال"
+                      style={{
+                        width: printSettings.printerType === 'a4' ? '80px' : '60px',
+                        height: printSettings.printerType === 'a4' ? '80px' : '60px',
+                        margin: '0 auto'
+                      }}
+                    />
+                  ) : (
+                    <div className="qr-placeholder">
+                      QR
+                    </div>
+                  )}
+                  <div style={{ fontSize: '8px', color: '#666', marginTop: '4px' }}>
+                    امسح للتحقق من الإيصال
                   </div>
-                )}
-                <div style={{ fontSize: '8px', color: '#666', marginTop: '4px' }}>
-                  امسح للتحقق من الإيصال
+                </div>
+              )}
+
+              {/* Doctor Signature Section */}
+              <div className="signature-section">
+                <div className="signature-box">
+                  <div className="signature-line"></div>
+                  <div className="signature-label">توقيع الطبيب</div>
+                </div>
+                <div className="stamp-box">
+                  <div className="stamp-area">
+                    <div className="stamp-placeholder">ختم العيادة</div>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Barcode Section */}
             {printSettings.includeBarcode && (

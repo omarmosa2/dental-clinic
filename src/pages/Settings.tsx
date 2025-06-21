@@ -26,6 +26,8 @@ import {
 } from 'lucide-react'
 import LicenseInfoCard from '../components/LicenseInfoCard'
 import LicenseActivationDialog from '../components/LicenseActivationDialog'
+import LogoTest from '../components/debug/LogoTest'
+import LogoUploadTest from '../components/debug/LogoUploadTest'
 import { licenseGuard } from '../services/licenseGuard'
 import { licenseActivationService } from '../services/licenseActivationService'
 import { licenseManagerRenderer } from '../services/licenseServiceRenderer'
@@ -877,6 +879,10 @@ export default function Settings() {
               </form>
             </div>
           </div>
+
+          {/* Logo Test Components */}
+          <LogoTest />
+          <LogoUploadTest />
         </div>
       )}
 
