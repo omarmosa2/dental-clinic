@@ -685,7 +685,7 @@ export default function PatientReports() {
           {/* Patients Table */}
           <div className="border rounded-lg overflow-hidden" dir="rtl">
             <div className="overflow-x-auto">
-              <table className="w-full" dir="rtl">
+              <table className="w-full table-center-all" dir="rtl">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-center p-3 font-medium arabic-enhanced">الرقم التسلسلي</th>

@@ -184,10 +184,10 @@ export default function InventoryTable({
 
   const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <TableHead
-      className="cursor-pointer hover:bg-muted/50 select-none text-right"
+      className="cursor-pointer hover:bg-muted/50 select-none text-center"
       onClick={() => handleSort(field)}
     >
-      <div className="flex items-center gap-1 justify-start">
+      <div className="flex items-center gap-1 justify-center">
         {children}
         {sortField === field ? (
           sortDirection === 'asc' ? (
@@ -255,17 +255,17 @@ export default function InventoryTable({
   if (isLoading) {
     return (
       <div className="border rounded-lg" dir="rtl">
-        <Table>
+        <Table className="table-center-all">
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-right">الرقم التسلسلي</TableHead>
-              <TableHead className="text-right">اسم العنصر</TableHead>
-              <TableHead className="text-right">الفئة</TableHead>
-              <TableHead className="text-right">الكمية</TableHead>
-              <TableHead className="text-right">سعر الوحدة</TableHead>
-              <TableHead className="text-right">القيمة الإجمالية</TableHead>
-              <TableHead className="text-right">الحالة</TableHead>
-              <TableHead className="text-right">الاجراءات</TableHead>
+              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">اسم العنصر</TableHead>
+              <TableHead className="text-center">الفئة</TableHead>
+              <TableHead className="text-center">الكمية</TableHead>
+              <TableHead className="text-center">سعر الوحدة</TableHead>
+              <TableHead className="text-center">القيمة الإجمالية</TableHead>
+              <TableHead className="text-center">الحالة</TableHead>
+              <TableHead className="text-center">الاجراءات</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -287,17 +287,17 @@ export default function InventoryTable({
   if (items.length === 0) {
     return (
       <div className="border rounded-lg" dir="rtl">
-        <Table>
+        <Table className="table-center-all">
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-right">الرقم التسلسلي</TableHead>
-              <TableHead className="text-right">اسم العنصر</TableHead>
-              <TableHead className="text-right">الفئة</TableHead>
-              <TableHead className="text-right">الكمية</TableHead>
-              <TableHead className="text-right">سعر الوحدة</TableHead>
-              <TableHead className="text-right">القيمة الإجمالية</TableHead>
-              <TableHead className="text-right">الحالة</TableHead>
-              <TableHead className="text-right">الاجراءات</TableHead>
+              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">اسم العنصر</TableHead>
+              <TableHead className="text-center">الفئة</TableHead>
+              <TableHead className="text-center">الكمية</TableHead>
+              <TableHead className="text-center">سعر الوحدة</TableHead>
+              <TableHead className="text-center">القيمة الإجمالية</TableHead>
+              <TableHead className="text-center">الحالة</TableHead>
+              <TableHead className="text-center">الاجراءات</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -370,10 +370,10 @@ export default function InventoryTable({
 
       <div className="border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="table-center-all">
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="text-right">
+                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
                 </TableHead>
                 <SortableHeader field="name">
@@ -391,10 +391,10 @@ export default function InventoryTable({
                 <SortableHeader field="total_value">
                   <span className="arabic-enhanced font-medium">القيمة الإجمالية</span>
                 </SortableHeader>
-                <TableHead className="text-right">
+                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الحالة</span>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الاجراءات</span>
                 </TableHead>
               </TableRow>
@@ -402,11 +402,11 @@ export default function InventoryTable({
             <TableBody>
               {paginatedItems.map((item, index) => (
                 <TableRow key={item.id} className="hover:bg-muted/50">
-                  <TableCell className="font-medium text-right">
+                  <TableCell className="font-medium text-center">
                     {startIndex + index + 1}
                   </TableCell>
-                  <TableCell className="font-medium text-right">
-                    <div className="flex items-center gap-2">
+                  <TableCell className="font-medium text-center">
+                    <div className="flex items-center justify-center gap-2">
                       <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
                         {item.name.charAt(0)}
                       </div>
@@ -418,7 +418,7 @@ export default function InventoryTable({
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     {item.category ? (
                       <Badge variant="outline" className="arabic-enhanced">
                         {item.category}
@@ -427,27 +427,27 @@ export default function InventoryTable({
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center gap-1">
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1">
                       <span className="font-medium">{item.quantity}</span>
                       <span className="text-muted-foreground text-sm">{item.unit || 'قطعة'}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     {item.cost_per_unit ? (
                       <span className="font-medium">{formatCurrency(item.cost_per_unit)}</span>
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     <span className="font-medium">{formatCurrency(item.total_value)}</span>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     {getStatusBadge(item)}
                   </TableCell>
-                  <TableCell className="min-w-[200px]">
-                    <div className="flex items-center gap-1">
+                  <TableCell className="min-w-[200px] text-center">
+                    <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"

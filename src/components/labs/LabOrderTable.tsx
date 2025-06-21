@@ -135,17 +135,17 @@ export default function LabOrderTable({ labOrders, onEdit, onDelete, onView }: L
 
   return (
     <div className="rounded-md border" dir="rtl">
-      <Table>
+      <Table className="table-center-all">
         <TableHeader>
           <TableRow>
-            <TableHead className="text-right w-[60px]">رقم</TableHead>
-            <TableHead className="text-right">اسم المختبر</TableHead>
-            <TableHead className="text-right">اسم الخدمة/التحليل</TableHead>
-            <TableHead className="text-right">التكلفة</TableHead>
-            <TableHead className="text-right">تاريخ الطلب</TableHead>
-            <TableHead className="text-right">الحالة</TableHead>
-            <TableHead className="text-right">حالة الدفع</TableHead>
-            <TableHead className="text-right w-[120px]">الإجراءات</TableHead>
+            <TableHead className="text-center w-[60px]">رقم</TableHead>
+            <TableHead className="text-center">اسم المختبر</TableHead>
+            <TableHead className="text-center">اسم الخدمة/التحليل</TableHead>
+            <TableHead className="text-center">التكلفة</TableHead>
+            <TableHead className="text-center">تاريخ الطلب</TableHead>
+            <TableHead className="text-center">الحالة</TableHead>
+            <TableHead className="text-center">حالة الدفع</TableHead>
+            <TableHead className="text-center w-[120px]">الإجراءات</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -154,9 +154,9 @@ export default function LabOrderTable({ labOrders, onEdit, onDelete, onView }: L
               <TableCell className="font-medium text-center">
                 {index + 1}
               </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center gap-2 justify-end">
-                  <div className="flex flex-col text-right">
+              <TableCell className="text-center">
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="flex flex-col text-center">
                     <span className="font-medium">
                       {getLabName(order.lab_id, order.lab)}
                     </span>
@@ -169,32 +169,32 @@ export default function LabOrderTable({ labOrders, onEdit, onDelete, onView }: L
                   <Building2 className="h-4 w-4 text-blue-600" />
                 </div>
               </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center gap-2 justify-end">
+              <TableCell className="text-center">
+                <div className="flex items-center gap-2 justify-center">
                   <span>{order.service_name}</span>
                   <TestTube className="h-4 w-4 text-purple-600" />
                 </div>
               </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center gap-2 justify-end">
+              <TableCell className="text-center">
+                <div className="flex items-center gap-2 justify-center">
                   <span className="font-semibold">{formatCurrency(order.cost)}</span>
                   <DollarSign className="h-4 w-4 text-green-600" />
                 </div>
               </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center gap-2 justify-end">
+              <TableCell className="text-center">
+                <div className="flex items-center gap-2 justify-center">
                   <span className="text-sm">{formatDate(order.order_date)}</span>
                   <Calendar className="h-4 w-4 text-gray-600" />
                 </div>
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell className="text-center">
                 {getStatusBadge(order.status)}
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell className="text-center">
                 {getPaymentStatusBadge(order.cost, order.paid_amount)}
               </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center gap-1 justify-end">
+              <TableCell className="text-center">
+                <div className="flex items-center gap-1 justify-center">
                   {onView && (
                     <Button
                       variant="outline"

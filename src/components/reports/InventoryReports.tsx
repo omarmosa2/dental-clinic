@@ -537,7 +537,7 @@ export default function InventoryReports() {
           {/* Stock Alerts Table - RTL Layout with Centered Headers */}
           <div className="border rounded-lg overflow-hidden" dir="rtl">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-center-all">
                 <thead className="bg-muted">
                   <tr>
                     <th className="text-center p-3 font-medium">الرقم التسلسلي</th>

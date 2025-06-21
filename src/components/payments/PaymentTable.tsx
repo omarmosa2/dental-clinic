@@ -142,10 +142,10 @@ export default function PaymentTable({
   // Sortable header component
   const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <TableHead
-      className="cursor-pointer hover:bg-muted/50 text-right"
+      className="cursor-pointer hover:bg-muted/50 text-center"
       onClick={() => handleSort(field)}
     >
-      <div className="flex items-center justify-end space-x-1 space-x-reverse">
+      <div className="flex items-center justify-center space-x-1 space-x-reverse">
         {children}
         {sortField === field ? (
           sortDirection === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
@@ -217,16 +217,17 @@ export default function PaymentTable({
   if (sortedPayments.length === 0) {
     return (
       <div className="border rounded-lg">
-        <Table>
+        <Table className="table-center-all">
           <TableHeader>
             <TableRow>
+              <TableHead className="text-center">الرقم التسلسلي</TableHead>
               <SortableHeader field="receipt_number">رقم الإيصال</SortableHeader>
               <SortableHeader field="patient_name">المريض</SortableHeader>
               <SortableHeader field="amount">المبلغ</SortableHeader>
               <SortableHeader field="payment_method">طريقة الدفع</SortableHeader>
               <SortableHeader field="status">الحالة</SortableHeader>
               <SortableHeader field="payment_date">تاريخ الدفع</SortableHeader>
-              <TableHead className="text-right">
+              <TableHead className="text-center">
                 <span className="arabic-enhanced font-medium">الإجراءات</span>
               </TableHead>
             </TableRow>
@@ -253,10 +254,10 @@ export default function PaymentTable({
       {/* Table */}
       <div className="border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="table-center-all">
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="text-right">
+                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
                 </TableHead>
                 <SortableHeader field="receipt_number">
@@ -277,7 +278,7 @@ export default function PaymentTable({
                 <SortableHeader field="payment_date">
                   <span className="arabic-enhanced font-medium">تاريخ الدفع</span>
                 </SortableHeader>
-                <TableHead className="text-right">
+                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الإجراءات</span>
                 </TableHead>
               </TableRow>
@@ -285,19 +286,19 @@ export default function PaymentTable({
             <TableBody>
               {paginatedPayments.map((payment, index) => (
                 <TableRow key={payment.id} className="hover:bg-muted/50">
-                  <TableCell className="font-medium text-right">
+                  <TableCell className="font-medium text-center">
                     {startIndex + index + 1}
                   </TableCell>
-                  <TableCell className="font-medium text-right">
-                    <div className="flex items-center gap-2">
+                  <TableCell className="font-medium text-center">
+                    <div className="flex items-center justify-center gap-2">
                       <Receipt className="w-4 h-4 text-muted-foreground" />
                       <span className="arabic-enhanced">
                         {payment.receipt_number || `#${payment.id.slice(-6)}`}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="font-medium text-right">
-                    <div className="flex items-center gap-2">
+                  <TableCell className="font-medium text-center">
+                    <div className="flex items-center justify-center gap-2">
                       <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
                         {getPatientName(payment).charAt(0)}
                       </div>
@@ -311,7 +312,7 @@ export default function PaymentTable({
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     <div className="space-y-1">
                       <div className="font-medium text-lg">
                         {formatCurrency(payment.amount)}
@@ -328,21 +329,21 @@ export default function PaymentTable({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     <Badge variant="outline" className="arabic-enhanced">
                       {getPaymentMethodLabel(payment.payment_method)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     {getStatusBadge(payment.status)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     <div className="text-sm arabic-enhanced">
                       {formatDate(payment.payment_date)}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center gap-1 justify-end">
+                  <TableCell className="text-center">
+                    <div className="flex items-center gap-1 justify-center">
                       <Button
                         variant="ghost"
                         size="sm"

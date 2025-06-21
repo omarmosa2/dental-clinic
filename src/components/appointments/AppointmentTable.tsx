@@ -183,10 +183,10 @@ export default function AppointmentTable({
 
   const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <TableHead
-      className="cursor-pointer hover:bg-muted/50 select-none text-right"
+      className="cursor-pointer hover:bg-muted/50 select-none text-center"
       onClick={() => handleSort(field)}
     >
-      <div className="flex items-center gap-1 justify-start">
+      <div className="flex items-center gap-1 justify-center">
         {children}
         {sortField === field ? (
           sortDirection === 'asc' ? (
@@ -219,15 +219,15 @@ export default function AppointmentTable({
   if (isLoading) {
     return (
       <div className="border rounded-lg" dir="rtl">
-        <Table>
+        <Table className="table-center-all">
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-right">الرقم التسلسلي</TableHead>
-              <TableHead className="text-right">اسم المريض</TableHead>
-              <TableHead className="text-right">تاريخ ووقت البداية</TableHead>
-              <TableHead className="text-right">تاريخ ووقت النهاية</TableHead>
-              <TableHead className="text-right">حالة الموعد</TableHead>
-              <TableHead className="text-right">الاجراءات</TableHead>
+              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">اسم المريض</TableHead>
+              <TableHead className="text-center">تاريخ ووقت البداية</TableHead>
+              <TableHead className="text-center">تاريخ ووقت النهاية</TableHead>
+              <TableHead className="text-center">حالة الموعد</TableHead>
+              <TableHead className="text-center">الاجراءات</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -248,15 +248,15 @@ export default function AppointmentTable({
   if (appointments.length === 0) {
     return (
       <div className="border rounded-lg" dir="rtl">
-        <Table>
+        <Table className="table-center-all">
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-right">الرقم التسلسلي</TableHead>
-              <TableHead className="text-right">اسم المريض</TableHead>
-              <TableHead className="text-right">تاريخ ووقت البداية</TableHead>
-              <TableHead className="text-right">تاريخ ووقت النهاية</TableHead>
-              <TableHead className="text-right">حالة الموعد</TableHead>
-              <TableHead className="text-right">الاجراءات</TableHead>
+              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">اسم المريض</TableHead>
+              <TableHead className="text-center">تاريخ ووقت البداية</TableHead>
+              <TableHead className="text-center">تاريخ ووقت النهاية</TableHead>
+              <TableHead className="text-center">حالة الموعد</TableHead>
+              <TableHead className="text-center">الاجراءات</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -309,10 +309,10 @@ export default function AppointmentTable({
 
       <div className="border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="table-center-all">
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="text-right">
+                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
                 </TableHead>
                 <SortableHeader field="patient_name">
@@ -327,7 +327,7 @@ export default function AppointmentTable({
                 <SortableHeader field="status">
                   <span className="arabic-enhanced font-medium">حالة الموعد</span>
                 </SortableHeader>
-                <TableHead className="text-right">
+                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الاجراءات</span>
                 </TableHead>
               </TableRow>
@@ -335,30 +335,30 @@ export default function AppointmentTable({
             <TableBody>
               {paginatedAppointments.map((appointment, index) => (
                 <TableRow key={appointment.id} className="hover:bg-muted/50">
-                  <TableCell className="font-medium text-right">
+                  <TableCell className="font-medium text-center">
                     {startIndex + index + 1}
                   </TableCell>
-                  <TableCell className="font-medium text-right">
-                    <div className="flex items-center gap-2">
+                  <TableCell className="font-medium text-center">
+                    <div className="flex items-center justify-center gap-2">
                       <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
                         {appointment.patient_name.charAt(0)}
                       </div>
                       <span className="arabic-enhanced">{appointment.patient_name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center gap-2">
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-2">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm">{formatDateTime(appointment.start_time)}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center gap-2">
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-2">
                       <Clock className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm">{formatDateTime(appointment.end_time)}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     <Badge
                       variant="outline"
                       className={`${getStatusColor(appointment.status)} arabic-enhanced`}
@@ -366,8 +366,8 @@ export default function AppointmentTable({
                       {getStatusText(appointment.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="min-w-[200px]">
-                    <div className="flex items-center gap-1">
+                  <TableCell className="min-w-[200px] text-center">
+                    <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"

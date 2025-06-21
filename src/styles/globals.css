@@ -457,6 +457,34 @@
     color: hsl(var(--medical-success));
   }
 
+  /* Table center alignment styles */
+  .table-center-all th,
+  .table-center-all td {
+    @apply text-center;
+  }
+
+  .table-center-headers th {
+    @apply text-center;
+  }
+
+  .table-center-data td {
+    @apply text-center;
+  }
+
+  /* RTL table center alignment */
+  [dir="rtl"] .table-center-all th,
+  [dir="rtl"] .table-center-all td {
+    @apply text-center;
+  }
+
+  [dir="rtl"] .table-center-headers th {
+    @apply text-center;
+  }
+
+  [dir="rtl"] .table-center-data td {
+    @apply text-center;
+  }
+
   /* Enhanced Typography Classes */
   .text-heading-1 {
     @apply text-3xl font-bold leading-tight;

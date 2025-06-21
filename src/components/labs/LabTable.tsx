@@ -96,33 +96,33 @@ export default function LabTable({ labs, onEdit, onDelete, searchQuery }: LabTab
 
   return (
     <div className="rounded-md border" dir="rtl">
-      <Table>
+      <Table className="table-center-all">
         <TableHeader>
           <TableRow>
-            <TableHead className="text-right">الرقم التسلسلي</TableHead>
-            <TableHead className="text-right">اسم المختبر</TableHead>
-            <TableHead className="text-right">معلومات الاتصال</TableHead>
-            <TableHead className="text-right">العنوان</TableHead>
-            <TableHead className="text-right">عدد الطلبات</TableHead>
-            <TableHead className="text-right">تاريخ الإضافة</TableHead>
-            <TableHead className="text-right w-[100px]">الإجراءات</TableHead>
+            <TableHead className="text-center">الرقم التسلسلي</TableHead>
+            <TableHead className="text-center">اسم المختبر</TableHead>
+            <TableHead className="text-center">معلومات الاتصال</TableHead>
+            <TableHead className="text-center">العنوان</TableHead>
+            <TableHead className="text-center">عدد الطلبات</TableHead>
+            <TableHead className="text-center">تاريخ الإضافة</TableHead>
+            <TableHead className="text-center w-[100px]">الإجراءات</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filteredLabs.map((lab, index) => (
             <TableRow key={lab.id} className="hover:bg-muted/50">
-              <TableCell className="font-medium text-right">
+              <TableCell className="font-medium text-center">
                 {index + 1}
               </TableCell>
-              <TableCell className="font-medium text-right">
-                <div className="flex items-center gap-2 justify-end">
+              <TableCell className="font-medium text-center">
+                <div className="flex items-center gap-2 justify-center">
                   {lab.name}
                   <Building2 className="h-4 w-4 text-blue-600" />
                 </div>
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell className="text-center">
                 {lab.contact_info ? (
-                  <div className="flex items-center gap-2 justify-end">
+                  <div className="flex items-center gap-2 justify-center">
                     <span className="text-sm">{lab.contact_info}</span>
                     <Phone className="h-4 w-4 text-green-600" />
                   </div>
@@ -130,9 +130,9 @@ export default function LabTable({ labs, onEdit, onDelete, searchQuery }: LabTab
                   <span className="text-muted-foreground text-sm">غير محدد</span>
                 )}
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell className="text-center">
                 {lab.address ? (
-                  <div className="flex items-center gap-2 justify-end">
+                  <div className="flex items-center gap-2 justify-center">
                     <span className="text-sm">{lab.address}</span>
                     <MapPin className="h-4 w-4 text-orange-600" />
                   </div>
@@ -140,19 +140,19 @@ export default function LabTable({ labs, onEdit, onDelete, searchQuery }: LabTab
                   <span className="text-muted-foreground text-sm">غير محدد</span>
                 )}
               </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end">
+              <TableCell className="text-center">
+                <div className="flex justify-center">
                   <Badge variant="secondary" className="flex items-center gap-1 w-fit">
                     {getLabOrdersCount(lab.id)}
                     <TestTube className="h-3 w-3" />
                   </Badge>
                 </div>
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground text-right">
+              <TableCell className="text-sm text-muted-foreground text-center">
                 {formatDate(lab.created_at)}
               </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center gap-2 justify-end">
+              <TableCell className="text-center">
+                <div className="flex items-center gap-2 justify-center">
                   <Button
                     variant="outline"
                     size="sm"

@@ -118,10 +118,10 @@ export default function PatientTable({
 
   const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <TableHead
-      className="cursor-pointer hover:bg-muted/50 select-none"
+      className="cursor-pointer hover:bg-muted/50 select-none text-center"
       onClick={() => handleSort(field)}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-center space-x-1 space-x-reverse">
         <span>{children}</span>
         {getSortIcon(field)}
       </div>
@@ -131,16 +131,17 @@ export default function PatientTable({
   if (isLoading) {
     return (
       <div className="border rounded-lg">
-        <Table>
+        <Table className="table-center-all">
           <TableHeader>
             <TableRow>
-              <TableHead>الاسم الكامل للمريض</TableHead>
-              <TableHead>الجنس</TableHead>
-              <TableHead>العمر</TableHead>
-              <TableHead>رقم الهاتف</TableHead>
-              <TableHead>حالة المريض</TableHead>
-              <TableHead>ملاحظات</TableHead>
-              <TableHead>الاجراءات</TableHead>
+              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">الاسم الكامل للمريض</TableHead>
+              <TableHead className="text-center">الجنس</TableHead>
+              <TableHead className="text-center">العمر</TableHead>
+              <TableHead className="text-center">رقم الهاتف</TableHead>
+              <TableHead className="text-center">حالة المريض</TableHead>
+              <TableHead className="text-center">ملاحظات</TableHead>
+              <TableHead className="text-center">الاجراءات</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -162,10 +163,10 @@ export default function PatientTable({
   if (patients.length === 0) {
     return (
       <div className="border rounded-lg">
-        <Table>
+        <Table className="table-center-all">
           <TableHeader>
             <TableRow>
-              <TableHead className="text-right">
+              <TableHead className="text-center">
                 <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
               </TableHead>
               <SortableHeader field="full_name">الاسم الكامل للمريض</SortableHeader>
@@ -173,8 +174,8 @@ export default function PatientTable({
               <SortableHeader field="age">العمر</SortableHeader>
               <SortableHeader field="phone">رقم الهاتف</SortableHeader>
               <SortableHeader field="patient_condition">حالة المريض</SortableHeader>
-              <TableHead>ملاحظات</TableHead>
-              <TableHead>الاجراءات</TableHead>
+              <TableHead className="text-center">ملاحظات</TableHead>
+              <TableHead className="text-center">الاجراءات</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -210,10 +211,10 @@ export default function PatientTable({
     <div className="space-y-4">
       <div className="border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="table-center-all">
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="text-right">
+                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
                 </TableHead>
                 <SortableHeader field="full_name">
@@ -231,10 +232,10 @@ export default function PatientTable({
                 <SortableHeader field="patient_condition">
                   <span className="arabic-enhanced font-medium">حالة المريض</span>
                 </SortableHeader>
-                <TableHead>
+                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">ملاحظات</span>
                 </TableHead>
-                <TableHead>
+                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الاجراءات</span>
                 </TableHead>
               </TableRow>
@@ -242,26 +243,26 @@ export default function PatientTable({
           <TableBody>
             {paginatedPatients.map((patient, index) => (
             <TableRow key={patient.id} className="hover:bg-muted/50">
-              <TableCell className="font-medium text-right">
+              <TableCell className="font-medium text-center">
                 {startIndex + index + 1}
               </TableCell>
-              <TableCell className="font-medium">
-                <div className="flex items-center space-x-2 space-x-reverse">
+              <TableCell className="font-medium text-center">
+                <div className="flex items-center justify-center space-x-2 space-x-reverse">
                   <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
                     {patient.full_name.charAt(0)}
                   </div>
                   <span>{patient.full_name}</span>
                 </div>
               </TableCell>
-              <TableCell>
+              <TableCell className="text-center">
                 <Badge variant={patient.gender === 'male' ? 'default' : 'secondary'}>
                   {patient.gender === 'male' ? 'ذكر' : 'أنثى'}
                 </Badge>
               </TableCell>
-              <TableCell>{patient.age} سنة</TableCell>
-              <TableCell className="min-w-[120px]">
+              <TableCell className="text-center">{patient.age} سنة</TableCell>
+              <TableCell className="min-w-[120px] text-center">
                 {patient.phone ? (
-                  <div className="flex items-center space-x-1 space-x-reverse">
+                  <div className="flex items-center justify-center space-x-1 space-x-reverse">
                     <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <button
                       onClick={async () => {
@@ -302,12 +303,12 @@ export default function PatientTable({
                   <span className="text-muted-foreground text-sm arabic-enhanced">غير محدد</span>
                 )}
               </TableCell>
-              <TableCell className="min-w-[150px]">
+              <TableCell className="min-w-[150px] text-center">
                 <Badge variant="outline" className="max-w-[150px] truncate arabic-enhanced" title={patient.patient_condition}>
                   {patient.patient_condition}
                 </Badge>
               </TableCell>
-              <TableCell className="min-w-[120px]">
+              <TableCell className="min-w-[120px] text-center">
                 {patient.notes ? (
                   <span className="text-sm truncate max-w-[100px] block arabic-enhanced" title={patient.notes}>
                     {patient.notes}
@@ -316,8 +317,8 @@ export default function PatientTable({
                   <span className="text-muted-foreground text-sm arabic-enhanced">لا توجد</span>
                 )}
               </TableCell>
-              <TableCell className="min-w-[180px]">
-                <div className="flex items-center space-x-1 space-x-reverse">
+              <TableCell className="min-w-[180px] text-center">
+                <div className="flex items-center justify-center space-x-1 space-x-reverse">
                   <Button
                     variant="ghost"
                     size="sm"
