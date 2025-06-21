@@ -33,6 +33,7 @@ import {
   X
 } from 'lucide-react'
 import type { Payment } from '@/types'
+import { notify } from '@/services/notificationService'
 
 export default function Payments() {
   // Enable real-time synchronization for automatic updates
@@ -133,9 +134,11 @@ export default function Payments() {
             onClick={() => {
               // Export payments data
               if (payments.length === 0) {
-                alert('لا توجد بيانات مدفوعات للتصدير')
+                notify.noDataToExport('لا توجد بيانات مدفوعات للتصدير')
                 return
               }
+
+              try {
 
               // Helper functions for export
               const getPatientName = (payment: Payment) => {
@@ -154,14 +157,26 @@ export default function Payments() {
                 return methods[method as keyof typeof methods] || method
               }
 
+              // Match the table columns exactly
+              const getStatusLabel = (status: string) => {
+                const statusLabels = {
+                  completed: 'مكتمل',
+                  pending: 'معلق',
+                  partial: 'جزئي',
+                  overdue: 'متأخر',
+                  failed: 'فاشل',
+                  refunded: 'مسترد'
+                }
+                return statusLabels[status as keyof typeof statusLabels] || status
+              }
+
               const csvData = payments.map(payment => ({
                 'رقم الإيصال': payment.receipt_number || `#${payment.id.slice(-6)}`,
                 'المريض': getPatientName(payment),
-                'المبلغ': payment.amount,
+                'المبلغ': `$${payment.amount.toFixed(2)}`,
                 'طريقة الدفع': getPaymentMethodLabel(payment.payment_method),
-                'الحالة': payment.status,
-                'تاريخ الدفع': formatDate(payment.payment_date),
-                'الوصف': payment.description || ''
+                'الحالة': getStatusLabel(payment.status),
+                'تاريخ الدفع': formatDate(payment.payment_date)
               }))
 
               // Create CSV with BOM for Arabic support
@@ -183,12 +198,16 @@ export default function Payments() {
               const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
               const fileName = `تقرير_المدفوعات_${dateStr}_${timeStr}.csv`
 
-              link.download = fileName
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
+                link.download = fileName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
 
-              alert(`تم تصدير ${payments.length} دفعة بنجاح!`)
+                notify.exportSuccess(`تم تصدير ${payments.length} دفعة بنجاح!`)
+              } catch (error) {
+                console.error('Error exporting payments:', error)
+                notify.exportError('فشل في تصدير بيانات المدفوعات')
+              }
             }}
           >
             <Download className="w-4 h-4 ml-2" />

@@ -41,6 +41,7 @@ import {
   FileSpreadsheet,
   FileDown
 } from 'lucide-react'
+import { notify } from '@/services/notificationService'
 
 export default function Reports() {
   const { currency } = useSettingsStore()
@@ -273,9 +274,11 @@ export default function Reports() {
                   const { patientReports, inventoryReports, appointmentReports, financialReports } = useReportsStore.getState()
 
                   if (!patientReports && !inventoryReports && !appointmentReports && !financialReports) {
-                    alert('لا توجد بيانات تقارير للتصدير')
+                    notify.noDataToExport('لا توجد بيانات تقارير للتصدير')
                     return
                   }
+
+                  try {
 
                   const comprehensiveData = {
                     // Patient Reports
@@ -328,12 +331,16 @@ export default function Reports() {
                   const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
                   const fileName = `التقرير_الشامل_${dateStr}_${timeStr}.csv`
 
-                  link.download = fileName
-                  document.body.appendChild(link)
-                  link.click()
-                  document.body.removeChild(link)
+                    link.download = fileName
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
 
-                  alert('تم تصدير التقرير الشامل بنجاح!')
+                    notify.exportSuccess('تم تصدير التقرير الشامل بنجاح!')
+                  } catch (error) {
+                    console.error('Error exporting comprehensive report:', error)
+                    notify.exportError('فشل في تصدير التقرير الشامل')
+                  }
                 }}
                 className="flex items-center space-x-2 space-x-reverse py-3"
               >

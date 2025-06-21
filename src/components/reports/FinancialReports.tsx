@@ -13,6 +13,7 @@ import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { PdfService } from '@/services/pdfService'
+import { notify } from '@/services/notificationService'
 import {
   DollarSign,
   TrendingUp,
@@ -409,49 +410,54 @@ export default function FinancialReports() {
             onClick={() => {
               // Export financial reports data
               if (payments.length === 0) {
-                alert('لا توجد بيانات مالية للتصدير')
+                notify.noDataToExport('لا توجد بيانات مالية للتصدير')
                 return
               }
 
-              const reportData = {
-                'إجمالي الإيرادات': totalRevenue,
-                'المبالغ المعلقة': pendingAmount,
-                'المبالغ المتأخرة': overdueAmount,
-                'إجمالي المعاملات': stats.totalTransactions,
-                'المعاملات المكتملة': stats.completedCount,
-                'المعاملات المعلقة': stats.pendingCount,
-                'المعاملات الفاشلة': stats.failedCount,
-                'المعاملات المستردة': stats.refundedCount,
-                'معدل النجاح (%)': stats.successRate,
-                'متوسط قيمة المعاملة': stats.averageTransaction,
-                'العملة': currency,
-                'تاريخ التقرير': formatDate(new Date())
+              try {
+                const reportData = {
+                  'إجمالي الإيرادات': totalRevenue,
+                  'المبالغ المعلقة': pendingAmount,
+                  'المبالغ المتأخرة': overdueAmount,
+                  'إجمالي المعاملات': stats.totalTransactions,
+                  'المعاملات المكتملة': stats.completedCount,
+                  'المعاملات المعلقة': stats.pendingCount,
+                  'المعاملات الفاشلة': stats.failedCount,
+                  'المعاملات المستردة': stats.refundedCount,
+                  'معدل النجاح (%)': stats.successRate,
+                  'متوسط قيمة المعاملة': stats.averageTransaction,
+                  'العملة': currency,
+                  'تاريخ التقرير': formatDate(new Date())
+                }
+
+                // Create CSV with BOM for Arabic support
+                const csvContent = '\uFEFF' + [
+                  'المؤشر,القيمة',
+                  ...Object.entries(reportData).map(([key, value]) =>
+                    `"${key}","${value}"`
+                  )
+                ].join('\n')
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
+
+                // Generate descriptive filename with date and time
+                const now = new Date()
+                const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+                const fileName = `التقرير_المالي_الإحصائي_${dateStr}_${timeStr}.csv`
+
+                link.download = fileName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+
+                notify.exportSuccess('تم تصدير التقرير المالي بنجاح!')
+              } catch (error) {
+                console.error('Error exporting CSV:', error)
+                notify.exportError('فشل في تصدير التقرير المالي')
               }
-
-              // Create CSV with BOM for Arabic support
-              const csvContent = '\uFEFF' + [
-                'المؤشر,القيمة',
-                ...Object.entries(reportData).map(([key, value]) =>
-                  `"${key}","${value}"`
-                )
-              ].join('\n')
-
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-              const link = document.createElement('a')
-              link.href = URL.createObjectURL(blob)
-
-              // Generate descriptive filename with date and time
-              const now = new Date()
-              const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-              const fileName = `التقرير_المالي_الإحصائي_${dateStr}_${timeStr}.csv`
-
-              link.download = fileName
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
-
-              alert('تم تصدير التقرير المالي بنجاح!')
             }}
             disabled={isExporting}
           >
@@ -464,7 +470,7 @@ export default function FinancialReports() {
             onClick={async () => {
               try {
                 if (!financialReports || payments.length === 0) {
-                  alert('لا توجد بيانات مالية للتصدير')
+                  notify.noDataToExport('لا توجد بيانات مالية للتصدير')
                   return
                 }
 
@@ -489,25 +495,10 @@ export default function FinancialReports() {
                 }
 
                 await PdfService.exportFinancialReport(reportData, settings)
-
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'تم التصدير بنجاح',
-                    description: 'تم تصدير التقرير المالي كملف PDF',
-                    type: 'success'
-                  }
-                })
-                window.dispatchEvent(event)
+                notify.exportSuccess('تم تصدير التقرير المالي كملف PDF بنجاح')
               } catch (error) {
                 console.error('Error exporting PDF:', error)
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'خطأ في التصدير',
-                    description: 'فشل في تصدير التقرير كملف PDF',
-                    type: 'error'
-                  }
-                })
-                window.dispatchEvent(event)
+                notify.exportError('فشل في تصدير التقرير كملف PDF')
               }
             }}
             disabled={isExporting}

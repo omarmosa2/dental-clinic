@@ -8,6 +8,17 @@ import { usePaymentStore } from '@/store/paymentStore'
 import { formatDate, getInitials, calculateAge } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
+import { notify } from '@/services/notificationService'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import AddPatientDialog from '@/components/patients/AddPatientDialog'
 import PatientTable from '@/components/patients/PatientTable'
 import PatientDetailsModal from '@/components/patients/PatientDetailsModal'
@@ -53,6 +64,8 @@ export default function Patients() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [selectedPatientForDetails, setSelectedPatientForDetails] = useState<Patient | null>(null)
   const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [patientToDelete, setPatientToDelete] = useState<string | null>(null)
 
   // Load patients on component mount
   useEffect(() => {
@@ -62,20 +75,21 @@ export default function Patients() {
   }, [loadPatients, loadAppointments, loadPayments])
 
   const handleDeletePatient = async (patientId: string) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا المريض؟ لا يمكن التراجع عن هذا الإجراء.')) {
-      try {
-        await deletePatient(patientId)
-        toast({
-          title: "نجح",
-          description: "تم حذف المريض بنجاح",
-        })
-      } catch (error) {
-        toast({
-          title: "خطأ",
-          description: "فشل في حذف المريض",
-          variant: "destructive",
-        })
-      }
+    setPatientToDelete(patientId)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDeletePatient = async () => {
+    if (!patientToDelete) return
+
+    try {
+      await deletePatient(patientToDelete)
+      notify.deleteSuccess('تم حذف المريض بنجاح')
+    } catch (error) {
+      notify.deleteError('فشل في حذف المريض')
+    } finally {
+      setShowDeleteDialog(false)
+      setPatientToDelete(null)
     }
   }
 
@@ -135,49 +149,50 @@ export default function Patients() {
             onClick={() => {
               // Export patients data
               if (filteredPatients.length === 0) {
-                alert('لا توجد بيانات مرضى للتصدير')
+                notify.noDataToExport('لا توجد بيانات مرضى للتصدير')
                 return
               }
 
-              const csvData = filteredPatients.map(patient => ({
-                'الاسم الأول': patient.first_name || '',
-                'الاسم الأخير': patient.last_name || '',
-                'تاريخ الميلاد': patient.date_of_birth || '',
-                'الهاتف': patient.phone || '',
-                'البريد الإلكتروني': patient.email || '',
-                'العنوان': patient.address || '',
-                'جهة الاتصال الطارئ': patient.emergency_contact_name || '',
-                'هاتف الطوارئ': patient.emergency_contact_phone || '',
-                'التاريخ الطبي': patient.medical_history || '',
-                'الحساسية': patient.allergies || '',
-                'الملاحظات': patient.notes || ''
-              }))
+              try {
+                // Match the table columns exactly
+                const csvData = filteredPatients.map(patient => ({
+                  'الاسم الكامل للمريض': patient.full_name || '',
+                  'الجنس': patient.gender === 'male' ? 'ذكر' : 'أنثى',
+                  'العمر': patient.age || '',
+                  'رقم الهاتف': patient.phone || '',
+                  'حالة المريض': patient.patient_condition || '',
+                  'ملاحظات': patient.notes || ''
+                }))
 
-              // Create CSV with BOM for Arabic support
-              const headers = Object.keys(csvData[0]).join(',')
-              const rows = csvData.map(row =>
-                Object.values(row).map(value =>
-                  `"${String(value).replace(/"/g, '""')}"`
-                ).join(',')
-              )
-              const csvContent = '\uFEFF' + [headers, ...rows].join('\n')
+                // Create CSV with BOM for Arabic support
+                const headers = Object.keys(csvData[0]).join(',')
+                const rows = csvData.map(row =>
+                  Object.values(row).map(value =>
+                    `"${String(value).replace(/"/g, '""')}"`
+                  ).join(',')
+                )
+                const csvContent = '\uFEFF' + [headers, ...rows].join('\n')
 
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-              const link = document.createElement('a')
-              link.href = URL.createObjectURL(blob)
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
 
-              // Generate descriptive filename with date and time
-              const now = new Date()
-              const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-              const fileName = `تقرير_المرضى_${dateStr}_${timeStr}.csv`
+                // Generate descriptive filename with date and time
+                const now = new Date()
+                const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+                const fileName = `تقرير_المرضى_${dateStr}_${timeStr}.csv`
 
-              link.download = fileName
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
+                link.download = fileName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
 
-              alert(`تم تصدير ${filteredPatients.length} مريض بنجاح!`)
+                notify.exportSuccess(`تم تصدير ${filteredPatients.length} مريض بنجاح!`)
+              } catch (error) {
+                console.error('Error exporting patients:', error)
+                notify.exportError('فشل في تصدير بيانات المرضى')
+              }
             }}
           >
             <Download className="w-4 h-4 ml-2" />
@@ -247,6 +262,35 @@ export default function Patients() {
         }}
         onSave={handleUpdatePatient}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              تأكيد حذف المريض
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذا المريض؟ سيتم حذف جميع البيانات المرتبطة به بما في ذلك المواعيد والمدفوعات.
+              <br />
+              <strong className="text-destructive">تحذير: لا يمكن التراجع عن هذا الإجراء!</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse">
+            <AlertDialogAction
+              onClick={confirmDeletePatient}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              <Trash2 className="w-4 h-4 ml-2" />
+              تأكيد الحذف
+            </AlertDialogAction>
+            <AlertDialogCancel>
+              إلغاء
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

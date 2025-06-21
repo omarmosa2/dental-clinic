@@ -5,6 +5,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Shield, Download, Upload, RefreshCw, Trash2, AlertCircle, CheckCircle, Clock, Database } from 'lucide-react'
 import { useBackupStore } from '@/store/backupStore'
+import { notify } from '@/services/notificationService'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 interface BackupInfo {
   name: string
@@ -37,6 +49,10 @@ export default function Backup() {
 
   const [selectedBackup, setSelectedBackup] = useState<string | null>(null)
   const [showTestResults, setShowTestResults] = useState(false)
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [backupToRestore, setBackupToRestore] = useState<string | null>(null)
+  const [backupToDelete, setBackupToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     loadBackups()
@@ -46,40 +62,58 @@ export default function Backup() {
     try {
       clearError()
       await createBackup()
-      // Show success message or notification here
+      notify.backupSuccess('تم إنشاء النسخة الاحتياطية بنجاح')
     } catch (error) {
       console.error('Failed to create backup:', error)
+      notify.backupError('فشل في إنشاء النسخة الاحتياطية')
     }
   }
 
   const handleRestoreBackup = async (backupPath: string) => {
-    if (!window.confirm('هل أنت متأكد من استعادة هذه النسخة الاحتياطية؟ سيتم استبدال جميع البيانات الحالية.')) {
-      return
-    }
+    setBackupToRestore(backupPath)
+    setShowRestoreDialog(true)
+  }
+
+  const confirmRestoreBackup = async () => {
+    if (!backupToRestore) return
 
     try {
       clearError()
-      const success = await restoreBackup(backupPath)
+      const success = await restoreBackup(backupToRestore)
       if (success) {
-        alert('تم استعادة النسخة الاحتياطية بنجاح!')
+        notify.restoreSuccess('تم استعادة النسخة الاحتياطية بنجاح! سيتم إعادة تحميل التطبيق...')
         // Reload the page to reflect changes
-        window.location.reload()
+        setTimeout(() => {
+          window.location.reload()
+        }, 2000)
       }
     } catch (error) {
       console.error('Failed to restore backup:', error)
+      notify.restoreError('فشل في استعادة النسخة الاحتياطية')
+    } finally {
+      setShowRestoreDialog(false)
+      setBackupToRestore(null)
     }
   }
 
   const handleDeleteBackup = async (backupName: string) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذه النسخة الاحتياطية؟')) {
-      return
-    }
+    setBackupToDelete(backupName)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDeleteBackup = async () => {
+    if (!backupToDelete) return
 
     try {
-      await deleteBackup(backupName)
+      await deleteBackup(backupToDelete)
       await loadBackups() // Refresh the list
+      notify.deleteSuccess('تم حذف النسخة الاحتياطية بنجاح')
     } catch (error) {
       console.error('Failed to delete backup:', error)
+      notify.deleteError('فشل في حذف النسخة الاحتياطية')
+    } finally {
+      setShowDeleteDialog(false)
+      setBackupToDelete(null)
     }
   }
 
@@ -110,15 +144,15 @@ export default function Backup() {
       const result = await runBackupTest()
 
       if (result.success) {
-        alert('✅ اختبار النسخ الاحتياطي نجح! تحقق من وحدة التحكم للحصول على التفاصيل.')
+        notify.testSuccess('اختبار النسخ الاحتياطي نجح! تحقق من وحدة التحكم للحصول على التفاصيل.')
       } else {
-        alert(`❌ اختبار النسخ الاحتياطي فشل: ${result.error || 'خطأ غير معروف'}`)
+        notify.testError(`اختبار النسخ الاحتياطي فشل: ${result.error || 'خطأ غير معروف'}`)
       }
 
       console.log('🧪 Backup test results:', result)
     } catch (error) {
       console.error('Backup test failed:', error)
-      alert('❌ فشل في تشغيل اختبار النسخ الاحتياطي')
+      notify.testError('فشل في تشغيل اختبار النسخ الاحتياطي')
     } finally {
       setShowTestResults(false)
     }
@@ -343,6 +377,74 @@ export default function Backup() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Restore Confirmation Dialog */}
+      <AlertDialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Upload className="w-5 h-5 text-orange-600" />
+              تأكيد استعادة النسخة الاحتياطية
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من استعادة هذه النسخة الاحتياطية؟ سيتم استبدال جميع البيانات الحالية وإعادة تحميل التطبيق.
+              <br />
+              <strong className="text-destructive">تحذير: هذا الإجراء لا يمكن التراجع عنه!</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse">
+            <AlertDialogAction
+              onClick={confirmRestoreBackup}
+              className="bg-orange-600 hover:bg-orange-700"
+              disabled={isRestoringBackup}
+            >
+              {isRestoringBackup ? (
+                <>
+                  <RefreshCw className="w-4 h-4 ml-2 animate-spin" />
+                  جاري الاستعادة...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 ml-2" />
+                  تأكيد الاستعادة
+                </>
+              )}
+            </AlertDialogAction>
+            <AlertDialogCancel disabled={isRestoringBackup}>
+              إلغاء
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              تأكيد حذف النسخة الاحتياطية
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذه النسخة الاحتياطية؟ لن تتمكن من استعادتها مرة أخرى.
+              <br />
+              <strong>النسخة الاحتياطية: {backupToDelete}</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse">
+            <AlertDialogAction
+              onClick={confirmDeleteBackup}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              <Trash2 className="w-4 h-4 ml-2" />
+              تأكيد الحذف
+            </AlertDialogAction>
+            <AlertDialogCancel>
+              إلغاء
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

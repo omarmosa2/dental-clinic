@@ -11,6 +11,7 @@ import { validateNumericData, validateDateData, transformToChartData, groupDataB
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
 import { PdfService } from '@/services/pdfService'
+import { notify } from '@/services/notificationService'
 import {
   Calendar,
   Clock,
@@ -242,45 +243,50 @@ export default function AppointmentReports() {
             onClick={() => {
               // Export appointment reports data
               if (appointments.length === 0) {
-                alert('لا توجد بيانات مواعيد للتصدير')
+                notify.noDataToExport('لا توجد بيانات مواعيد للتصدير')
                 return
               }
 
-              const reportData = {
-                'إجمالي المواعيد': stats.total,
-                'المواعيد المكتملة': stats.completed,
-                'المواعيد الملغية': stats.cancelled,
-                'المواعيد المجدولة': stats.pending,
-                'عدم الحضور': stats.noShow,
-                'معدل الحضور (%)': stats.attendanceRate,
-                'معدل الإلغاء (%)': stats.cancellationRate,
-                'تاريخ التقرير': formatDate(new Date())
+              try {
+                const reportData = {
+                  'إجمالي المواعيد': stats.total,
+                  'المواعيد المكتملة': stats.completed,
+                  'المواعيد الملغية': stats.cancelled,
+                  'المواعيد المجدولة': stats.pending,
+                  'عدم الحضور': stats.noShow,
+                  'معدل الحضور (%)': stats.attendanceRate,
+                  'معدل الإلغاء (%)': stats.cancellationRate,
+                  'تاريخ التقرير': formatDate(new Date())
+                }
+
+                // Create CSV with BOM for Arabic support
+                const csvContent = '\uFEFF' + [
+                  'المؤشر,القيمة',
+                  ...Object.entries(reportData).map(([key, value]) =>
+                    `"${key}","${value}"`
+                  )
+                ].join('\n')
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
+
+                // Generate descriptive filename with date and time
+                const now = new Date()
+                const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+                const fileName = `تقرير_إحصائيات_المواعيد_${dateStr}_${timeStr}.csv`
+
+                link.download = fileName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+
+                notify.exportSuccess('تم تصدير تقرير المواعيد بنجاح!')
+              } catch (error) {
+                console.error('Error exporting CSV:', error)
+                notify.exportError('فشل في تصدير تقرير المواعيد')
               }
-
-              // Create CSV with BOM for Arabic support
-              const csvContent = '\uFEFF' + [
-                'المؤشر,القيمة',
-                ...Object.entries(reportData).map(([key, value]) =>
-                  `"${key}","${value}"`
-                )
-              ].join('\n')
-
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-              const link = document.createElement('a')
-              link.href = URL.createObjectURL(blob)
-
-              // Generate descriptive filename with date and time
-              const now = new Date()
-              const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-              const fileName = `تقرير_إحصائيات_المواعيد_${dateStr}_${timeStr}.csv`
-
-              link.download = fileName
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
-
-              alert('تم تصدير تقرير المواعيد بنجاح!')
             }}
             disabled={isExporting}
           >
@@ -293,7 +299,7 @@ export default function AppointmentReports() {
             onClick={async () => {
               try {
                 if (appointments.length === 0) {
-                  alert('لا توجد بيانات مواعيد للتصدير')
+                  notify.noDataToExport('لا توجد بيانات مواعيد للتصدير')
                   return
                 }
 
@@ -315,25 +321,10 @@ export default function AppointmentReports() {
                 }
 
                 await PdfService.exportAppointmentReport(reportData, settings)
-
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'تم التصدير بنجاح',
-                    description: 'تم تصدير تقرير المواعيد كملف PDF',
-                    type: 'success'
-                  }
-                })
-                window.dispatchEvent(event)
+                notify.exportSuccess('تم تصدير تقرير المواعيد كملف PDF بنجاح')
               } catch (error) {
                 console.error('Error exporting PDF:', error)
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'خطأ في التصدير',
-                    description: 'فشل في تصدير التقرير كملف PDF',
-                    type: 'error'
-                  }
-                })
-                window.dispatchEvent(event)
+                notify.exportError('فشل في تصدير التقرير كملف PDF')
               }
             }}
             disabled={isExporting}

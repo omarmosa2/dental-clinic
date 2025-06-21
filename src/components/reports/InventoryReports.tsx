@@ -13,6 +13,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useTheme } from '@/contexts/ThemeContext'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { PdfService } from '@/services/pdfService'
+import { notify } from '@/services/notificationService'
 import {
   Package,
   AlertTriangle,
@@ -225,47 +226,52 @@ export default function InventoryReports() {
             onClick={() => {
               // Export inventory reports data
               if (!inventoryReports || Object.keys(inventoryReports).length === 0) {
-                alert('لا توجد بيانات تقارير مخزون للتصدير')
+                notify.noDataToExport('لا توجد بيانات تقارير مخزون للتصدير')
                 return
               }
 
-              const reportData = {
-                'إجمالي العناصر': inventoryReports.totalItems || 0,
-                'القيمة الإجمالية': inventoryReports.totalValue || 0,
-                'عناصر منخفضة المخزون': inventoryReports.lowStockItems || 0,
-                'عناصر منتهية الصلاحية': inventoryReports.expiredItems || 0,
-                'عناصر قريبة الانتهاء': inventoryReports.expiringSoonItems || 0,
-                'عناصر نفدت من المخزون': inventoryReports.outOfStockItems || 0,
-                'أعلى الفئات استهلاكاً': inventoryReports.topCategories?.map(cat => `${cat.name}: ${cat.count}`).join('; ') || '',
-                'أعلى الموردين': inventoryReports.topSuppliers?.map(sup => `${sup.name}: ${sup.count}`).join('; ') || '',
-                'معدل دوران المخزون': inventoryReports.turnoverRate || 0,
-                'تاريخ التقرير': formatDate(new Date())
+              try {
+                const reportData = {
+                  'إجمالي العناصر': inventoryReports.totalItems || 0,
+                  'القيمة الإجمالية': inventoryReports.totalValue || 0,
+                  'عناصر منخفضة المخزون': inventoryReports.lowStockItems || 0,
+                  'عناصر منتهية الصلاحية': inventoryReports.expiredItems || 0,
+                  'عناصر قريبة الانتهاء': inventoryReports.expiringSoonItems || 0,
+                  'عناصر نفدت من المخزون': inventoryReports.outOfStockItems || 0,
+                  'أعلى الفئات استهلاكاً': inventoryReports.topCategories?.map(cat => `${cat.name}: ${cat.count}`).join('; ') || '',
+                  'أعلى الموردين': inventoryReports.topSuppliers?.map(sup => `${sup.name}: ${sup.count}`).join('; ') || '',
+                  'معدل دوران المخزون': inventoryReports.turnoverRate || 0,
+                  'تاريخ التقرير': formatDate(new Date())
+                }
+
+                // Create CSV with BOM for Arabic support
+                const csvContent = '\uFEFF' + [
+                  'المؤشر,القيمة',
+                  ...Object.entries(reportData).map(([key, value]) =>
+                    `"${key}","${value}"`
+                  )
+                ].join('\n')
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
+
+                // Generate descriptive filename with date and time
+                const now = new Date()
+                const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+                const fileName = `تقرير_إحصائيات_المخزون_${dateStr}_${timeStr}.csv`
+
+                link.download = fileName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+
+                notify.exportSuccess('تم تصدير تقرير المخزون بنجاح!')
+              } catch (error) {
+                console.error('Error exporting CSV:', error)
+                notify.exportError('فشل في تصدير تقرير المخزون')
               }
-
-              // Create CSV with BOM for Arabic support
-              const csvContent = '\uFEFF' + [
-                'المؤشر,القيمة',
-                ...Object.entries(reportData).map(([key, value]) =>
-                  `"${key}","${value}"`
-                )
-              ].join('\n')
-
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-              const link = document.createElement('a')
-              link.href = URL.createObjectURL(blob)
-
-              // Generate descriptive filename with date and time
-              const now = new Date()
-              const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-              const fileName = `تقرير_إحصائيات_المخزون_${dateStr}_${timeStr}.csv`
-
-              link.download = fileName
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
-
-              alert('تم تصدير تقرير المخزون بنجاح!')
             }}
             disabled={isExporting}
           >
@@ -278,30 +284,15 @@ export default function InventoryReports() {
             onClick={async () => {
               try {
                 if (!inventoryReports || Object.keys(inventoryReports).length === 0) {
-                  alert('لا توجد بيانات تقارير مخزون للتصدير')
+                  notify.noDataToExport('لا توجد بيانات تقارير مخزون للتصدير')
                   return
                 }
 
                 await PdfService.exportInventoryReport(inventoryReports, settings)
-
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'تم التصدير بنجاح',
-                    description: 'تم تصدير تقرير المخزون كملف PDF',
-                    type: 'success'
-                  }
-                })
-                window.dispatchEvent(event)
+                notify.exportSuccess('تم تصدير تقرير المخزون كملف PDF بنجاح')
               } catch (error) {
                 console.error('Error exporting PDF:', error)
-                const event = new CustomEvent('showToast', {
-                  detail: {
-                    title: 'خطأ في التصدير',
-                    description: 'فشل في تصدير التقرير كملف PDF',
-                    type: 'error'
-                  }
-                })
-                window.dispatchEvent(event)
+                notify.exportError('فشل في تصدير التقرير كملف PDF')
               }
             }}
             disabled={isExporting}

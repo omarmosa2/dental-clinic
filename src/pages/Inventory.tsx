@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
+import { notify } from '@/services/notificationService'
 import {
   Package,
   Plus,
@@ -214,21 +215,32 @@ export default function Inventory() {
             onClick={() => {
               // Export inventory data
               if (filteredItems.length === 0) {
-                alert('لا توجد بيانات مخزون للتصدير')
+                notify.noDataToExport('لا توجد بيانات مخزون للتصدير')
                 return
               }
 
-              const csvData = filteredItems.map(item => ({
-                'الاسم': item.name || '',
-                'الوصف': item.description || '',
-                'الفئة': item.category || '',
-                'الكمية': item.quantity || 0,
-                'الوحدة': item.unit || 'قطعة',
-                'التكلفة': item.cost_per_unit || 0,
-                'الحد الأدنى': item.minimum_stock || 0,
-                'تاريخ الانتهاء': item.expiry_date || '',
-                'المورد': item.supplier || ''
-              }))
+              try {
+
+              // Match the table columns exactly
+              const csvData = filteredItems.map((item, index) => {
+                const totalValue = (item.quantity || 0) * (item.cost_per_unit || 0)
+                const getStatusText = (item) => {
+                  if (item.quantity <= item.minimum_stock) return 'مخزون منخفض'
+                  if (item.expiry_date && new Date(item.expiry_date) < new Date()) return 'منتهي الصلاحية'
+                  if (item.expiry_date && new Date(item.expiry_date) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)) return 'ينتهي قريباً'
+                  return 'متوفر'
+                }
+
+                return {
+                  'الرقم التسلسلي': index + 1,
+                  'اسم العنصر': item.name || '',
+                  'الفئة': item.category || '',
+                  'الكمية': item.quantity || 0,
+                  'سعر الوحدة': `$${(item.cost_per_unit || 0).toFixed(2)}`,
+                  'القيمة الإجمالية': `$${totalValue.toFixed(2)}`,
+                  'الحالة': getStatusText(item)
+                }
+              })
 
               // Create CSV with BOM for Arabic support
               const headers = Object.keys(csvData[0]).join(',')
@@ -249,12 +261,16 @@ export default function Inventory() {
               const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
               const fileName = `تقرير_المخزون_${dateStr}_${timeStr}.csv`
 
-              link.download = fileName
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
+                link.download = fileName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
 
-              alert(`تم تصدير ${filteredItems.length} عنصر مخزون بنجاح!`)
+                notify.exportSuccess(`تم تصدير ${filteredItems.length} عنصر مخزون بنجاح!`)
+              } catch (error) {
+                console.error('Error exporting inventory:', error)
+                notify.exportError('فشل في تصدير بيانات المخزون')
+              }
             }}
           >
             <Download className="w-4 h-4 ml-2" />
