@@ -171,6 +171,19 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
                   border-bottom: 2px solid #000;
                   padding-bottom: 4px;
                 }
+                .clinic-logo {
+                  width: 50px;
+                  height: 50px;
+                  margin: 0 auto 4px;
+                  border-radius: 50%;
+                  overflow: hidden;
+                  border: 2px solid #000;
+                }
+                .clinic-logo img {
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
+                }
                 .clinic-name {
                   font-size: 14px;
                   font-weight: bold;
@@ -290,6 +303,22 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
                   margin-bottom: 15px;
                   border-bottom: 2px solid #000;
                   padding-bottom: 10px;
+                }
+
+                .clinic-logo {
+                  width: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
+                  height: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
+                  margin: 0 auto 8px;
+                  border-radius: 50%;
+                  overflow: hidden;
+                  border: 3px solid #e0e0e0;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                }
+
+                .clinic-logo img {
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
                 }
 
                 .clinic-name {
@@ -479,6 +508,14 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
                 />
                 <span className="text-sm">تضمين الباركود</span>
               </label>
+              <label className="flex items-center gap-2 text-right">
+                <input
+                  type="checkbox"
+                  checked={printSettings.includeLogo}
+                  onChange={(e) => setPrintSettings(prev => ({ ...prev, includeLogo: e.target.checked }))}
+                />
+                <span className="text-sm">تضمين شعار العيادة</span>
+              </label>
             </div>
           </div>
         </div>
@@ -492,6 +529,25 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
           }}>
             {/* Header */}
             <div className="header text-center mb-4 pb-3 border-b-2 border-black">
+              {/* Clinic Logo */}
+              {printSettings.includeLogo && settings?.clinic_logo && (
+                <div className="clinic-logo mb-3">
+                  <img
+                    src={settings.clinic_logo}
+                    alt="شعار العيادة"
+                    style={{
+                      width: printSettings.printerType === 'a4' ? '80px' : '60px',
+                      height: printSettings.printerType === 'a4' ? '80px' : '60px',
+                      objectFit: 'cover',
+                      borderRadius: '50%',
+                      margin: '0 auto',
+                      border: '3px solid #e0e0e0',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                </div>
+              )}
+
               {settings?.clinic_name && (
                 <div className="clinic-name text-lg font-bold mb-2 text-blue-600">
                   {settings.clinic_name}

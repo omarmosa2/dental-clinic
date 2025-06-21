@@ -190,13 +190,14 @@ export class PdfService {
         }
 
         .clinic-logo {
-          width: 80px;
-          height: 80px;
+          width: 90px;
+          height: 90px;
           border-radius: 50%;
           overflow: hidden;
           background: ${this.COLORS.white};
-          padding: 8px;
+          padding: 6px;
           box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+          border: 3px solid rgba(255,255,255,0.8);
         }
 
         .clinic-logo img {

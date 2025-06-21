@@ -163,8 +163,8 @@ ${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` :
                 }
 
                 .clinic-logo {
-                  width: ${printSettings.printerType === 'a4' ? '70px' : '50px'};
-                  height: ${printSettings.printerType === 'a4' ? '70px' : '50px'};
+                  width: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
+                  height: ${printSettings.printerType === 'a4' ? '80px' : '60px'};
                   margin: 0 auto 8px;
                   border-radius: 50%;
                   background: ${isColorMode ? 'rgba(255,255,255,0.15)' : '#e9ecef'};
