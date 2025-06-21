@@ -36,6 +36,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import PrescriptionReceiptDialog from './PrescriptionReceiptDialog'
+import ViewPrescriptionDialog from './ViewPrescriptionDialog'
 import type { Prescription } from '@/types'
 
 interface PrescriptionTableProps {
@@ -51,6 +52,10 @@ export default function PrescriptionTable({ prescriptions, onEdit, onDelete }: P
   const [showPrintDialog, setShowPrintDialog] = useState(false)
   const [printingPrescription, setPrintingPrescription] = useState<Prescription | null>(null)
 
+  // View state
+  const [showViewDialog, setShowViewDialog] = useState(false)
+  const [viewingPrescription, setViewingPrescription] = useState<Prescription | null>(null)
+
   const handleEdit = (prescription: Prescription) => {
     onEdit(prescription)
   }
@@ -65,8 +70,18 @@ export default function PrescriptionTable({ prescriptions, onEdit, onDelete }: P
   }
 
   const handleView = (prescription: Prescription) => {
-    // TODO: Implement prescription view dialog
-    notify.info('سيتم تنفيذ عرض تفاصيل الوصفة قريباً')
+    setViewingPrescription(prescription)
+    setShowViewDialog(true)
+  }
+
+  const handleViewEdit = (prescription: Prescription) => {
+    setShowViewDialog(false)
+    onEdit(prescription)
+  }
+
+  const handleViewPrint = (prescription: Prescription) => {
+    setShowViewDialog(false)
+    handlePrint(prescription)
   }
 
   if (isLoading) {
@@ -240,6 +255,17 @@ export default function PrescriptionTable({ prescriptions, onEdit, onDelete }: P
         open={showPrintDialog}
         onOpenChange={setShowPrintDialog}
         prescription={printingPrescription}
+      />
+    )}
+
+    {/* View Dialog */}
+    {viewingPrescription && (
+      <ViewPrescriptionDialog
+        open={showViewDialog}
+        onOpenChange={setShowViewDialog}
+        prescription={viewingPrescription}
+        onEdit={handleViewEdit}
+        onPrint={handleViewPrint}
       />
     )}
   </>
