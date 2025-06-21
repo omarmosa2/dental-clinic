@@ -1414,6 +1414,367 @@ class DatabaseService {
     const searchTerm = `%${query}%`
     return stmt.all(searchTerm, searchTerm, searchTerm)
   }
+
+  // Medications operations
+  async ensureMedicationTablesExist() {
+    try {
+      console.log('🔍 [DEBUG] Checking if medication tables exist...')
+
+      // Check if medications table exists
+      const medicationsTableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='medications'
+      `).get()
+
+      // Check if prescriptions table exists
+      const prescriptionsTableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='prescriptions'
+      `).get()
+
+      // Check if prescription_medications table exists
+      const prescriptionMedicationsTableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='prescription_medications'
+      `).get()
+
+      console.log('🔍 [DEBUG] Medication tables status:')
+      console.log('  - medications:', !!medicationsTableExists)
+      console.log('  - prescriptions:', !!prescriptionsTableExists)
+      console.log('  - prescription_medications:', !!prescriptionMedicationsTableExists)
+
+      // Create medications table if it doesn't exist
+      if (!medicationsTableExists) {
+        console.log('🏗️ [DEBUG] Creating medications table...')
+        this.db.exec(`
+          CREATE TABLE medications (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            instructions TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `)
+        console.log('✅ [DEBUG] Medications table created successfully')
+      } else {
+        console.log('✅ [DEBUG] Medications table already exists')
+      }
+
+      // Create prescriptions table if it doesn't exist
+      if (!prescriptionsTableExists) {
+        console.log('🏗️ [DEBUG] Creating prescriptions table...')
+        this.db.exec(`
+          CREATE TABLE prescriptions (
+            id TEXT PRIMARY KEY,
+            patient_id TEXT NOT NULL,
+            appointment_id TEXT,
+            prescription_date TEXT NOT NULL,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+            FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+          )
+        `)
+        console.log('✅ [DEBUG] Prescriptions table created successfully')
+      } else {
+        console.log('✅ [DEBUG] Prescriptions table already exists')
+      }
+
+      // Create prescription_medications table if it doesn't exist
+      if (!prescriptionMedicationsTableExists) {
+        console.log('🏗️ [DEBUG] Creating prescription_medications table...')
+        this.db.exec(`
+          CREATE TABLE prescription_medications (
+            id TEXT PRIMARY KEY,
+            prescription_id TEXT NOT NULL,
+            medication_id TEXT NOT NULL,
+            dose TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (prescription_id) REFERENCES prescriptions(id) ON DELETE CASCADE,
+            FOREIGN KEY (medication_id) REFERENCES medications(id) ON DELETE CASCADE
+          )
+        `)
+        console.log('✅ [DEBUG] Prescription medications table created successfully')
+      } else {
+        console.log('✅ [DEBUG] Prescription medications table already exists')
+      }
+
+      // Create indexes if they don't exist
+      this.createMedicationIndexes()
+
+    } catch (error) {
+      console.error('❌ [DEBUG] Error in ensureMedicationTablesExist:', error)
+      console.error('❌ [DEBUG] Error stack:', error.stack)
+      throw error
+    }
+  }
+
+  createMedicationIndexes() {
+    try {
+      console.log('🔍 Creating medication indexes...')
+
+      const indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_medications_name ON medications(name)',
+        'CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions(patient_id)',
+        'CREATE INDEX IF NOT EXISTS idx_prescriptions_appointment ON prescriptions(appointment_id)',
+        'CREATE INDEX IF NOT EXISTS idx_prescriptions_date ON prescriptions(prescription_date)',
+        'CREATE INDEX IF NOT EXISTS idx_prescriptions_patient_date ON prescriptions(patient_id, prescription_date)',
+        'CREATE INDEX IF NOT EXISTS idx_prescription_medications_prescription ON prescription_medications(prescription_id)',
+        'CREATE INDEX IF NOT EXISTS idx_prescription_medications_medication ON prescription_medications(medication_id)'
+      ]
+
+      indexes.forEach(indexSql => {
+        try {
+          this.db.exec(indexSql)
+        } catch (error) {
+          console.warn('Index creation warning:', error.message)
+        }
+      })
+
+      console.log('✅ Medication indexes created successfully')
+    } catch (error) {
+      console.error('❌ Error creating medication indexes:', error)
+    }
+  }
+
+  async getAllMedications() {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM medications
+      ORDER BY name
+    `)
+    return stmt.all()
+  }
+
+  async createMedication(medication) {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    const stmt = this.db.prepare(`
+      INSERT INTO medications (id, name, instructions, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+
+    const result = stmt.run(id, medication.name, medication.instructions, now, now)
+    console.log('✅ Medication inserted, changes:', result.changes)
+
+    // Force WAL checkpoint
+    const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+    console.log('💾 Checkpoint result:', checkpoint)
+
+    return { ...medication, id, created_at: now, updated_at: now }
+  }
+
+  async updateMedication(id, updates) {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const now = new Date().toISOString()
+    const fields = Object.keys(updates).filter(key => key !== 'id')
+    const setClause = fields.map(field => `${field} = ?`).join(', ')
+    const values = fields.map(field => updates[field])
+
+    const stmt = this.db.prepare(`
+      UPDATE medications
+      SET ${setClause}, updated_at = ?
+      WHERE id = ?
+    `)
+
+    stmt.run(...values, now, id)
+    return { ...updates, id, updated_at: now }
+  }
+
+  async deleteMedication(id) {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const stmt = this.db.prepare('DELETE FROM medications WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  async getAllPrescriptions() {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT
+        p.*,
+        pt.full_name as patient_name,
+        a.title as appointment_title
+      FROM prescriptions p
+      LEFT JOIN patients pt ON p.patient_id = pt.id
+      LEFT JOIN appointments a ON p.appointment_id = a.id
+      ORDER BY p.prescription_date DESC
+    `)
+
+    const prescriptions = stmt.all()
+
+    // Get medications for each prescription
+    const medicationsStmt = this.db.prepare(`
+      SELECT
+        pm.*,
+        m.name as medication_name,
+        m.instructions as medication_instructions
+      FROM prescription_medications pm
+      LEFT JOIN medications m ON pm.medication_id = m.id
+      WHERE pm.prescription_id = ?
+    `)
+
+    return prescriptions.map(prescription => ({
+      ...prescription,
+      patient: prescription.patient_id ? {
+        id: prescription.patient_id,
+        full_name: prescription.patient_name
+      } : null,
+      appointment: prescription.appointment_id ? {
+        id: prescription.appointment_id,
+        title: prescription.appointment_title
+      } : null,
+      medications: medicationsStmt.all(prescription.id)
+    }))
+  }
+
+  async createPrescription(prescription) {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    // Begin transaction
+    const transaction = this.db.transaction(() => {
+      // Insert prescription
+      const prescriptionStmt = this.db.prepare(`
+        INSERT INTO prescriptions (id, patient_id, appointment_id, prescription_date, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+
+      prescriptionStmt.run(
+        id,
+        prescription.patient_id,
+        prescription.appointment_id,
+        prescription.prescription_date,
+        prescription.notes,
+        now,
+        now
+      )
+
+      // Insert prescription medications
+      if (prescription.medications && prescription.medications.length > 0) {
+        const medicationStmt = this.db.prepare(`
+          INSERT INTO prescription_medications (id, prescription_id, medication_id, dose, created_at)
+          VALUES (?, ?, ?, ?, ?)
+        `)
+
+        prescription.medications.forEach(med => {
+          const medId = uuidv4()
+          medicationStmt.run(medId, id, med.medication_id, med.dose, now)
+        })
+      }
+    })
+
+    transaction()
+
+    // Force WAL checkpoint
+    const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+    console.log('💾 Checkpoint result:', checkpoint)
+
+    return { ...prescription, id, created_at: now, updated_at: now }
+  }
+
+  async updatePrescription(id, updates) {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const now = new Date().toISOString()
+
+    // Begin transaction
+    const transaction = this.db.transaction(() => {
+      // Update prescription
+      const fields = Object.keys(updates).filter(key => key !== 'id' && key !== 'medications')
+      if (fields.length > 0) {
+        const setClause = fields.map(field => `${field} = ?`).join(', ')
+        const values = fields.map(field => updates[field])
+
+        const stmt = this.db.prepare(`
+          UPDATE prescriptions
+          SET ${setClause}, updated_at = ?
+          WHERE id = ?
+        `)
+
+        stmt.run(...values, now, id)
+      }
+
+      // Update medications if provided
+      if (updates.medications) {
+        // Delete existing medications
+        const deleteStmt = this.db.prepare('DELETE FROM prescription_medications WHERE prescription_id = ?')
+        deleteStmt.run(id)
+
+        // Insert new medications
+        if (updates.medications.length > 0) {
+          const medicationStmt = this.db.prepare(`
+            INSERT INTO prescription_medications (id, prescription_id, medication_id, dose, created_at)
+            VALUES (?, ?, ?, ?, ?)
+          `)
+
+          updates.medications.forEach(med => {
+            const medId = uuidv4()
+            medicationStmt.run(medId, id, med.medication_id, med.dose, now)
+          })
+        }
+      }
+    })
+
+    transaction()
+
+    return { ...updates, id, updated_at: now }
+  }
+
+  async deletePrescription(id) {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const stmt = this.db.prepare('DELETE FROM prescriptions WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  async searchMedications(query) {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM medications
+      WHERE name LIKE ? OR instructions LIKE ?
+      ORDER BY name
+    `)
+    const searchTerm = `%${query}%`
+    return stmt.all(searchTerm, searchTerm)
+  }
+
+  async searchPrescriptions(query) {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT
+        p.*,
+        pt.full_name as patient_name,
+        a.title as appointment_title
+      FROM prescriptions p
+      LEFT JOIN patients pt ON p.patient_id = pt.id
+      LEFT JOIN appointments a ON p.appointment_id = a.id
+      WHERE pt.full_name LIKE ? OR a.title LIKE ? OR p.notes LIKE ?
+      ORDER BY p.prescription_date DESC
+    `)
+    const searchTerm = `%${query}%`
+    return stmt.all(searchTerm, searchTerm, searchTerm)
+  }
 }
 
 module.exports = { DatabaseService }

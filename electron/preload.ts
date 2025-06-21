@@ -87,6 +87,24 @@ export interface ElectronAPI {
     delete: (id: string) => Promise<boolean>
     search: (query: string) => Promise<any[]>
   }
+
+  // Medication operations
+  medications: {
+    getAll: () => Promise<any[]>
+    create: (medication: any) => Promise<any>
+    update: (id: string, medication: any) => Promise<any>
+    delete: (id: string) => Promise<boolean>
+    search: (query: string) => Promise<any[]>
+  }
+
+  // Prescription operations
+  prescriptions: {
+    getAll: () => Promise<any[]>
+    create: (prescription: any) => Promise<any>
+    update: (id: string, prescription: any) => Promise<any>
+    delete: (id: string) => Promise<boolean>
+    search: (query: string) => Promise<any[]>
+  }
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -165,6 +183,22 @@ const electronAPI: ElectronAPI = {
     update: (id, labOrder) => ipcRenderer.invoke('db:labOrders:update', id, labOrder),
     delete: (id) => ipcRenderer.invoke('db:labOrders:delete', id),
     search: (query) => ipcRenderer.invoke('db:labOrders:search', query),
+  },
+
+  medications: {
+    getAll: () => ipcRenderer.invoke('db:medications:getAll'),
+    create: (medication) => ipcRenderer.invoke('db:medications:create', medication),
+    update: (id, medication) => ipcRenderer.invoke('db:medications:update', id, medication),
+    delete: (id) => ipcRenderer.invoke('db:medications:delete', id),
+    search: (query) => ipcRenderer.invoke('db:medications:search', query),
+  },
+
+  prescriptions: {
+    getAll: () => ipcRenderer.invoke('db:prescriptions:getAll'),
+    create: (prescription) => ipcRenderer.invoke('db:prescriptions:create', prescription),
+    update: (id, prescription) => ipcRenderer.invoke('db:prescriptions:update', id, prescription),
+    delete: (id) => ipcRenderer.invoke('db:prescriptions:delete', id),
+    search: (query) => ipcRenderer.invoke('db:prescriptions:search', query),
   },
 }
 

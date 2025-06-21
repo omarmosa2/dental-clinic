@@ -255,3 +255,50 @@ CREATE INDEX IF NOT EXISTS idx_lab_orders_service ON lab_orders(service_name);
 CREATE INDEX IF NOT EXISTS idx_lab_orders_lab_date ON lab_orders(lab_id, order_date);
 CREATE INDEX IF NOT EXISTS idx_lab_orders_patient_date ON lab_orders(patient_id, order_date);
 CREATE INDEX IF NOT EXISTS idx_lab_orders_status_date ON lab_orders(status, order_date);
+
+-- Medications tables
+-- Medications table for managing medication information
+CREATE TABLE IF NOT EXISTS medications (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    instructions TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Prescriptions table for managing prescriptions
+CREATE TABLE IF NOT EXISTS prescriptions (
+    id TEXT PRIMARY KEY,
+    patient_id TEXT NOT NULL,
+    appointment_id TEXT,
+    prescription_date TEXT NOT NULL,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+);
+
+-- Prescription medications junction table for many-to-many relationship
+CREATE TABLE IF NOT EXISTS prescription_medications (
+    id TEXT PRIMARY KEY,
+    prescription_id TEXT NOT NULL,
+    medication_id TEXT NOT NULL,
+    dose TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (prescription_id) REFERENCES prescriptions(id) ON DELETE CASCADE,
+    FOREIGN KEY (medication_id) REFERENCES medications(id) ON DELETE CASCADE
+);
+
+-- Medications indexes for search and performance optimization
+CREATE INDEX IF NOT EXISTS idx_medications_name ON medications(name);
+
+-- Prescriptions indexes for search and performance optimization
+CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions(patient_id);
+CREATE INDEX IF NOT EXISTS idx_prescriptions_appointment ON prescriptions(appointment_id);
+CREATE INDEX IF NOT EXISTS idx_prescriptions_date ON prescriptions(prescription_date);
+CREATE INDEX IF NOT EXISTS idx_prescriptions_patient_date ON prescriptions(patient_id, prescription_date);
+
+-- Prescription medications indexes for relationship queries
+CREATE INDEX IF NOT EXISTS idx_prescription_medications_prescription ON prescription_medications(prescription_id);
+CREATE INDEX IF NOT EXISTS idx_prescription_medications_medication ON prescription_medications(medication_id);

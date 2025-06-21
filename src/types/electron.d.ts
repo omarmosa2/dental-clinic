@@ -114,6 +114,24 @@ export interface ElectronAPI {
     search: (query: string) => Promise<LabOrder[]>
   }
 
+  // Medication operations
+  medications: {
+    getAll: () => Promise<Medication[]>
+    create: (medication: Omit<Medication, 'id' | 'created_at' | 'updated_at'>) => Promise<Medication>
+    update: (id: string, medication: Partial<Medication>) => Promise<Medication | null>
+    delete: (id: string) => Promise<boolean>
+    search: (query: string) => Promise<Medication[]>
+  }
+
+  // Prescription operations
+  prescriptions: {
+    getAll: () => Promise<Prescription[]>
+    create: (prescription: Omit<Prescription, 'id' | 'created_at' | 'updated_at'>) => Promise<Prescription>
+    update: (id: string, prescription: Partial<Prescription>) => Promise<Prescription | null>
+    delete: (id: string) => Promise<boolean>
+    search: (query: string) => Promise<Prescription[]>
+  }
+
   // Reports operations
   reports: {
     generatePatientReport: (filter: ReportFilter) => Promise<PatientReportData>

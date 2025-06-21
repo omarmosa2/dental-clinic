@@ -199,6 +199,46 @@ export interface SearchResult {
   data: Patient | Appointment | Payment
 }
 
+// Medication and Prescription Types
+export interface Medication {
+  id: string
+  name: string
+  instructions?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Prescription {
+  id: string
+  patient_id: string
+  appointment_id?: string
+  prescription_date: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  // Populated fields
+  patient?: {
+    id: string
+    full_name: string
+  }
+  appointment?: {
+    id: string
+    title: string
+  }
+  medications?: PrescriptionMedication[]
+}
+
+export interface PrescriptionMedication {
+  id: string
+  prescription_id: string
+  medication_id: string
+  dose?: string
+  created_at: string
+  // Populated fields
+  medication_name?: string
+  medication_instructions?: string
+}
+
 // Database schema for lowdb
 export interface DatabaseSchema {
   patients: Patient[]
@@ -212,6 +252,9 @@ export interface DatabaseSchema {
   inventoryUsage: InventoryUsage[]
   labs: Lab[]
   labOrders: LabOrder[]
+  medications: Medication[]
+  prescriptions: Prescription[]
+  prescriptionMedications: PrescriptionMedication[]
 }
 
 // Reports and Analytics Types

@@ -1004,6 +1004,166 @@ ipcMain.handle('db:labOrders:search', async (_, query) => {
   }
 })
 
+// Medication IPC Handlers
+ipcMain.handle('db:medications:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllMedications()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting all medications:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:medications:create', async (_, medication) => {
+  try {
+    if (databaseService) {
+      console.log('Creating medication:', medication)
+      const result = await databaseService.createMedication(medication)
+      console.log('Medication created successfully:', result.id)
+      return result
+    } else {
+      const newMedication = { ...medication, id: Date.now().toString() }
+      console.log('Creating medication (mock):', newMedication)
+      return newMedication
+    }
+  } catch (error) {
+    console.error('Error creating medication:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:medications:update', async (_, id, medication) => {
+  try {
+    if (databaseService) {
+      console.log('Updating medication:', id, medication)
+      const result = await databaseService.updateMedication(id, medication)
+      console.log('Medication updated successfully:', id)
+      return result
+    } else {
+      const updatedMedication = { ...medication, id }
+      console.log('Updating medication (mock):', updatedMedication)
+      return updatedMedication
+    }
+  } catch (error) {
+    console.error('Error updating medication:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:medications:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting medication:', id)
+      const result = await databaseService.deleteMedication(id)
+      console.log('Medication deleted successfully:', id)
+      return result
+    } else {
+      console.log('Deleting medication (mock):', id)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting medication:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:medications:search', async (_, query) => {
+  try {
+    if (databaseService) {
+      return await databaseService.searchMedications(query)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error searching medications:', error)
+    throw error
+  }
+})
+
+// Prescription IPC Handlers
+ipcMain.handle('db:prescriptions:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllPrescriptions()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting all prescriptions:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:prescriptions:create', async (_, prescription) => {
+  try {
+    if (databaseService) {
+      console.log('Creating prescription:', prescription)
+      const result = await databaseService.createPrescription(prescription)
+      console.log('Prescription created successfully:', result.id)
+      return result
+    } else {
+      const newPrescription = { ...prescription, id: Date.now().toString() }
+      console.log('Creating prescription (mock):', newPrescription)
+      return newPrescription
+    }
+  } catch (error) {
+    console.error('Error creating prescription:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:prescriptions:update', async (_, id, prescription) => {
+  try {
+    if (databaseService) {
+      console.log('Updating prescription:', id, prescription)
+      const result = await databaseService.updatePrescription(id, prescription)
+      console.log('Prescription updated successfully:', id)
+      return result
+    } else {
+      const updatedPrescription = { ...prescription, id }
+      console.log('Updating prescription (mock):', updatedPrescription)
+      return updatedPrescription
+    }
+  } catch (error) {
+    console.error('Error updating prescription:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:prescriptions:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting prescription:', id)
+      const result = await databaseService.deletePrescription(id)
+      console.log('Prescription deleted successfully:', id)
+      return result
+    } else {
+      console.log('Deleting prescription (mock):', id)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting prescription:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:prescriptions:search', async (_, query) => {
+  try {
+    if (databaseService) {
+      return await databaseService.searchPrescriptions(query)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error searching prescriptions:', error)
+    throw error
+  }
+})
+
 // Settings IPC Handlers
 ipcMain.handle('settings:get', async () => {
   try {

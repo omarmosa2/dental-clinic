@@ -11,6 +11,7 @@ import {
   Package,
   BarChart3,
   TestTube,
+  Pill,
 } from "lucide-react"
 
 import {
@@ -65,6 +66,11 @@ const navigationItems = [
     title: "المختبرات",
     url: "labs",
     icon: TestTube,
+  },
+  {
+    title: "الأدوية والوصفات",
+    url: "medications",
+    icon: Pill,
   },
   {
     title: "التقارير",

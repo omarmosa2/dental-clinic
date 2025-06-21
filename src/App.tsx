@@ -18,6 +18,7 @@ import Dashboard from './pages/Dashboard'
 import PatientsPage from './pages/Patients'
 import AppointmentsPage from './pages/Appointments'
 import Labs from './pages/Labs'
+import Medications from './pages/Medications'
 import ThemeToggle from './components/ThemeToggle'
 import { AppSidebar } from './components/AppSidebar'
 import { AppSidebarTrigger } from './components/AppSidebarTrigger'
@@ -265,6 +266,8 @@ function AppContent() {
         return <InventoryPage />;
       case 'labs':
         return <Labs />;
+      case 'medications':
+        return <Medications />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':

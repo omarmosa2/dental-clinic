@@ -77,6 +77,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     search: (query) => ipcRenderer.invoke('db:labOrders:search', query)
   },
 
+  // Medication operations
+  medications: {
+    getAll: () => ipcRenderer.invoke('db:medications:getAll'),
+    create: (medication) => ipcRenderer.invoke('db:medications:create', medication),
+    update: (id, medication) => ipcRenderer.invoke('db:medications:update', id, medication),
+    delete: (id) => ipcRenderer.invoke('db:medications:delete', id),
+    search: (query) => ipcRenderer.invoke('db:medications:search', query)
+  },
+
+  // Prescription operations
+  prescriptions: {
+    getAll: () => ipcRenderer.invoke('db:prescriptions:getAll'),
+    create: (prescription) => ipcRenderer.invoke('db:prescriptions:create', prescription),
+    update: (id, prescription) => ipcRenderer.invoke('db:prescriptions:update', id, prescription),
+    delete: (id) => ipcRenderer.invoke('db:prescriptions:delete', id),
+    search: (query) => ipcRenderer.invoke('db:prescriptions:search', query)
+  },
+
   // Dashboard operations
   dashboard: {
     getStats: () => ipcRenderer.invoke('db:dashboard:getStats')

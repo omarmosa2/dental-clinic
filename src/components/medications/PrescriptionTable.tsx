@@ -1,0 +1,247 @@
+import React, { useState } from 'react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { usePrescriptionStore } from '@/store/prescriptionStore'
+import { formatDate } from '@/lib/utils'
+import { notify } from '@/services/notificationService'
+import {
+  Edit,
+  Trash2,
+  FileText,
+  User,
+  Calendar,
+  Pill,
+  Printer,
+  Eye,
+  MoreHorizontal
+} from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import PrescriptionReceiptDialog from './PrescriptionReceiptDialog'
+import type { Prescription } from '@/types'
+
+interface PrescriptionTableProps {
+  prescriptions: Prescription[]
+  onEdit: (prescription: Prescription) => void
+  onDelete: (prescription: Prescription) => void
+}
+
+export default function PrescriptionTable({ prescriptions, onEdit, onDelete }: PrescriptionTableProps) {
+  const { isLoading } = usePrescriptionStore()
+
+  // Printing state
+  const [showPrintDialog, setShowPrintDialog] = useState(false)
+  const [printingPrescription, setPrintingPrescription] = useState<Prescription | null>(null)
+
+  const handleEdit = (prescription: Prescription) => {
+    onEdit(prescription)
+  }
+
+  const handleDelete = (prescription: Prescription) => {
+    onDelete(prescription)
+  }
+
+  const handlePrint = (prescription: Prescription) => {
+    setPrintingPrescription(prescription)
+    setShowPrintDialog(true)
+  }
+
+  const handleView = (prescription: Prescription) => {
+    // TODO: Implement prescription view dialog
+    notify.info('سيتم تنفيذ عرض تفاصيل الوصفة قريباً')
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">جاري تحميل الوصفات الطبية...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (prescriptions.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+        <h3 className="text-lg font-medium mb-2">لا توجد وصفات طبية</h3>
+        <p className="text-muted-foreground mb-4">
+          لم يتم إنشاء أي وصفات طبية بعد
+        </p>
+        <Button onClick={() => onEdit({} as Prescription)}>
+          <FileText className="w-4 h-4 ml-2" />
+          إنشاء وصفة طبية جديدة
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <>
+    <div className="rounded-md border" dir="rtl">
+      <Table className="table-center-all">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-center w-[60px]">رقم</TableHead>
+            <TableHead className="text-center">اسم المريض</TableHead>
+            <TableHead className="text-center">الموعد</TableHead>
+            <TableHead className="text-center">عدد الأدوية</TableHead>
+            <TableHead className="text-center">تاريخ الوصفة</TableHead>
+            <TableHead className="text-center">ملاحظات</TableHead>
+            <TableHead className="text-center w-[120px]">الإجراءات</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {prescriptions.map((prescription, index) => (
+            <TableRow key={prescription.id} className="hover:bg-muted/50">
+              <TableCell className="font-medium text-center">
+                {index + 1}
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <User className="w-4 h-4 text-blue-600" />
+                  <span className="font-medium">
+                    {prescription.patient?.full_name || 'غير محدد'}
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell className="text-center">
+                {prescription.appointment ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Calendar className="w-4 h-4 text-green-600" />
+                    <span className="text-sm">
+                      {prescription.appointment.title}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground italic">لا يوجد موعد</span>
+                )}
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <Pill className="w-4 h-4 text-purple-600" />
+                  <Badge variant="secondary">
+                    {prescription.medications?.length || 0} دواء
+                  </Badge>
+                </div>
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="text-sm">
+                  {formatDate(prescription.prescription_date)}
+                </div>
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="max-w-xs mx-auto">
+                  {prescription.notes ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="text-sm text-muted-foreground truncate cursor-help">
+                            {prescription.notes}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">{prescription.notes}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <span className="text-muted-foreground italic">لا توجد ملاحظات</span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleView(prescription)}
+                    className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                    title="عرض التفاصيل"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePrint(prescription)}
+                    className="h-8 w-8 p-0 hover:bg-green-50 hover:text-green-600"
+                    title="طباعة الوصفة"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEdit(prescription)}
+                    className="h-8 w-8 p-0 hover:bg-yellow-50 hover:text-yellow-600"
+                    title="تعديل الوصفة"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(prescription)}
+                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                    title="حذف الوصفة"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      {/* Table Footer with Summary */}
+      <div className="border-t bg-muted/30 px-4 py-3">
+        <div className="flex items-center justify-between text-sm text-muted-foreground" dir="rtl">
+          <div className="flex items-center gap-4">
+            <span>إجمالي الوصفات: {prescriptions.length}</span>
+            <span>
+              إجمالي الأدوية: {prescriptions.reduce((total, prescription) =>
+                total + (prescription.medications?.length || 0), 0
+              )}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            <span>سجل الوصفات الطبية</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Print Dialog */}
+    {printingPrescription && (
+      <PrescriptionReceiptDialog
+        open={showPrintDialog}
+        onOpenChange={setShowPrintDialog}
+        prescription={printingPrescription}
+      />
+    )}
+  </>
+  )
+}
