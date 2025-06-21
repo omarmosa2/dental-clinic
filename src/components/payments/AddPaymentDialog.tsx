@@ -489,7 +489,7 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">المدفوعات السابقة:</span>
-                        <span className="font-medium text-foreground">{autoCalculations.previousPayments.toFixed(2)} ريال</span>
+                        <span className="font-medium text-foreground">${autoCalculations.previousPayments.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">رقم الإيصال المقترح:</span>
@@ -546,7 +546,7 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
                     className="bg-muted cursor-not-allowed border-input text-foreground font-medium"
                   />
                   <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                    ✓ محسوب تلقائياً: المدفوعات السابقة ({autoCalculations.previousPayments.toFixed(2)}) + هذه الدفعة ({(parseFloat(formData.amount) || 0).toFixed(2)})
+                    ✓ محسوب تلقائياً: المدفوعات السابقة (${autoCalculations.previousPayments.toFixed(2)}) + هذه الدفعة (${(parseFloat(formData.amount) || 0).toFixed(2)})
                   </p>
                 </div>
               </div>
@@ -562,7 +562,7 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium text-foreground">المبلغ المتبقي:</span>
                       <Badge variant={calculateRemainingBalance() > 0 ? "destructive" : "default"} className="text-lg px-3 py-1">
-                        {calculateRemainingBalance().toFixed(2)} ريال
+                        ${calculateRemainingBalance().toFixed(2)}
                       </Badge>
                     </div>
                     {calculateRemainingBalance() === 0 && (
@@ -580,24 +580,24 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">المبلغ الأساسي:</span>
-                    <span className="font-medium text-foreground">{(parseFloat(formData.amount) || 0).toFixed(2)} ريال</span>
+                    <span className="font-medium text-foreground">${(parseFloat(formData.amount) || 0).toFixed(2)}</span>
                   </div>
                   {formData.tax_amount && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">الضريبة:</span>
-                      <span className="text-orange-600 dark:text-orange-400 font-medium">+{(parseFloat(formData.tax_amount) || 0).toFixed(2)} ريال</span>
+                      <span className="text-orange-600 dark:text-orange-400 font-medium">+${(parseFloat(formData.tax_amount) || 0).toFixed(2)}</span>
                     </div>
                   )}
                   {formData.discount_amount && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">الخصم:</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">-{(parseFloat(formData.discount_amount) || 0).toFixed(2)} ريال</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">-${(parseFloat(formData.discount_amount) || 0).toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-medium border-t border-border pt-2">
                     <span className="text-foreground">إجمالي هذه الدفعة:</span>
                     <Badge variant="outline" className="text-base">
-                      {calculateTotalAmount().toFixed(2)} ريال
+                      ${calculateTotalAmount().toFixed(2)}
                     </Badge>
                   </div>
                 </CardContent>

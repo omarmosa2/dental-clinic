@@ -193,33 +193,33 @@ export default function Reports() {
     description
   }: {
     title: string
-    value: string | number
+    value: string | number | React.ReactElement
     icon: any
     color?: string
     trend?: { value: number; isPositive: boolean }
     description?: string
   }) => (
-    <Card className={getCardStyles(color)}>
+    <Card className={getCardStyles(color)} dir="rtl">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-sm font-medium text-muted-foreground text-right">
           {title}
         </CardTitle>
         <Icon className={`h-4 w-4 ${getIconStyles(color)}`} />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold text-foreground">{value}</div>
+        <div className="text-2xl font-bold text-foreground text-right">{value}</div>
         {trend && (
-          <div className={`text-xs flex items-center mt-1 ${
+          <div className={`text-xs flex items-center justify-end mt-1 ${
             trend.isPositive ? 'text-green-600' : 'text-red-600'
           }`}>
-            <TrendingUp className={`h-3 w-3 mr-1 ${
+            <span className="ml-1">{Math.abs(trend.value)}%</span>
+            <TrendingUp className={`h-3 w-3 ${
               trend.isPositive ? '' : 'rotate-180'
             }`} />
-            {Math.abs(trend.value)}%
           </div>
         )}
         {description && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1 text-right">
             {description}
           </p>
         )}
@@ -228,7 +228,7 @@ export default function Reports() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -413,8 +413,8 @@ export default function Reports() {
         </TabsList>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <TabsContent value="overview" className="space-y-6" dir="rtl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
             <StatCard
               title="إجمالي المرضى"
               value={patientReports?.totalPatients || 0}
@@ -446,8 +446,8 @@ export default function Reports() {
           </div>
 
           {/* Quick Stats Table */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
+            <Card dir="rtl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-primary" />
@@ -456,8 +456,8 @@ export default function Reports() {
                 <CardDescription>أهم الإحصائيات لهذا الشهر</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
+                <div className="border rounded-lg overflow-hidden" dir="rtl">
+                  <Table dir="rtl">
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="text-right">
@@ -474,9 +474,9 @@ export default function Reports() {
                     <TableBody>
                       <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-medium text-right">
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 text-blue-500" />
+                          <div className="flex items-center gap-2 justify-end">
                             <span className="arabic-enhanced">المرضى الجدد</span>
+                            <Users className="h-4 w-4 text-blue-500" />
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-bold">
@@ -490,9 +490,9 @@ export default function Reports() {
                       </TableRow>
                       <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-medium text-right">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-purple-500" />
+                          <div className="flex items-center gap-2 justify-end">
                             <span className="arabic-enhanced">معدل الحضور</span>
+                            <Calendar className="h-4 w-4 text-purple-500" />
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-bold">
@@ -509,9 +509,9 @@ export default function Reports() {
                       </TableRow>
                       <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-medium text-right">
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-red-500" />
+                          <div className="flex items-center gap-2 justify-end">
                             <span className="arabic-enhanced">المدفوعات المعلقة</span>
+                            <DollarSign className="h-4 w-4 text-red-500" />
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-bold">
@@ -528,9 +528,9 @@ export default function Reports() {
                       </TableRow>
                       <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-medium text-right">
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 text-orange-500" />
+                          <div className="flex items-center gap-2 justify-end">
                             <span className="arabic-enhanced">تنبيهات المخزون</span>
+                            <AlertTriangle className="h-4 w-4 text-orange-500" />
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-bold">
@@ -562,23 +562,23 @@ export default function Reports() {
         </TabsContent>
 
         {/* Patient Reports Tab */}
-        <TabsContent value="patients">
+        <TabsContent value="patients" dir="rtl">
           <PatientReports />
         </TabsContent>
 
-        <TabsContent value="appointments">
+        <TabsContent value="appointments" dir="rtl">
           <AppointmentReports />
         </TabsContent>
 
-        <TabsContent value="financial">
+        <TabsContent value="financial" dir="rtl">
           <FinancialReports />
         </TabsContent>
 
-        <TabsContent value="inventory">
+        <TabsContent value="inventory" dir="rtl">
           <InventoryReports />
         </TabsContent>
 
-        <TabsContent value="analytics">
+        <TabsContent value="analytics" dir="rtl">
           <div className="text-center py-12">
             <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">التحليلات المتقدمة</h3>
@@ -586,7 +586,7 @@ export default function Reports() {
           </div>
         </TabsContent>
 
-        <TabsContent value="validation">
+        <TabsContent value="validation" dir="rtl">
           <CalculationValidator />
         </TabsContent>
       </Tabs>

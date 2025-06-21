@@ -52,7 +52,7 @@ interface StatCardProps {
 }
 
 export default function InventoryReports() {
-  const { currency } = useSettingsStore()
+  const { currency, settings } = useSettingsStore()
   const { inventoryReports, isLoading, isExporting, generateReport, exportReport, clearCache } = useReportsStore()
   const { isDarkMode } = useTheme()
   const [searchTerm, setSearchTerm] = useState('')
@@ -70,23 +70,23 @@ export default function InventoryReports() {
 
 
   const StatCard = ({ title, value, icon: Icon, color, trend, description }: StatCardProps) => (
-    <Card className={getCardStyles(color)}>
+    <Card className={getCardStyles(color)} dir="rtl">
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <div className="flex items-center space-x-2 space-x-reverse">
+            <p className="text-sm font-medium text-muted-foreground text-right">{title}</p>
+            <div className="flex items-center space-x-2 space-x-reverse justify-end">
               <p className="text-2xl font-bold text-foreground">{value}</p>
               {trend && (
                 <div className={`flex items-center text-sm ${
                   trend.isPositive ? 'text-green-600' : 'text-red-600'
                 }`}>
+                  <span className="ml-1">{Math.abs(trend.value)}%</span>
                   {trend.isPositive ? (
-                    <TrendingUp className="w-4 h-4 ml-1" />
+                    <TrendingUp className="w-4 h-4" />
                   ) : (
-                    <TrendingDown className="w-4 h-4 ml-1" />
+                    <TrendingDown className="w-4 h-4" />
                   )}
-                  {Math.abs(trend.value)}%
                 </div>
               )}
             </div>
@@ -96,7 +96,7 @@ export default function InventoryReports() {
           </div>
         </div>
         {description && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1 text-right">
             {description}
           </p>
         )}
@@ -178,7 +178,7 @@ export default function InventoryReports() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -282,7 +282,7 @@ export default function InventoryReports() {
                   return
                 }
 
-                await PdfService.exportInventoryReport(inventoryReports)
+                await PdfService.exportInventoryReport(inventoryReports, settings)
 
                 const event = new CustomEvent('showToast', {
                   detail: {
@@ -313,7 +313,7 @@ export default function InventoryReports() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
         <StatCard
           title="إجمالي العناصر"
           value={inventoryReports.totalItems}
@@ -345,9 +345,9 @@ export default function InventoryReports() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
         {/* Items by Category Chart */}
-        <Card>
+        <Card dir="rtl">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <PieChart className="w-5 h-5" />
@@ -392,7 +392,7 @@ export default function InventoryReports() {
         </Card>
 
         {/* Items by Supplier Chart */}
-        <Card>
+        <Card dir="rtl">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <BarChart3 className="w-5 h-5" />
@@ -444,7 +444,7 @@ export default function InventoryReports() {
       </div>
 
       {/* Usage Trend Chart */}
-      <Card>
+      <Card dir="rtl">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2 space-x-reverse">
             <TrendingUp className="w-5 h-5" />
@@ -488,7 +488,7 @@ export default function InventoryReports() {
       </Card>
 
       {/* Stock Alerts Section */}
-      <Card>
+      <Card dir="rtl">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2 space-x-reverse">
             <AlertTriangle className="w-5 h-5" />

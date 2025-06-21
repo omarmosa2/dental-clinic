@@ -49,7 +49,7 @@ import {
 
 export default function PatientReports() {
   const { patientReports, isLoading, isExporting, generateReport, exportReport, currentFilter, setFilter, clearCache } = useReportsStore()
-  const { currency } = useSettingsStore()
+  const { currency, settings } = useSettingsStore()
   const { toast } = useToast()
   const { isDarkMode } = useTheme()
 
@@ -83,25 +83,25 @@ export default function PatientReports() {
     trend?: { value: number; isPositive: boolean }
     description?: string
   }) => (
-    <Card className={getCardStyles(color)}>
+    <Card className={getCardStyles(color)} dir="rtl">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-sm font-medium text-muted-foreground text-right">
           {title}
         </CardTitle>
         <Icon className={`h-4 w-4 ${getIconStyles(color)}`} />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold text-foreground">{value}</div>
+        <div className="text-2xl font-bold text-foreground text-right">{value}</div>
         {trend && (
-          <div className={`text-xs flex items-center mt-1 ${
+          <div className={`text-xs flex items-center justify-end mt-1 ${
             trend.isPositive ? 'text-green-600' : 'text-red-600'
           }`}>
-            {trend.isPositive ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-            {Math.abs(trend.value)}%
+            <span className="ml-1">{Math.abs(trend.value)}%</span>
+            {trend.isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
           </div>
         )}
         {description && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1 text-right">
             {description}
           </p>
         )}
@@ -154,7 +154,7 @@ export default function PatientReports() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -275,7 +275,7 @@ export default function PatientReports() {
                   return
                 }
 
-                await PdfService.exportPatientReport(patientReports)
+                await PdfService.exportPatientReport(patientReports, settings)
 
                 toast({
                   title: "تم التصدير بنجاح",
@@ -299,7 +299,7 @@ export default function PatientReports() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
         <StatCard
           title="إجمالي المرضى"
           value={patientReports.totalPatients}
@@ -339,9 +339,9 @@ export default function PatientReports() {
       </div>
 
       {/* Enhanced Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
         {/* Enhanced Age Distribution Chart */}
-        <Card>
+        <Card dir="rtl">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <PieChart className="w-5 h-5" />
@@ -427,7 +427,7 @@ export default function PatientReports() {
         </Card>
 
         {/* Enhanced Gender Distribution Chart */}
-        <Card>
+        <Card dir="rtl">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <BarChart3 className="w-5 h-5" />
@@ -525,7 +525,7 @@ export default function PatientReports() {
       </div>
 
       {/* Enhanced Registration Trend Chart */}
-      <Card>
+      <Card dir="rtl">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2 space-x-reverse">
             <TrendingUp className="w-5 h-5" />

@@ -1130,10 +1130,14 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
 
     const extension = fileExtensions[options.format]
 
-    // Generate descriptive Arabic filename
+    // Generate descriptive Arabic filename with DD-MM-YYYY format
     const generateFileName = (reportType, format) => {
       const now = new Date()
-      const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+      // Format date as DD-MM-YYYY for filename (Gregorian calendar)
+      const day = now.getDate().toString().padStart(2, '0')
+      const month = (now.getMonth() + 1).toString().padStart(2, '0')
+      const year = now.getFullYear()
+      const dateStr = `${day}-${month}-${year}`
       const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
 
       // Arabic report names mapping
@@ -1179,10 +1183,11 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
     let isBuffer = false
 
     if (options.format === 'csv') {
-      // Enhanced CSV export
+      // Enhanced CSV export with DD/MM/YYYY date format
       content = '\uFEFF' // BOM for UTF-8 support
       content += `Report ${type} - Modern Dental Clinic\n`
       const currentDate = new Date()
+      // Format date as DD/MM/YYYY (Gregorian calendar)
       const day = currentDate.getDate().toString().padStart(2, '0')
       const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
       const year = currentDate.getFullYear()
@@ -1227,10 +1232,11 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
         }
       }
     } else if (options.format === 'excel') {
-      // Enhanced Excel-like format (actually TSV for simplicity)
+      // Enhanced Excel-like format (actually TSV for simplicity) with DD/MM/YYYY date format
       content = '\uFEFF' // BOM for Arabic support
       content += `تقرير ${type} - عيادة الأسنان الحديثة\n`
       const currentDate = new Date()
+      // Format date as DD/MM/YYYY (Gregorian calendar)
       const day = currentDate.getDate().toString().padStart(2, '0')
       const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
       const year = currentDate.getFullYear()
@@ -1281,7 +1287,15 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
         doc.moveDown()
 
         doc.fontSize(12)
-        doc.text(`Report Date: ${new Date().toLocaleDateString()}`, { align: 'center' })
+        // Format date as DD/MM/YYYY (Gregorian calendar)
+        const reportDate = (() => {
+          const date = new Date()
+          const day = date.getDate().toString().padStart(2, '0')
+          const month = (date.getMonth() + 1).toString().padStart(2, '0')
+          const year = date.getFullYear()
+          return `${day}/${month}/${year}`
+        })()
+        doc.text(`Report Date: ${reportDate}`, { align: 'center' })
         doc.moveDown(2)
 
         // Statistics Summary
@@ -1377,9 +1391,17 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
 
       } catch (error) {
         console.error('PDF generation error:', error)
-        // Fallback to simple text format
+        // Fallback to simple text format with DD/MM/YYYY date format
         content = `Report: ${type} - Modern Dental Clinic\n`
-        content += `Report Date: ${new Date().toLocaleDateString()}\n`
+        // Format date as DD/MM/YYYY (Gregorian calendar)
+        const fallbackDate = (() => {
+          const date = new Date()
+          const day = date.getDate().toString().padStart(2, '0')
+          const month = (date.getMonth() + 1).toString().padStart(2, '0')
+          const year = date.getFullYear()
+          return `${day}/${month}/${year}`
+        })()
+        content += `Report Date: ${fallbackDate}\n`
         content += `${'='.repeat(50)}\n\n`
 
         if (reportData && type === 'overview') {
@@ -1414,8 +1436,15 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
         headerCell.font = { size: 16, bold: true }
         headerCell.alignment = { horizontal: 'center' }
 
-        // Date
-        worksheet.getCell('A3').value = `Report Date: ${new Date().toLocaleDateString()}`
+        // Date with DD/MM/YYYY format
+        const excelDate = (() => {
+          const date = new Date()
+          const day = date.getDate().toString().padStart(2, '0')
+          const month = (date.getMonth() + 1).toString().padStart(2, '0')
+          const year = date.getFullYear()
+          return `${day}/${month}/${year}`
+        })()
+        worksheet.getCell('A3').value = `Report Date: ${excelDate}`
         worksheet.getCell('A3').font = { size: 12 }
 
         // Headers
@@ -1521,10 +1550,18 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
         isBuffer = true
       } catch (error) {
         console.error('Excel generation error:', error)
-        // Fallback to TSV format
+        // Fallback to TSV format with DD/MM/YYYY date format
         content = '\uFEFF' // BOM for UTF-8 support
         content += `Report ${type} - Modern Dental Clinic\n`
-        content += `Report Date: ${new Date().toLocaleDateString()}\n\n`
+        // Format date as DD/MM/YYYY (Gregorian calendar)
+        const tsvDate = (() => {
+          const date = new Date()
+          const day = date.getDate().toString().padStart(2, '0')
+          const month = (date.getMonth() + 1).toString().padStart(2, '0')
+          const year = date.getFullYear()
+          return `${day}/${month}/${year}`
+        })()
+        content += `Report Date: ${tsvDate}\n\n`
 
         if (reportData) {
           content += 'Indicator\tValue\tDescription\n'

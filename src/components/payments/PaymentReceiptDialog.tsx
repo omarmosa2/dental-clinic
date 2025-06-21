@@ -163,17 +163,27 @@ ${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` :
                 }
 
                 .clinic-logo {
-                  width: ${printSettings.printerType === 'a4' ? '60px' : '40px'};
-                  height: ${printSettings.printerType === 'a4' ? '60px' : '40px'};
+                  width: ${printSettings.printerType === 'a4' ? '70px' : '50px'};
+                  height: ${printSettings.printerType === 'a4' ? '70px' : '50px'};
                   margin: 0 auto 8px;
                   border-radius: 50%;
-                  background: ${isColorMode ? 'rgba(255,255,255,0.2)' : '#e9ecef'};
+                  background: ${isColorMode ? 'rgba(255,255,255,0.15)' : '#e9ecef'};
                   display: flex;
                   align-items: center;
                   justify-content: center;
                   font-size: ${printSettings.printerType === 'a4' ? '24px' : '16px'};
                   font-weight: bold;
                   color: ${isColorMode ? 'white' : '#495057'};
+                  border: 3px solid ${isColorMode ? 'rgba(255,255,255,0.3)' : '#dee2e6'};
+                  box-shadow: ${isColorMode ? '0 4px 15px rgba(0,0,0,0.2)' : '0 2px 8px rgba(0,0,0,0.1)'};
+                  overflow: hidden;
+                }
+
+                .clinic-logo img {
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
+                  border-radius: 50%;
                 }
 
                 .clinic-name {

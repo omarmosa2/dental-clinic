@@ -2,16 +2,455 @@ import {
   PatientReportData,
   AppointmentReportData,
   FinancialReportData,
-  InventoryReportData
+  InventoryReportData,
+  ClinicSettings
 } from '../types'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
+import { EnhancedPdfReports } from './enhancedPdfReports'
 
 export class PdfService {
-  // Generate descriptive filename with date and time for PDF reports
+  // Enhanced color scheme for professional reports
+  private static readonly COLORS = {
+    primary: '#0ea5e9',      // Sky blue
+    secondary: '#1e293b',    // Dark slate
+    accent: '#f59e0b',       // Amber
+    success: '#10b981',      // Emerald
+    warning: '#f59e0b',      // Amber
+    danger: '#ef4444',       // Red
+    muted: '#64748b',        // Slate
+    light: '#f8fafc',        // Very light blue
+    white: '#ffffff',
+    border: '#e2e8f0',       // Light slate
+    text: {
+      primary: '#1e293b',
+      secondary: '#64748b',
+      muted: '#94a3b8'
+    }
+  }
+
+  // Enhanced typography settings
+  private static readonly TYPOGRAPHY = {
+    fonts: {
+      primary: "'Tajawal', 'Cairo', Arial, sans-serif",
+      secondary: "'Tajawal', Arial, sans-serif",
+      monospace: "'Courier New', monospace"
+    },
+    sizes: {
+      h1: '28px',
+      h2: '24px',
+      h3: '20px',
+      h4: '18px',
+      h5: '16px',
+      body: '14px',
+      small: '12px',
+      tiny: '10px'
+    },
+    weights: {
+      light: '300',
+      normal: '400',
+      medium: '500',
+      semibold: '600',
+      bold: '700'
+    }
+  }
+
+  // Enhanced layout settings
+  private static readonly LAYOUT = {
+    margins: {
+      top: '40px',
+      bottom: '40px',
+      left: '30px',
+      right: '30px'
+    },
+    spacing: {
+      section: '30px',
+      card: '20px',
+      element: '15px',
+      small: '10px'
+    },
+    borderRadius: '12px',
+    shadows: {
+      card: '0 4px 20px rgba(0,0,0,0.08)',
+      header: '0 2px 10px rgba(0,0,0,0.05)'
+    }
+  }
+
+  // Public methods to access private functions from external files
+  static getEnhancedHeader(title: string, settings?: ClinicSettings | null, subtitle?: string): string {
+    return this.createEnhancedHeader(title, settings, subtitle)
+  }
+
+  static getEnhancedStyles(): string {
+    return this.createEnhancedStyles()
+  }
+
+  // Create enhanced header with clinic information
+  private static createEnhancedHeader(
+    title: string,
+    settings?: ClinicSettings | null,
+    subtitle?: string
+  ): string {
+    const clinicName = settings?.clinic_name || 'عيادة الأسنان الحديثة'
+    const doctorName = settings?.doctor_name || 'د. محمد أحمد'
+    const clinicAddress = settings?.clinic_address || ''
+    const clinicPhone = settings?.clinic_phone || ''
+    const clinicLogo = settings?.clinic_logo || ''
+
+    // Format date as DD/MM/YYYY (Gregorian calendar)
+    const currentDate = (() => {
+      const date = new Date()
+      const day = date.getDate().toString().padStart(2, '0')
+      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
+    })()
+
+    return `
+      <div class="enhanced-header">
+        <div class="header-content">
+          <div class="clinic-info">
+            ${clinicLogo ? `
+              <div class="clinic-logo">
+                <img src="${clinicLogo}" alt="شعار العيادة" />
+              </div>
+            ` : ''}
+            <div class="clinic-details">
+              <h1 class="clinic-name">${clinicName}</h1>
+              ${doctorName ? `<h2 class="doctor-name">${doctorName}</h2>` : ''}
+              ${clinicAddress ? `<p class="clinic-address">${clinicAddress}</p>` : ''}
+              ${clinicPhone ? `<p class="clinic-phone">📞 ${clinicPhone}</p>` : ''}
+            </div>
+          </div>
+
+          <div class="report-info">
+            <h3 class="report-title">${title}</h3>
+            ${subtitle ? `<p class="report-subtitle">${subtitle}</p>` : ''}
+            <p class="report-date">📅 ${currentDate}</p>
+            <p class="report-time">🕐 ${new Date().toLocaleTimeString('ar-SA', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })}</p>
+          </div>
+        </div>
+
+        <div class="header-decoration"></div>
+      </div>
+    `
+  }
+
+  // Create enhanced CSS styles for professional reports
+  private static createEnhancedStyles(): string {
+    return `
+      <style>
+        @import url('/fonts/Tajawal-Regular.ttf');
+        @import url('/fonts/Tajawal-Bold.ttf');
+        @import url('/fonts/Tajawal-Medium.ttf');
+
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+
+        body {
+          font-family: ${this.TYPOGRAPHY.fonts.primary};
+          direction: rtl;
+          line-height: 1.6;
+          color: ${this.COLORS.text.primary};
+          background: ${this.COLORS.white};
+          margin: ${this.LAYOUT.margins.top} ${this.LAYOUT.margins.right} ${this.LAYOUT.margins.bottom} ${this.LAYOUT.margins.left};
+          font-size: ${this.TYPOGRAPHY.sizes.body};
+        }
+
+        /* Enhanced Header Styles */
+        .enhanced-header {
+          background: linear-gradient(135deg, ${this.COLORS.primary} 0%, ${this.COLORS.secondary} 100%);
+          color: ${this.COLORS.white};
+          padding: ${this.LAYOUT.spacing.card};
+          border-radius: ${this.LAYOUT.borderRadius};
+          margin-bottom: ${this.LAYOUT.spacing.section};
+          box-shadow: ${this.LAYOUT.shadows.header};
+          position: relative;
+          overflow: hidden;
+        }
+
+        .header-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          position: relative;
+          z-index: 2;
+        }
+
+        .clinic-info {
+          display: flex;
+          align-items: center;
+          gap: ${this.LAYOUT.spacing.element};
+        }
+
+        .clinic-logo {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          overflow: hidden;
+          background: ${this.COLORS.white};
+          padding: 8px;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .clinic-logo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
+        }
+
+        .clinic-details h1.clinic-name {
+          font-size: ${this.TYPOGRAPHY.sizes.h2};
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          margin-bottom: 5px;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .clinic-details h2.doctor-name {
+          font-size: ${this.TYPOGRAPHY.sizes.h4};
+          font-weight: ${this.TYPOGRAPHY.weights.medium};
+          margin-bottom: 8px;
+          opacity: 0.95;
+        }
+
+        .clinic-details p {
+          font-size: ${this.TYPOGRAPHY.sizes.small};
+          margin-bottom: 3px;
+          opacity: 0.9;
+        }
+
+        .report-info {
+          text-align: left;
+          direction: ltr;
+        }
+
+        .report-info h3.report-title {
+          font-size: ${this.TYPOGRAPHY.sizes.h3};
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          margin-bottom: 8px;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .report-info p {
+          font-size: ${this.TYPOGRAPHY.sizes.small};
+          margin-bottom: 3px;
+          opacity: 0.9;
+        }
+
+        .header-decoration {
+          position: absolute;
+          top: -50%;
+          right: -10%;
+          width: 200px;
+          height: 200px;
+          background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+          border-radius: 50%;
+        }
+
+        /* Enhanced Card Styles */
+        .summary-cards {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: ${this.LAYOUT.spacing.element};
+          margin: ${this.LAYOUT.spacing.section} 0;
+        }
+
+        .summary-card {
+          background: ${this.COLORS.white};
+          border: 2px solid ${this.COLORS.border};
+          border-radius: ${this.LAYOUT.borderRadius};
+          padding: ${this.LAYOUT.spacing.card};
+          text-align: center;
+          box-shadow: ${this.LAYOUT.shadows.card};
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .summary-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, ${this.COLORS.primary}, ${this.COLORS.accent});
+        }
+
+        .summary-card h3 {
+          font-size: ${this.TYPOGRAPHY.sizes.h5};
+          font-weight: ${this.TYPOGRAPHY.weights.semibold};
+          color: ${this.COLORS.text.secondary};
+          margin-bottom: ${this.LAYOUT.spacing.small};
+        }
+
+        .summary-card .number {
+          font-size: ${this.TYPOGRAPHY.sizes.h2};
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          color: ${this.COLORS.primary};
+          margin-bottom: 5px;
+        }
+
+        .summary-card .currency {
+          color: ${this.COLORS.success};
+        }
+
+        .summary-card .warning {
+          color: ${this.COLORS.warning};
+        }
+
+        .summary-card .danger {
+          color: ${this.COLORS.danger};
+        }
+
+        /* Enhanced Section Styles */
+        .section {
+          margin: ${this.LAYOUT.spacing.section} 0;
+          background: ${this.COLORS.white};
+          border-radius: ${this.LAYOUT.borderRadius};
+          overflow: hidden;
+          box-shadow: ${this.LAYOUT.shadows.card};
+        }
+
+        .section-title {
+          font-size: ${this.TYPOGRAPHY.sizes.h4};
+          font-weight: ${this.TYPOGRAPHY.weights.semibold};
+          color: ${this.COLORS.primary};
+          margin-bottom: ${this.LAYOUT.spacing.element};
+          padding: ${this.LAYOUT.spacing.element} ${this.LAYOUT.spacing.card};
+          background: linear-gradient(90deg, ${this.COLORS.light} 0%, ${this.COLORS.white} 100%);
+          border-bottom: 2px solid ${this.COLORS.border};
+          position: relative;
+        }
+
+        .section-title::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 4px;
+          background: ${this.COLORS.primary};
+        }
+
+        .section-content {
+          padding: ${this.LAYOUT.spacing.card};
+        }
+
+        /* Enhanced Table Styles */
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: ${this.LAYOUT.spacing.element} 0;
+          background: ${this.COLORS.white};
+          border-radius: ${this.LAYOUT.borderRadius};
+          overflow: hidden;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        th {
+          background: linear-gradient(135deg, ${this.COLORS.primary} 0%, ${this.COLORS.secondary} 100%);
+          color: ${this.COLORS.white};
+          font-weight: ${this.TYPOGRAPHY.weights.semibold};
+          font-size: ${this.TYPOGRAPHY.sizes.small};
+          padding: ${this.LAYOUT.spacing.element};
+          text-align: center;
+          border: none;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        td {
+          padding: ${this.LAYOUT.spacing.small} ${this.LAYOUT.spacing.element};
+          text-align: center;
+          border-bottom: 1px solid ${this.COLORS.border};
+          font-size: ${this.TYPOGRAPHY.sizes.small};
+          color: ${this.COLORS.text.primary};
+        }
+
+        tr:nth-child(even) {
+          background: ${this.COLORS.light};
+        }
+
+        tr:hover {
+          background: rgba(14, 165, 233, 0.05);
+        }
+
+        /* Enhanced Footer */
+        .report-footer {
+          margin-top: ${this.LAYOUT.spacing.section};
+          padding: ${this.LAYOUT.spacing.card};
+          background: ${this.COLORS.light};
+          border-radius: ${this.LAYOUT.borderRadius};
+          text-align: center;
+          border-top: 3px solid ${this.COLORS.primary};
+        }
+
+        .report-footer p {
+          font-size: ${this.TYPOGRAPHY.sizes.small};
+          color: ${this.COLORS.text.secondary};
+          margin-bottom: 5px;
+        }
+
+        .report-footer .generated-info {
+          font-size: ${this.TYPOGRAPHY.sizes.tiny};
+          color: ${this.COLORS.text.muted};
+          font-style: italic;
+        }
+
+        /* Print Optimizations */
+        @media print {
+          body {
+            margin: 0;
+            padding: 20px;
+            background: white !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+          }
+
+          .enhanced-header {
+            background: linear-gradient(135deg, ${this.COLORS.primary} 0%, ${this.COLORS.secondary} 100%) !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+          }
+
+          .summary-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          table {
+            break-inside: auto;
+          }
+
+          tr {
+            break-inside: avoid;
+            break-after: auto;
+          }
+        }
+      </style>
+    `
+  }
+
+  // Generate descriptive filename with date and time for PDF reports in DD-MM-YYYY format
   private static generatePDFFileName(reportType: string): string {
     const now = new Date()
-    const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+    // Format date as DD-MM-YYYY for filename (Gregorian calendar)
+    const day = now.getDate().toString().padStart(2, '0')
+    const month = (now.getMonth() + 1).toString().padStart(2, '0')
+    const year = now.getFullYear()
+    const dateStr = `${day}-${month}-${year}`
     const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
 
     // Arabic report names mapping
@@ -28,9 +467,9 @@ export class PdfService {
   }
 
   // Direct PDF export without opening print window
-  static async exportPatientReport(data: PatientReportData): Promise<void> {
+  static async exportPatientReport(data: PatientReportData, settings?: ClinicSettings | null): Promise<void> {
     try {
-      const htmlContent = this.createPatientReportHTML(data)
+      const htmlContent = this.createEnhancedPatientReportHTML(data, settings)
       const fileName = this.generatePDFFileName('patients')
       await this.convertHTMLToPDF(htmlContent, fileName)
     } catch (error) {
@@ -39,9 +478,9 @@ export class PdfService {
     }
   }
 
-  static async exportAppointmentReport(data: AppointmentReportData): Promise<void> {
+  static async exportAppointmentReport(data: AppointmentReportData, settings?: ClinicSettings | null): Promise<void> {
     try {
-      const htmlContent = this.createAppointmentReportHTML(data)
+      const htmlContent = EnhancedPdfReports.createEnhancedAppointmentReportHTML(data, settings)
       const fileName = this.generatePDFFileName('appointments')
       await this.convertHTMLToPDF(htmlContent, fileName)
     } catch (error) {
@@ -50,9 +489,9 @@ export class PdfService {
     }
   }
 
-  static async exportFinancialReport(data: any): Promise<void> {
+  static async exportFinancialReport(data: any, settings?: ClinicSettings | null): Promise<void> {
     try {
-      const htmlContent = this.createFinancialReportHTML(data)
+      const htmlContent = EnhancedPdfReports.createEnhancedFinancialReportHTML(data, settings)
       const fileName = this.generatePDFFileName('financial')
       await this.convertHTMLToPDF(htmlContent, fileName)
     } catch (error) {
@@ -61,9 +500,9 @@ export class PdfService {
     }
   }
 
-  static async exportInventoryReport(data: InventoryReportData): Promise<void> {
+  static async exportInventoryReport(data: InventoryReportData, settings?: ClinicSettings | null): Promise<void> {
     try {
-      const htmlContent = this.createInventoryReportHTML(data)
+      const htmlContent = EnhancedPdfReports.createEnhancedInventoryReportHTML(data, settings)
       const fileName = this.generatePDFFileName('inventory')
       await this.convertHTMLToPDF(htmlContent, fileName)
     } catch (error) {
@@ -88,7 +527,140 @@ export class PdfService {
     }
   }
 
-  // Create HTML report for patients
+  // Create enhanced HTML report for patients
+  private static createEnhancedPatientReportHTML(data: PatientReportData, settings?: ClinicSettings | null): string {
+    const header = this.createEnhancedHeader('تقرير المرضى', settings, 'تقرير شامل عن إحصائيات المرضى والتوزيعات')
+    const styles = this.createEnhancedStyles()
+
+    return `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>تقرير المرضى - ${settings?.clinic_name || 'عيادة الأسنان'}</title>
+        ${styles}
+      </head>
+      <body>
+        ${header}
+
+        <div class="summary-cards">
+          <div class="summary-card">
+            <h3>إجمالي المرضى</h3>
+            <div class="number">${data.totalPatients.toLocaleString()}</div>
+          </div>
+          <div class="summary-card">
+            <h3>المرضى الجدد</h3>
+            <div class="number">${(data.newPatients || 0).toLocaleString()}</div>
+          </div>
+          <div class="summary-card">
+            <h3>المرضى النشطون</h3>
+            <div class="number">${data.activePatients.toLocaleString()}</div>
+          </div>
+          <div class="summary-card">
+            <h3>المرضى غير النشطين</h3>
+            <div class="number">${(data.totalPatients - data.activePatients).toLocaleString()}</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">📊 توزيع الأعمار</div>
+          <div class="section-content">
+            <table>
+              <thead>
+                <tr>
+                  <th>الفئة العمرية</th>
+                  <th>العدد</th>
+                  <th>النسبة المئوية</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.ageDistribution?.map(item => {
+                  const percentage = data.totalPatients > 0 ? ((item.count / data.totalPatients) * 100).toFixed(1) : '0.0'
+                  return `
+                    <tr>
+                      <td>${item.ageGroup}</td>
+                      <td>${item.count.toLocaleString()}</td>
+                      <td>${percentage}%</td>
+                    </tr>
+                  `
+                }).join('') || '<tr><td colspan="3">لا توجد بيانات</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">👥 توزيع الجنس</div>
+          <div class="section-content">
+            <table>
+              <thead>
+                <tr>
+                  <th>الجنس</th>
+                  <th>العدد</th>
+                  <th>النسبة المئوية</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.genderDistribution?.map(item => {
+                  const percentage = data.totalPatients > 0 ? ((item.count / data.totalPatients) * 100).toFixed(1) : '0.0'
+                  return `
+                    <tr>
+                      <td>${item.gender}</td>
+                      <td>${item.count.toLocaleString()}</td>
+                      <td>${percentage}%</td>
+                    </tr>
+                  `
+                }).join('') || '<tr><td colspan="3">لا توجد بيانات</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        ${data.registrationTrend && data.registrationTrend.length > 0 ? `
+        <div class="section">
+          <div class="section-title">📈 اتجاه التسجيل الشهري</div>
+          <div class="section-content">
+            <table>
+              <thead>
+                <tr>
+                  <th>الشهر</th>
+                  <th>عدد المرضى الجدد</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.registrationTrend.map(item => `
+                  <tr>
+                    <td>${item.period}</td>
+                    <td>${item.count.toLocaleString()}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        ` : ''}
+
+        <div class="report-footer">
+          <p>تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة</p>
+          <p class="generated-info">تاريخ الإنشاء: ${(() => {
+            // Format date as DD/MM/YYYY (Gregorian calendar)
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            const time = date.toLocaleTimeString('ar-SA', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+            return `${day}/${month}/${year} - ${time}`
+          })()} | ${settings?.clinic_name || 'عيادة الأسنان'}</p>
+        </div>
+      </body>
+      </html>
+    `
+  }
+
+  // Create HTML report for patients (legacy - keeping for compatibility)
   private static createPatientReportHTML(data: PatientReportData): string {
     return `
       <!DOCTYPE html>
@@ -118,7 +690,14 @@ export class PdfService {
         <div class="header">
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">تقرير المرضى</div>
-          <div class="report-date">${new Date().toLocaleDateString('ar-SA')}</div>
+          <div class="report-date">${(() => {
+            // Format date as DD/MM/YYYY (Gregorian calendar)
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          })()}</div>
         </div>
 
         <div class="summary-cards">
@@ -214,7 +793,14 @@ export class PdfService {
         <div class="header">
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">تقرير المواعيد</div>
-          <div class="report-date">${new Date().toLocaleDateString('en-GB')}</div>
+          <div class="report-date">${(() => {
+            // Format date as DD/MM/YYYY (Gregorian calendar)
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          })()}</div>
         </div>
 
         <div class="summary-cards">
@@ -297,6 +883,7 @@ export class PdfService {
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">التقرير المالي</div>
           <div class="report-date">${(() => {
+            // Format date as DD/MM/YYYY (Gregorian calendar)
             const date = new Date()
             const day = date.getDate().toString().padStart(2, '0')
             const month = (date.getMonth() + 1).toString().padStart(2, '0')
@@ -383,6 +970,7 @@ export class PdfService {
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">تقرير المخزون</div>
           <div class="report-date">${(() => {
+            // Format date as DD/MM/YYYY (Gregorian calendar)
             const date = new Date()
             const day = date.getDate().toString().padStart(2, '0')
             const month = (date.getMonth() + 1).toString().padStart(2, '0')
@@ -497,7 +1085,14 @@ export class PdfService {
         <div class="header">
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">التقرير الشامل</div>
-          <div class="report-date">${new Date().toLocaleDateString('en-GB')}</div>
+          <div class="report-date">${(() => {
+            // Format date as DD/MM/YYYY (Gregorian calendar)
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          })()}</div>
         </div>
 
         <div class="summary-section">

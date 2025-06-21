@@ -5,10 +5,14 @@ import type { Patient, Appointment, Payment, ReportExportOptions, PatientReportD
 import { formatCurrency, formatDate } from '../lib/utils'
 
 export class ExportService {
-  // Generate descriptive filename with date and time
+  // Generate descriptive filename with date and time in DD-MM-YYYY format
   static generateFileName(type: string, format: string, options?: { includeTime?: boolean, customSuffix?: string }): string {
     const now = new Date()
-    const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+    // Format date as DD-MM-YYYY for filename (Gregorian calendar)
+    const day = now.getDate().toString().padStart(2, '0')
+    const month = (now.getMonth() + 1).toString().padStart(2, '0')
+    const year = now.getFullYear()
+    const dateStr = `${day}-${month}-${year}`
     const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
 
     // Arabic report names mapping
@@ -270,6 +274,7 @@ export class ExportService {
           <div class="clinic-name">عيادة الأسنان الحديثة</div>
           <div class="report-title">${title}</div>
           <div class="report-date">${(() => {
+            // Format date as DD/MM/YYYY (Gregorian calendar)
             const date = new Date()
             const day = date.getDate().toString().padStart(2, '0')
             const month = (date.getMonth() + 1).toString().padStart(2, '0')

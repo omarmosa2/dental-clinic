@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useReportsStore } from '@/store/reportsStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
+import { useSettingsStore } from '@/store/settingsStore'
 import { useRealTimeReportsByType } from '@/hooks/useRealTimeReports'
 import { formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue } from '@/lib/utils'
 import { validateNumericData, validateDateData, transformToChartData, groupDataByPeriod, ensureAppointmentStatusData } from '@/lib/chartDataHelpers'
@@ -40,6 +41,7 @@ import {
 export default function AppointmentReports() {
   const { appointmentReports, isLoading, isExporting, generateReport, clearCache } = useReportsStore()
   const { appointments, loadAppointments } = useAppointmentStore()
+  const { settings } = useSettingsStore()
   const { isDarkMode } = useTheme()
 
   // Use real-time reports hook for automatic updates
@@ -189,7 +191,7 @@ export default function AppointmentReports() {
   })()
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -312,7 +314,7 @@ export default function AppointmentReports() {
                   monthlyTrend: monthlyChartData
                 }
 
-                await PdfService.exportAppointmentReport(reportData)
+                await PdfService.exportAppointmentReport(reportData, settings)
 
                 const event = new CustomEvent('showToast', {
                   detail: {
@@ -344,53 +346,53 @@ export default function AppointmentReports() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
-        <Card className={getCardStyles("purple")}>
+        <Card className={getCardStyles("purple")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي المواعيد</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي المواعيد</CardTitle>
             <Calendar className={`h-4 w-4 ${getIconStyles("purple")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-2xl font-bold text-foreground text-right">{stats.total}</div>
+            <p className="text-xs text-muted-foreground text-right">
               جميع المواعيد المسجلة
             </p>
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("emerald")}>
+        <Card className={getCardStyles("emerald")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المواعيد المكتملة</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المواعيد المكتملة</CardTitle>
             <CheckCircle className={`h-4 w-4 ${getIconStyles("emerald")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.completed}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-2xl font-bold text-foreground text-right">{stats.completed}</div>
+            <p className="text-xs text-muted-foreground text-right">
               معدل الحضور: {stats.attendanceRate}%
             </p>
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("orange")}>
+        <Card className={getCardStyles("orange")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المواعيد الملغية</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المواعيد الملغية</CardTitle>
             <XCircle className={`h-4 w-4 ${getIconStyles("orange")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.cancelled}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-2xl font-bold text-foreground text-right">{stats.cancelled}</div>
+            <p className="text-xs text-muted-foreground text-right">
               معدل الإلغاء: {stats.cancellationRate}%
             </p>
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("blue")}>
+        <Card className={getCardStyles("blue")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المواعيد المجدولة</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المواعيد المجدولة</CardTitle>
             <Clock className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-2xl font-bold text-foreground text-right">{stats.pending}</div>
+            <p className="text-xs text-muted-foreground text-right">
               في انتظار التنفيذ
             </p>
           </CardContent>
@@ -400,7 +402,7 @@ export default function AppointmentReports() {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
         {/* Enhanced Status Distribution Chart */}
-        <Card>
+        <Card dir="rtl">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <PieChart className="w-5 h-5" />
@@ -473,7 +475,7 @@ export default function AppointmentReports() {
         </Card>
 
         {/* Enhanced Monthly Appointments Chart */}
-        <Card>
+        <Card dir="rtl">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <BarChart3 className="w-5 h-5" />

@@ -54,7 +54,7 @@ export default function FinancialReports() {
     monthlyRevenue,
     loadPayments
   } = usePaymentStore()
-  const { currency } = useSettingsStore()
+  const { currency, settings } = useSettingsStore()
   const { isDarkMode } = useTheme()
 
   // Use real-time reports hook for automatic updates
@@ -358,7 +358,7 @@ export default function FinancialReports() {
   })()
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -488,7 +488,7 @@ export default function FinancialReports() {
                   outstandingBalance: pendingAmount + overdueAmount
                 }
 
-                await PdfService.exportFinancialReport(reportData)
+                await PdfService.exportFinancialReport(reportData, settings)
 
                 const event = new CustomEvent('showToast', {
                   detail: {
@@ -520,46 +520,46 @@ export default function FinancialReports() {
 
       {/* Stats Cards - RTL Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" dir="rtl">
-        <Card className={getCardStyles("green")}>
+        <Card className={getCardStyles("green")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي الإيرادات</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي الإيرادات</CardTitle>
             <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground text-right">
               <CurrencyDisplay amount={reportData.totalRevenue} currency={currency} />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground text-right">
               من {stats.completedCount} معاملة مكتملة
             </p>
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("yellow")}>
+        <Card className={getCardStyles("yellow")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المبالغ المعلقة</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المبالغ المعلقة</CardTitle>
             <Clock className={`h-4 w-4 ${getIconStyles("yellow")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground text-right">
               <CurrencyDisplay amount={reportData.totalPending} currency={currency} />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground text-right">
               {stats.pendingCount} معاملة معلقة
             </p>
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("red")}>
+        <Card className={getCardStyles("red")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المبالغ المتأخرة</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المبالغ المتأخرة</CardTitle>
             <AlertTriangle className={`h-4 w-4 ${getIconStyles("red")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground text-right">
               <CurrencyDisplay amount={reportData.totalOverdue} currency={currency} />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground text-right">
               تحتاج متابعة عاجلة
             </p>
           </CardContent>
@@ -567,9 +567,9 @@ export default function FinancialReports() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
         {/* Enhanced Payment Status Distribution */}
-        <Card>
+        <Card dir="rtl">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <PieChart className="w-5 h-5" />
@@ -642,7 +642,7 @@ export default function FinancialReports() {
         </Card>
 
         {/* Enhanced Payment Methods Distribution */}
-        <Card>
+        <Card dir="rtl">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 space-x-reverse">
               <BarChart3 className="w-5 h-5" />
@@ -728,7 +728,7 @@ export default function FinancialReports() {
       </div>
 
       {/* Enhanced Monthly Revenue Chart */}
-      <Card>
+      <Card dir="rtl">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2 space-x-reverse">
             <TrendingUp className="w-5 h-5" />
