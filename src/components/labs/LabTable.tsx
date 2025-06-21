@@ -99,6 +99,7 @@ export default function LabTable({ labs, onEdit, onDelete, searchQuery }: LabTab
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="text-right">الرقم التسلسلي</TableHead>
             <TableHead className="text-right">اسم المختبر</TableHead>
             <TableHead className="text-right">معلومات الاتصال</TableHead>
             <TableHead className="text-right">العنوان</TableHead>
@@ -108,8 +109,11 @@ export default function LabTable({ labs, onEdit, onDelete, searchQuery }: LabTab
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredLabs.map((lab) => (
+          {filteredLabs.map((lab, index) => (
             <TableRow key={lab.id} className="hover:bg-muted/50">
+              <TableCell className="font-medium text-right">
+                {index + 1}
+              </TableCell>
               <TableCell className="font-medium text-right">
                 <div className="flex items-center gap-2 justify-end">
                   {lab.name}

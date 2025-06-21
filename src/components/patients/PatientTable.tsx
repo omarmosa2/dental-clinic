@@ -165,6 +165,9 @@ export default function PatientTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="text-right">
+                <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
+              </TableHead>
               <SortableHeader field="full_name">الاسم الكامل للمريض</SortableHeader>
               <SortableHeader field="gender">الجنس</SortableHeader>
               <SortableHeader field="age">العمر</SortableHeader>
@@ -176,7 +179,7 @@ export default function PatientTable({
           </TableHeader>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8">
+              <TableCell colSpan={8} className="text-center py-8">
                 <div className="flex flex-col items-center space-y-2">
                   <User className="w-12 h-12 text-muted-foreground opacity-50" />
                   <p className="text-muted-foreground">لا توجد مرضى</p>
@@ -190,6 +193,9 @@ export default function PatientTable({
   }
 
   const { patients: paginatedPatients, totalPages, totalCount } = getSortedAndPaginatedPatients
+
+  // Calculate start index for serial numbers
+  const startIndex = (currentPage - 1) * pageSize
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
@@ -207,6 +213,9 @@ export default function PatientTable({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
+                <TableHead className="text-right">
+                  <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
+                </TableHead>
                 <SortableHeader field="full_name">
                   <span className="arabic-enhanced font-medium">الاسم الكامل للمريض</span>
                 </SortableHeader>
@@ -231,8 +240,11 @@ export default function PatientTable({
               </TableRow>
             </TableHeader>
           <TableBody>
-            {paginatedPatients.map((patient) => (
+            {paginatedPatients.map((patient, index) => (
             <TableRow key={patient.id} className="hover:bg-muted/50">
+              <TableCell className="font-medium text-right">
+                {startIndex + index + 1}
+              </TableCell>
               <TableCell className="font-medium">
                 <div className="flex items-center space-x-2 space-x-reverse">
                   <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">

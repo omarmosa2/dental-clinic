@@ -540,6 +540,7 @@ export default function InventoryReports() {
               <table className="w-full">
                 <thead className="bg-muted">
                   <tr>
+                    <th className="text-center p-3 font-medium">الرقم التسلسلي</th>
                     <th className="text-center p-3 font-medium">اسم العنصر</th>
                     <th className="text-center p-3 font-medium">الفئة</th>
                     <th className="text-center p-3 font-medium">الكمية الحالية</th>
@@ -580,6 +581,7 @@ export default function InventoryReports() {
 
                     return (
                       <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/50'}>
+                        <td className="p-3 font-medium text-center">{index + 1}</td>
                         <td className="p-3 font-medium text-center">{item.name}</td>
                         <td className="p-3 text-muted-foreground text-center">{item.category || '-'}</td>
                         <td className="p-3 text-muted-foreground text-center">

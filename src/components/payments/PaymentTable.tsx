@@ -256,6 +256,9 @@ export default function PaymentTable({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
+                <TableHead className="text-right">
+                  <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
+                </TableHead>
                 <SortableHeader field="receipt_number">
                   <span className="arabic-enhanced font-medium">رقم الإيصال</span>
                 </SortableHeader>
@@ -280,8 +283,11 @@ export default function PaymentTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedPayments.map((payment) => (
+              {paginatedPayments.map((payment, index) => (
                 <TableRow key={payment.id} className="hover:bg-muted/50">
+                  <TableCell className="font-medium text-right">
+                    {startIndex + index + 1}
+                  </TableCell>
                   <TableCell className="font-medium text-right">
                     <div className="flex items-center gap-2">
                       <Receipt className="w-4 h-4 text-muted-foreground" />

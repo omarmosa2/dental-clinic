@@ -688,6 +688,7 @@ export default function PatientReports() {
               <table className="w-full" dir="rtl">
                 <thead className="bg-muted/50">
                   <tr>
+                    <th className="text-center p-3 font-medium arabic-enhanced">الرقم التسلسلي</th>
                     <th className="text-center p-3 font-medium arabic-enhanced">الاسم</th>
                     <th className="text-center p-3 font-medium arabic-enhanced">الهاتف</th>
                     <th className="text-center p-3 font-medium arabic-enhanced">البريد الإلكتروني</th>
@@ -699,6 +700,9 @@ export default function PatientReports() {
                 <tbody>
                   {filteredPatients.map((patient, index) => (
                     <tr key={patient.id} className={`hover:bg-muted/50 ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}>
+                      <td className="p-3 font-medium text-center">
+                        {index + 1}
+                      </td>
                       <td className="p-3 font-medium text-center">
                         <div className="flex items-center justify-center gap-2">
                           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">

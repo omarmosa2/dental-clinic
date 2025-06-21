@@ -305,6 +305,9 @@ export default function PatientDetailsModal({
                         <thead className="bg-muted">
                           <tr>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              الرقم التسلسلي
+                            </th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                               العنوان
                             </th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
@@ -322,10 +325,13 @@ export default function PatientDetailsModal({
                           </tr>
                         </thead>
                         <tbody className="bg-background divide-y divide-border">
-                          {patientAppointments.map((appointment) => {
+                          {patientAppointments.map((appointment, index) => {
                             const status = getStatusBadge(appointment.status)
                             return (
                               <tr key={appointment.id} className="hover:bg-muted/50 transition-colors">
+                                <td className="px-4 py-3 text-sm font-medium text-foreground">
+                                  {index + 1}
+                                </td>
                                 <td className="px-4 py-3 text-sm font-medium text-foreground">
                                   {appointment.title}
                                 </td>
@@ -490,6 +496,9 @@ export default function PatientDetailsModal({
                           <thead className="bg-muted">
                             <tr>
                               <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                                الرقم التسلسلي
+                              </th>
+                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                                 تاريخ الدفع
                               </th>
                               <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
@@ -510,10 +519,13 @@ export default function PatientDetailsModal({
                             </tr>
                           </thead>
                           <tbody className="bg-background divide-y divide-border">
-                            {patientPayments.map((payment) => {
+                            {patientPayments.map((payment, index) => {
                               const status = getPaymentStatusBadge(payment.status)
                               return (
                                 <tr key={payment.id} className="hover:bg-muted/50 transition-colors">
+                                  <td className="px-4 py-3 text-sm text-foreground">
+                                    {index + 1}
+                                  </td>
                                   <td className="px-4 py-3 text-sm text-foreground">
                                     {formatDate(payment.payment_date)}
                                   </td>
