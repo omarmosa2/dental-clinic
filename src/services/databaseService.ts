@@ -10,7 +10,9 @@ import type {
   Treatment,
   InventoryItem,
   ClinicSettings,
-  DashboardStats
+  DashboardStats,
+  Lab,
+  LabOrder
 } from '../types'
 import { MigrationService } from './migrationService'
 
@@ -1615,6 +1617,288 @@ export class DatabaseService {
         recommendations: ['Check database connection and file permissions']
       }
     }
+  }
+
+  // Lab operations
+  async getAllLabs(): Promise<Lab[]> {
+    const stmt = this.db.prepare(`
+      SELECT * FROM labs
+      ORDER BY name
+    `)
+    return stmt.all() as Lab[]
+  }
+
+  async createLab(lab: Omit<Lab, 'id' | 'created_at' | 'updated_at'>): Promise<Lab> {
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    try {
+      console.log('🧪 Creating lab:', {
+        name: lab.name,
+        contact_info: lab.contact_info,
+        address: lab.address
+      })
+
+      const stmt = this.db.prepare(`
+        INSERT INTO labs (
+          id, name, contact_info, address, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `)
+
+      const result = stmt.run(
+        id, lab.name, lab.contact_info, lab.address, now, now
+      )
+
+      console.log('✅ Lab created successfully:', { id, changes: result.changes })
+
+      // Force WAL checkpoint to ensure data is written
+      this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+      return { ...lab, id, created_at: now, updated_at: now }
+    } catch (error) {
+      console.error('❌ Failed to create lab:', error)
+      throw error
+    }
+  }
+
+  async updateLab(id: string, lab: Partial<Lab>): Promise<Lab> {
+    const now = new Date().toISOString()
+
+    const stmt = this.db.prepare(`
+      UPDATE labs SET
+        name = COALESCE(?, name),
+        contact_info = COALESCE(?, contact_info),
+        address = COALESCE(?, address),
+        updated_at = ?
+      WHERE id = ?
+    `)
+
+    stmt.run(
+      lab.name, lab.contact_info, lab.address, now, id
+    )
+
+    const getStmt = this.db.prepare('SELECT * FROM labs WHERE id = ?')
+    return getStmt.get(id) as Lab
+  }
+
+  async deleteLab(id: string): Promise<boolean> {
+    try {
+      console.log(`🗑️ Starting deletion for lab: ${id}`)
+
+      // Check if lab has any orders
+      const ordersCheck = this.db.prepare('SELECT COUNT(*) as count FROM lab_orders WHERE lab_id = ?')
+      const ordersCount = ordersCheck.get(id) as { count: number }
+
+      if (ordersCount.count > 0) {
+        console.warn(`⚠️ Lab ${id} has ${ordersCount.count} orders. Deleting lab will cascade delete orders.`)
+      }
+
+      // Delete lab (will cascade delete orders due to foreign key constraint)
+      const stmt = this.db.prepare('DELETE FROM labs WHERE id = ?')
+      const result = stmt.run(id)
+
+      console.log(`✅ Lab ${id} deleted successfully. Affected rows: ${result.changes}`)
+
+      // Force WAL checkpoint to ensure data is written
+      this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+      return result.changes > 0
+    } catch (error) {
+      console.error(`❌ Failed to delete lab ${id}:`, error)
+      throw new Error(`Failed to delete lab: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  async searchLabs(query: string): Promise<Lab[]> {
+    const stmt = this.db.prepare(`
+      SELECT * FROM labs
+      WHERE name LIKE ? OR contact_info LIKE ? OR address LIKE ?
+      ORDER BY name
+    `)
+    const searchTerm = `%${query}%`
+    return stmt.all(searchTerm, searchTerm, searchTerm) as Lab[]
+  }
+
+  // Lab order operations
+  async getAllLabOrders(): Promise<LabOrder[]> {
+    const stmt = this.db.prepare(`
+      SELECT
+        lo.*,
+        l.name as lab_name,
+        l.contact_info as lab_contact_info,
+        l.address as lab_address,
+        p.full_name as patient_name,
+        p.phone as patient_phone,
+        p.gender as patient_gender
+      FROM lab_orders lo
+      LEFT JOIN labs l ON lo.lab_id = l.id
+      LEFT JOIN patients p ON lo.patient_id = p.id
+      ORDER BY lo.order_date DESC
+    `)
+    const labOrders = stmt.all() as any[]
+
+    // Add lab and patient objects for compatibility
+    return labOrders.map(order => {
+      const labOrder: LabOrder = {
+        id: order.id,
+        lab_id: order.lab_id,
+        patient_id: order.patient_id,
+        service_name: order.service_name,
+        cost: order.cost,
+        order_date: order.order_date,
+        status: order.status,
+        notes: order.notes,
+        paid_amount: order.paid_amount,
+        remaining_balance: order.remaining_balance,
+        created_at: order.created_at,
+        updated_at: order.updated_at
+      }
+
+      if (order.lab_name) {
+        labOrder.lab = {
+          id: order.lab_id,
+          name: order.lab_name,
+          contact_info: order.lab_contact_info,
+          address: order.lab_address,
+          created_at: '',
+          updated_at: ''
+        }
+      }
+
+      if (order.patient_name) {
+        labOrder.patient = {
+          id: order.patient_id,
+          full_name: order.patient_name,
+          phone: order.patient_phone,
+          gender: order.patient_gender
+        } as any
+      }
+
+      return labOrder
+    })
+  }
+
+  async createLabOrder(labOrder: Omit<LabOrder, 'id' | 'created_at' | 'updated_at'>): Promise<LabOrder> {
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    try {
+      // Validate lab_id exists (required)
+      if (!labOrder.lab_id) {
+        throw new Error('Lab ID is required')
+      }
+
+      const labCheck = this.db.prepare('SELECT id FROM labs WHERE id = ?')
+      const labExists = labCheck.get(labOrder.lab_id)
+      if (!labExists) {
+        throw new Error(`Lab with ID '${labOrder.lab_id}' does not exist`)
+      }
+
+      // Validate patient_id exists (if provided)
+      if (labOrder.patient_id) {
+        const patientCheck = this.db.prepare('SELECT id FROM patients WHERE id = ?')
+        const patientExists = patientCheck.get(labOrder.patient_id)
+        if (!patientExists) {
+          throw new Error(`Patient with ID '${labOrder.patient_id}' does not exist`)
+        }
+      }
+
+      console.log('🧪 Creating lab order:', {
+        lab_id: labOrder.lab_id,
+        patient_id: labOrder.patient_id,
+        service_name: labOrder.service_name,
+        cost: labOrder.cost,
+        status: labOrder.status
+      })
+
+      const stmt = this.db.prepare(`
+        INSERT INTO lab_orders (
+          id, lab_id, patient_id, service_name, cost, order_date, status,
+          notes, paid_amount, remaining_balance, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+
+      const result = stmt.run(
+        id, labOrder.lab_id, labOrder.patient_id, labOrder.service_name,
+        labOrder.cost, labOrder.order_date, labOrder.status,
+        labOrder.notes, labOrder.paid_amount || 0, labOrder.remaining_balance || labOrder.cost,
+        now, now
+      )
+
+      console.log('✅ Lab order created successfully:', { id, changes: result.changes })
+
+      // Force WAL checkpoint to ensure data is written
+      this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+      return { ...labOrder, id, created_at: now, updated_at: now }
+    } catch (error) {
+      console.error('❌ Failed to create lab order:', error)
+      throw error
+    }
+  }
+
+  async updateLabOrder(id: string, labOrder: Partial<LabOrder>): Promise<LabOrder> {
+    const now = new Date().toISOString()
+
+    const stmt = this.db.prepare(`
+      UPDATE lab_orders SET
+        lab_id = COALESCE(?, lab_id),
+        patient_id = COALESCE(?, patient_id),
+        service_name = COALESCE(?, service_name),
+        cost = COALESCE(?, cost),
+        order_date = COALESCE(?, order_date),
+        status = COALESCE(?, status),
+        notes = COALESCE(?, notes),
+        paid_amount = COALESCE(?, paid_amount),
+        remaining_balance = COALESCE(?, remaining_balance),
+        updated_at = ?
+      WHERE id = ?
+    `)
+
+    stmt.run(
+      labOrder.lab_id, labOrder.patient_id, labOrder.service_name,
+      labOrder.cost, labOrder.order_date, labOrder.status,
+      labOrder.notes, labOrder.paid_amount, labOrder.remaining_balance,
+      now, id
+    )
+
+    const getStmt = this.db.prepare('SELECT * FROM lab_orders WHERE id = ?')
+    return getStmt.get(id) as LabOrder
+  }
+
+  async deleteLabOrder(id: string): Promise<boolean> {
+    try {
+      console.log(`🗑️ Deleting lab order: ${id}`)
+
+      const stmt = this.db.prepare('DELETE FROM lab_orders WHERE id = ?')
+      const result = stmt.run(id)
+
+      console.log(`✅ Lab order ${id} deleted successfully. Affected rows: ${result.changes}`)
+
+      // Force WAL checkpoint to ensure data is written
+      this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+      return result.changes > 0
+    } catch (error) {
+      console.error(`❌ Failed to delete lab order ${id}:`, error)
+      throw new Error(`Failed to delete lab order: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  async searchLabOrders(query: string): Promise<LabOrder[]> {
+    const stmt = this.db.prepare(`
+      SELECT
+        lo.*,
+        l.name as lab_name,
+        p.full_name as patient_name
+      FROM lab_orders lo
+      LEFT JOIN labs l ON lo.lab_id = l.id
+      LEFT JOIN patients p ON lo.patient_id = p.id
+      WHERE lo.service_name LIKE ? OR l.name LIKE ? OR p.full_name LIKE ? OR lo.notes LIKE ?
+      ORDER BY lo.order_date DESC
+    `)
+    const searchTerm = `%${query}%`
+    return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm) as LabOrder[]
   }
 
   // Settings operations

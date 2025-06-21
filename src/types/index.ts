@@ -125,6 +125,33 @@ export interface InventoryUsage {
   inventory?: InventoryItem
 }
 
+export interface Lab {
+  id: string
+  name: string
+  contact_info?: string
+  address?: string
+  created_at: string
+  updated_at?: string
+}
+
+export interface LabOrder {
+  id: string
+  lab_id: string
+  patient_id?: string
+  service_name: string
+  cost: number
+  order_date: string
+  status: 'معلق' | 'مكتمل' | 'ملغي'
+  notes?: string
+  paid_amount?: number
+  remaining_balance?: number
+  created_at: string
+  updated_at?: string
+  // Populated fields
+  lab?: Lab
+  patient?: Patient
+}
+
 export interface ClinicSettings {
   id: string
   clinic_name: string
@@ -183,6 +210,8 @@ export interface DatabaseSchema {
   installmentPayments: InstallmentPayment[]
   patientImages: PatientImage[]
   inventoryUsage: InventoryUsage[]
+  labs: Lab[]
+  labOrders: LabOrder[]
 }
 
 // Reports and Analytics Types

@@ -59,6 +59,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     update: (settings) => ipcRenderer.invoke('settings:update', settings)
   },
 
+  // Lab operations
+  labs: {
+    getAll: () => ipcRenderer.invoke('db:labs:getAll'),
+    create: (lab) => ipcRenderer.invoke('db:labs:create', lab),
+    update: (id, lab) => ipcRenderer.invoke('db:labs:update', id, lab),
+    delete: (id) => ipcRenderer.invoke('db:labs:delete', id),
+    search: (query) => ipcRenderer.invoke('db:labs:search', query)
+  },
+
+  // Lab Order operations
+  labOrders: {
+    getAll: () => ipcRenderer.invoke('db:labOrders:getAll'),
+    create: (labOrder) => ipcRenderer.invoke('db:labOrders:create', labOrder),
+    update: (id, labOrder) => ipcRenderer.invoke('db:labOrders:update', id, labOrder),
+    delete: (id) => ipcRenderer.invoke('db:labOrders:delete', id),
+    search: (query) => ipcRenderer.invoke('db:labOrders:search', query)
+  },
+
   // Dashboard operations
   dashboard: {
     getStats: () => ipcRenderer.invoke('db:dashboard:getStats')

@@ -69,6 +69,24 @@ export interface ElectronAPI {
     get: () => Promise<any>
     update: (settings: any) => Promise<any>
   }
+
+  // Lab operations
+  labs: {
+    getAll: () => Promise<any[]>
+    create: (lab: any) => Promise<any>
+    update: (id: string, lab: any) => Promise<any>
+    delete: (id: string) => Promise<boolean>
+    search: (query: string) => Promise<any[]>
+  }
+
+  // Lab order operations
+  labOrders: {
+    getAll: () => Promise<any[]>
+    create: (labOrder: any) => Promise<any>
+    update: (id: string, labOrder: any) => Promise<any>
+    delete: (id: string) => Promise<boolean>
+    search: (query: string) => Promise<any[]>
+  }
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -131,6 +149,22 @@ const electronAPI: ElectronAPI = {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     update: (settings) => ipcRenderer.invoke('settings:update', settings),
+  },
+
+  labs: {
+    getAll: () => ipcRenderer.invoke('db:labs:getAll'),
+    create: (lab) => ipcRenderer.invoke('db:labs:create', lab),
+    update: (id, lab) => ipcRenderer.invoke('db:labs:update', id, lab),
+    delete: (id) => ipcRenderer.invoke('db:labs:delete', id),
+    search: (query) => ipcRenderer.invoke('db:labs:search', query),
+  },
+
+  labOrders: {
+    getAll: () => ipcRenderer.invoke('db:labOrders:getAll'),
+    create: (labOrder) => ipcRenderer.invoke('db:labOrders:create', labOrder),
+    update: (id, labOrder) => ipcRenderer.invoke('db:labOrders:update', id, labOrder),
+    delete: (id) => ipcRenderer.invoke('db:labOrders:delete', id),
+    search: (query) => ipcRenderer.invoke('db:labOrders:search', query),
   },
 }
 

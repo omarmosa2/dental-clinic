@@ -12,7 +12,9 @@ import {
   InventoryReportData,
   AnalyticsReportData,
   ReportData,
-  ReportExportOptions
+  ReportExportOptions,
+  Lab,
+  LabOrder
 } from './index'
 
 export interface ElectronAPI {
@@ -92,6 +94,24 @@ export interface ElectronAPI {
   dialog: {
     showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>
     showSaveDialog: (options: any) => Promise<{ canceled: boolean; filePath?: string }>
+  }
+
+  // Lab operations
+  labs: {
+    getAll: () => Promise<Lab[]>
+    create: (lab: Omit<Lab, 'id' | 'created_at' | 'updated_at'>) => Promise<Lab>
+    update: (id: string, lab: Partial<Lab>) => Promise<Lab | null>
+    delete: (id: string) => Promise<boolean>
+    search: (query: string) => Promise<Lab[]>
+  }
+
+  // Lab order operations
+  labOrders: {
+    getAll: () => Promise<LabOrder[]>
+    create: (labOrder: Omit<LabOrder, 'id' | 'created_at' | 'updated_at'>) => Promise<LabOrder>
+    update: (id: string, labOrder: Partial<LabOrder>) => Promise<LabOrder | null>
+    delete: (id: string) => Promise<boolean>
+    search: (query: string) => Promise<LabOrder[]>
   }
 
   // Reports operations

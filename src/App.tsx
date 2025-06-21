@@ -17,6 +17,7 @@ import ReportsPage from './pages/Reports'
 import Dashboard from './pages/Dashboard'
 import PatientsPage from './pages/Patients'
 import AppointmentsPage from './pages/Appointments'
+import Labs from './pages/Labs'
 import ThemeToggle from './components/ThemeToggle'
 import { AppSidebar } from './components/AppSidebar'
 import { AppSidebarTrigger } from './components/AppSidebarTrigger'
@@ -262,6 +263,8 @@ function AppContent() {
         return <PaymentsPage />;
       case 'inventory':
         return <InventoryPage />;
+      case 'labs':
+        return <Labs />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':
@@ -282,6 +285,7 @@ function AppContent() {
       appointments: 'المواعيد',
       payments: 'المدفوعات',
       inventory: 'المخزون',
+      labs: 'المختبرات',
       reports: 'التقارير',
       settings: 'الإعدادات'
     }

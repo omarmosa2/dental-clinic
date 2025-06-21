@@ -88,6 +88,9 @@ class DatabaseService {
       `)
     }
 
+    // Check if lab tables exist and create them if they don't
+    this.ensureLabTablesExist()
+
     // Apply migrations
     const migrations = [
       {
@@ -140,6 +143,48 @@ class DatabaseService {
           -- Update existing settings with default doctor name if null
           UPDATE settings SET doctor_name = 'د. محمد أحمد' WHERE doctor_name IS NULL;
         `
+      },
+      {
+        version: 5,
+        sql: `
+          -- Add laboratory tables
+          CREATE TABLE IF NOT EXISTS labs (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            contact_info TEXT,
+            address TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE IF NOT EXISTS lab_orders (
+            id TEXT PRIMARY KEY,
+            lab_id TEXT NOT NULL,
+            patient_id TEXT,
+            service_name TEXT NOT NULL,
+            cost REAL NOT NULL,
+            order_date TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('معلق', 'مكتمل', 'ملغي')),
+            notes TEXT,
+            paid_amount REAL DEFAULT 0,
+            remaining_balance REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (lab_id) REFERENCES labs(id) ON DELETE CASCADE,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL
+          );
+
+          -- Laboratory indexes for search and performance optimization
+          CREATE INDEX IF NOT EXISTS idx_labs_name ON labs(name);
+          CREATE INDEX IF NOT EXISTS idx_lab_orders_lab ON lab_orders(lab_id);
+          CREATE INDEX IF NOT EXISTS idx_lab_orders_patient ON lab_orders(patient_id);
+          CREATE INDEX IF NOT EXISTS idx_lab_orders_date ON lab_orders(order_date);
+          CREATE INDEX IF NOT EXISTS idx_lab_orders_status ON lab_orders(status);
+          CREATE INDEX IF NOT EXISTS idx_lab_orders_service ON lab_orders(service_name);
+          CREATE INDEX IF NOT EXISTS idx_lab_orders_lab_date ON lab_orders(lab_id, order_date);
+          CREATE INDEX IF NOT EXISTS idx_lab_orders_patient_date ON lab_orders(patient_id, order_date);
+          CREATE INDEX IF NOT EXISTS idx_lab_orders_status_date ON lab_orders(status, order_date);
+        `
       }
     ]
 
@@ -154,6 +199,130 @@ class DatabaseService {
         }
       }
     })
+  }
+
+  ensureLabTablesExist() {
+    try {
+      console.log('🧪 [DEBUG] ensureLabTablesExist() called')
+
+      // List all existing tables first
+      const allTables = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table'
+      `).all()
+      console.log('📋 [DEBUG] All existing tables:', allTables.map(t => t.name))
+
+      // Check if labs table exists
+      const labsTableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='labs'
+      `).get()
+      console.log('🔍 [DEBUG] Labs table exists:', !!labsTableExists)
+
+      // Check if lab_orders table exists
+      const labOrdersTableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='lab_orders'
+      `).get()
+      console.log('🔍 [DEBUG] Lab orders table exists:', !!labOrdersTableExists)
+
+      if (!labsTableExists) {
+        console.log('🏗️ [DEBUG] Creating labs table...')
+        this.db.exec(`
+          CREATE TABLE labs (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            contact_info TEXT,
+            address TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `)
+        console.log('✅ [DEBUG] Labs table created successfully')
+
+        // Verify table was created
+        const verifyLabs = this.db.prepare(`
+          SELECT name FROM sqlite_master WHERE type='table' AND name='labs'
+        `).get()
+        console.log('🔍 [DEBUG] Labs table verification after creation:', !!verifyLabs)
+      } else {
+        console.log('✅ [DEBUG] Labs table already exists')
+      }
+
+      if (!labOrdersTableExists) {
+        console.log('🏗️ [DEBUG] Creating lab_orders table...')
+        this.db.exec(`
+          CREATE TABLE lab_orders (
+            id TEXT PRIMARY KEY,
+            lab_id TEXT NOT NULL,
+            patient_id TEXT,
+            service_name TEXT NOT NULL,
+            cost REAL NOT NULL,
+            order_date TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('معلق', 'مكتمل', 'ملغي')),
+            notes TEXT,
+            paid_amount REAL DEFAULT 0,
+            remaining_balance REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (lab_id) REFERENCES labs(id) ON DELETE CASCADE,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL
+          )
+        `)
+        console.log('✅ [DEBUG] Lab orders table created successfully')
+
+        // Verify table was created
+        const verifyLabOrders = this.db.prepare(`
+          SELECT name FROM sqlite_master WHERE type='table' AND name='lab_orders'
+        `).get()
+        console.log('🔍 [DEBUG] Lab orders table verification after creation:', !!verifyLabOrders)
+      } else {
+        console.log('✅ [DEBUG] Lab orders table already exists')
+      }
+
+      // Create indexes if they don't exist
+      this.createLabIndexes()
+
+      // Final verification - list all tables again
+      const finalTables = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table'
+      `).all()
+      console.log('📋 [DEBUG] All tables after ensureLabTablesExist:', finalTables.map(t => t.name))
+
+    } catch (error) {
+      console.error('❌ [DEBUG] Error in ensureLabTablesExist:', error)
+      console.error('❌ [DEBUG] Error stack:', error.stack)
+      throw error
+    }
+  }
+
+  createLabIndexes() {
+    try {
+      console.log('🔍 Creating laboratory indexes...')
+
+      const indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_labs_name ON labs(name)',
+        'CREATE INDEX IF NOT EXISTS idx_lab_orders_lab ON lab_orders(lab_id)',
+        'CREATE INDEX IF NOT EXISTS idx_lab_orders_patient ON lab_orders(patient_id)',
+        'CREATE INDEX IF NOT EXISTS idx_lab_orders_date ON lab_orders(order_date)',
+        'CREATE INDEX IF NOT EXISTS idx_lab_orders_status ON lab_orders(status)',
+        'CREATE INDEX IF NOT EXISTS idx_lab_orders_service ON lab_orders(service_name)',
+        'CREATE INDEX IF NOT EXISTS idx_lab_orders_lab_date ON lab_orders(lab_id, order_date)',
+        'CREATE INDEX IF NOT EXISTS idx_lab_orders_patient_date ON lab_orders(patient_id, order_date)',
+        'CREATE INDEX IF NOT EXISTS idx_lab_orders_status_date ON lab_orders(status, order_date)'
+      ]
+
+      indexes.forEach(indexSql => {
+        try {
+          this.db.exec(indexSql)
+        } catch (error) {
+          console.warn('Index creation warning:', error.message)
+        }
+      })
+
+      console.log('✅ Laboratory indexes created successfully')
+    } catch (error) {
+      console.error('❌ Error creating lab indexes:', error)
+    }
   }
 
   runPatientSchemaMigration() {
@@ -941,6 +1110,309 @@ class DatabaseService {
       return checkpoint
     }
     return null
+  }
+
+  // Lab operations
+  async getAllLabs() {
+    console.log('🔍 [DEBUG] getAllLabs() called')
+
+    try {
+      this.ensureConnection()
+      console.log('✅ [DEBUG] Database connection ensured')
+
+      this.ensureLabTablesExist() // Ensure tables exist before querying
+      console.log('✅ [DEBUG] Lab tables existence ensured')
+
+      const stmt = this.db.prepare('SELECT * FROM labs ORDER BY name')
+      const labs = stmt.all()
+      console.log(`📊 [DEBUG] Found ${labs.length} labs in database:`, labs)
+
+      return labs
+    } catch (error) {
+      console.error('❌ [DEBUG] Error in getAllLabs():', error)
+      throw error
+    }
+  }
+
+  async createLab(lab) {
+    console.log('🔍 [DEBUG] createLab() called with data:', lab)
+
+    try {
+      this.ensureConnection()
+      console.log('✅ [DEBUG] Database connection ensured for createLab')
+
+      this.ensureLabTablesExist() // Ensure tables exist before inserting
+      console.log('✅ [DEBUG] Lab tables existence ensured for createLab')
+
+      const id = uuidv4()
+      const now = new Date().toISOString()
+      console.log('🆔 [DEBUG] Generated ID:', id, 'Timestamp:', now)
+
+      // Validate input data
+      if (!lab.name || lab.name.trim() === '') {
+        throw new Error('Lab name is required')
+      }
+      console.log('✅ [DEBUG] Lab data validation passed')
+
+      console.log('🧪 [DEBUG] Creating lab with data:', {
+        id,
+        name: lab.name,
+        contact_info: lab.contact_info,
+        address: lab.address,
+        created_at: now,
+        updated_at: now
+      })
+
+      const stmt = this.db.prepare(`
+        INSERT INTO labs (
+          id, name, contact_info, address, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      console.log('✅ [DEBUG] SQL statement prepared')
+
+      const result = stmt.run(
+        id, lab.name, lab.contact_info, lab.address, now, now
+      )
+      console.log('✅ [DEBUG] SQL statement executed. Result:', result)
+
+      console.log('✅ [DEBUG] Lab created successfully:', {
+        id,
+        changes: result.changes,
+        lastInsertRowid: result.lastInsertRowid
+      })
+
+      // Force WAL checkpoint to ensure data is written
+      console.log('💾 [DEBUG] Forcing WAL checkpoint...')
+      const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+      console.log('💾 [DEBUG] Checkpoint result:', checkpoint)
+
+      // Verify the lab was actually inserted
+      const verifyStmt = this.db.prepare('SELECT * FROM labs WHERE id = ?')
+      const insertedLab = verifyStmt.get(id)
+      console.log('🔍 [DEBUG] Verification - Lab found in database:', insertedLab)
+
+      const finalResult = { ...lab, id, created_at: now, updated_at: now }
+      console.log('📤 [DEBUG] Returning final result:', finalResult)
+
+      return finalResult
+    } catch (error) {
+      console.error('❌ [DEBUG] Error in createLab():', error)
+      console.error('❌ [DEBUG] Error stack:', error.stack)
+      throw error
+    }
+  }
+
+  async updateLab(id, updates) {
+    this.ensureConnection()
+    this.ensureLabTablesExist()
+
+    const now = new Date().toISOString()
+    const fields = Object.keys(updates).filter(key => key !== 'id')
+    const setClause = fields.map(field => `${field} = ?`).join(', ')
+    const values = fields.map(field => updates[field])
+
+    const stmt = this.db.prepare(`
+      UPDATE labs
+      SET ${setClause}, updated_at = ?
+      WHERE id = ?
+    `)
+
+    stmt.run(...values, now, id)
+    return { ...updates, id, updated_at: now }
+  }
+
+  async deleteLab(id) {
+    this.ensureConnection()
+    this.ensureLabTablesExist()
+
+    const stmt = this.db.prepare('DELETE FROM labs WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  async searchLabs(query) {
+    this.ensureConnection()
+    this.ensureLabTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM labs
+      WHERE name LIKE ? OR contact_info LIKE ? OR address LIKE ?
+      ORDER BY name
+    `)
+    const searchTerm = `%${query}%`
+    return stmt.all(searchTerm, searchTerm, searchTerm)
+  }
+
+  // Lab order operations
+  async getAllLabOrders() {
+    console.log('🔍 [DEBUG] getAllLabOrders() called')
+    this.ensureConnection()
+    this.ensureLabTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT
+        lo.*,
+        l.name as lab_name,
+        l.contact_info as lab_contact_info,
+        l.address as lab_address,
+        p.full_name as patient_name,
+        p.phone as patient_phone,
+        p.gender as patient_gender
+      FROM lab_orders lo
+      LEFT JOIN labs l ON lo.lab_id = l.id
+      LEFT JOIN patients p ON lo.patient_id = p.id
+      ORDER BY lo.order_date DESC
+    `)
+    const labOrders = stmt.all()
+    console.log('📊 [DEBUG] Raw lab orders from database:', labOrders.length)
+
+    // Add lab and patient objects for compatibility
+    return labOrders.map((order, index) => {
+      console.log(`🔍 [DEBUG] Processing lab order ${index + 1}:`, {
+        id: order.id,
+        lab_id: order.lab_id,
+        lab_name: order.lab_name,
+        service_name: order.service_name
+      })
+
+      const labOrder = {
+        id: order.id,
+        lab_id: order.lab_id,
+        patient_id: order.patient_id,
+        service_name: order.service_name,
+        cost: order.cost,
+        order_date: order.order_date,
+        status: order.status,
+        notes: order.notes,
+        paid_amount: order.paid_amount,
+        remaining_balance: order.remaining_balance,
+        created_at: order.created_at,
+        updated_at: order.updated_at
+      }
+
+      // Always create lab object, even if lab_name is null
+      labOrder.lab = {
+        id: order.lab_id,
+        name: order.lab_name || 'مختبر محذوف',
+        contact_info: order.lab_contact_info || '',
+        address: order.lab_address || '',
+        created_at: '',
+        updated_at: ''
+      }
+
+      if (order.patient_name) {
+        labOrder.patient = {
+          id: order.patient_id,
+          full_name: order.patient_name,
+          phone: order.patient_phone,
+          gender: order.patient_gender
+        }
+      }
+
+      console.log(`✅ [DEBUG] Processed lab order with lab name: "${labOrder.lab.name}"`)
+      return labOrder
+    })
+  }
+
+  async createLabOrder(labOrder) {
+    this.ensureConnection()
+    this.ensureLabTablesExist()
+
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    try {
+      console.log('🧪 Creating lab order:', {
+        lab_id: labOrder.lab_id,
+        patient_id: labOrder.patient_id,
+        service_name: labOrder.service_name,
+        cost: labOrder.cost,
+        status: labOrder.status
+      })
+
+      const stmt = this.db.prepare(`
+        INSERT INTO lab_orders (
+          id, lab_id, patient_id, service_name, cost, order_date, status,
+          notes, paid_amount, remaining_balance, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+
+      const result = stmt.run(
+        id, labOrder.lab_id, labOrder.patient_id, labOrder.service_name,
+        labOrder.cost, labOrder.order_date, labOrder.status,
+        labOrder.notes, labOrder.paid_amount || 0, labOrder.remaining_balance || labOrder.cost,
+        now, now
+      )
+
+      console.log('✅ Lab order created successfully:', { id, changes: result.changes })
+
+      // Force WAL checkpoint to ensure data is written
+      this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+      return { ...labOrder, id, created_at: now, updated_at: now }
+    } catch (error) {
+      console.error('❌ Failed to create lab order:', error)
+      throw error
+    }
+  }
+
+  async updateLabOrder(id, labOrder) {
+    this.ensureConnection()
+    this.ensureLabTablesExist()
+
+    const now = new Date().toISOString()
+
+    const stmt = this.db.prepare(`
+      UPDATE lab_orders SET
+        lab_id = COALESCE(?, lab_id),
+        patient_id = COALESCE(?, patient_id),
+        service_name = COALESCE(?, service_name),
+        cost = COALESCE(?, cost),
+        order_date = COALESCE(?, order_date),
+        status = COALESCE(?, status),
+        notes = COALESCE(?, notes),
+        paid_amount = COALESCE(?, paid_amount),
+        remaining_balance = COALESCE(?, remaining_balance),
+        updated_at = ?
+      WHERE id = ?
+    `)
+
+    stmt.run(
+      labOrder.lab_id, labOrder.patient_id, labOrder.service_name,
+      labOrder.cost, labOrder.order_date, labOrder.status,
+      labOrder.notes, labOrder.paid_amount, labOrder.remaining_balance,
+      now, id
+    )
+
+    return { ...labOrder, id, updated_at: now }
+  }
+
+  async deleteLabOrder(id) {
+    this.ensureConnection()
+    this.ensureLabTablesExist()
+
+    const stmt = this.db.prepare('DELETE FROM lab_orders WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  async searchLabOrders(query) {
+    this.ensureConnection()
+    this.ensureLabTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT
+        lo.*,
+        l.name as lab_name,
+        p.full_name as patient_name
+      FROM lab_orders lo
+      LEFT JOIN labs l ON lo.lab_id = l.id
+      LEFT JOIN patients p ON lo.patient_id = p.id
+      WHERE l.name LIKE ? OR p.full_name LIKE ? OR lo.service_name LIKE ?
+      ORDER BY lo.order_date DESC
+    `)
+    const searchTerm = `%${query}%`
+    return stmt.all(searchTerm, searchTerm, searchTerm)
   }
 }
 

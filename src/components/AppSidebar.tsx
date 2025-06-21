@@ -10,6 +10,7 @@ import {
   User2,
   Package,
   BarChart3,
+  TestTube,
 } from "lucide-react"
 
 import {
@@ -59,6 +60,11 @@ const navigationItems = [
     title: "المخزون",
     url: "inventory",
     icon: Package,
+  },
+  {
+    title: "المختبرات",
+    url: "labs",
+    icon: TestTube,
   },
   {
     title: "التقارير",

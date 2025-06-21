@@ -215,3 +215,43 @@ CREATE INDEX IF NOT EXISTS idx_installment_payments_payment ON installment_payme
 CREATE INDEX IF NOT EXISTS idx_installment_payments_due_date ON installment_payments(due_date);
 CREATE INDEX IF NOT EXISTS idx_installment_payments_status ON installment_payments(status);
 CREATE INDEX IF NOT EXISTS idx_installment_payments_due_status ON installment_payments(due_date, status);
+
+-- Laboratory tables
+-- Labs table for managing laboratory information
+CREATE TABLE IF NOT EXISTS labs (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    contact_info TEXT,
+    address TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Laboratory orders table for managing orders sent to laboratories
+CREATE TABLE IF NOT EXISTS lab_orders (
+    id TEXT PRIMARY KEY,
+    lab_id TEXT NOT NULL,
+    patient_id TEXT,
+    service_name TEXT NOT NULL,
+    cost REAL NOT NULL,
+    order_date TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('معلق', 'مكتمل', 'ملغي')),
+    notes TEXT,
+    paid_amount REAL DEFAULT 0,
+    remaining_balance REAL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (lab_id) REFERENCES labs(id) ON DELETE CASCADE,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL
+);
+
+-- Laboratory indexes for search and performance optimization
+CREATE INDEX IF NOT EXISTS idx_labs_name ON labs(name);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_lab ON lab_orders(lab_id);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_patient ON lab_orders(patient_id);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_date ON lab_orders(order_date);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_status ON lab_orders(status);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_service ON lab_orders(service_name);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_lab_date ON lab_orders(lab_id, order_date);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_patient_date ON lab_orders(patient_id, order_date);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_status_date ON lab_orders(status, order_date);

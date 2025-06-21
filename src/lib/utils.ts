@@ -89,17 +89,33 @@ function toArabicNumerals(num: number): string {
   return num.toString().split('').map(digit => arabicNumerals[parseInt(digit)]).join('')
 }
 
-export function formatDate(dateString: string | Date, format?: 'short' | 'long'): string {
-  const date = typeof dateString === 'string' ? new Date(dateString) : dateString
-  const day = date.getDate()
-  const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
-  const year = date.getFullYear()
+export function formatDate(dateString: string | Date | null | undefined, format?: 'short' | 'long'): string {
+  // Handle null, undefined, or empty string cases
+  if (!dateString) {
+    return '--'
+  }
 
-  // Format as DD/MM/YYYY
-  const formattedDay = day.toString().padStart(2, '0')
-  const formattedMonth = month.toString().padStart(2, '0')
+  try {
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString
 
-  return `${formattedDay}/${formattedMonth}/${year}`
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return '--'
+    }
+
+    const day = date.getDate()
+    const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
+    const year = date.getFullYear()
+
+    // Format as DD/MM/YYYY
+    const formattedDay = day.toString().padStart(2, '0')
+    const formattedMonth = month.toString().padStart(2, '0')
+
+    return `${formattedDay}/${formattedMonth}/${year}`
+  } catch (error) {
+    console.warn('Error formatting date:', error, 'Input:', dateString)
+    return '--'
+  }
 }
 
 // formatGregorianDate function - same as formatDate since we're using Gregorian calendar
@@ -107,33 +123,65 @@ export function formatGregorianDate(dateString: string | Date): string {
   return formatDate(dateString)
 }
 
-export function formatDateTime(dateString: string | Date): string {
-  const date = typeof dateString === 'string' ? new Date(dateString) : dateString
-  const day = date.getDate()
-  const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
-  const year = date.getFullYear()
+export function formatDateTime(dateString: string | Date | null | undefined): string {
+  // Handle null, undefined, or empty string cases
+  if (!dateString) {
+    return '--'
+  }
 
-  // Format date as DD/MM/YYYY
-  const formattedDay = day.toString().padStart(2, '0')
-  const formattedMonth = month.toString().padStart(2, '0')
-  const formattedDate = `${formattedDay}/${formattedMonth}/${year}`
+  try {
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString
 
-  const time = date.toLocaleTimeString('ar-SA', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  })
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return '--'
+    }
 
-  return `${formattedDate} - ${time}`
+    const day = date.getDate()
+    const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
+    const year = date.getFullYear()
+
+    // Format date as DD/MM/YYYY
+    const formattedDay = day.toString().padStart(2, '0')
+    const formattedMonth = month.toString().padStart(2, '0')
+    const formattedDate = `${formattedDay}/${formattedMonth}/${year}`
+
+    const time = date.toLocaleTimeString('ar-SA', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
+
+    return `${formattedDate} - ${time}`
+  } catch (error) {
+    console.warn('Error formatting date time:', error, 'Input:', dateString)
+    return '--'
+  }
 }
 
-export function formatTime(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleTimeString('ar-SA', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  })
+export function formatTime(dateString: string | null | undefined): string {
+  // Handle null, undefined, or empty string cases
+  if (!dateString) {
+    return '--'
+  }
+
+  try {
+    const date = new Date(dateString)
+
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return '--'
+    }
+
+    return date.toLocaleTimeString('ar-SA', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
+  } catch (error) {
+    console.warn('Error formatting time:', error, 'Input:', dateString)
+    return '--'
+  }
 }
 
 export function getCurrentGregorianDate(): string {

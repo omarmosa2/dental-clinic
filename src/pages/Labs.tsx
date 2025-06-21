@@ -1,0 +1,595 @@
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { useLabStore } from '@/store/labStore'
+import { useLabOrderStore } from '@/store/labOrderStore'
+import { usePatientStore } from '@/store/patientStore'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
+import { useRealTimeSync } from '@/hooks/useRealTimeSync'
+import { notify } from '@/services/notificationService'
+import LabTable from '@/components/labs/LabTable'
+import AddLabDialog from '@/components/labs/AddLabDialog'
+import DeleteLabDialog from '@/components/labs/DeleteLabDialog'
+import LabOrderTable from '@/components/labs/LabOrderTable'
+import AddLabOrderDialog from '@/components/labs/AddLabOrderDialog'
+import DeleteLabOrderDialog from '@/components/labs/DeleteLabOrderDialog'
+import {
+  Plus,
+  Search,
+  Filter,
+  Download,
+  RefreshCw,
+  TestTube,
+  Building2,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  ChevronDown,
+  X
+} from 'lucide-react'
+import type { Lab, LabOrder } from '@/types'
+
+export default function Labs() {
+  const { labs, loadLabs, isLoading: labsLoading } = useLabStore()
+  const {
+    labOrders,
+    filteredLabOrders,
+    totalOrders,
+    totalCost,
+    totalPaid,
+    totalRemaining,
+    pendingOrders,
+    completedOrders,
+    cancelledOrders,
+    loadLabOrders,
+    setSearchQuery: setOrderSearchQuery,
+    setStatusFilter,
+    setLabFilter,
+    setDateRangeFilter,
+    clearFilters,
+    isLoading: ordersLoading
+  } = useLabOrderStore()
+  const { patients, loadPatients } = usePatientStore()
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilterLocal] = useState('all')
+  const [labFilterLocal, setLabFilterLocal] = useState('all')
+  const [dateRange, setDateRange] = useState({ start: '', end: '' })
+  const [showFilters, setShowFilters] = useState(false)
+  const [showAddLabDialog, setShowAddLabDialog] = useState(false)
+  const [showAddOrderDialog, setShowAddOrderDialog] = useState(false)
+  const [showDeleteLabDialog, setShowDeleteLabDialog] = useState(false)
+  const [showDeleteOrderDialog, setShowDeleteOrderDialog] = useState(false)
+  const [editingLab, setEditingLab] = useState<Lab | null>(null)
+  const [deletingLab, setDeletingLab] = useState<Lab | null>(null)
+  const [editingOrder, setEditingOrder] = useState<LabOrder | null>(null)
+  const [deletingOrder, setDeletingOrder] = useState<LabOrder | null>(null)
+  const [activeTab, setActiveTab] = useState('orders')
+
+  // Enable real-time synchronization for automatic updates
+  useRealTimeSync()
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Load labs first, then lab orders to ensure proper lab name resolution
+        await loadLabs()
+        await loadLabOrders()
+        await loadPatients()
+      } catch (error) {
+        console.error('Error loading data:', error)
+      }
+    }
+    loadData()
+  }, [loadLabs, loadLabOrders, loadPatients])
+
+  // Sync search query with store
+  useEffect(() => {
+    if (activeTab === 'orders') {
+      setOrderSearchQuery(searchQuery)
+    }
+  }, [searchQuery, activeTab, setOrderSearchQuery])
+
+  // Sync filters with store
+  useEffect(() => {
+    setStatusFilter(statusFilter)
+  }, [statusFilter, setStatusFilter])
+
+  useEffect(() => {
+    setLabFilter(labFilterLocal)
+  }, [labFilterLocal, setLabFilter])
+
+  useEffect(() => {
+    setDateRangeFilter(dateRange)
+  }, [dateRange, setDateRangeFilter])
+
+  const handleExportCSV = async () => {
+    try {
+      let csvContent = ''
+      let filename = ''
+
+      if (activeTab === 'orders') {
+        // Export lab orders
+        const headers = [
+          'رقم الطلب',
+          'اسم المختبر',
+          'اسم الخدمة/التحليل',
+          'اسم المريض',
+          'التكلفة',
+          'المبلغ المدفوع',
+          'المبلغ المتبقي',
+          'تاريخ الطلب',
+          'الحالة',
+          'الملاحظات'
+        ]
+
+        csvContent = headers.join(',') + '\n'
+
+        filteredLabOrders.forEach((order, index) => {
+          const row = [
+            index + 1,
+            `"${order.lab?.name || 'غير محدد'}"`,
+            `"${order.service_name}"`,
+            `"${order.patient?.full_name || 'غير محدد'}"`,
+            order.cost,
+            order.paid_amount || 0,
+            order.remaining_balance || 0,
+            formatDate(order.order_date),
+            `"${order.status}"`,
+            `"${order.notes || ''}"`
+          ]
+          csvContent += row.join(',') + '\n'
+        })
+
+        filename = `lab-orders-${new Date().toISOString().split('T')[0]}.csv`
+      } else {
+        // Export labs
+        const headers = [
+          'اسم المختبر',
+          'معلومات الاتصال',
+          'العنوان',
+          'عدد الطلبات',
+          'تاريخ الإضافة'
+        ]
+
+        csvContent = headers.join(',') + '\n'
+
+        labs.forEach((lab) => {
+          const ordersCount = labOrders.filter(order => order.lab_id === lab.id).length
+          const row = [
+            `"${lab.name}"`,
+            `"${lab.contact_info || ''}"`,
+            `"${lab.address || ''}"`,
+            ordersCount,
+            formatDate(lab.created_at)
+          ]
+          csvContent += row.join(',') + '\n'
+        })
+
+        filename = `labs-${new Date().toISOString().split('T')[0]}.csv`
+      }
+
+      // Create and download file
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', filename)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      notify.success('تم تصدير البيانات بنجاح')
+    } catch (error) {
+      console.error('Export error:', error)
+      notify.error('فشل في تصدير البيانات')
+    }
+  }
+
+  const handleRefresh = async () => {
+    try {
+      await Promise.all([loadLabs(), loadLabOrders(), loadPatients()])
+      notify.success('تم تحديث البيانات بنجاح')
+    } catch (error) {
+      notify.error('فشل في تحديث البيانات')
+    }
+  }
+
+  const handleEditLab = (lab: Lab) => {
+    setEditingLab(lab)
+    setShowAddLabDialog(true)
+  }
+
+  const handleDeleteLab = (lab: Lab) => {
+    setDeletingLab(lab)
+    setShowDeleteLabDialog(true)
+  }
+
+  const handleAddNewLab = () => {
+    setEditingLab(null)
+    setShowAddLabDialog(true)
+  }
+
+  const handleCloseAddLabDialog = () => {
+    setShowAddLabDialog(false)
+    setEditingLab(null)
+  }
+
+  const handleCloseDeleteLabDialog = () => {
+    setShowDeleteLabDialog(false)
+    setDeletingLab(null)
+  }
+
+  const handleEditLabOrder = (order: LabOrder) => {
+    setEditingOrder(order)
+    setShowAddOrderDialog(true)
+  }
+
+  const handleDeleteLabOrder = (order: LabOrder) => {
+    setDeletingOrder(order)
+    setShowDeleteOrderDialog(true)
+  }
+
+  const handleAddNewLabOrder = () => {
+    setEditingOrder(null)
+    setShowAddOrderDialog(true)
+  }
+
+  const handleCloseAddOrderDialog = () => {
+    setShowAddOrderDialog(false)
+    setEditingOrder(null)
+  }
+
+  const handleCloseDeleteOrderDialog = () => {
+    setShowDeleteOrderDialog(false)
+    setDeletingOrder(null)
+  }
+
+  const handleClearFilters = () => {
+    setSearchQuery('')
+    setStatusFilterLocal('all')
+    setLabFilterLocal('all')
+    setDateRange({ start: '', end: '' })
+    clearFilters()
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'معلق':
+        return (
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+            <Clock className="w-3 h-3 mr-1" />
+            معلق
+          </Badge>
+        )
+      case 'مكتمل':
+        return (
+          <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            مكتمل
+          </Badge>
+        )
+      case 'ملغي':
+        return (
+          <Badge variant="destructive">
+            <XCircle className="w-3 h-3 mr-1" />
+            ملغي
+          </Badge>
+        )
+      default:
+        return <Badge variant="outline">{status}</Badge>
+    }
+  }
+
+  return (
+    <div className="space-y-6 p-6" dir="rtl">
+      {/* Header */}
+      <div className="flex items-center justify-between" dir="rtl">
+        <div className="text-right">
+          <h1 className="text-3xl font-bold text-foreground">إدارة المختبرات</h1>
+          <p className="text-muted-foreground">
+            إدارة المختبرات وطلبات التحاليل والفحوصات
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={labsLoading || ordersLoading}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${(labsLoading || ordersLoading) ? 'animate-spin' : ''}`} />
+            تحديث
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            تصدير CSV
+          </Button>
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" dir="rtl">
+        {/* Total Orders */}
+        <Card className={getCardStyles('blue')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2" dir="rtl">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي الطلبات</CardTitle>
+            <TestTube className={`h-4 w-4 ${getIconStyles('blue')}`} />
+          </CardHeader>
+          <CardContent className="text-right">
+            <div className="text-2xl font-bold text-foreground">{totalOrders}</div>
+            <p className="text-xs text-muted-foreground">
+              جميع طلبات المختبرات
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total Cost */}
+        <Card className={getCardStyles('green')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2" dir="rtl">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي التكلفة</CardTitle>
+            <DollarSign className={`h-4 w-4 ${getIconStyles('green')}`} />
+          </CardHeader>
+          <CardContent className="text-right">
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(totalCost)}</div>
+            <p className="text-xs text-muted-foreground">
+              تكلفة جميع الطلبات
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Pending Orders */}
+        <Card className={getCardStyles('yellow')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2" dir="rtl">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">طلبات معلقة</CardTitle>
+            <Clock className={`h-4 w-4 ${getIconStyles('yellow')}`} />
+          </CardHeader>
+          <CardContent className="text-right">
+            <div className="text-2xl font-bold text-foreground">{pendingOrders}</div>
+            <p className="text-xs text-muted-foreground">
+              في انتظار الإنجاز
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Completed Orders */}
+        <Card className={getCardStyles('emerald')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2" dir="rtl">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">طلبات مكتملة</CardTitle>
+            <CheckCircle className={`h-4 w-4 ${getIconStyles('emerald')}`} />
+          </CardHeader>
+          <CardContent className="text-right">
+            <div className="text-2xl font-bold text-foreground">{completedOrders}</div>
+            <p className="text-xs text-muted-foreground">
+              تم إنجازها بنجاح
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4" dir="rtl">
+        <div className="flex items-center justify-between" dir="rtl">
+          <TabsList className="grid w-fit grid-cols-2">
+            <TabsTrigger value="orders" className="flex items-center gap-2">
+              <TestTube className="w-4 h-4" />
+              طلبات المختبرات
+            </TabsTrigger>
+            <TabsTrigger value="labs" className="flex items-center gap-2">
+              <Building2 className="w-4 h-4" />
+              إدارة المختبرات
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex items-center gap-2">
+            {activeTab === 'orders' && (
+              <Button onClick={handleAddNewLabOrder}>
+                <Plus className="w-4 h-4 mr-2" />
+                طلب جديد
+              </Button>
+            )}
+            {activeTab === 'labs' && (
+              <Button onClick={handleAddNewLab}>
+                <Plus className="w-4 h-4 mr-2" />
+                مختبر جديد
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="space-y-4" dir="rtl">
+          <div className="flex items-center gap-4" dir="rtl">
+            <div className="relative flex-1">
+              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder={activeTab === 'orders' ? 'البحث في طلبات المختبرات...' : 'البحث في المختبرات...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10 text-right"
+                dir="rtl"
+              />
+            </div>
+            {activeTab === 'orders' && (
+              <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Filter className="w-4 h-4 mr-2" />
+                    تصفية
+                    <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
+              </Collapsible>
+            )}
+            {(statusFilter || labFilterLocal || dateRange.start || dateRange.end) && (
+              <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                <X className="w-4 h-4 mr-2" />
+                مسح التصفية
+              </Button>
+            )}
+          </div>
+
+          {/* Advanced Filters */}
+          {activeTab === 'orders' && (
+            <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+              <CollapsibleContent className="space-y-4" dir="rtl">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg" dir="rtl">
+                  {/* Status Filter */}
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">الحالة</label>
+                    <Select value={statusFilter} onValueChange={setStatusFilterLocal} dir="rtl">
+                      <SelectTrigger className="text-right">
+                        <SelectValue placeholder="جميع الحالات" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">جميع الحالات</SelectItem>
+                        <SelectItem value="معلق">معلق</SelectItem>
+                        <SelectItem value="مكتمل">مكتمل</SelectItem>
+                        <SelectItem value="ملغي">ملغي</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Lab Filter */}
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">المختبر</label>
+                    <Select value={labFilterLocal} onValueChange={setLabFilterLocal} dir="rtl">
+                      <SelectTrigger className="text-right">
+                        <SelectValue placeholder="جميع المختبرات" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">جميع المختبرات</SelectItem>
+                        {labs.map((lab) => (
+                          <SelectItem key={lab.id} value={lab.id}>
+                            {lab.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Date Range Filter */}
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">من تاريخ</label>
+                    <Input
+                      type="date"
+                      value={dateRange.start}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                      className="text-right"
+                      dir="rtl"
+                    />
+                  </div>
+
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">إلى تاريخ</label>
+                    <Input
+                      type="date"
+                      value={dateRange.end}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                      className="text-right"
+                      dir="rtl"
+                    />
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </div>
+
+        {/* Lab Orders Tab */}
+        <TabsContent value="orders" className="space-y-4" dir="rtl">
+          <Card>
+            <CardHeader dir="rtl">
+              <CardTitle className="flex items-center gap-2 text-right">
+                <TestTube className="w-5 h-5" />
+                طلبات المختبرات
+              </CardTitle>
+              <CardDescription className="text-right">
+                إدارة جميع طلبات التحاليل والفحوصات المرسلة للمختبرات
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LabOrderTable
+                labOrders={filteredLabOrders}
+                onEdit={handleEditLabOrder}
+                onDelete={handleDeleteLabOrder}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Labs Management Tab */}
+        <TabsContent value="labs" className="space-y-4" dir="rtl">
+          <Card>
+            <CardHeader dir="rtl">
+              <CardTitle className="flex items-center gap-2 text-right">
+                <Building2 className="w-5 h-5" />
+                إدارة المختبرات
+              </CardTitle>
+              <CardDescription className="text-right">
+                إدارة معلومات المختبرات المتعاونة
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LabTable
+                labs={labs}
+                onEdit={handleEditLab}
+                onDelete={handleDeleteLab}
+                searchQuery={searchQuery}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Dialogs */}
+      <AddLabDialog
+        open={showAddLabDialog}
+        onOpenChange={handleCloseAddLabDialog}
+        editingLab={editingLab}
+      />
+
+      <DeleteLabDialog
+        open={showDeleteLabDialog}
+        onOpenChange={handleCloseDeleteLabDialog}
+        lab={deletingLab}
+      />
+
+      <AddLabOrderDialog
+        open={showAddOrderDialog}
+        onOpenChange={handleCloseAddOrderDialog}
+        editingOrder={editingOrder}
+      />
+
+      <DeleteLabOrderDialog
+        open={showDeleteOrderDialog}
+        onOpenChange={handleCloseDeleteOrderDialog}
+        labOrder={deletingOrder}
+      />
+    </div>
+  )
+}

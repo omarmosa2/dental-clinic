@@ -255,7 +255,7 @@ export default function UsageDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">بدون موعد محدد</SelectItem>
+                      <SelectItem value="none">بدون موعد محدد</SelectItem>
                       {todayAppointments.map((appointment) => (
                         <SelectItem key={appointment.id} value={appointment.id}>
                           {appointment.title} - {appointment.patient?.first_name} {appointment.patient?.last_name}

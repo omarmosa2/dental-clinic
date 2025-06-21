@@ -356,6 +356,116 @@ ipcMain.handle('dialog:showSaveDialog', async (_, options) => {
   return result
 })
 
+// Lab IPC Handlers
+ipcMain.handle('db:labs:getAll', async () => {
+  try {
+    return await databaseService.getAllLabs()
+  } catch (error) {
+    console.error('Error getting all labs:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:labs:create', async (_, lab) => {
+  try {
+    console.log('Creating lab:', lab)
+    const result = await databaseService.createLab(lab)
+    console.log('Lab created successfully:', result.id)
+    return result
+  } catch (error) {
+    console.error('Error creating lab:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:labs:update', async (_, id, lab) => {
+  try {
+    console.log('Updating lab:', id, lab)
+    const result = await databaseService.updateLab(id, lab)
+    console.log('Lab updated successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error updating lab:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:labs:delete', async (_, id) => {
+  try {
+    console.log('Deleting lab:', id)
+    const result = await databaseService.deleteLab(id)
+    console.log('Lab deleted successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error deleting lab:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:labs:search', async (_, query) => {
+  try {
+    return await databaseService.searchLabs(query)
+  } catch (error) {
+    console.error('Error searching labs:', error)
+    throw error
+  }
+})
+
+// Lab Order IPC Handlers
+ipcMain.handle('db:labOrders:getAll', async () => {
+  try {
+    return await databaseService.getAllLabOrders()
+  } catch (error) {
+    console.error('Error getting all lab orders:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:labOrders:create', async (_, labOrder) => {
+  try {
+    console.log('Creating lab order:', labOrder)
+    const result = await databaseService.createLabOrder(labOrder)
+    console.log('Lab order created successfully:', result.id)
+    return result
+  } catch (error) {
+    console.error('Error creating lab order:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:labOrders:update', async (_, id, labOrder) => {
+  try {
+    console.log('Updating lab order:', id, labOrder)
+    const result = await databaseService.updateLabOrder(id, labOrder)
+    console.log('Lab order updated successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error updating lab order:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:labOrders:delete', async (_, id) => {
+  try {
+    console.log('Deleting lab order:', id)
+    const result = await databaseService.deleteLabOrder(id)
+    console.log('Lab order deleted successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error deleting lab order:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:labOrders:search', async (_, query) => {
+  try {
+    return await databaseService.searchLabOrders(query)
+  } catch (error) {
+    console.error('Error searching lab orders:', error)
+    throw error
+  }
+})
+
 // Settings IPC Handlers
 ipcMain.handle('settings:get', async () => {
   return await databaseService.getSettings()
