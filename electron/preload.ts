@@ -105,6 +105,28 @@ export interface ElectronAPI {
     delete: (id: string) => Promise<boolean>
     search: (query: string) => Promise<any[]>
   }
+
+  // Dental Treatment operations
+  dentalTreatments: {
+    getAll: () => Promise<any[]>
+    getByPatient: (patientId: string) => Promise<any[]>
+    create: (treatment: any) => Promise<any>
+    update: (id: string, treatment: any) => Promise<any>
+    delete: (id: string) => Promise<boolean>
+  }
+
+  // Dental Treatment Images operations
+  dentalTreatmentImages: {
+    getAll: () => Promise<any[]>
+    getByTreatment: (treatmentId: string) => Promise<any[]>
+    create: (image: any) => Promise<any>
+    delete: (id: string) => Promise<boolean>
+  }
+
+  // File operations
+  files: {
+    uploadDentalImage: (fileBuffer: ArrayBuffer, fileName: string, patientId: string, toothNumber: number) => Promise<string>
+  }
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -200,9 +222,36 @@ const electronAPI: ElectronAPI = {
     delete: (id) => ipcRenderer.invoke('db:prescriptions:delete', id),
     search: (query) => ipcRenderer.invoke('db:prescriptions:search', query),
   },
+
+  dentalTreatments: {
+    getAll: () => ipcRenderer.invoke('db:dentalTreatments:getAll'),
+    getByPatient: (patientId) => ipcRenderer.invoke('db:dentalTreatments:getByPatient', patientId),
+    create: (treatment) => ipcRenderer.invoke('db:dentalTreatments:create', treatment),
+    update: (id, treatment) => ipcRenderer.invoke('db:dentalTreatments:update', id, treatment),
+    delete: (id) => ipcRenderer.invoke('db:dentalTreatments:delete', id),
+  },
+
+  dentalTreatmentImages: {
+    getAll: () => ipcRenderer.invoke('db:dentalTreatmentImages:getAll'),
+    getByTreatment: (treatmentId) => ipcRenderer.invoke('db:dentalTreatmentImages:getByTreatment', treatmentId),
+    create: (image) => ipcRenderer.invoke('db:dentalTreatmentImages:create', image),
+    delete: (id) => ipcRenderer.invoke('db:dentalTreatmentImages:delete', id),
+  },
+
+  files: {
+    uploadDentalImage: (fileBuffer, fileName, patientId, toothNumber) =>
+      ipcRenderer.invoke('files:uploadDentalImage', fileBuffer, fileName, patientId, toothNumber),
+    saveDentalImage: (base64Data, fileName, patientId, toothNumber) =>
+      ipcRenderer.invoke('files:saveDentalImage', base64Data, fileName, patientId, toothNumber),
+  },
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)
+
+// Debug: Log available APIs
+console.log('Preload: electronAPI exposed with keys:', Object.keys(electronAPI))
+console.log('Preload: files API available:', !!electronAPI.files)
+console.log('Preload: uploadDentalImage available:', !!electronAPI.files?.uploadDentalImage)
 
 // Type declaration for global window object
 declare global {

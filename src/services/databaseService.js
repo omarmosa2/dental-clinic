@@ -287,20 +287,135 @@ class DatabaseService {
 
           PRAGMA foreign_keys = ON;
         `
+      },
+      {
+        version: 8,
+        sql: `
+          -- Fix dental_treatment_images table structure
+          -- Remove tooth_record_id field and ensure correct schema
+
+          PRAGMA foreign_keys = OFF;
+
+          -- Check if dental_treatment_images table has tooth_record_id column
+          CREATE TABLE IF NOT EXISTS dental_treatment_images_backup AS
+          SELECT * FROM dental_treatment_images;
+
+          -- Drop the old table
+          DROP TABLE IF EXISTS dental_treatment_images;
+
+          -- Create new table with correct structure (no tooth_record_id)
+          CREATE TABLE dental_treatment_images (
+            id TEXT PRIMARY KEY,
+            dental_treatment_id TEXT NOT NULL,
+            patient_id TEXT NOT NULL,
+            tooth_number INTEGER NOT NULL,
+            image_path TEXT NOT NULL,
+            image_type TEXT NOT NULL,
+            description TEXT,
+            taken_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (dental_treatment_id) REFERENCES dental_treatments(id) ON DELETE CASCADE,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+          );
+
+          -- Migrate data from backup table (if any exists and has valid data)
+          INSERT INTO dental_treatment_images (
+            id, dental_treatment_id, patient_id, tooth_number, image_path,
+            image_type, description, taken_date, created_at, updated_at
+          )
+          SELECT
+            id, dental_treatment_id, patient_id, tooth_number, image_path,
+            image_type, description, taken_date, created_at, updated_at
+          FROM dental_treatment_images_backup
+          WHERE dental_treatment_id IS NOT NULL
+            AND patient_id IS NOT NULL
+            AND tooth_number IS NOT NULL
+            AND image_path IS NOT NULL
+            AND image_type IS NOT NULL;
+
+          -- Drop backup table
+          DROP TABLE IF EXISTS dental_treatment_images_backup;
+
+          PRAGMA foreign_keys = ON;
+        `
       }
     ]
 
     migrations.forEach(migration => {
       if (version < migration.version) {
         try {
+          console.log(`🔄 Applying migration version ${migration.version}`)
           this.db.exec(migration.sql)
           this.db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(migration.version)
-          console.log(`Applied migration version ${migration.version}`)
+          console.log(`✅ Applied migration version ${migration.version}`)
         } catch (error) {
-          console.warn(`Migration ${migration.version} warning:`, error.message)
+          console.warn(`❌ Migration ${migration.version} warning:`, error.message)
         }
       }
     })
+
+    // Force check for dental_treatment_images table structure and apply migration 8 if needed
+    try {
+      const imageTableColumns = this.db.prepare("PRAGMA table_info(dental_treatment_images)").all()
+      const imageColumnNames = imageTableColumns.map(col => col.name)
+      console.log('🔍 [DEBUG] Current dental_treatment_images columns:', imageColumnNames)
+
+      if (imageColumnNames.includes('tooth_record_id')) {
+        console.log('🔄 Force applying migration 8: Fix dental_treatment_images table structure')
+
+        // Apply migration 8 SQL directly
+        this.db.exec(`
+          PRAGMA foreign_keys = OFF;
+
+          CREATE TABLE IF NOT EXISTS dental_treatment_images_backup AS
+          SELECT * FROM dental_treatment_images;
+
+          DROP TABLE IF EXISTS dental_treatment_images;
+
+          CREATE TABLE dental_treatment_images (
+            id TEXT PRIMARY KEY,
+            dental_treatment_id TEXT NOT NULL,
+            patient_id TEXT NOT NULL,
+            tooth_number INTEGER NOT NULL,
+            image_path TEXT NOT NULL,
+            image_type TEXT NOT NULL,
+            description TEXT,
+            taken_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (dental_treatment_id) REFERENCES dental_treatments(id) ON DELETE CASCADE,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+          );
+
+          INSERT INTO dental_treatment_images (
+            id, dental_treatment_id, patient_id, tooth_number, image_path,
+            image_type, description, taken_date, created_at, updated_at
+          )
+          SELECT
+            id, dental_treatment_id, patient_id, tooth_number, image_path,
+            image_type, description, taken_date, created_at, updated_at
+          FROM dental_treatment_images_backup
+          WHERE dental_treatment_id IS NOT NULL
+            AND patient_id IS NOT NULL
+            AND tooth_number IS NOT NULL
+            AND image_path IS NOT NULL
+            AND image_type IS NOT NULL;
+
+          DROP TABLE IF EXISTS dental_treatment_images_backup;
+
+          PRAGMA foreign_keys = ON;
+        `)
+
+        // Record that migration 8 was applied
+        this.db.prepare('INSERT OR REPLACE INTO schema_version (version) VALUES (?)').run(8)
+        console.log('✅ Force applied migration 8: dental_treatment_images table fixed')
+      } else {
+        console.log('✅ dental_treatment_images table structure is correct')
+      }
+    } catch (error) {
+      console.error('❌ Error checking/fixing dental_treatment_images table:', error.message)
+    }
   }
 
   ensureLabTablesExist() {
@@ -2435,13 +2550,18 @@ class DatabaseService {
 
     const stmt = this.db.prepare(`
       INSERT INTO dental_treatment_images (
-        id, dental_treatment_id, image_type, image_path, description, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?)
+        id, dental_treatment_id, patient_id, tooth_number, image_path,
+        image_type, description, taken_date, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
-    stmt.run(id, image.dental_treatment_id, image.image_type, image.image_path, image.description, now)
+    stmt.run(
+      id, image.dental_treatment_id, image.patient_id, image.tooth_number,
+      image.image_path, image.image_type, image.description,
+      image.taken_date || now, now, now
+    )
 
-    return { ...image, id, created_at: now }
+    return { ...image, id, taken_date: image.taken_date || now, created_at: now, updated_at: now }
   }
 
   async updateDentalTreatmentImage(id, updates) {

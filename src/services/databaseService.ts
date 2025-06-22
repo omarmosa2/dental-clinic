@@ -342,6 +342,151 @@ export class DatabaseService {
           console.log('✅ Migration 5 completed successfully')
         }
 
+        // Migration 6: Fix dental_treatment_images table structure
+        if (!appliedMigrations.has(6)) {
+          console.log('🔄 Applying migration 6: Fix dental_treatment_images table structure')
+
+          // Check if dental_treatment_images table has tooth_record_id column
+          const imageTableColumns = this.db.prepare("PRAGMA table_info(dental_treatment_images)").all() as any[]
+          const imageColumnNames = imageTableColumns.map(col => col.name)
+
+          if (imageColumnNames.includes('tooth_record_id')) {
+            // Drop the old table and recreate it with correct structure
+            this.db.exec('DROP TABLE IF EXISTS dental_treatment_images_backup')
+            this.db.exec('ALTER TABLE dental_treatment_images RENAME TO dental_treatment_images_backup')
+
+            // Create new table with correct structure
+            this.db.exec(`
+              CREATE TABLE dental_treatment_images (
+                id TEXT PRIMARY KEY,
+                dental_treatment_id TEXT NOT NULL,
+                patient_id TEXT NOT NULL,
+                tooth_number INTEGER NOT NULL,
+                image_path TEXT NOT NULL,
+                image_type TEXT NOT NULL,
+                description TEXT,
+                taken_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (dental_treatment_id) REFERENCES dental_treatments(id) ON DELETE CASCADE,
+                FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+              )
+            `)
+
+            // Migrate data from backup table (if any exists)
+            try {
+              this.db.exec(`
+                INSERT INTO dental_treatment_images (
+                  id, dental_treatment_id, patient_id, tooth_number, image_path,
+                  image_type, description, taken_date, created_at, updated_at
+                )
+                SELECT
+                  id, dental_treatment_id, patient_id, tooth_number, image_path,
+                  image_type, description, taken_date, created_at, updated_at
+                FROM dental_treatment_images_backup
+                WHERE dental_treatment_id IS NOT NULL
+              `)
+            } catch (error) {
+              console.log('No data to migrate from backup table')
+            }
+
+            // Drop backup table
+            this.db.exec('DROP TABLE IF EXISTS dental_treatment_images_backup')
+          }
+
+          // Recreate indexes
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_treatment ON dental_treatment_images(dental_treatment_id)')
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_patient ON dental_treatment_images(patient_id)')
+
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(6, 'Fix dental_treatment_images table structure')
+          console.log('✅ Migration 6 completed successfully')
+        }
+
+        // Migration 7: Force recreate dental_treatment_images table
+        if (!appliedMigrations.has(7)) {
+          console.log('🔄 Applying migration 7: Force recreate dental_treatment_images table')
+
+          // Always recreate the table to ensure correct structure
+          this.db.exec('DROP TABLE IF EXISTS dental_treatment_images_backup')
+
+          // Check if table exists
+          const tables = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='dental_treatment_images'").all() as { name: string }[]
+
+          if (tables.length > 0) {
+            // Backup existing data
+            this.db.exec('CREATE TABLE dental_treatment_images_backup AS SELECT * FROM dental_treatment_images')
+
+            // Drop the old table
+            this.db.exec('DROP TABLE dental_treatment_images')
+          }
+
+          // Create new table with correct structure
+          this.db.exec(`
+            CREATE TABLE dental_treatment_images (
+              id TEXT PRIMARY KEY,
+              dental_treatment_id TEXT NOT NULL,
+              patient_id TEXT NOT NULL,
+              tooth_number INTEGER NOT NULL,
+              image_path TEXT NOT NULL,
+              image_type TEXT NOT NULL,
+              description TEXT,
+              taken_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (dental_treatment_id) REFERENCES dental_treatments(id) ON DELETE CASCADE,
+              FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+            )
+          `)
+
+          // Migrate data from backup table (if any exists)
+          try {
+            const backupTables = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='dental_treatment_images_backup'").all() as { name: string }[]
+            if (backupTables.length > 0) {
+              // Check what columns exist in backup
+              const backupColumns = this.db.prepare("PRAGMA table_info(dental_treatment_images_backup)").all() as any[]
+              const backupColumnNames = backupColumns.map(col => col.name)
+
+              // Only migrate if we have the required columns
+              if (backupColumnNames.includes('dental_treatment_id') &&
+                  backupColumnNames.includes('patient_id') &&
+                  backupColumnNames.includes('tooth_number') &&
+                  backupColumnNames.includes('image_path') &&
+                  backupColumnNames.includes('image_type')) {
+
+                this.db.exec(`
+                  INSERT INTO dental_treatment_images (
+                    id, dental_treatment_id, patient_id, tooth_number, image_path,
+                    image_type, description, taken_date, created_at, updated_at
+                  )
+                  SELECT
+                    id, dental_treatment_id, patient_id, tooth_number, image_path,
+                    image_type, description, taken_date, created_at, updated_at
+                  FROM dental_treatment_images_backup
+                  WHERE dental_treatment_id IS NOT NULL
+                    AND patient_id IS NOT NULL
+                    AND tooth_number IS NOT NULL
+                    AND image_path IS NOT NULL
+                    AND image_type IS NOT NULL
+                `)
+                console.log('✅ Data migrated from backup table')
+              }
+            }
+          } catch (error) {
+            console.log('No data to migrate from backup table:', error.message)
+          }
+
+          // Drop backup table
+          this.db.exec('DROP TABLE IF EXISTS dental_treatment_images_backup')
+
+          // Recreate indexes
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_treatment ON dental_treatment_images(dental_treatment_id)')
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_patient ON dental_treatment_images(patient_id)')
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_tooth ON dental_treatment_images(tooth_number)')
+
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(7, 'Force recreate dental_treatment_images table')
+          console.log('✅ Migration 7 completed successfully')
+        }
+
       } catch (error) {
         console.error('❌ Migration failed:', error)
         // Record failed migration

@@ -138,7 +138,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   files: {
     selectFile: (options) => ipcRenderer.invoke('dialog:selectFile', options),
     selectDirectory: (options) => ipcRenderer.invoke('dialog:selectDirectory', options),
-    saveFile: (options) => ipcRenderer.invoke('dialog:saveFile', options)
+    saveFile: (options) => ipcRenderer.invoke('dialog:saveFile', options),
+    uploadDentalImage: (fileBuffer, fileName, patientId, toothNumber, imageType, patientName, toothName) => ipcRenderer.invoke('files:uploadDentalImage', fileBuffer, fileName, patientId, toothNumber, imageType, patientName, toothName),
+    saveDentalImage: (base64Data, fileName, patientId, toothNumber, imageType, patientName, toothName) => ipcRenderer.invoke('files:saveDentalImage', base64Data, fileName, patientId, toothNumber, imageType, patientName, toothName),
+    getDentalImage: (imagePath) => ipcRenderer.invoke('files:getDentalImage', imagePath),
+    checkImageExists: (imagePath) => ipcRenderer.invoke('files:checkImageExists', imagePath)
   },
 
   // Export operations

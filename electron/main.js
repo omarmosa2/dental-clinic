@@ -2163,4 +2163,186 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
   }
 })
 
+// File serving IPC Handlers
+ipcMain.handle('files:getDentalImage', async (_, imagePath) => {
+  try {
+    console.log('Getting dental image:', imagePath)
+    const fs = require('fs')
+    const path = require('path')
+
+    // Try different possible paths
+    let fullPath
+
+    // First try: userData directory (primary storage)
+    const userDataPath = path.join(app.getPath('userData'), imagePath)
+    if (fs.existsSync(userDataPath)) {
+      fullPath = userDataPath
+    } else {
+      // Second try: public/upload directory (fallback)
+      const publicPath = path.join(__dirname, '..', 'public', 'upload', imagePath)
+      if (fs.existsSync(publicPath)) {
+        fullPath = publicPath
+      } else {
+        // Third try: relative to project root
+        const relativePath = path.join(__dirname, '..', imagePath)
+        if (fs.existsSync(relativePath)) {
+          fullPath = relativePath
+        } else {
+          throw new Error(`Image not found: ${imagePath}`)
+        }
+      }
+    }
+
+    console.log('Found image at:', fullPath)
+
+    // Read file and convert to base64
+    const imageBuffer = fs.readFileSync(fullPath)
+    const base64 = imageBuffer.toString('base64')
+
+    // Determine MIME type based on file extension
+    const ext = path.extname(fullPath).toLowerCase()
+    let mimeType = 'image/jpeg' // default
+
+    switch (ext) {
+      case '.png':
+        mimeType = 'image/png'
+        break
+      case '.gif':
+        mimeType = 'image/gif'
+        break
+      case '.webp':
+        mimeType = 'image/webp'
+        break
+      case '.bmp':
+        mimeType = 'image/bmp'
+        break
+      case '.jpg':
+      case '.jpeg':
+      default:
+        mimeType = 'image/jpeg'
+        break
+    }
+
+    // Return data URL
+    const dataUrl = `data:${mimeType};base64,${base64}`
+    console.log('Returning image data URL, size:', dataUrl.length)
+
+    return dataUrl
+  } catch (error) {
+    console.error('Error getting dental image:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('files:checkImageExists', async (_, imagePath) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+
+    // Check different possible paths
+    const userDataPath = path.join(app.getPath('userData'), imagePath)
+    const publicPath = path.join(__dirname, '..', 'public', 'upload', imagePath)
+    const relativePath = path.join(__dirname, '..', imagePath)
+
+    return fs.existsSync(userDataPath) || fs.existsSync(publicPath) || fs.existsSync(relativePath)
+  } catch (error) {
+    console.error('Error checking image exists:', error)
+    return false
+  }
+})
+
+// File Upload Handler for Dental Images
+ipcMain.handle('files:uploadDentalImage', async (_, fileBuffer, fileName, patientId, toothNumber, imageType, patientName, toothName) => {
+  try {
+    console.log('Uploading dental image:', { fileName, patientId, toothNumber, imageType, patientName, toothName, bufferSize: fileBuffer.byteLength })
+
+    const fs = require('fs')
+    const path = require('path')
+
+    // Create upload directory organized by patient name, then image type
+    const cleanPatientName = (patientName || `Patient_${patientId}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+    const uploadDir = path.join(app.getPath('userData'), 'dental_images', cleanPatientName, imageType || 'other')
+    console.log('Upload directory:', uploadDir)
+
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true })
+      console.log('Created upload directory:', uploadDir)
+    }
+
+    // Generate meaningful filename: ToothName.extension (with timestamp if needed)
+    const extension = path.extname(fileName) || '.jpg'
+    const timestamp = Date.now()
+
+    // Clean tooth name for filename
+    const cleanToothName = (toothName || `Tooth_${toothNumber}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+
+    // Create filename: ToothName-Timestamp.extension (timestamp to avoid conflicts)
+    const meaningfulFileName = `${cleanToothName}-${timestamp}${extension}`
+    const filePath = path.join(uploadDir, meaningfulFileName)
+
+    console.log('Saving file to:', filePath)
+    console.log('Generated filename:', meaningfulFileName)
+    console.log('Patient folder:', cleanPatientName)
+    console.log('Image type folder:', imageType || 'other')
+
+    // Convert ArrayBuffer to Buffer and write file to disk
+    const buffer = Buffer.from(fileBuffer)
+    fs.writeFileSync(filePath, buffer)
+
+    // Return relative path for database storage
+    const relativePath = `dental_images/${cleanPatientName}/${imageType || 'other'}/${meaningfulFileName}`
+    console.log('Dental image uploaded successfully:', relativePath)
+
+    return relativePath
+  } catch (error) {
+    console.error('Error uploading dental image:', error)
+    throw error
+  }
+})
+
+// Alternative simpler upload handler
+ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientId, toothNumber, imageType, patientName, toothName) => {
+  try {
+    console.log('Saving dental image (base64):', { fileName, patientId, toothNumber, imageType, patientName, toothName })
+
+    const fs = require('fs')
+    const path = require('path')
+
+    // Create upload directory organized by image type in public/upload (fallback)
+    const uploadDir = path.join(__dirname, '..', 'public', 'upload', 'dental_images', imageType || 'other')
+    console.log('Upload directory:', uploadDir)
+
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true })
+      console.log('Created upload directory:', uploadDir)
+    }
+
+    // Generate meaningful filename: PatientName-ToothName.extension
+    const extension = path.extname(fileName) || '.jpg'
+    const timestamp = Date.now()
+
+    // Clean patient name and tooth name for filename
+    const cleanPatientName = (patientName || `Patient_${patientId}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+    const cleanToothName = (toothName || `Tooth_${toothNumber}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+
+    // Create filename: PatientName-ToothName-Timestamp.extension
+    const meaningfulFileName = `${cleanPatientName}-${cleanToothName}-${timestamp}${extension}`
+    const filePath = path.join(uploadDir, meaningfulFileName)
+
+    // Remove data URL prefix if present
+    const base64 = base64Data.replace(/^data:image\/[a-z]+;base64,/, '')
+
+    // Write file to disk
+    fs.writeFileSync(filePath, base64, 'base64')
+
+    // Return relative path for database storage
+    const relativePath = `dental_images/${imageType || 'other'}/${meaningfulFileName}`
+    console.log('Dental image saved successfully:', relativePath)
+
+    return relativePath
+  } catch (error) {
+    console.error('Error saving dental image:', error)
+    throw error
+  }
+})
 

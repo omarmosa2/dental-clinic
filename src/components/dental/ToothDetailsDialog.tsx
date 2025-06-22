@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import './dental-images.css'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ import {
   Upload,
   Image as ImageIcon
 } from 'lucide-react'
+import DentalImage from './DentalImage'
 
 // دالة مساعدة لتنظيف قيم treatment_status
 const cleanTreatmentStatus = (status: string): string => {
@@ -84,7 +86,7 @@ export default function ToothDetailsDialog({
 
   const [isLoading, setIsLoading] = useState(false)
   const [treatmentData, setTreatmentData] = useState<Partial<DentalTreatment>>({})
-  const [selectedImages, setSelectedImages] = useState<File[]>([])
+  const [selectedImages, setSelectedImages] = useState<Array<{file: File, type: string}>>([])
 
   const patient = patients.find(p => p.id === patientId)
   const toothInfo = toothNumber ? getToothInfo(toothNumber) : null
@@ -99,6 +101,11 @@ export default function ToothDetailsDialog({
 
   useEffect(() => {
     if (open && patientId && toothNumber) {
+      // Debug: Check if Electron API is available
+      console.log('ToothDetailsDialog: window.electronAPI available:', !!window.electronAPI)
+      console.log('ToothDetailsDialog: files API available:', !!window.electronAPI?.files)
+      console.log('ToothDetailsDialog: uploadDentalImage available:', !!window.electronAPI?.files?.uploadDentalImage)
+
       if (existingTreatment) {
         loadImagesByTreatment(existingTreatment.id)
         setTreatmentData(existingTreatment)
@@ -112,6 +119,8 @@ export default function ToothDetailsDialog({
           treatment_color: TREATMENT_TYPES[0].color
         })
       }
+      // Reset selected images when dialog opens
+      setSelectedImages([])
     }
   }, [open, patientId, toothNumber, existingTreatment, loadImagesByTreatment, toothInfo])
 
@@ -140,6 +149,23 @@ export default function ToothDetailsDialog({
         }
 
         await updateTreatment(existingTreatment.id, cleanTreatmentData)
+
+        // Upload new images if any
+        if (selectedImages.length > 0) {
+          for (const item of selectedImages) {
+            const imagePath = await uploadImage(item.file, item.type)
+            await createImage({
+              dental_treatment_id: existingTreatment.id,
+              patient_id: patientId,
+              tooth_number: toothNumber,
+              image_path: imagePath,
+              image_type: item.type,
+              description: `${IMAGE_TYPE_OPTIONS.find(t => t.value === item.type)?.label} - السن رقم ${toothNumber}`,
+              taken_date: new Date().toISOString()
+            })
+          }
+        }
+
         // إعادة تحميل الصور إذا كان هناك علاج موجود
         if (existingTreatment.id) {
           await loadImagesByTreatment(existingTreatment.id)
@@ -159,15 +185,16 @@ export default function ToothDetailsDialog({
 
         // Upload images if any
         if (selectedImages.length > 0) {
-          for (const file of selectedImages) {
-            const imagePath = await uploadImage(file)
+          for (const item of selectedImages) {
+            const imagePath = await uploadImage(item.file, item.type)
             await createImage({
               dental_treatment_id: newTreatment.id,
               patient_id: patientId,
               tooth_number: toothNumber,
               image_path: imagePath,
-              image_type: 'clinical',
-              description: `صورة للسن رقم ${toothNumber}`
+              image_type: item.type,
+              description: `${IMAGE_TYPE_OPTIONS.find(t => t.value === item.type)?.label} - السن رقم ${toothNumber}`,
+              taken_date: new Date().toISOString()
             })
           }
         }
@@ -175,6 +202,8 @@ export default function ToothDetailsDialog({
         notify.success('تم حفظ بيانات السن بنجاح')
       }
 
+      // Clear selected images after successful save
+      setSelectedImages([])
       onOpenChange(false)
     } catch (error) {
       notify.error('حدث خطأ أثناء حفظ البيانات')
@@ -184,21 +213,97 @@ export default function ToothDetailsDialog({
     }
   }
 
-  const uploadImage = async (file: File): Promise<string> => {
-    // This would integrate with your file upload service
-    // For now, we'll simulate the upload
-    const formData = new FormData()
-    formData.append('image', file)
-    formData.append('patientId', patientId)
-    formData.append('toothNumber', toothNumber?.toString() || '')
+  const uploadImage = async (file: File, imageType: string): Promise<string> => {
+    try {
+      // Check if Electron API is available
+      if (window.electronAPI && window.electronAPI.files && window.electronAPI.files.uploadDentalImage) {
+        // Convert file to ArrayBuffer
+        const arrayBuffer = await file.arrayBuffer()
 
-    // Simulate upload - replace with actual upload logic
-    return `dental_images/${patientId}/${toothNumber}/${Date.now()}_${file.name}`
+        // Upload file using Electron API with new parameters
+        const filePath = await window.electronAPI.files.uploadDentalImage(
+          arrayBuffer,
+          file.name,
+          patientId,
+          toothNumber || 0,
+          imageType,
+          patient?.full_name || 'Unknown_Patient',
+          toothInfo?.arabicName || `Tooth_${toothNumber}`
+        )
+
+        console.log('Image uploaded successfully:', filePath)
+        return filePath
+      } else {
+        // Fallback: Save to public/upload directory
+        console.warn('Electron API not available, using public/upload fallback')
+
+        return await saveImageToPublicUpload(file, imageType)
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      throw new Error('فشل في رفع الصورة')
+    }
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const saveImageToPublicUpload = async (file: File, imageType: string): Promise<string> => {
+    try {
+      // Convert file to base64
+      const reader = new FileReader()
+
+      return new Promise((resolve, reject) => {
+        reader.onload = async () => {
+          try {
+            const base64Data = reader.result as string
+
+            // Try to use Electron API for saving to public/upload
+            if (window.electronAPI && window.electronAPI.files && window.electronAPI.files.saveDentalImage) {
+              const relativePath = await window.electronAPI.files.saveDentalImage(
+                base64Data,
+                file.name,
+                patientId,
+                toothNumber || 0,
+                imageType,
+                patient?.full_name || 'Unknown_Patient',
+                toothInfo?.arabicName || `Tooth_${toothNumber}`
+              )
+              console.log('Image saved via Electron API:', relativePath)
+              resolve(relativePath)
+            } else {
+              // Fallback: create a simulated path with new structure
+              const timestamp = Date.now()
+              const extension = file.name.split('.').pop() || 'jpg'
+              const cleanPatientName = (patient?.full_name || 'Unknown_Patient').replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+              const cleanToothName = (toothInfo?.arabicName || `Tooth_${toothNumber}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+              const fileName = `${cleanPatientName}-${cleanToothName}-${timestamp}.${extension}`
+              const relativePath = `dental_images/${imageType || 'other'}/${fileName}`
+
+              console.log('Using fallback path (image not actually saved):', relativePath)
+              console.log('File size:', file.size, 'bytes')
+              console.log('Base64 length:', base64Data.length)
+
+              resolve(relativePath)
+            }
+          } catch (error) {
+            reject(error)
+          }
+        }
+
+        reader.onerror = () => reject(new Error('فشل في قراءة الملف'))
+        reader.readAsDataURL(file)
+      })
+    } catch (error) {
+      console.error('Error saving image to public/upload:', error)
+      throw new Error('فشل في حفظ الصورة')
+    }
+  }
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>, imageType: string) => {
     const files = Array.from(event.target.files || [])
-    setSelectedImages(prev => [...prev, ...files])
+    const newImages = files.map(file => ({ file, type: imageType }))
+    setSelectedImages(prev => [...prev, ...newImages])
+
+    // Reset the input value to allow selecting the same file again
+    event.target.value = ''
   }
 
   const removeSelectedImage = (index: number) => {
@@ -211,6 +316,53 @@ export default function ToothDetailsDialog({
       notify.success('تم حذف الصورة بنجاح')
     } catch (error) {
       notify.error('حدث خطأ أثناء حذف الصورة')
+    }
+  }
+
+  const handleImagePreview = async (imagePath: string) => {
+    try {
+      // Get the image data using the Electron API
+      if (window.electronAPI && window.electronAPI.files && window.electronAPI.files.getDentalImage) {
+        const dataUrl = await window.electronAPI.files.getDentalImage(imagePath)
+
+        // Create a new window for image preview
+        const previewWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes')
+        if (previewWindow) {
+          previewWindow.document.write(`
+            <html>
+              <head>
+                <title>معاينة الصورة</title>
+                <style>
+                  body {
+                    margin: 0;
+                    padding: 20px;
+                    background: #000;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
+                  }
+                  img {
+                    max-width: 100%;
+                    max-height: 100%;
+                    object-fit: contain;
+                    border-radius: 8px;
+                  }
+                </style>
+              </head>
+              <body>
+                <img src="${dataUrl}" alt="معاينة الصورة" />
+              </body>
+            </html>
+          `)
+          previewWindow.document.close()
+        }
+      } else {
+        notify.error('لا يمكن معاينة الصورة - API غير متوفر')
+      }
+    } catch (error) {
+      console.error('Error previewing image:', error)
+      notify.error('حدث خطأ أثناء معاينة الصورة')
     }
   }
 
@@ -364,97 +516,161 @@ export default function ToothDetailsDialog({
           {/* Images Tab */}
           <TabsContent value="images" className="space-y-4">
             <div className="space-y-4">
-              {/* Upload new images */}
+              {/* Upload new images with type selection */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm">إضافة صور جديدة</CardTitle>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Camera className="w-4 h-4" />
+                    إضافة صور جديدة
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      <Button variant="outline" asChild>
-                        <label htmlFor="image-upload" className="cursor-pointer">
-                          <Upload className="w-4 h-4 ml-2" />
-                          اختر صور
-                        </label>
-                      </Button>
-                      <input
-                        id="image-upload"
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageUpload}
-                      />
+                    {/* Image type selection buttons */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {IMAGE_TYPE_OPTIONS.map((type) => (
+                        <Button
+                          key={type.value}
+                          variant="outline"
+                          className="image-type-button h-auto p-3 flex flex-col items-center gap-2"
+                          asChild
+                        >
+                          <label htmlFor={`image-upload-${type.value}`} className="cursor-pointer">
+                            <span className="text-lg">{type.icon}</span>
+                            <span className="text-xs">{type.label}</span>
+                            <input
+                              id={`image-upload-${type.value}`}
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleImageUpload(e, type.value)}
+                            />
+                          </label>
+                        </Button>
+                      ))}
                     </div>
 
                     {/* Selected images preview */}
                     {selectedImages.length > 0 && (
-                      <div className="grid grid-cols-3 gap-2">
-                        {selectedImages.map((file, index) => (
-                          <div key={index} className="relative">
-                            <img
-                              src={URL.createObjectURL(file)}
-                              alt={`Preview ${index + 1}`}
-                              className="w-full h-20 object-cover rounded border"
-                            />
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="absolute -top-2 -right-2 w-6 h-6 p-0"
-                              onClick={() => removeSelectedImage(index)}
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ))}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium">الصور المحددة للرفع:</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {selectedImages.map((item, index) => (
+                            <div key={index} className="selected-image-preview relative group">
+                              <div className="relative">
+                                <img
+                                  src={URL.createObjectURL(item.file)}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-24 object-cover rounded-lg border-2 border-dashed border-gray-300"
+                                />
+                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg" />
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  className="absolute -top-2 -right-2 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => removeSelectedImage(index)}
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <div className="mt-1 text-xs text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <span>{IMAGE_TYPE_OPTIONS.find(t => t.value === item.type)?.icon}</span>
+                                  <span>{IMAGE_TYPE_OPTIONS.find(t => t.value === item.type)?.label}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Existing images */}
+              {/* Existing images organized by type */}
               {images.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">الصور المحفوظة</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
-                      {images.map((image) => (
-                        <div key={image.id} className="space-y-2">
-                          <div className="relative">
-                            <img
-                              src={`file://${image.image_path}`}
-                              alt={image.description || 'صورة السن'}
-                              className="w-full h-32 object-cover rounded border"
-                            />
-                            <div className="absolute top-2 right-2 flex gap-1">
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                className="w-8 h-8 p-0"
-                                onClick={() => window.open(`file://${image.image_path}`, '_blank')}
-                              >
-                                <Eye className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                className="w-8 h-8 p-0"
-                                onClick={() => handleDeleteImage(image.id)}
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
+                <div className="space-y-4">
+                  {IMAGE_TYPE_OPTIONS.map((imageType) => {
+                    const typeImages = images.filter(img => img.image_type === imageType.value)
+                    if (typeImages.length === 0) return null
+
+                    return (
+                      <Card key={imageType.value} className="image-type-card">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <span className="image-type-icon">{imageType.icon}</span>
+                            <span className="image-type-label">{imageType.label}</span>
+                            <Badge variant="secondary" className="image-count-badge mr-auto">
+                              {typeImages.length}
+                            </Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {typeImages.map((image) => (
+                              <div key={image.id} className="saved-image-card group relative">
+                                <div className="relative overflow-hidden rounded-lg border">
+                                  <DentalImage
+                                    imagePath={image.image_path}
+                                    alt={image.description || imageType.label}
+                                    className="w-full h-24 object-cover transition-transform group-hover:scale-105"
+                                  />
+                                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all" />
+
+                                  {/* Action buttons */}
+                                  <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      className="image-action-button w-7 h-7 p-0 bg-white/90 hover:bg-white"
+                                      onClick={() => handleImagePreview(image.image_path)}
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      className="image-action-button w-7 h-7 p-0 bg-red-500/90 hover:bg-red-500"
+                                      onClick={() => handleDeleteImage(image.id)}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Image info */}
+                                <div className="image-info mt-1 text-xs text-muted-foreground text-center">
+                                  {image.taken_date && (
+                                    <div>{formatDate(image.taken_date)}</div>
+                                  )}
+                                  {image.description && (
+                                    <div className="truncate" title={image.description}>
+                                      {image.description}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            <div>{IMAGE_TYPE_OPTIONS.find(t => t.value === image.image_type)?.label}</div>
-                            <div>{formatDate(image.taken_date)}</div>
-                          </div>
-                        </div>
-                      ))}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {images.length === 0 && selectedImages.length === 0 && (
+                <Card className="empty-state">
+                  <CardContent className="py-12">
+                    <div className="text-center text-muted-foreground">
+                      <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <h3 className="text-lg font-medium mb-2">لا توجد صور محفوظة</h3>
+                      <p className="text-sm">
+                        اختر نوع الصورة أعلاه لبدء إضافة صور للسن
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -479,7 +695,13 @@ export default function ToothDetailsDialog({
         </Tabs>
 
         <DialogFooter className="flex justify-end space-x-2 space-x-reverse">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSelectedImages([])
+              onOpenChange(false)
+            }}
+          >
             إلغاء
           </Button>
           <Button onClick={handleSave} disabled={isLoading}>

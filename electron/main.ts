@@ -795,3 +795,180 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
     }
   }
 })
+
+// Dental Treatment IPC Handlers
+ipcMain.handle('db:dentalTreatments:getAll', async () => {
+  try {
+    return await databaseService.getAllDentalTreatments()
+  } catch (error) {
+    console.error('Error getting all dental treatments:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatments:getByPatient', async (_, patientId) => {
+  try {
+    return await databaseService.getDentalTreatmentsByPatient(patientId)
+  } catch (error) {
+    console.error('Error getting dental treatments by patient:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatments:create', async (_, treatment) => {
+  try {
+    console.log('Creating dental treatment:', treatment)
+    const result = await databaseService.createDentalTreatment(treatment)
+    console.log('Dental treatment created successfully:', result.id)
+    return result
+  } catch (error) {
+    console.error('Error creating dental treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatments:update', async (_, id, treatment) => {
+  try {
+    console.log('Updating dental treatment:', id, treatment)
+    const result = await databaseService.updateDentalTreatment(id, treatment)
+    console.log('Dental treatment updated successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error updating dental treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatments:delete', async (_, id) => {
+  try {
+    console.log('Deleting dental treatment:', id)
+    const result = await databaseService.deleteDentalTreatment(id)
+    console.log('Dental treatment deleted successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error deleting dental treatment:', error)
+    throw error
+  }
+})
+
+// Dental Treatment Images IPC Handlers
+ipcMain.handle('db:dentalTreatmentImages:getAll', async () => {
+  try {
+    return await databaseService.getAllDentalTreatmentImages()
+  } catch (error) {
+    console.error('Error getting all dental treatment images:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatmentImages:getByTreatment', async (_, treatmentId) => {
+  try {
+    return await databaseService.getDentalTreatmentImagesByTreatment(treatmentId)
+  } catch (error) {
+    console.error('Error getting dental treatment images by treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatmentImages:create', async (_, imageData) => {
+  try {
+    console.log('Creating dental treatment image:', imageData)
+    const result = await databaseService.createDentalTreatmentImage(imageData)
+    console.log('Dental treatment image created successfully:', result.id)
+    return result
+  } catch (error) {
+    console.error('Error creating dental treatment image:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatmentImages:delete', async (_, id) => {
+  try {
+    console.log('Deleting dental treatment image:', id)
+    const result = await databaseService.deleteDentalTreatmentImage(id)
+    console.log('Dental treatment image deleted successfully:', id)
+    return result
+  } catch (error) {
+    console.error('Error deleting dental treatment image:', error)
+    throw error
+  }
+})
+
+// File Upload Handler for Dental Images
+ipcMain.handle('files:uploadDentalImage', async (_, fileBuffer, fileName, patientId, toothNumber) => {
+  try {
+    console.log('Uploading dental image:', { fileName, patientId, toothNumber, bufferSize: fileBuffer.byteLength })
+
+    const fs = require('fs')
+    const path = require('path')
+
+    // Create upload directory if it doesn't exist
+    const uploadDir = join(app.getPath('userData'), 'dental_images', patientId.toString(), toothNumber.toString())
+    console.log('Upload directory:', uploadDir)
+
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true })
+      console.log('Created upload directory:', uploadDir)
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now()
+    const extension = path.extname(fileName) || '.jpg'
+    const baseName = path.basename(fileName, extension).replace(/[^a-zA-Z0-9-_]/g, '_')
+    const uniqueFileName = `${timestamp}_${baseName}${extension}`
+    const filePath = join(uploadDir, uniqueFileName)
+
+    console.log('Saving file to:', filePath)
+
+    // Convert ArrayBuffer to Buffer and write file to disk
+    const buffer = Buffer.from(fileBuffer)
+    fs.writeFileSync(filePath, buffer)
+
+    console.log('Dental image uploaded successfully:', filePath)
+    return filePath
+  } catch (error) {
+    console.error('Error uploading dental image:', error)
+    throw error
+  }
+})
+
+// Alternative simpler upload handler
+ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientId, toothNumber) => {
+  try {
+    console.log('Saving dental image (base64):', { fileName, patientId, toothNumber })
+
+    const fs = require('fs')
+    const path = require('path')
+
+    // Create upload directory in public/upload
+    const uploadDir = join(__dirname, '..', 'public', 'upload', 'dental_images', patientId.toString(), toothNumber.toString())
+    console.log('Upload directory:', uploadDir)
+
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true })
+      console.log('Created upload directory:', uploadDir)
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now()
+    const extension = path.extname(fileName) || '.jpg'
+    const baseName = path.basename(fileName, extension).replace(/[^a-zA-Z0-9-_]/g, '_')
+    const uniqueFileName = `${timestamp}_${baseName}${extension}`
+    const filePath = join(uploadDir, uniqueFileName)
+
+    // Remove data URL prefix if present
+    const base64 = base64Data.replace(/^data:image\/[a-z]+;base64,/, '')
+
+    // Write file to disk
+    fs.writeFileSync(filePath, base64, 'base64')
+
+    // Return relative path for database storage
+    const relativePath = `dental_images/${patientId}/${toothNumber}/${uniqueFileName}`
+    console.log('Dental image saved successfully:', relativePath)
+
+    return relativePath
+  } catch (error) {
+    console.error('Error saving dental image:', error)
+    throw error
+  }
+})
