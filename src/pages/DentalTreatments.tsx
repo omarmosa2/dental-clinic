@@ -17,6 +17,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import DentalChart from '@/components/dental/DentalChart'
 import ToothDetailsDialog from '@/components/dental/ToothDetailsDialog'
 import PrescriptionReceiptDialog from '@/components/medications/PrescriptionReceiptDialog'
+import PatientSelectionTable from '@/components/dental/PatientSelectionTable'
 import { formatDate, calculateAge } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { notify } from '@/services/notificationService'
@@ -73,12 +74,35 @@ export default function DentalTreatments() {
   // Get patient prescriptions
   const patientPrescriptions = prescriptions.filter(p => p.patient_id === selectedPatientId)
 
+  // Calculate treatment counts for each patient
+  const getPatientTreatmentCount = (patientId: string) => {
+    return treatments.filter(t => t.patient_id === patientId).length
+  }
+
+  // Get last treatment date for patient
+  const getLastTreatmentDate = (patientId: string) => {
+    const patientTreatmentsList = treatments.filter(t => t.patient_id === patientId)
+    if (patientTreatmentsList.length === 0) return null
+
+    const sortedTreatments = patientTreatmentsList.sort((a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    return sortedTreatments[0].created_at
+  }
+
   const handlePatientSelect = (patientId: string) => {
     setSelectedPatientId(patientId)
     setSelectedToothNumber(null)
     // تحميل العلاجات للمريض المحدد
     if (patientId) {
       loadTreatmentsByPatient(patientId)
+      // Scroll to dental chart after selection
+      setTimeout(() => {
+        const dentalChartElement = document.getElementById('dental-chart-section')
+        if (dentalChartElement) {
+          dentalChartElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 100)
     }
   }
 
@@ -155,31 +179,31 @@ export default function DentalTreatments() {
           <div className="relative">
             <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
-              placeholder="البحث بالاسم أو رقم الهاتف أو الرقم التسلسلي..."
+              placeholder="البحث السريع: اسم المريض، رقم الهاتف، أو الرقم التسلسلي..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pr-10"
+              autoComplete="off"
             />
+            {searchQuery && (
+              <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                <Badge variant="secondary" className="text-xs">
+                  {filteredPatients.length} نتيجة
+                </Badge>
+              </div>
+            )}
           </div>
 
-          {/* Patient Selection */}
-          <Select value={selectedPatientId} onValueChange={handlePatientSelect}>
-            <SelectTrigger>
-              <SelectValue placeholder="اختر مريض" />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredPatients.map((patient) => (
-                <SelectItem key={patient.id} value={patient.id}>
-                  <div className="flex items-center justify-between w-full">
-                    <span>{patient.full_name}</span>
-                    <span className="text-muted-foreground text-sm">
-                      {patient.phone} | {patient.gender === 'male' ? 'ذكر' : 'أنثى'} | {calculateAge(patient.age)} سنة
-                    </span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Patients Table */}
+          <PatientSelectionTable
+            patients={filteredPatients}
+            selectedPatientId={selectedPatientId}
+            onPatientSelect={handlePatientSelect}
+            getPatientTreatmentCount={getPatientTreatmentCount}
+            getLastTreatmentDate={getLastTreatmentDate}
+            isLoading={isLoading}
+            isCompact={!!selectedPatient}
+          />
 
           {/* Selected Patient Info */}
           {selectedPatient && (
@@ -198,7 +222,7 @@ export default function DentalTreatments() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-blue-600" />
-                    <span>{calculateAge(selectedPatient.age)} سنة</span>
+                    <span>{selectedPatient.age} سنة</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-blue-600" />
@@ -270,11 +294,13 @@ export default function DentalTreatments() {
 
       {/* Dental Chart */}
       {selectedPatient && (
-        <DentalChart
-          patientId={selectedPatientId}
-          onToothClick={handleToothClick}
-          selectedTooth={selectedToothNumber}
-        />
+        <div id="dental-chart-section">
+          <DentalChart
+            patientId={selectedPatientId}
+            onToothClick={handleToothClick}
+            selectedTooth={selectedToothNumber}
+          />
+        </div>
       )}
 
       {/* Prescriptions List */}
