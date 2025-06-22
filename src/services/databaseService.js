@@ -9,8 +9,9 @@ class DatabaseService {
     // If no path provided, try to get it from electron app
     if (!dbPath) {
       try {
-        const { app } = require('electron')
-        dbPath = join(app.getPath('userData'), 'dental_clinic.db')
+        // Use app directory instead of userData for portable installation
+        const appDir = process.execPath ? require('path').dirname(process.execPath) : process.cwd()
+        dbPath = join(appDir, 'dental_clinic.db')
       } catch (error) {
         // Fallback for testing or non-electron environments
         dbPath = join(process.cwd(), 'dental_clinic.db')
@@ -2624,6 +2625,8 @@ class DatabaseService {
     const result = stmt.run(id)
     return result.changes > 0
   }
+
+
 
   // Dental Treatment Prescription operations
   async getAllDentalTreatmentPrescriptions() {

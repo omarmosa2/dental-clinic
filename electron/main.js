@@ -1438,6 +1438,8 @@ ipcMain.handle('db:dentalTreatmentImages:delete', async (_, id) => {
   }
 })
 
+
+
 // Dental Treatment Prescriptions IPC Handlers
 ipcMain.handle('db:dentalTreatmentPrescriptions:getAll', async () => {
   try {
@@ -2309,9 +2311,25 @@ ipcMain.handle('files:getDentalImage', async (_, imagePath) => {
       console.log('Directory path detected, searching for images in:', imagePath)
 
       // Search for images in the directory
+      // Check if we're in development mode
+      const isDevelopment = process.env.NODE_ENV === 'development' ||
+                           process.execPath.includes('node') ||
+                           process.execPath.includes('electron') ||
+                           process.cwd().includes('dental-clinic')
+
+      let baseDir
+      if (isDevelopment) {
+        // Development: use project directory
+        baseDir = process.cwd()
+      } else {
+        // Production: use app directory
+        baseDir = path.dirname(process.execPath)
+      }
+
       const searchPaths = [
-        path.join(app.getPath('userData'), imagePath),
-        path.join(__dirname, '..', 'public', 'upload', imagePath)
+        path.join(baseDir, imagePath), // Primary directory
+        path.join(app.getPath('userData'), imagePath), // UserData (fallback)
+        path.join(__dirname, '..', 'public', 'upload', imagePath) // Development fallback
       ]
 
       for (const searchPath of searchPaths) {
@@ -2339,9 +2357,25 @@ ipcMain.handle('files:getDentalImage', async (_, imagePath) => {
       }
     } else {
       // Legacy handling for full file paths
+      // Check if we're in development mode
+      const isDevelopment = process.env.NODE_ENV === 'development' ||
+                           process.execPath.includes('node') ||
+                           process.execPath.includes('electron') ||
+                           process.cwd().includes('dental-clinic')
+
+      let baseDir
+      if (isDevelopment) {
+        // Development: use project directory
+        baseDir = process.cwd()
+      } else {
+        // Production: use app directory
+        baseDir = path.dirname(process.execPath)
+      }
+
       const possiblePaths = [
-        path.join(app.getPath('userData'), imagePath),
-        path.join(__dirname, '..', 'public', 'upload', imagePath),
+        path.join(baseDir, imagePath), // Primary directory
+        path.join(app.getPath('userData'), imagePath), // UserData (fallback)
+        path.join(__dirname, '..', 'public', 'upload', imagePath), // Development fallback
         path.join(__dirname, '..', imagePath)
       ]
 
@@ -2451,7 +2485,22 @@ ipcMain.handle('files:uploadDentalImage', async (_, fileBuffer, fileName, patien
     }
 
     // Create upload directory organized by patient_id/tooth_number/image_type
-    const uploadDir = path.join(app.getPath('userData'), 'dental_images', patientId, toothNumber.toString(), imageType || 'other')
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development' ||
+                         process.execPath.includes('node') ||
+                         process.execPath.includes('electron') ||
+                         process.cwd().includes('dental-clinic')
+
+    let baseDir
+    if (isDevelopment) {
+      // Development: use project directory
+      baseDir = process.cwd()
+    } else {
+      // Production: use app directory
+      baseDir = path.dirname(process.execPath)
+    }
+
+    const uploadDir = path.join(baseDir, 'dental_images', patientId, toothNumber.toString(), imageType || 'other')
     console.log('Upload directory:', uploadDir)
 
     if (!fs.existsSync(uploadDir)) {
@@ -2511,8 +2560,23 @@ ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientI
       throw new Error('Invalid tooth number. Must be between 1 and 32')
     }
 
-    // Create upload directory organized by patient_id/tooth_number/image_type in public/upload (fallback)
-    const uploadDir = path.join(__dirname, '..', 'public', 'upload', 'dental_images', patientId, toothNumber.toString(), imageType || 'other')
+    // Create upload directory organized by patient_id/tooth_number/image_type (fallback)
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development' ||
+                         process.execPath.includes('node') ||
+                         process.execPath.includes('electron') ||
+                         process.cwd().includes('dental-clinic')
+
+    let baseDir
+    if (isDevelopment) {
+      // Development: use project directory
+      baseDir = process.cwd()
+    } else {
+      // Production: use app directory
+      baseDir = path.dirname(process.execPath)
+    }
+
+    const uploadDir = path.join(baseDir, 'dental_images', patientId, toothNumber.toString(), imageType || 'other')
     console.log('Upload directory:', uploadDir)
 
     if (!fs.existsSync(uploadDir)) {

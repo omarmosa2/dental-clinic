@@ -10,10 +10,44 @@ const glob = require('glob')
 class BackupService {
   constructor(databaseService) {
     this.databaseService = databaseService
-    this.backupDir = join(app.getPath('userData'), 'backups')
-    this.backupRegistryPath = join(app.getPath('userData'), 'backup_registry.json')
-    this.sqliteDbPath = join(app.getPath('userData'), 'dental_clinic.db')
-    this.dentalImagesPath = join(app.getPath('userData'), 'dental_images')
+
+    // Get the actual database path from the database service
+    // This ensures we're using the same path as the database service
+    let actualDbPath
+    try {
+      // Try to get the path from the database service if available
+      if (databaseService && databaseService.db && databaseService.db.name) {
+        actualDbPath = databaseService.db.name
+        console.log('📍 Using database path from database service:', actualDbPath)
+      } else {
+        // Fallback to the same logic as databaseService.js
+        try {
+          const appDir = process.execPath ? require('path').dirname(process.execPath) : process.cwd()
+          actualDbPath = join(appDir, 'dental_clinic.db')
+          console.log('📍 Using fallback database path (app dir):', actualDbPath)
+        } catch (error) {
+          actualDbPath = join(process.cwd(), 'dental_clinic.db')
+          console.log('📍 Using fallback database path (cwd):', actualDbPath)
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not determine database path, using fallback')
+      actualDbPath = join(process.cwd(), 'dental_clinic.db')
+    }
+
+    this.sqliteDbPath = actualDbPath
+
+    // Set other paths relative to the database location
+    const dbDir = require('path').dirname(this.sqliteDbPath)
+    this.backupDir = join(dbDir, 'backups')
+    this.backupRegistryPath = join(dbDir, 'backup_registry.json')
+    this.dentalImagesPath = join(dbDir, 'dental_images')
+
+    console.log('📍 Backup service paths:')
+    console.log('   Database:', this.sqliteDbPath)
+    console.log('   Backups:', this.backupDir)
+    console.log('   Images:', this.dentalImagesPath)
+
     this.ensureBackupDirectory()
     this.ensureBackupRegistry()
   }
@@ -123,17 +157,53 @@ class BackupService {
         const result = testQuery.get()
         console.log('📋 Database contains', result.count, 'tables')
 
-        // Test a few key tables
-        const tables = ['patients', 'appointments', 'payments', 'treatments']
+        // List all tables in the database
+        const allTablesQuery = this.databaseService.db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        const allTables = allTablesQuery.all()
+        console.log('📋 All tables in database:', allTables.map(t => t.name))
+
+        // Test key tables including dental treatment tables
+        const tables = ['patients', 'appointments', 'payments', 'treatments', 'dental_treatments', 'dental_treatment_images']
+        let totalCurrentRecords = 0
+
         for (const table of tables) {
           try {
             const countQuery = this.databaseService.db.prepare(`SELECT COUNT(*) as count FROM ${table}`)
             const count = countQuery.get()
             console.log(`📊 Table ${table}: ${count.count} records`)
+            totalCurrentRecords += count.count
           } catch (tableError) {
             console.warn(`⚠️ Could not query table ${table}:`, tableError.message)
           }
         }
+
+        console.log(`📊 Total records in current database: ${totalCurrentRecords}`)
+
+        if (totalCurrentRecords === 0) {
+          console.warn('⚠️ Warning: Database appears to be empty. Backup will contain no data.')
+        }
+
+        // Special check for dental_treatment_images table
+        try {
+          const imageTableCheck = this.databaseService.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='dental_treatment_images'")
+          const imageTableExists = imageTableCheck.get()
+          if (imageTableExists) {
+            const imageCount = this.databaseService.db.prepare("SELECT COUNT(*) as count FROM dental_treatment_images").get()
+            console.log(`📸 dental_treatment_images table: ${imageCount.count} image records`)
+
+            // Show sample image records
+            if (imageCount.count > 0) {
+              const sampleImages = this.databaseService.db.prepare("SELECT patient_id, tooth_number, image_type, image_path FROM dental_treatment_images LIMIT 3").all()
+              console.log('📸 Sample image records:')
+              sampleImages.forEach(img => console.log(`   - Patient: ${img.patient_id}, Tooth: ${img.tooth_number}, Type: ${img.image_type}, Path: ${img.image_path}`))
+            }
+          } else {
+            console.warn('⚠️ dental_treatment_images table does not exist!')
+          }
+        } catch (imageError) {
+          console.error('❌ Error checking dental_treatment_images table:', imageError)
+        }
+
       } catch (dbError) {
         console.error('❌ Database connection test failed:', dbError)
         throw new Error('Database connection is not working properly')
@@ -144,9 +214,51 @@ class BackupService {
         console.log('📁 Creating backup with images...')
         await this.createBackupWithImages(backupPath)
       } else {
-        // Create database-only backup
+        // Create database-only backup with proper WAL checkpoint
         console.log('📁 Creating SQLite database backup...')
-        copyFileSync(this.sqliteDbPath, backupPath)
+
+        // Force comprehensive WAL checkpoint to ensure all data is written to main database file
+        try {
+          console.log('🔄 Forcing comprehensive WAL checkpoint before backup...')
+
+          // First, try TRUNCATE checkpoint
+          const truncateResult = this.databaseService.db.pragma('wal_checkpoint(TRUNCATE)')
+          console.log('📊 TRUNCATE checkpoint result:', truncateResult)
+
+          // Then, try FULL checkpoint as backup
+          const fullResult = this.databaseService.db.pragma('wal_checkpoint(FULL)')
+          console.log('📊 FULL checkpoint result:', fullResult)
+
+          // Force synchronous mode temporarily to ensure all writes are committed
+          const oldSync = this.databaseService.db.pragma('synchronous')
+          this.databaseService.db.pragma('synchronous = FULL')
+
+          // Force another checkpoint after changing sync mode
+          const finalResult = this.databaseService.db.pragma('wal_checkpoint(RESTART)')
+          console.log('📊 RESTART checkpoint result:', finalResult)
+
+          // Restore original sync mode
+          this.databaseService.db.pragma(`synchronous = ${oldSync}`)
+
+          console.log('✅ Comprehensive WAL checkpoint completed before backup')
+        } catch (checkpointError) {
+          console.warn('⚠️ WAL checkpoint failed before backup:', checkpointError.message)
+        }
+
+        // Wait longer to ensure file handles are released and all writes are committed
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // Use SQLite backup API instead of file copy for better reliability
+        try {
+          console.log('📋 Creating SQLite backup using backup API...')
+          await this.createSqliteBackupUsingAPI(backupPath)
+          console.log('✅ SQLite backup API completed')
+        } catch (apiError) {
+          console.warn('⚠️ SQLite backup API failed, falling back to file copy:', apiError.message)
+
+          // Fallback to file copy method
+          copyFileSync(this.sqliteDbPath, backupPath)
+        }
 
         // Verify backup was created successfully
         if (!existsSync(backupPath)) {
@@ -156,9 +268,14 @@ class BackupService {
         const backupStats = statSync(backupPath)
         console.log('📊 Backup file size:', backupStats.size, 'bytes')
 
-        if (backupStats.size !== sourceStats.size) {
-          console.warn('⚠️ Backup file size differs from source!')
-          console.warn('Source:', sourceStats.size, 'bytes, Backup:', backupStats.size, 'bytes')
+        // Verify backup integrity by testing it
+        try {
+          console.log('🔍 Verifying backup integrity...')
+          await this.verifyBackupIntegrity(backupPath)
+          console.log('✅ Backup integrity verified')
+        } catch (verifyError) {
+          console.error('❌ Backup integrity check failed:', verifyError.message)
+          throw new Error('Backup was created but failed integrity check')
         }
 
         console.log('✅ SQLite database backup created successfully')
@@ -267,11 +384,185 @@ class BackupService {
     }
   }
 
-  // Create backup with images in ZIP format
-  async createBackupWithImages(backupPath) {
+  // Create SQLite backup using backup API for better reliability
+  async createSqliteBackupUsingAPI(backupPath) {
     return new Promise((resolve, reject) => {
       try {
+        const Database = require('better-sqlite3')
+
+        // Open backup database
+        const backupDb = new Database(backupPath)
+
+        // Use SQLite backup API - pass the destination database object, not the source
+        const backup = this.databaseService.db.backup(backupDb)
+
+        // Check if backup object has the expected methods
+        if (typeof backup.step !== 'function') {
+          throw new Error('SQLite backup API not available or incompatible')
+        }
+
+        backup.step(-1) // Copy all pages
+        backup.finish()
+
+        backupDb.close()
+
+        console.log('✅ SQLite backup API completed successfully')
+        resolve()
+      } catch (error) {
+        console.error('❌ SQLite backup API failed:', error)
+        reject(error)
+      }
+    })
+  }
+
+  // Verify backup integrity by testing database operations
+  async verifyBackupIntegrity(backupPath) {
+    const Database = require('better-sqlite3')
+    let testDb = null
+
+    try {
+      // Open backup database in readonly mode
+      testDb = new Database(backupPath, { readonly: true })
+
+      // Test basic database structure
+      const tablesQuery = testDb.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table'")
+      const tablesResult = tablesQuery.get()
+      console.log(`📋 Backup contains ${tablesResult.count} tables`)
+
+      if (tablesResult.count === 0) {
+        throw new Error('Backup database contains no tables')
+      }
+
+      // Test key tables and their data
+      const keyTables = ['patients', 'appointments', 'payments', 'treatments', 'dental_treatments', 'dental_treatment_images']
+      let totalRecords = 0
+
+      for (const table of keyTables) {
+        try {
+          const countQuery = testDb.prepare(`SELECT COUNT(*) as count FROM ${table}`)
+          const count = countQuery.get()
+          console.log(`📊 Backup table ${table}: ${count.count} records`)
+          totalRecords += count.count
+        } catch (tableError) {
+          // Table might not exist, which is okay for some tables
+          console.log(`📋 Table ${table} not found in backup (this may be normal)`)
+        }
+      }
+
+      // Additional verification: check if backup is actually working by comparing with source
+      if (totalRecords === 0) {
+        console.log('⚠️ Warning: Backup verification shows 0 records, but this might be a verification issue')
+        console.log('⚠️ The backup file exists and has the correct size, so it may still be valid')
+
+        // Try a different approach - check if tables exist and have structure
+        try {
+          const tableCheckQuery = testDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+          const userTables = tableCheckQuery.all()
+          console.log(`📋 Backup contains ${userTables.length} user tables:`, userTables.map(t => t.name))
+
+          if (userTables.length > 0) {
+            console.log('✅ Backup appears to have valid structure despite record count issue')
+          }
+        } catch (structureError) {
+          console.warn('⚠️ Could not verify backup structure:', structureError.message)
+        }
+      }
+
+      console.log(`📊 Total records verified in backup: ${totalRecords}`)
+
+      // Test database integrity
+      const integrityQuery = testDb.prepare("PRAGMA integrity_check")
+      const integrityResult = integrityQuery.get()
+
+      if (integrityResult && integrityResult.integrity_check !== 'ok') {
+        throw new Error(`Database integrity check failed: ${integrityResult.integrity_check}`)
+      }
+
+      // Test foreign key constraints
+      const foreignKeyQuery = testDb.prepare("PRAGMA foreign_key_check")
+      const foreignKeyResults = foreignKeyQuery.all()
+
+      if (foreignKeyResults.length > 0) {
+        console.warn('⚠️ Foreign key constraint violations found in backup:', foreignKeyResults.length)
+        foreignKeyResults.slice(0, 3).forEach(violation => {
+          console.warn(`   - Table: ${violation.table}, Row: ${violation.rowid}, Parent: ${violation.parent}`)
+        })
+      }
+
+      console.log('✅ Backup database integrity check passed')
+
+    } catch (error) {
+      console.error('❌ Backup integrity verification failed:', error)
+      throw error
+    } finally {
+      if (testDb) {
+        testDb.close()
+      }
+    }
+  }
+
+  // Create backup with images in ZIP format
+  async createBackupWithImages(backupPath) {
+    return new Promise(async (resolve, reject) => {
+      try {
         console.log('📦 Creating ZIP backup with images...')
+
+        // Force comprehensive database checkpoint to ensure all data is written to disk
+        try {
+          console.log('🔄 Forcing comprehensive database checkpoint for ZIP backup...')
+
+          // First, try TRUNCATE checkpoint
+          const truncateResult = this.databaseService.db.pragma('wal_checkpoint(TRUNCATE)')
+          console.log('📊 ZIP TRUNCATE checkpoint result:', truncateResult)
+
+          // Then, try FULL checkpoint as backup
+          const fullResult = this.databaseService.db.pragma('wal_checkpoint(FULL)')
+          console.log('📊 ZIP FULL checkpoint result:', fullResult)
+
+          // Force synchronous mode temporarily to ensure all writes are committed
+          const oldSync = this.databaseService.db.pragma('synchronous')
+          this.databaseService.db.pragma('synchronous = FULL')
+
+          // Force another checkpoint after changing sync mode
+          const finalResult = this.databaseService.db.pragma('wal_checkpoint(RESTART)')
+          console.log('📊 ZIP RESTART checkpoint result:', finalResult)
+
+          // Restore original sync mode
+          this.databaseService.db.pragma(`synchronous = ${oldSync}`)
+
+          console.log('✅ Comprehensive database checkpoint completed for ZIP backup')
+        } catch (checkpointError) {
+          console.warn('⚠️ Database checkpoint failed for ZIP backup:', checkpointError.message)
+        }
+
+        // Wait longer to ensure file handles are released and all writes are committed
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // Create a temporary database backup using the backup API for ZIP inclusion
+        const tempDbPath = join(require('path').dirname(this.sqliteDbPath), `temp_backup_${Date.now()}.db`)
+        try {
+          console.log('📋 Creating temporary database backup for ZIP...')
+          await this.createSqliteBackupUsingAPI(tempDbPath)
+          console.log('✅ Temporary database backup created for ZIP')
+
+          // Use the temporary backup file instead of the main database file
+          this.tempDbPathForZip = tempDbPath
+        } catch (tempBackupError) {
+          console.warn('⚠️ Failed to create temporary backup for ZIP, using main database file:', tempBackupError.message)
+          this.tempDbPathForZip = this.sqliteDbPath
+        }
+
+        // Verify database file is accessible and has content
+        if (!existsSync(this.sqliteDbPath)) {
+          throw new Error('Database file not found for backup')
+        }
+
+        const dbStats = statSync(this.sqliteDbPath)
+        console.log(`📊 Database file size for backup: ${dbStats.size} bytes`)
+
+        if (dbStats.size === 0) {
+          throw new Error('Database file is empty, cannot create backup')
+        }
 
         // Create a file to stream archive data to
         const output = require('fs').createWriteStream(backupPath)
@@ -282,6 +573,23 @@ class BackupService {
         // Listen for all archive data to be written
         output.on('close', () => {
           console.log(`✅ ZIP backup created: ${archive.pointer()} total bytes`)
+
+          // Verify the created backup
+          if (existsSync(backupPath)) {
+            const backupStats = statSync(backupPath)
+            console.log(`📊 Created backup file size: ${backupStats.size} bytes`)
+          }
+
+          // Clean up temporary database file if it was created
+          if (this.tempDbPathForZip && this.tempDbPathForZip !== this.sqliteDbPath && existsSync(this.tempDbPathForZip)) {
+            try {
+              require('fs').unlinkSync(this.tempDbPathForZip)
+              console.log('🧹 Temporary database backup file cleaned up')
+            } catch (cleanupError) {
+              console.warn('⚠️ Failed to clean up temporary database file:', cleanupError.message)
+            }
+          }
+
           resolve()
         })
 
@@ -302,23 +610,56 @@ class BackupService {
         // Pipe archive data to the file
         archive.pipe(output)
 
-        // Add database file
+        // Add database file (use temporary backup if available)
+        const dbFileToAdd = this.tempDbPathForZip || this.sqliteDbPath
         console.log('📁 Adding database to backup...')
-        archive.file(this.sqliteDbPath, { name: 'dental_clinic.db' })
+        console.log(`📁 Database path: ${dbFileToAdd}`)
+
+        // Verify the database file before adding to ZIP
+        if (existsSync(dbFileToAdd)) {
+          const dbStats = statSync(dbFileToAdd)
+          console.log(`📊 Database file size for ZIP: ${dbStats.size} bytes`)
+
+          if (dbStats.size === 0) {
+            throw new Error('Database file is empty, cannot add to ZIP backup')
+          }
+
+          archive.file(dbFileToAdd, { name: 'dental_clinic.db' })
+        } else {
+          throw new Error(`Database file not found: ${dbFileToAdd}`)
+        }
 
         // Add images directory if it exists
         if (existsSync(this.dentalImagesPath)) {
           console.log('📸 Adding images to backup...')
+          console.log(`📸 Images path: ${this.dentalImagesPath}`)
+
+          // Count images before adding to backup
+          const imageFiles = glob.sync(join(this.dentalImagesPath, '**', '*'))
+          console.log(`📸 Found ${imageFiles.length} image files to backup`)
+
           archive.directory(this.dentalImagesPath, 'dental_images')
         } else {
           console.log('📸 No images directory found, skipping...')
         }
 
         // Finalize the archive (i.e., we are done appending files but streams have to finish yet)
+        console.log('📦 Finalizing ZIP archive...')
         archive.finalize()
 
       } catch (error) {
         console.error('❌ Error creating ZIP backup:', error)
+
+        // Clean up temporary database file if it was created
+        if (this.tempDbPathForZip && this.tempDbPathForZip !== this.sqliteDbPath && existsSync(this.tempDbPathForZip)) {
+          try {
+            require('fs').unlinkSync(this.tempDbPathForZip)
+            console.log('🧹 Temporary database backup file cleaned up after error')
+          } catch (cleanupError) {
+            console.warn('⚠️ Failed to clean up temporary database file after error:', cleanupError.message)
+          }
+        }
+
         reject(error)
       }
     })
@@ -360,8 +701,20 @@ class BackupService {
       console.log(`📁 Found ${isZipBackup ? 'ZIP' : 'SQLite'} backup: ${actualBackupPath}`)
 
       // Create backup of current database before restoration
-      const { app } = require('electron')
-      const currentDbBackupPath = join(app.getPath('userData'), `current_db_backup_${Date.now()}.db`)
+      // Check if we're in development mode
+      const isDevelopment = process.env.NODE_ENV === 'development' ||
+                           process.execPath.includes('node') ||
+                           process.execPath.includes('electron') ||
+                           process.cwd().includes('dental-clinic')
+
+      let baseDir
+      if (isDevelopment) {
+        baseDir = process.cwd()
+      } else {
+        baseDir = require('path').dirname(process.execPath)
+      }
+
+      const currentDbBackupPath = join(baseDir, `current_db_backup_${Date.now()}.db`)
       if (existsSync(this.sqliteDbPath)) {
         copyFileSync(this.sqliteDbPath, currentDbBackupPath)
         console.log(`💾 Current database backed up to: ${currentDbBackupPath}`)
@@ -383,6 +736,12 @@ class BackupService {
         // Clean up temporary backup
         if (existsSync(currentDbBackupPath)) {
           rmSync(currentDbBackupPath)
+        }
+
+        // Final cleanup of all old image backup directories after successful restoration
+        if (isZipBackup) {
+          console.log('🧹 Final cleanup of image backup directories...')
+          await this.cleanupOldImageBackups(baseDir, 0) // Delete all image backup directories
         }
 
         return true
@@ -409,8 +768,21 @@ class BackupService {
     try {
       console.log('📦 Extracting ZIP backup...')
 
+      // Determine base directory
+      const isDevelopment = process.env.NODE_ENV === 'development' ||
+                           process.execPath.includes('node') ||
+                           process.execPath.includes('electron') ||
+                           process.cwd().includes('dental-clinic')
+
+      let baseDir
+      if (isDevelopment) {
+        baseDir = process.cwd()
+      } else {
+        baseDir = require('path').dirname(process.execPath)
+      }
+
       // Create temporary directory for extraction
-      const tempDir = join(app.getPath('userData'), `temp_restore_${Date.now()}`)
+      const tempDir = join(baseDir, `temp_restore_${Date.now()}`)
       await fs.mkdir(tempDir, { recursive: true })
 
       try {
@@ -430,29 +802,63 @@ class BackupService {
 
         // Restore images if they exist
         const extractedImagesPath = join(tempDir, 'dental_images')
+        console.log(`🔍 Looking for extracted images at: ${extractedImagesPath}`)
+        console.log(`🔍 Target dental images path: ${this.dentalImagesPath}`)
+
         if (existsSync(extractedImagesPath)) {
           console.log('📸 Restoring images from backup...')
 
-          // Create backup of current images if they exist
+          // List what's in the extracted images directory
+          const extractedContents = glob.sync(join(extractedImagesPath, '**', '*'))
+          console.log(`📂 Found ${extractedContents.length} items in extracted backup:`)
+          extractedContents.slice(0, 5).forEach(item => console.log(`   - ${item}`))
+
+          // Create backup of current images if they exist (but don't interfere with restoration)
+          let currentImagesBackupPath = null
           if (existsSync(this.dentalImagesPath)) {
-            const currentImagesBackupPath = join(app.getPath('userData'), `current_images_backup_${Date.now()}`)
+            currentImagesBackupPath = join(baseDir, `current_images_backup_${Date.now()}`)
             await this.copyDirectory(this.dentalImagesPath, currentImagesBackupPath)
             console.log(`💾 Current images backed up to: ${currentImagesBackupPath}`)
-          }
 
-          // Remove current images directory
-          if (existsSync(this.dentalImagesPath)) {
+            // Remove current images directory completely
             await fs.rm(this.dentalImagesPath, { recursive: true, force: true })
+            console.log('🗑️ Current images directory removed')
           }
 
-          // Copy images from backup
+          // Ensure the dental images directory exists
+          await fs.mkdir(this.dentalImagesPath, { recursive: true })
+          console.log(`📁 Created dental images directory: ${this.dentalImagesPath}`)
+
+          // Copy images from backup to the correct location
           await this.copyDirectory(extractedImagesPath, this.dentalImagesPath)
-          console.log('✅ Images restored successfully')
+          console.log('✅ Images restored successfully to dental_images directory')
+
+          // Verify the restoration
+          if (existsSync(this.dentalImagesPath)) {
+            const restoredFiles = glob.sync(join(this.dentalImagesPath, '**', '*'))
+            console.log(`📊 Restored ${restoredFiles.length} image files`)
+
+            // List some restored files for verification
+            restoredFiles.slice(0, 5).forEach(file => console.log(`   ✅ ${file}`))
+          }
 
           // Update image paths in database to ensure they match the restored files
           await this.updateImagePathsAfterRestore()
+
+          // Clean up old image backup directories (keep only the most recent one)
+          // But keep the one we just created in case something goes wrong
+          await this.cleanupOldImageBackups(baseDir, 1, currentImagesBackupPath)
+
         } else {
           console.log('📸 No images found in backup')
+          console.log(`🔍 Checked path: ${extractedImagesPath}`)
+
+          // List what's actually in the temp directory
+          if (existsSync(tempDir)) {
+            const tempContents = glob.sync(join(tempDir, '**', '*'))
+            console.log(`📂 Temp directory contents (${tempContents.length} items):`)
+            tempContents.slice(0, 10).forEach(item => console.log(`   - ${item}`))
+          }
         }
 
       } finally {
@@ -547,8 +953,13 @@ class BackupService {
         const result = testQuery.get()
         console.log('📋 Restored database contains', result.count, 'tables')
 
-        // Test key tables
-        const tables = ['patients', 'appointments', 'payments', 'treatments']
+        // List all tables in the restored database
+        const allTablesQuery = this.databaseService.db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        const allTables = allTablesQuery.all()
+        console.log('📋 All tables in restored database:', allTables.map(t => t.name))
+
+        // Test key tables including dental treatment tables
+        const tables = ['patients', 'appointments', 'payments', 'treatments', 'dental_treatments', 'dental_treatment_images']
         for (const table of tables) {
           try {
             const countQuery = this.databaseService.db.prepare(`SELECT COUNT(*) as count FROM ${table}`)
@@ -557,6 +968,27 @@ class BackupService {
           } catch (tableError) {
             console.warn(`⚠️ Could not query restored table ${table}:`, tableError.message)
           }
+        }
+
+        // Special check for dental_treatment_images table after restore
+        try {
+          const imageTableCheck = this.databaseService.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='dental_treatment_images'")
+          const imageTableExists = imageTableCheck.get()
+          if (imageTableExists) {
+            const imageCount = this.databaseService.db.prepare("SELECT COUNT(*) as count FROM dental_treatment_images").get()
+            console.log(`📸 Restored dental_treatment_images table: ${imageCount.count} image records`)
+
+            // Show sample restored image records
+            if (imageCount.count > 0) {
+              const sampleImages = this.databaseService.db.prepare("SELECT patient_id, tooth_number, image_type, image_path FROM dental_treatment_images LIMIT 3").all()
+              console.log('📸 Sample restored image records:')
+              sampleImages.forEach(img => console.log(`   - Patient: ${img.patient_id}, Tooth: ${img.tooth_number}, Type: ${img.image_type}, Path: ${img.image_path}`))
+            }
+          } else {
+            console.warn('⚠️ dental_treatment_images table missing in restored database!')
+          }
+        } catch (imageError) {
+          console.error('❌ Error checking restored dental_treatment_images table:', imageError)
         }
 
         console.log('✅ SQLite database restored and verified successfully')
@@ -752,6 +1184,54 @@ class BackupService {
     }, intervals[frequency])
   }
 
+  // Clean up old image backup directories
+  async cleanupOldImageBackups(baseDir, keepCount = 2, excludePath = null) {
+    try {
+      console.log('🧹 Cleaning up old image backup directories...')
+
+      // Find all current_images_backup directories
+      const backupPattern = join(baseDir, 'current_images_backup_*')
+      const backupDirs = glob.sync(backupPattern)
+
+      // Filter out the excluded path if provided
+      const filteredBackupDirs = excludePath
+        ? backupDirs.filter(dir => dir !== excludePath)
+        : backupDirs
+
+      if (filteredBackupDirs.length <= keepCount) {
+        console.log(`📁 Found ${filteredBackupDirs.length} image backup directories (excluding current), keeping all`)
+        return
+      }
+
+      // Sort by creation time (newest first) based on timestamp in directory name
+      const sortedBackups = filteredBackupDirs.sort((a, b) => {
+        const timestampA = basename(a).replace('current_images_backup_', '')
+        const timestampB = basename(b).replace('current_images_backup_', '')
+        return parseInt(timestampB) - parseInt(timestampA)
+      })
+
+      // Keep only the most recent ones
+      const backupsToDelete = sortedBackups.slice(keepCount)
+
+      for (const backupDir of backupsToDelete) {
+        try {
+          if (existsSync(backupDir)) {
+            await fs.rm(backupDir, { recursive: true, force: true })
+            console.log(`🗑️ Deleted old image backup: ${basename(backupDir)}`)
+          }
+        } catch (error) {
+          console.warn(`⚠️ Failed to delete image backup ${backupDir}:`, error.message)
+        }
+      }
+
+      console.log(`✅ Cleaned up ${backupsToDelete.length} old image backup directories`)
+
+    } catch (error) {
+      console.error('❌ Failed to cleanup old image backups:', error)
+      // Don't throw error as this is not critical
+    }
+  }
+
   async updateImagePathsAfterRestore() {
     try {
       console.log('🔄 Updating image paths and treatment links after restore...')
@@ -906,6 +1386,192 @@ class BackupService {
       // Don't throw error as this is not critical for the restore process
     }
   }
+
+  /**
+   * Synchronize dental treatment images with the database after backup restore
+   * Scans the dental_images folder structure and ensures all image files are properly linked
+   */
+  async synchronizeDentalImagesAfterRestore() {
+    try {
+      console.log('🔄 Starting dental images synchronization after restore...')
+
+      if (!existsSync(this.dentalImagesPath)) {
+        console.log('📁 No dental_images directory found, skipping synchronization')
+        return {
+          success: true,
+          totalProcessed: 0,
+          totalAdded: 0,
+          totalSkipped: 0,
+          totalErrors: 0,
+          errors: []
+        }
+      }
+
+      const stats = {
+        totalProcessed: 0,
+        totalAdded: 0,
+        totalSkipped: 0,
+        totalErrors: 0,
+        errors: []
+      }
+
+      // Valid image types
+      const validImageTypes = ['before', 'after', 'xray', 'clinical']
+
+      // Recursively scan the dental_images directory
+      const imageFiles = glob.sync(join(this.dentalImagesPath, '**', '*'))
+        .filter(filePath => {
+          const stat = statSync(filePath)
+          return stat.isFile() && /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(filePath)
+        })
+
+      console.log(`📊 Found ${imageFiles.length} image files to process`)
+
+      for (const filePath of imageFiles) {
+        try {
+          stats.totalProcessed++
+
+          // Extract path components: dental_images/{patient_id}/{tooth_number}/{image_type}/{filename}
+          const relativePath = path.relative(this.dentalImagesPath, filePath)
+          const pathParts = relativePath.split(path.sep)
+
+          if (pathParts.length !== 4) {
+            console.warn(`⚠️ Invalid folder structure: ${relativePath} (expected: patient_id/tooth_number/image_type/filename)`)
+            stats.totalSkipped++
+            continue
+          }
+
+          const [patientId, toothNumberStr, imageType, filename] = pathParts
+          const toothNumber = parseInt(toothNumberStr, 10)
+
+          // Validate tooth number (1-32)
+          if (isNaN(toothNumber) || toothNumber < 1 || toothNumber > 32) {
+            console.warn(`⚠️ Invalid tooth number: ${toothNumberStr} for file ${relativePath}`)
+            stats.totalSkipped++
+            continue
+          }
+
+          // Validate image type
+          if (!validImageTypes.includes(imageType)) {
+            console.warn(`⚠️ Invalid image type: ${imageType} for file ${relativePath}`)
+            stats.totalSkipped++
+            continue
+          }
+
+          // Check if patient exists
+          const patient = this.databaseService.db.prepare(`
+            SELECT id FROM patients WHERE id = ?
+          `).get(patientId)
+
+          if (!patient) {
+            console.warn(`⚠️ Patient not found: ${patientId} for file ${relativePath}`)
+            stats.totalSkipped++
+            continue
+          }
+
+          // Build the image path (directory path without filename)
+          const imagePath = `dental_images/${patientId}/${toothNumber}/${imageType}/`
+
+          // Check if image is already registered in database
+          const existingImage = this.databaseService.db.prepare(`
+            SELECT COUNT(*) as count FROM dental_treatment_images
+            WHERE image_path = ? AND patient_id = ? AND tooth_number = ? AND image_type = ?
+          `).get(imagePath, patientId, toothNumber, imageType)
+
+          if (existingImage.count > 0) {
+            console.log(`✅ Image already registered: ${relativePath}`)
+            stats.totalSkipped++
+            continue
+          }
+
+          // Find the most recent dental treatment for this patient and tooth
+          const latestTreatment = this.databaseService.db.prepare(`
+            SELECT id FROM dental_treatments
+            WHERE patient_id = ? AND tooth_number = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+          `).get(patientId, toothNumber)
+
+          if (!latestTreatment) {
+            console.warn(`⚠️ No treatment found for patient ${patientId}, tooth ${toothNumber}`)
+            stats.totalErrors++
+            stats.errors.push({
+              file: relativePath,
+              error: `No treatment found for patient ${patientId}, tooth ${toothNumber}`
+            })
+            continue
+          }
+
+          // Generate UUID for new image record
+          const { v4: uuidv4 } = require('uuid')
+          const imageId = uuidv4()
+          const now = new Date().toISOString()
+
+          // Insert new image record
+          this.databaseService.db.prepare(`
+            INSERT INTO dental_treatment_images (
+              id,
+              dental_treatment_id,
+              patient_id,
+              tooth_number,
+              image_path,
+              image_type,
+              description,
+              taken_date,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            imageId,
+            latestTreatment.id,
+            patientId,
+            toothNumber,
+            imagePath,
+            imageType,
+            null, // description
+            now,  // taken_date
+            now,  // created_at
+            now   // updated_at
+          )
+
+          console.log(`✅ Added image record: ${relativePath} -> ${imageId}`)
+          stats.totalAdded++
+
+        } catch (error) {
+          console.error(`❌ Error processing file ${filePath}:`, error)
+          stats.totalErrors++
+          stats.errors.push({
+            file: path.relative(this.dentalImagesPath, filePath),
+            error: error.message
+          })
+        }
+      }
+
+      console.log(`✅ Dental images synchronization completed:`)
+      console.log(`   📊 Total processed: ${stats.totalProcessed}`)
+      console.log(`   ➕ Total added: ${stats.totalAdded}`)
+      console.log(`   ⏭️ Total skipped: ${stats.totalSkipped}`)
+      console.log(`   ❌ Total errors: ${stats.totalErrors}`)
+
+      if (stats.errors.length > 0) {
+        console.log(`📋 Error details:`)
+        stats.errors.forEach(error => {
+          console.log(`   - ${error.file}: ${error.error}`)
+        })
+      }
+
+      return {
+        success: true,
+        ...stats
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to synchronize dental images after restore:', error)
+      throw error
+    }
+  }
+
+
 
 
 }

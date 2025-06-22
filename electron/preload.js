@@ -125,6 +125,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStats: () => ipcRenderer.invoke('db:dashboard:getStats')
   },
 
+
+
   // Backup operations
   backup: {
     create: (customPath, includeImages) => ipcRenderer.invoke('backup:create', customPath, includeImages),

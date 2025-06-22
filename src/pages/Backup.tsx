@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Shield, Download, Upload, RefreshCw, Trash2, AlertCircle, CheckCircle, Clock, Database, Image } from 'lucide-react'
+import { Shield, Download, Upload, RefreshCw, Trash2, AlertCircle, CheckCircle, Clock, Database, Image, Sync } from 'lucide-react'
 import { useBackupStore } from '@/store/backupStore'
 import { notify } from '@/services/notificationService'
 import {
@@ -55,6 +55,7 @@ export default function Backup() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [backupToRestore, setBackupToRestore] = useState<string | null>(null)
   const [backupToDelete, setBackupToDelete] = useState<string | null>(null)
+  const [isSyncingImages, setIsSyncingImages] = useState(false)
 
   useEffect(() => {
     loadBackups()

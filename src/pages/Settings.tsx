@@ -31,6 +31,7 @@ import LogoUploadTest from '../components/debug/LogoUploadTest'
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('backup')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+
   const [notification, setNotification] = useState<{
     message: string
     type: 'success' | 'error' | 'info'
@@ -191,6 +192,8 @@ export default function Settings() {
       setShowDeleteConfirm(null) // Close dialog even on error
     }
   }
+
+
 
 
 
@@ -367,6 +370,8 @@ export default function Settings() {
                   <Upload className="w-5 h-5" />
                   <span>{isRestoringBackup ? 'جاري الاستعادة...' : 'استعادة نسخة احتياطية'}</span>
                 </button>
+
+
               </div>
 
               <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">

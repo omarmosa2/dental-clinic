@@ -62,6 +62,8 @@ export interface ElectronAPI {
     getStats: () => Promise<DashboardStats>
   }
 
+
+
   // Backup operations
   backup: {
     create: () => Promise<string>
