@@ -314,7 +314,13 @@ export default function ToothDetailsDialog({
     try {
       await deleteImage(imageId)
       notify.success('تم حذف الصورة بنجاح')
+
+      // Reload images for this treatment to reflect the deletion
+      if (existingTreatment?.id) {
+        await loadImagesByTreatment(existingTreatment.id)
+      }
     } catch (error) {
+      console.error('Error deleting image:', error)
       notify.error('حدث خطأ أثناء حذف الصورة')
     }
   }

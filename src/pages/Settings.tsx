@@ -134,6 +134,15 @@ export default function Settings() {
 
       if (confirmed) {
         await restoreBackup(filePath)
+
+        // Refresh all images after restore
+        try {
+          const { refreshAllImages } = await import('../store/dentalTreatmentStore')
+          await refreshAllImages()
+        } catch (error) {
+          console.warn('Could not refresh images after restore:', error)
+        }
+
         showNotification('تم استعادة النسخة الاحتياطية بنجاح', 'success')
         // Reload the page to reflect changes
         window.location.reload()
@@ -151,6 +160,15 @@ export default function Settings() {
 
       if (confirmed) {
         await restoreBackup(backupPath)
+
+        // Refresh all images after restore
+        try {
+          const { refreshAllImages } = await import('../store/dentalTreatmentStore')
+          await refreshAllImages()
+        } catch (error) {
+          console.warn('Could not refresh images after restore:', error)
+        }
+
         showNotification('تم استعادة النسخة الاحتياطية بنجاح', 'success')
         // Reload the page to reflect changes
         window.location.reload()

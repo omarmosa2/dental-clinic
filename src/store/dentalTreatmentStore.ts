@@ -23,6 +23,7 @@ interface DentalTreatmentState {
   loadImagesByTreatment: (treatmentId: string) => Promise<void>
   createImage: (image: Omit<DentalTreatmentImage, 'id' | 'created_at' | 'updated_at'>) => Promise<DentalTreatmentImage>
   deleteImage: (id: string) => Promise<void>
+  refreshAllImages: () => Promise<void>
 
   // Prescription actions
   loadTreatmentPrescriptions: () => Promise<void>
@@ -213,6 +214,20 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to delete image',
+        isLoading: false
+      })
+    }
+  },
+
+  refreshAllImages: async () => {
+    set({ isLoading: true, error: null })
+    try {
+      const images = await window.electronAPI.dentalTreatmentImages.getAll()
+      set({ images, isLoading: false })
+      console.log('✅ All images refreshed after backup restore')
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to refresh images',
         isLoading: false
       })
     }

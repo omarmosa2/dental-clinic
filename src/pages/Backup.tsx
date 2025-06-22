@@ -86,6 +86,14 @@ export default function Backup() {
       clearError()
       const success = await restoreBackup(backupToRestore)
       if (success) {
+        // Refresh all images after restore
+        try {
+          const { refreshAllImages } = await import('../store/dentalTreatmentStore')
+          await refreshAllImages()
+        } catch (error) {
+          console.warn('Could not refresh images after restore:', error)
+        }
+
         notify.restoreSuccess('تم استعادة النسخة الاحتياطية بنجاح! سيتم إعادة تحميل التطبيق...')
         // Reload the page to reflect changes
         setTimeout(() => {

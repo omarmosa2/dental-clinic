@@ -1338,6 +1338,71 @@ ipcMain.handle('db:dentalTreatmentImages:delete', async (_, id) => {
   try {
     if (databaseService) {
       console.log('Deleting dental treatment image:', id)
+
+      // First get the image record to find the file path
+      const imageRecord = databaseService.db.prepare('SELECT * FROM dental_treatment_images WHERE id = ?').get(id)
+      console.log('Image record to delete:', imageRecord)
+
+      if (imageRecord && imageRecord.image_path) {
+        // Try to delete the physical file
+        try {
+          const fs = require('fs')
+          const path = require('path')
+
+          console.log('Attempting to delete image file:', imageRecord.image_path)
+
+          // Try different possible paths
+          let fullPath
+          let fileDeleted = false
+
+          // First try: userData/dental_images/...
+          fullPath = path.join(app.getPath('userData'), imageRecord.image_path)
+          console.log('Checking path 1:', fullPath)
+          if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath)
+            console.log('✅ Physical image file deleted from userData:', fullPath)
+            fileDeleted = true
+          } else {
+            console.log('❌ File not found at userData path:', fullPath)
+
+            // Second try: public/upload/...
+            fullPath = path.join(__dirname, '..', 'public', 'upload', imageRecord.image_path)
+            console.log('Checking path 2:', fullPath)
+            if (fs.existsSync(fullPath)) {
+              fs.unlinkSync(fullPath)
+              console.log('✅ Physical image file deleted from public:', fullPath)
+              fileDeleted = true
+            } else {
+              console.log('❌ File not found at public path:', fullPath)
+
+              // Third try: direct path if it's absolute
+              if (path.isAbsolute(imageRecord.image_path) && fs.existsSync(imageRecord.image_path)) {
+                fs.unlinkSync(imageRecord.image_path)
+                console.log('✅ Physical image file deleted from absolute path:', imageRecord.image_path)
+                fileDeleted = true
+              } else {
+                console.log('❌ File not found at absolute path:', imageRecord.image_path)
+              }
+            }
+          }
+
+          if (!fileDeleted) {
+            console.warn('⚠️ Physical image file not found at any location:', imageRecord.image_path)
+            console.warn('Available paths checked:')
+            console.warn('1. userData:', path.join(app.getPath('userData'), imageRecord.image_path))
+            console.warn('2. public:', path.join(__dirname, '..', 'public', 'upload', imageRecord.image_path))
+            console.warn('3. absolute:', imageRecord.image_path)
+          }
+        } catch (fileError) {
+          console.error('❌ Error deleting physical image file:', fileError.message)
+          console.error('File path was:', imageRecord.image_path)
+          // Continue with database deletion even if file deletion fails
+        }
+      } else {
+        console.warn('⚠️ No image record found or no image_path for ID:', id)
+      }
+
+      // Delete from database
       await databaseService.deleteDentalTreatmentImage(id)
       console.log('Dental treatment image deleted successfully:', id)
       return true

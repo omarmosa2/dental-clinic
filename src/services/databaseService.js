@@ -2428,11 +2428,16 @@ class DatabaseService {
           CREATE TABLE dental_treatment_images (
             id TEXT PRIMARY KEY,
             dental_treatment_id TEXT NOT NULL,
-            image_type TEXT NOT NULL CHECK (image_type IN ('before', 'after', 'xray')),
+            patient_id TEXT NOT NULL,
+            tooth_number INTEGER NOT NULL,
             image_path TEXT NOT NULL,
+            image_type TEXT NOT NULL,
             description TEXT,
+            taken_date DATETIME DEFAULT CURRENT_TIMESTAMP,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (dental_treatment_id) REFERENCES dental_treatments(id) ON DELETE CASCADE
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (dental_treatment_id) REFERENCES dental_treatments(id) ON DELETE CASCADE,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
           )
         `)
         console.log('✅ [DEBUG] Dental treatment images table created successfully')
@@ -2444,8 +2449,30 @@ class DatabaseService {
         const imagesColumnNames = imagesTableInfo.map(col => col.name)
         console.log('🔍 [DEBUG] Current dental_treatment_images columns:', imagesColumnNames)
 
-        // The existing table might have different columns, but we'll work with what exists
-        // The main columns we need are: id, dental_treatment_id, image_type, image_path
+        // Check if we need to add missing columns
+        const requiredColumns = ['patient_id', 'tooth_number', 'taken_date', 'updated_at']
+        const missingColumns = requiredColumns.filter(col => !imagesColumnNames.includes(col))
+
+        if (missingColumns.length > 0) {
+          console.log('🔧 [DEBUG] Adding missing columns to dental_treatment_images:', missingColumns)
+
+          for (const column of missingColumns) {
+            try {
+              if (column === 'patient_id') {
+                this.db.exec(`ALTER TABLE dental_treatment_images ADD COLUMN patient_id TEXT`)
+              } else if (column === 'tooth_number') {
+                this.db.exec(`ALTER TABLE dental_treatment_images ADD COLUMN tooth_number INTEGER`)
+              } else if (column === 'taken_date') {
+                this.db.exec(`ALTER TABLE dental_treatment_images ADD COLUMN taken_date DATETIME DEFAULT CURRENT_TIMESTAMP`)
+              } else if (column === 'updated_at') {
+                this.db.exec(`ALTER TABLE dental_treatment_images ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`)
+              }
+              console.log(`✅ [DEBUG] Added column ${column} to dental_treatment_images`)
+            } catch (error) {
+              console.warn(`⚠️ [DEBUG] Could not add column ${column}:`, error.message)
+            }
+          }
+        }
       }
 
       // Create dental_treatment_prescriptions table if it doesn't exist

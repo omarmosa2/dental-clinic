@@ -239,10 +239,12 @@ const electronAPI: ElectronAPI = {
   },
 
   files: {
-    uploadDentalImage: (fileBuffer, fileName, patientId, toothNumber) =>
-      ipcRenderer.invoke('files:uploadDentalImage', fileBuffer, fileName, patientId, toothNumber),
-    saveDentalImage: (base64Data, fileName, patientId, toothNumber) =>
-      ipcRenderer.invoke('files:saveDentalImage', base64Data, fileName, patientId, toothNumber),
+    uploadDentalImage: (fileBuffer, fileName, patientId, toothNumber, imageType, patientName, toothName) =>
+      ipcRenderer.invoke('files:uploadDentalImage', fileBuffer, fileName, patientId, toothNumber, imageType, patientName, toothName),
+    saveDentalImage: (base64Data, fileName, patientId, toothNumber, imageType, patientName, toothName) =>
+      ipcRenderer.invoke('files:saveDentalImage', base64Data, fileName, patientId, toothNumber, imageType, patientName, toothName),
+    getDentalImage: (imagePath) => ipcRenderer.invoke('files:getDentalImage', imagePath),
+    checkImageExists: (imagePath) => ipcRenderer.invoke('files:checkImageExists', imagePath)
   },
 }
 

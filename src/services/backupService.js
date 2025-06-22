@@ -1,9 +1,11 @@
 const { app } = require('electron')
 const { join, basename, dirname } = require('path')
+const path = require('path')
 const { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, rmSync, readFileSync, writeFileSync, lstatSync } = require('fs')
 const fs = require('fs').promises
 const archiver = require('archiver')
 const extract = require('extract-zip')
+const glob = require('glob')
 
 class BackupService {
   constructor(databaseService) {
@@ -446,6 +448,9 @@ class BackupService {
           // Copy images from backup
           await this.copyDirectory(extractedImagesPath, this.dentalImagesPath)
           console.log('✅ Images restored successfully')
+
+          // Update image paths in database to ensure they match the restored files
+          await this.updateImagePathsAfterRestore()
         } else {
           console.log('📸 No images found in backup')
         }
@@ -745,6 +750,124 @@ class BackupService {
         console.error('Scheduled backup failed:', error)
       }
     }, intervals[frequency])
+  }
+
+  async updateImagePathsAfterRestore() {
+    try {
+      console.log('🔄 Updating image paths and treatment links after restore...')
+
+      // Get all image records from database
+      const imageRecords = this.databaseService.db.prepare(`
+        SELECT id, dental_treatment_id, image_path, patient_id, tooth_number, image_type
+        FROM dental_treatment_images
+      `).all()
+
+      console.log(`📊 Found ${imageRecords.length} image records to verify`)
+
+      let updatedPathsCount = 0
+      let relinkedTreatmentsCount = 0
+
+      for (const record of imageRecords) {
+        try {
+          console.log(`🔍 Processing image record:`, record)
+
+          // Step 1: Fix image paths
+          const currentPath = record.image_path
+          const filename = basename(currentPath)
+          console.log(`📁 Current path: ${currentPath}, filename: ${filename}`)
+
+          // Get patient name for new path structure
+          const patient = this.databaseService.db.prepare(`
+            SELECT full_name FROM patients WHERE id = ?
+          `).get(record.patient_id)
+
+          console.log(`👤 Patient info:`, patient)
+
+          const cleanPatientName = (patient?.full_name || `Patient_${record.patient_id}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+          console.log(`🧹 Clean patient name: ${cleanPatientName}`)
+
+          // Build expected path structure: dental_images/patient_name/image_type/filename
+          const expectedPath = `dental_images/${cleanPatientName}/${record.image_type || 'other'}/${filename}`
+          const fullExpectedPath = join(this.dentalImagesPath, cleanPatientName, record.image_type || 'other', filename)
+          console.log(`🎯 Expected path: ${expectedPath}`)
+          console.log(`🎯 Full expected path: ${fullExpectedPath}`)
+
+          let finalImagePath = currentPath
+
+          // Check if file exists at expected location
+          if (existsSync(fullExpectedPath)) {
+            console.log(`✅ File found at expected location`)
+            if (currentPath !== expectedPath) {
+              finalImagePath = expectedPath
+              updatedPathsCount++
+              console.log(`📝 Updated image path: ${record.id} -> ${expectedPath}`)
+            }
+          } else {
+            console.log(`❌ File not found at expected location, searching...`)
+
+            // Try to find the file in the restored images directory
+            const searchPattern = join(this.dentalImagesPath, '**', filename)
+            console.log(`🔍 Search pattern: ${searchPattern}`)
+
+            const foundFiles = glob.sync(searchPattern)
+            console.log(`🔍 Found files:`, foundFiles)
+
+            if (foundFiles.length > 0) {
+              const foundFile = foundFiles[0]
+              finalImagePath = path.relative(dirname(this.dentalImagesPath), foundFile).replace(/\\/g, '/')
+              updatedPathsCount++
+              console.log(`📝 Found and updated image path: ${record.id} -> ${finalImagePath}`)
+            } else {
+              console.warn(`⚠️ Image file not found for record ${record.id}: ${filename}`)
+              console.warn(`⚠️ Searched in: ${this.dentalImagesPath}`)
+
+              // List all files in the dental images directory for debugging
+              if (existsSync(this.dentalImagesPath)) {
+                const allFiles = glob.sync(join(this.dentalImagesPath, '**', '*'))
+                console.log(`📂 All files in dental_images:`, allFiles.slice(0, 10)) // Show first 10 files
+              }
+            }
+          }
+
+          // Step 2: Find the correct dental treatment ID for this image
+          // Look for a treatment that matches patient_id and tooth_number
+          const matchingTreatment = this.databaseService.db.prepare(`
+            SELECT id FROM dental_treatments
+            WHERE patient_id = ? AND tooth_number = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+          `).get(record.patient_id, record.tooth_number)
+
+          let finalTreatmentId = record.dental_treatment_id
+
+          if (matchingTreatment && matchingTreatment.id !== record.dental_treatment_id) {
+            finalTreatmentId = matchingTreatment.id
+            relinkedTreatmentsCount++
+            console.log(`🔗 Relinked image ${record.id} to treatment ${finalTreatmentId} (patient: ${record.patient_id}, tooth: ${record.tooth_number})`)
+          } else if (!matchingTreatment) {
+            console.warn(`⚠️ No matching treatment found for image ${record.id} (patient: ${record.patient_id}, tooth: ${record.tooth_number})`)
+          }
+
+          // Step 3: Update the record with corrected path and treatment ID
+          if (finalImagePath !== currentPath || finalTreatmentId !== record.dental_treatment_id) {
+            this.databaseService.db.prepare(`
+              UPDATE dental_treatment_images
+              SET image_path = ?, dental_treatment_id = ?
+              WHERE id = ?
+            `).run(finalImagePath, finalTreatmentId, record.id)
+          }
+
+        } catch (error) {
+          console.error(`❌ Error processing image record ${record.id}:`, error)
+        }
+      }
+
+      console.log(`✅ Updated ${updatedPathsCount} image paths and relinked ${relinkedTreatmentsCount} treatments after restore`)
+
+    } catch (error) {
+      console.error('❌ Failed to update image paths after restore:', error)
+      // Don't throw error as this is not critical for the restore process
+    }
   }
 
 
