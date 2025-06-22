@@ -2,6 +2,7 @@ const Database = require('better-sqlite3')
 const { join } = require('path')
 const { readFileSync } = require('fs')
 const { v4: uuidv4 } = require('uuid')
+const { ImageMigrationService } = require('./imageMigrationService')
 
 class DatabaseService {
   constructor(dbPath = null) {
@@ -20,6 +21,12 @@ class DatabaseService {
     this.db = new Database(dbPath)
     this.initializeDatabase()
     this.runMigrations()
+
+    // Initialize image migration service
+    this.imageMigrationService = new ImageMigrationService(this)
+
+    // Check if image migration is needed
+    this.checkAndRunImageMigration()
   }
 
   // Ensure database connection is open
@@ -2685,6 +2692,65 @@ class DatabaseService {
     `)
     const result = stmt.run(treatmentId, prescriptionId)
     return result.changes > 0
+  }
+
+  /**
+   * Check if image migration is needed and run it
+   */
+  async checkAndRunImageMigration() {
+    try {
+      // Check if migration has already been run
+      let migrationVersion = 0
+      try {
+        const result = this.db.prepare(`
+          SELECT version FROM schema_version
+          WHERE version = 9
+        `).get()
+        migrationVersion = result ? result.version : 0
+      } catch (error) {
+        // Migration tracking not available
+      }
+
+      if (migrationVersion >= 9) {
+        console.log('✅ Image migration already completed')
+        return
+      }
+
+      // Check if there are any images that need migration
+      const imageRecords = this.db.prepare(`
+        SELECT COUNT(*) as count FROM dental_treatment_images
+      `).get()
+
+      if (imageRecords.count === 0) {
+        console.log('📁 No images found, skipping migration')
+        // Mark migration as completed
+        this.db.prepare('INSERT OR REPLACE INTO schema_version (version) VALUES (?)').run(9)
+        return
+      }
+
+      console.log('🔄 Starting automatic image migration...')
+      const result = await this.imageMigrationService.migrateImages()
+
+      if (result.success) {
+        console.log('✅ Image migration completed successfully')
+        // Mark migration as completed
+        this.db.prepare('INSERT OR REPLACE INTO schema_version (version) VALUES (?)').run(9)
+      } else {
+        console.warn('⚠️ Image migration completed with issues')
+      }
+
+    } catch (error) {
+      console.error('❌ Error during image migration check:', error)
+      // Don't throw error as this shouldn't prevent app startup
+    }
+  }
+
+  /**
+   * Manually trigger image migration
+   */
+  async runImageMigration() {
+    console.log('🔄 Manually triggering image migration...')
+    return await this.imageMigrationService.migrateImages()
   }
 }
 

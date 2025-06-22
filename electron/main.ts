@@ -898,47 +898,58 @@ ipcMain.handle('db:dentalTreatmentImages:delete', async (_, id) => {
 
         console.log('Attempting to delete image file:', imageRecord.image_path)
 
-        // Try different possible paths
-        let fullPath
         let fileDeleted = false
 
-        // First try: userData/dental_images/...
-        fullPath = path.join(app.getPath('userData'), imageRecord.image_path)
-        console.log('Checking path 1:', fullPath)
-        if (fs.existsSync(fullPath)) {
-          fs.unlinkSync(fullPath)
-          console.log('✅ Physical image file deleted from userData:', fullPath)
-          fileDeleted = true
+        // Check if image_path is a directory path (new format: dental_images/patient_id/tooth_number/image_type/)
+        if (imageRecord.image_path.endsWith('/')) {
+          console.log('Directory path detected, searching for images to delete in:', imageRecord.image_path)
+
+          // Search for images in the directory and delete them
+          const searchPaths = [
+            path.join(app.getPath('userData'), imageRecord.image_path),
+            path.join(__dirname, '..', 'public', 'upload', imageRecord.image_path)
+          ]
+
+          for (const searchPath of searchPaths) {
+            if (fs.existsSync(searchPath)) {
+              try {
+                const files = fs.readdirSync(searchPath)
+                const imageFiles = files.filter(file => {
+                  const ext = path.extname(file).toLowerCase()
+                  return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)
+                })
+
+                for (const imageFile of imageFiles) {
+                  const fullImagePath = path.join(searchPath, imageFile)
+                  fs.unlinkSync(fullImagePath)
+                  console.log('✅ Physical image file deleted:', fullImagePath)
+                  fileDeleted = true
+                }
+              } catch (dirError) {
+                console.warn('Error deleting images from directory:', searchPath, dirError.message)
+              }
+            }
+          }
         } else {
-          console.log('❌ File not found at userData path:', fullPath)
+          // Legacy handling for full file paths
+          const possiblePaths = [
+            path.join(app.getPath('userData'), imageRecord.image_path),
+            path.join(__dirname, '..', 'public', 'upload', imageRecord.image_path),
+            path.isAbsolute(imageRecord.image_path) ? imageRecord.image_path : null
+          ].filter(Boolean)
 
-          // Second try: public/upload/...
-          fullPath = path.join(__dirname, '..', 'public', 'upload', imageRecord.image_path)
-          console.log('Checking path 2:', fullPath)
-          if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath)
-            console.log('✅ Physical image file deleted from public:', fullPath)
-            fileDeleted = true
-          } else {
-            console.log('❌ File not found at public path:', fullPath)
-
-            // Third try: direct path if it's absolute
-            if (path.isAbsolute(imageRecord.image_path) && fs.existsSync(imageRecord.image_path)) {
-              fs.unlinkSync(imageRecord.image_path)
-              console.log('✅ Physical image file deleted from absolute path:', imageRecord.image_path)
+          for (const fullPath of possiblePaths) {
+            if (fs.existsSync(fullPath)) {
+              fs.unlinkSync(fullPath)
+              console.log('✅ Physical image file deleted:', fullPath)
               fileDeleted = true
-            } else {
-              console.log('❌ File not found at absolute path:', imageRecord.image_path)
+              break
             }
           }
         }
 
         if (!fileDeleted) {
           console.warn('⚠️ Physical image file not found at any location:', imageRecord.image_path)
-          console.warn('Available paths checked:')
-          console.warn('1. userData:', path.join(app.getPath('userData'), imageRecord.image_path))
-          console.warn('2. public:', path.join(__dirname, '..', 'public', 'upload', imageRecord.image_path))
-          console.warn('3. absolute:', imageRecord.image_path)
         }
       } catch (fileError) {
         console.error('❌ Error deleting physical image file:', fileError.message)
@@ -967,9 +978,24 @@ ipcMain.handle('files:uploadDentalImage', async (_, fileBuffer, fileName, patien
     const fs = require('fs')
     const path = require('path')
 
-    // Create upload directory organized by patient name, then image type
-    const cleanPatientName = (patientName || `Patient_${patientId}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
-    const uploadDir = path.join(app.getPath('userData'), 'dental_images', cleanPatientName, imageType || 'other')
+    // Validate required parameters
+    if (!patientId || !toothNumber || !imageType) {
+      throw new Error('Missing required parameters: patientId, toothNumber, or imageType')
+    }
+
+    // Validate tooth number (1-32)
+    if (toothNumber < 1 || toothNumber > 32) {
+      throw new Error('Invalid tooth number. Must be between 1 and 32')
+    }
+
+    // Validate image type
+    const validImageTypes = ['before', 'after', 'xray', 'clinical', 'other']
+    if (!validImageTypes.includes(imageType)) {
+      throw new Error(`Invalid image type. Must be one of: ${validImageTypes.join(', ')}`)
+    }
+
+    // Create upload directory organized by patient_id/tooth_number/image_type
+    const uploadDir = path.join(app.getPath('userData'), 'dental_images', patientId, toothNumber.toString(), imageType)
     console.log('Upload directory:', uploadDir)
 
     if (!fs.existsSync(uploadDir)) {
@@ -977,29 +1003,32 @@ ipcMain.handle('files:uploadDentalImage', async (_, fileBuffer, fileName, patien
       console.log('Created upload directory:', uploadDir)
     }
 
-    // Generate meaningful filename: ToothName.extension (with timestamp if needed)
+    // Generate meaningful filename with original name and timestamp
     const extension = path.extname(fileName) || '.jpg'
     const timestamp = Date.now()
+    const baseName = path.basename(fileName, extension)
 
-    // Clean tooth name for filename
-    const cleanToothName = (toothName || `Tooth_${toothNumber}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+    // Clean filename to remove invalid characters
+    const cleanBaseName = baseName.replace(/[^a-zA-Z0-9\u0600-\u06FF\s\-_]/g, '').replace(/\s+/g, '_')
 
-    // Create filename: ToothName-Timestamp.extension (timestamp to avoid conflicts)
-    const meaningfulFileName = `${cleanToothName}-${timestamp}${extension}`
+    // Create filename: originalname-timestamp.extension
+    const meaningfulFileName = `${cleanBaseName || 'image'}-${timestamp}${extension}`
     const filePath = path.join(uploadDir, meaningfulFileName)
 
     console.log('Saving file to:', filePath)
     console.log('Generated filename:', meaningfulFileName)
-    console.log('Patient folder:', cleanPatientName)
-    console.log('Image type folder:', imageType || 'other')
+    console.log('Patient ID:', patientId)
+    console.log('Tooth number:', toothNumber)
+    console.log('Image type:', imageType)
 
     // Convert ArrayBuffer to Buffer and write file to disk
     const buffer = Buffer.from(fileBuffer)
     fs.writeFileSync(filePath, buffer)
 
-    // Return relative path for database storage
-    const relativePath = `dental_images/${cleanPatientName}/${imageType || 'other'}/${meaningfulFileName}`
+    // Return relative path for database storage (without filename)
+    const relativePath = `dental_images/${patientId}/${toothNumber}/${imageType}/`
     console.log('Dental image uploaded successfully:', relativePath)
+    console.log('Full file path:', `${relativePath}${meaningfulFileName}`)
 
     return relativePath
   } catch (error) {
@@ -1008,7 +1037,7 @@ ipcMain.handle('files:uploadDentalImage', async (_, fileBuffer, fileName, patien
   }
 })
 
-// Alternative simpler upload handler
+// Alternative simpler upload handler (fallback for base64 data)
 ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientId, toothNumber, imageType, patientName, toothName) => {
   try {
     console.log('Saving dental image (base64):', { fileName, patientId, toothNumber, imageType, patientName, toothName })
@@ -1016,31 +1045,48 @@ ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientI
     const fs = require('fs')
     const path = require('path')
 
-    // Create upload directory organized by patient name, then image type in public/upload (fallback)
-    const cleanPatientName = (patientName || `Patient_${patientId}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
-    const uploadDir = path.join(__dirname, '..', 'public', 'upload', 'dental_images', cleanPatientName, imageType || 'other')
-    console.log('Upload directory:', uploadDir)
+    // Validate required parameters
+    if (!patientId || !toothNumber || !imageType) {
+      throw new Error('Missing required parameters: patientId, toothNumber, or imageType')
+    }
+
+    // Validate tooth number (1-32)
+    if (toothNumber < 1 || toothNumber > 32) {
+      throw new Error('Invalid tooth number. Must be between 1 and 32')
+    }
+
+    // Validate image type
+    const validImageTypes = ['before', 'after', 'xray', 'clinical', 'other']
+    if (!validImageTypes.includes(imageType)) {
+      throw new Error(`Invalid image type. Must be one of: ${validImageTypes.join(', ')}`)
+    }
+
+    // Create upload directory organized by patient_id/tooth_number/image_type in public/upload (fallback)
+    const uploadDir = path.join(__dirname, '..', 'public', 'upload', 'dental_images', patientId, toothNumber.toString(), imageType)
+    console.log('Upload directory (fallback):', uploadDir)
 
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true })
       console.log('Created upload directory:', uploadDir)
     }
 
-    // Generate meaningful filename: ToothName.extension (with timestamp if needed)
+    // Generate meaningful filename with original name and timestamp
     const extension = path.extname(fileName) || '.jpg'
     const timestamp = Date.now()
+    const baseName = path.basename(fileName, extension)
 
-    // Clean tooth name for filename
-    const cleanToothName = (toothName || `Tooth_${toothNumber}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+    // Clean filename to remove invalid characters
+    const cleanBaseName = baseName.replace(/[^a-zA-Z0-9\u0600-\u06FF\s\-_]/g, '').replace(/\s+/g, '_')
 
-    // Create filename: ToothName-Timestamp.extension (timestamp to avoid conflicts)
-    const meaningfulFileName = `${cleanToothName}-${timestamp}${extension}`
+    // Create filename: originalname-timestamp.extension
+    const meaningfulFileName = `${cleanBaseName || 'image'}-${timestamp}${extension}`
     const filePath = path.join(uploadDir, meaningfulFileName)
 
     console.log('Saving file to (fallback):', filePath)
     console.log('Generated filename:', meaningfulFileName)
-    console.log('Patient folder:', cleanPatientName)
-    console.log('Image type folder:', imageType || 'other')
+    console.log('Patient ID:', patientId)
+    console.log('Tooth number:', toothNumber)
+    console.log('Image type:', imageType)
 
     // Remove data URL prefix if present
     const base64 = base64Data.replace(/^data:image\/[a-z]+;base64,/, '')
@@ -1048,9 +1094,10 @@ ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientI
     // Write file to disk
     fs.writeFileSync(filePath, base64, 'base64')
 
-    // Return relative path for database storage
-    const relativePath = `dental_images/${cleanPatientName}/${imageType || 'other'}/${meaningfulFileName}`
+    // Return relative path for database storage (without filename)
+    const relativePath = `dental_images/${patientId}/${toothNumber}/${imageType}/`
     console.log('Dental image saved successfully:', relativePath)
+    console.log('Full file path:', `${relativePath}${meaningfulFileName}`)
 
     return relativePath
   } catch (error) {
@@ -1066,36 +1113,103 @@ ipcMain.handle('files:getDentalImage', async (_, imagePath) => {
     const fs = require('fs')
     const path = require('path')
 
-    // Try different possible paths
-    let fullPath
-
-    // First try: userData/dental_images/...
-    fullPath = path.join(app.getPath('userData'), imagePath)
-    if (fs.existsSync(fullPath)) {
-      console.log('Found image at userData path:', fullPath)
+    // Helper function to load and return image
+    const loadImage = (fullPath: string) => {
       const imageBuffer = fs.readFileSync(fullPath)
       const mimeType = getMimeType(path.extname(fullPath))
       const base64 = imageBuffer.toString('base64')
       return `data:${mimeType};base64,${base64}`
     }
 
-    // Second try: public/upload/...
-    fullPath = path.join(__dirname, '..', 'public', 'upload', imagePath)
-    if (fs.existsSync(fullPath)) {
-      console.log('Found image at public path:', fullPath)
-      const imageBuffer = fs.readFileSync(fullPath)
-      const mimeType = getMimeType(path.extname(fullPath))
-      const base64 = imageBuffer.toString('base64')
-      return `data:${mimeType};base64,${base64}`
+    // Check if imagePath is a directory path (new format: dental_images/patient_id/tooth_number/image_type/)
+    if (imagePath.endsWith('/')) {
+      console.log('Directory path detected, searching for images in:', imagePath)
+
+      // Search for images in the directory
+      const searchPaths = [
+        path.join(app.getPath('userData'), imagePath),
+        path.join(__dirname, '..', 'public', 'upload', imagePath)
+      ]
+
+      for (const searchPath of searchPaths) {
+        if (fs.existsSync(searchPath)) {
+          console.log('Searching in directory:', searchPath)
+
+          try {
+            const files = fs.readdirSync(searchPath)
+            const imageFiles = files.filter(file => {
+              const ext = path.extname(file).toLowerCase()
+              return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)
+            })
+
+            if (imageFiles.length > 0) {
+              // Return the first image found (or you could return the most recent)
+              const imageFile = imageFiles.sort().reverse()[0] // Get most recent by name
+              const fullImagePath = path.join(searchPath, imageFile)
+              console.log('Found image in directory:', fullImagePath)
+              return loadImage(fullImagePath)
+            }
+          } catch (dirError) {
+            console.warn('Error reading directory:', searchPath, dirError.message)
+          }
+        }
+      }
+    } else {
+      // Legacy handling for full file paths
+      const possiblePaths = [
+        // 1. New structure: userData/dental_images/patient_id/tooth_number/image_type/filename
+        path.join(app.getPath('userData'), imagePath),
+
+        // 2. Fallback structure: public/upload/dental_images/patient_id/tooth_number/image_type/filename
+        path.join(__dirname, '..', 'public', 'upload', imagePath),
+
+        // 3. Direct absolute path
+        path.isAbsolute(imagePath) ? imagePath : null
+      ].filter(Boolean) // Remove null values
+
+      // Try each path until we find the image
+      for (const fullPath of possiblePaths) {
+        if (fs.existsSync(fullPath)) {
+          console.log('Found image at path:', fullPath)
+          return loadImage(fullPath)
+        }
+      }
     }
 
-    // Third try: direct path if it's absolute
-    if (path.isAbsolute(imagePath) && fs.existsSync(imagePath)) {
-      console.log('Found image at absolute path:', imagePath)
-      const imageBuffer = fs.readFileSync(imagePath)
-      const mimeType = getMimeType(path.extname(imagePath))
-      const base64 = imageBuffer.toString('base64')
-      return `data:${mimeType};base64,${base64}`
+    // If not found in standard locations, try to search for any image by directory or filename
+    const searchPaths = [
+      path.join(app.getPath('userData'), 'dental_images'),
+      path.join(__dirname, '..', 'public', 'upload', 'dental_images')
+    ]
+
+    // Extract directory path if it's a directory format
+    let searchDir = imagePath
+    if (imagePath.endsWith('/')) {
+      searchDir = imagePath.slice(0, -1) // Remove trailing slash
+    } else {
+      searchDir = path.dirname(imagePath)
+    }
+
+    for (const basePath of searchPaths) {
+      const fullSearchPath = path.join(basePath, searchDir)
+      if (fs.existsSync(fullSearchPath)) {
+        try {
+          const files = fs.readdirSync(fullSearchPath)
+          const imageFiles = files.filter(file => {
+            const ext = path.extname(file).toLowerCase()
+            return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)
+          })
+
+          if (imageFiles.length > 0) {
+            const imageFile = imageFiles.sort().reverse()[0] // Get most recent by name
+            const fullImagePath = path.join(fullSearchPath, imageFile)
+            console.log('Found image by directory search:', fullImagePath)
+            return loadImage(fullImagePath)
+          }
+        } catch (dirError) {
+          console.warn('Error searching directory:', fullSearchPath, dirError.message)
+        }
+      }
     }
 
     console.warn('Image not found at any path:', imagePath)
@@ -1105,6 +1219,31 @@ ipcMain.handle('files:getDentalImage', async (_, imagePath) => {
     throw error
   }
 })
+
+// Helper function to recursively search for a file
+function findFileRecursively(dir: string, fileName: string): string[] {
+  const fs = require('fs')
+  const path = require('path')
+  const results: string[] = []
+
+  try {
+    const items = fs.readdirSync(dir)
+    for (const item of items) {
+      const fullPath = path.join(dir, item)
+      const stat = fs.statSync(fullPath)
+
+      if (stat.isDirectory()) {
+        results.push(...findFileRecursively(fullPath, fileName))
+      } else if (item === fileName) {
+        results.push(fullPath)
+      }
+    }
+  } catch (error) {
+    // Ignore errors (e.g., permission denied)
+  }
+
+  return results
+}
 
 // Helper function to get MIME type
 function getMimeType(extension: string): string {
@@ -1125,24 +1264,76 @@ ipcMain.handle('files:checkImageExists', async (_, imagePath) => {
     const fs = require('fs')
     const path = require('path')
 
-    // Try different possible paths
-    let fullPath
+    // Check if imagePath is a directory path (new format: dental_images/patient_id/tooth_number/image_type/)
+    if (imagePath.endsWith('/')) {
+      // Search for any images in the directory
+      const searchPaths = [
+        path.join(app.getPath('userData'), imagePath),
+        path.join(__dirname, '..', 'public', 'upload', imagePath)
+      ]
 
-    // First try: userData/dental_images/...
-    fullPath = path.join(app.getPath('userData'), imagePath)
-    if (fs.existsSync(fullPath)) {
-      return true
+      for (const searchPath of searchPaths) {
+        if (fs.existsSync(searchPath)) {
+          try {
+            const files = fs.readdirSync(searchPath)
+            const imageFiles = files.filter(file => {
+              const ext = path.extname(file).toLowerCase()
+              return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)
+            })
+
+            if (imageFiles.length > 0) {
+              return true
+            }
+          } catch (dirError) {
+            // Continue to next path
+          }
+        }
+      }
+    } else {
+      // Legacy handling for full file paths
+      const possiblePaths = [
+        path.join(app.getPath('userData'), imagePath),
+        path.join(__dirname, '..', 'public', 'upload', imagePath),
+        path.isAbsolute(imagePath) ? imagePath : null
+      ].filter(Boolean)
+
+      for (const fullPath of possiblePaths) {
+        if (fs.existsSync(fullPath)) {
+          return true
+        }
+      }
     }
 
-    // Second try: public/upload/...
-    fullPath = path.join(__dirname, '..', 'public', 'upload', imagePath)
-    if (fs.existsSync(fullPath)) {
-      return true
+    // If not found in standard locations, try to search for any image by directory
+    const searchPaths = [
+      path.join(app.getPath('userData'), 'dental_images'),
+      path.join(__dirname, '..', 'public', 'upload', 'dental_images')
+    ]
+
+    let searchDir = imagePath
+    if (imagePath.endsWith('/')) {
+      searchDir = imagePath.slice(0, -1)
+    } else {
+      searchDir = path.dirname(imagePath)
     }
 
-    // Third try: direct path if it's absolute
-    if (path.isAbsolute(imagePath) && fs.existsSync(imagePath)) {
-      return true
+    for (const basePath of searchPaths) {
+      const fullSearchPath = path.join(basePath, searchDir)
+      if (fs.existsSync(fullSearchPath)) {
+        try {
+          const files = fs.readdirSync(fullSearchPath)
+          const imageFiles = files.filter(file => {
+            const ext = path.extname(file).toLowerCase()
+            return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)
+          })
+
+          if (imageFiles.length > 0) {
+            return true
+          }
+        } catch (dirError) {
+          // Continue to next path
+        }
+      }
     }
 
     return false

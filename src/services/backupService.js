@@ -776,55 +776,92 @@ class BackupService {
           const filename = basename(currentPath)
           console.log(`📁 Current path: ${currentPath}, filename: ${filename}`)
 
-          // Get patient name for new path structure
-          const patient = this.databaseService.db.prepare(`
-            SELECT full_name FROM patients WHERE id = ?
-          `).get(record.patient_id)
-
-          console.log(`👤 Patient info:`, patient)
-
-          const cleanPatientName = (patient?.full_name || `Patient_${record.patient_id}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
-          console.log(`🧹 Clean patient name: ${cleanPatientName}`)
-
-          // Build expected path structure: dental_images/patient_name/image_type/filename
-          const expectedPath = `dental_images/${cleanPatientName}/${record.image_type || 'other'}/${filename}`
-          const fullExpectedPath = join(this.dentalImagesPath, cleanPatientName, record.image_type || 'other', filename)
-          console.log(`🎯 Expected path: ${expectedPath}`)
+          // Build expected path structure: dental_images/patient_id/tooth_number/image_type/ (without filename)
+          const expectedPath = `dental_images/${record.patient_id}/${record.tooth_number}/${record.image_type || 'other'}/`
+          const fullExpectedPath = join(this.dentalImagesPath, record.patient_id, record.tooth_number.toString(), record.image_type || 'other', filename)
+          console.log(`🎯 Expected path (new structure): ${expectedPath}`)
           console.log(`🎯 Full expected path: ${fullExpectedPath}`)
 
           let finalImagePath = currentPath
 
-          // Check if file exists at expected location
+          // Check if file exists at new expected location (patient_id/tooth_number/image_type structure)
           if (existsSync(fullExpectedPath)) {
-            console.log(`✅ File found at expected location`)
+            console.log(`✅ File found at new structure location`)
             if (currentPath !== expectedPath) {
               finalImagePath = expectedPath
               updatedPathsCount++
-              console.log(`📝 Updated image path: ${record.id} -> ${expectedPath}`)
+              console.log(`📝 Updated image path to new structure: ${record.id} -> ${expectedPath}`)
             }
           } else {
-            console.log(`❌ File not found at expected location, searching...`)
+            console.log(`❌ File not found at new structure location, checking legacy structure...`)
 
-            // Try to find the file in the restored images directory
-            const searchPattern = join(this.dentalImagesPath, '**', filename)
-            console.log(`🔍 Search pattern: ${searchPattern}`)
+            // Try legacy structure: dental_images/patient_name/image_type/filename
+            const patient = this.databaseService.db.prepare(`
+              SELECT full_name FROM patients WHERE id = ?
+            `).get(record.patient_id)
 
-            const foundFiles = glob.sync(searchPattern)
-            console.log(`🔍 Found files:`, foundFiles)
+            if (patient) {
+              const cleanPatientName = (patient.full_name || `Patient_${record.patient_id}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+              const legacyPath = `dental_images/${cleanPatientName}/${record.image_type || 'other'}/${filename}`
+              const fullLegacyPath = join(this.dentalImagesPath, cleanPatientName, record.image_type || 'other', filename)
 
-            if (foundFiles.length > 0) {
-              const foundFile = foundFiles[0]
-              finalImagePath = path.relative(dirname(this.dentalImagesPath), foundFile).replace(/\\/g, '/')
-              updatedPathsCount++
-              console.log(`📝 Found and updated image path: ${record.id} -> ${finalImagePath}`)
-            } else {
-              console.warn(`⚠️ Image file not found for record ${record.id}: ${filename}`)
-              console.warn(`⚠️ Searched in: ${this.dentalImagesPath}`)
+              console.log(`🔍 Checking legacy path: ${legacyPath}`)
 
-              // List all files in the dental images directory for debugging
-              if (existsSync(this.dentalImagesPath)) {
-                const allFiles = glob.sync(join(this.dentalImagesPath, '**', '*'))
-                console.log(`📂 All files in dental_images:`, allFiles.slice(0, 10)) // Show first 10 files
+              if (existsSync(fullLegacyPath)) {
+                console.log(`✅ File found at legacy location, migrating to new structure...`)
+
+                // Create new directory structure
+                const newDir = join(this.dentalImagesPath, record.patient_id, record.tooth_number.toString(), record.image_type || 'other')
+                if (!existsSync(newDir)) {
+                  mkdirSync(newDir, { recursive: true })
+                  console.log(`📁 Created new directory: ${newDir}`)
+                }
+
+                // Copy file to new location
+                const newFilePath = join(newDir, filename)
+                copyFileSync(fullLegacyPath, newFilePath)
+                console.log(`📋 Copied file from ${fullLegacyPath} to ${newFilePath}`)
+
+                finalImagePath = expectedPath
+                updatedPathsCount++
+                console.log(`📝 Migrated image path to new structure: ${record.id} -> ${expectedPath}`)
+              } else {
+                console.log(`❌ File not found at legacy location either, searching...`)
+
+                // Try to find the file in the restored images directory
+                const searchPattern = join(this.dentalImagesPath, '**', filename)
+                console.log(`🔍 Search pattern: ${searchPattern}`)
+
+                const foundFiles = glob.sync(searchPattern)
+                console.log(`🔍 Found files:`, foundFiles)
+
+                if (foundFiles.length > 0) {
+                  const foundFile = foundFiles[0]
+
+                  // Create new directory structure and move file
+                  const newDir = join(this.dentalImagesPath, record.patient_id, record.tooth_number.toString(), record.image_type || 'other')
+                  if (!existsSync(newDir)) {
+                    mkdirSync(newDir, { recursive: true })
+                    console.log(`📁 Created new directory: ${newDir}`)
+                  }
+
+                  const newFilePath = join(newDir, filename)
+                  copyFileSync(foundFile, newFilePath)
+                  console.log(`📋 Moved file from ${foundFile} to ${newFilePath}`)
+
+                  finalImagePath = expectedPath
+                  updatedPathsCount++
+                  console.log(`📝 Found and migrated image path: ${record.id} -> ${expectedPath}`)
+                } else {
+                  console.warn(`⚠️ Image file not found for record ${record.id}: ${filename}`)
+                  console.warn(`⚠️ Searched in: ${this.dentalImagesPath}`)
+
+                  // List all files in the dental images directory for debugging
+                  if (existsSync(this.dentalImagesPath)) {
+                    const allFiles = glob.sync(join(this.dentalImagesPath, '**', '*'))
+                    console.log(`📂 All files in dental_images:`, allFiles.slice(0, 10)) // Show first 10 files
+                  }
+                }
               }
             }
           }
