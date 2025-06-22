@@ -73,6 +73,11 @@ const navigationItems = [
     icon: Pill,
   },
   {
+    title: "العلاجات السنية",
+    url: "dental-treatments",
+    icon: Stethoscope,
+  },
+  {
     title: "التقارير",
     url: "reports",
     icon: BarChart3,

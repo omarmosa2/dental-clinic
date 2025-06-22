@@ -95,6 +95,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
     search: (query) => ipcRenderer.invoke('db:prescriptions:search', query)
   },
 
+  // Dental Treatment operations
+  dentalTreatments: {
+    getAll: () => ipcRenderer.invoke('db:dentalTreatments:getAll'),
+    getByPatient: (patientId) => ipcRenderer.invoke('db:dentalTreatments:getByPatient', patientId),
+    getByTooth: (patientId, toothNumber) => ipcRenderer.invoke('db:dentalTreatments:getByTooth', patientId, toothNumber),
+    create: (treatment) => ipcRenderer.invoke('db:dentalTreatments:create', treatment),
+    update: (id, treatment) => ipcRenderer.invoke('db:dentalTreatments:update', id, treatment),
+    delete: (id) => ipcRenderer.invoke('db:dentalTreatments:delete', id)
+  },
+
+  // Dental Treatment Images operations
+  dentalTreatmentImages: {
+    getAll: () => ipcRenderer.invoke('db:dentalTreatmentImages:getAll'),
+    getByTreatment: (treatmentId) => ipcRenderer.invoke('db:dentalTreatmentImages:getByTreatment', treatmentId),
+    create: (image) => ipcRenderer.invoke('db:dentalTreatmentImages:create', image),
+    delete: (id) => ipcRenderer.invoke('db:dentalTreatmentImages:delete', id)
+  },
+
+  // Dental Treatment Prescriptions operations
+  dentalTreatmentPrescriptions: {
+    getAll: () => ipcRenderer.invoke('db:dentalTreatmentPrescriptions:getAll'),
+    create: (link) => ipcRenderer.invoke('db:dentalTreatmentPrescriptions:create', link),
+    deleteByIds: (treatmentId, prescriptionId) => ipcRenderer.invoke('db:dentalTreatmentPrescriptions:deleteByIds', treatmentId, prescriptionId)
+  },
+
   // Dashboard operations
   dashboard: {
     getStats: () => ipcRenderer.invoke('db:dashboard:getStats')

@@ -648,4 +648,104 @@
     border-color: #ef4444;
     box-shadow: 0 1px 3px rgba(239, 68, 68, 0.2);
   }
+
+  /* Dental Chart Grid Styles */
+  .grid-cols-16 {
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+  }
+
+  /* Dental Chart Responsive Design */
+  @media (max-width: 1024px) {
+    .grid-cols-16 {
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 0.25rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .grid-cols-16 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.125rem;
+    }
+  }
+
+  /* Tooth Button Hover Effects */
+  .tooth-button {
+    transition: all 0.2s ease-in-out;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tooth-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+  }
+
+  .tooth-button:active {
+    transform: scale(0.98);
+  }
+
+  /* Treatment Status Indicators */
+  .treatment-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid white;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  /* Dental Chart Container */
+  .dental-chart-container {
+    direction: rtl;
+    text-align: center;
+  }
+
+  /* Image Upload Preview */
+  .image-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+  }
+
+  .image-preview-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid hsl(var(--border));
+    transition: all 0.2s ease-in-out;
+  }
+
+  .image-preview-item:hover {
+    border-color: hsl(var(--primary));
+    transform: scale(1.02);
+  }
+
+  /* Prescription Print Styles */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+
+    .print-only {
+      display: block !important;
+    }
+
+    body {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+  }
 }

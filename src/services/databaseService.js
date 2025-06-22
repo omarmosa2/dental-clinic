@@ -185,6 +185,108 @@ class DatabaseService {
           CREATE INDEX IF NOT EXISTS idx_lab_orders_patient_date ON lab_orders(patient_id, order_date);
           CREATE INDEX IF NOT EXISTS idx_lab_orders_status_date ON lab_orders(status, order_date);
         `
+      },
+      {
+        version: 6,
+        sql: `
+          -- Fix treatment_status CHECK constraint issue
+          -- This migration fixes the mismatch between expected and actual treatment_status values
+
+          -- Check if dental_treatments table exists and has the problematic CHECK constraint
+          -- We'll recreate the table with correct constraints if needed
+
+          -- First, check if we need to fix the table
+          CREATE TABLE IF NOT EXISTS dental_treatments_temp (
+            id TEXT PRIMARY KEY,
+            patient_id TEXT NOT NULL,
+            appointment_id TEXT,
+            tooth_number INTEGER NOT NULL CHECK (tooth_number >= 1 AND tooth_number <= 32),
+            tooth_name TEXT,
+            current_treatment TEXT,
+            next_treatment TEXT,
+            treatment_details TEXT,
+            treatment_status TEXT DEFAULT 'planned',
+            treatment_color TEXT DEFAULT '#ef4444',
+            cost REAL DEFAULT 0,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+            FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+          );
+
+          -- Copy existing data if dental_treatments table exists, converting old status values
+          INSERT OR IGNORE INTO dental_treatments_temp
+          SELECT id, patient_id, appointment_id, tooth_number, tooth_name,
+                 current_treatment, next_treatment, treatment_details,
+                 CASE
+                   WHEN treatment_status = 'active' THEN 'in_progress'
+                   WHEN treatment_status = 'on_hold' THEN 'planned'
+                   ELSE COALESCE(treatment_status, 'planned')
+                 END as treatment_status,
+                 treatment_color, cost, notes, created_at, updated_at
+          FROM dental_treatments
+          WHERE EXISTS (SELECT 1 FROM sqlite_master WHERE type='table' AND name='dental_treatments');
+
+          -- Drop old table if it exists
+          DROP TABLE IF EXISTS dental_treatments;
+
+          -- Rename temp table to final name
+          ALTER TABLE dental_treatments_temp RENAME TO dental_treatments;
+        `
+      },
+      {
+        version: 7,
+        sql: `
+          -- Force fix for treatment_status CHECK constraint
+          -- This migration will definitely fix the issue by recreating the table
+
+          PRAGMA foreign_keys = OFF;
+
+          -- Create backup of existing data
+          CREATE TABLE IF NOT EXISTS dental_treatments_backup AS
+          SELECT * FROM dental_treatments;
+
+          -- Drop the problematic table completely
+          DROP TABLE IF EXISTS dental_treatments;
+
+          -- Create new table with correct structure (no CHECK constraints for treatment_status)
+          CREATE TABLE dental_treatments (
+            id TEXT PRIMARY KEY,
+            patient_id TEXT NOT NULL,
+            appointment_id TEXT,
+            tooth_number INTEGER NOT NULL CHECK (tooth_number >= 1 AND tooth_number <= 32),
+            tooth_name TEXT,
+            current_treatment TEXT,
+            next_treatment TEXT,
+            treatment_details TEXT,
+            treatment_status TEXT DEFAULT 'planned',
+            treatment_color TEXT DEFAULT '#ef4444',
+            cost REAL DEFAULT 0,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+            FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+          );
+
+          -- Restore data with status conversion
+          INSERT INTO dental_treatments
+          SELECT id, patient_id, appointment_id, tooth_number, tooth_name,
+                 current_treatment, next_treatment, treatment_details,
+                 CASE
+                   WHEN treatment_status = 'active' THEN 'in_progress'
+                   WHEN treatment_status = 'on_hold' THEN 'planned'
+                   ELSE COALESCE(treatment_status, 'planned')
+                 END as treatment_status,
+                 treatment_color, cost, notes, created_at, updated_at
+          FROM dental_treatments_backup;
+
+          -- Clean up backup
+          DROP TABLE IF EXISTS dental_treatments_backup;
+
+          PRAGMA foreign_keys = ON;
+        `
       }
     ]
 
@@ -1774,6 +1876,668 @@ class DatabaseService {
     `)
     const searchTerm = `%${query}%`
     return stmt.all(searchTerm, searchTerm, searchTerm)
+  }
+
+  // Dental Treatment operations
+  async getAllDentalTreatments() {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT dt.*,
+             p.full_name as patient_name,
+             a.title as appointment_title
+      FROM dental_treatments dt
+      LEFT JOIN patients p ON dt.patient_id = p.id
+      LEFT JOIN appointments a ON dt.appointment_id = a.id
+      ORDER BY dt.created_at DESC
+    `)
+    return stmt.all()
+  }
+
+  async getDentalTreatmentsByPatient(patientId) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    // Check if tooth_number column exists, if not use a default ordering
+    const tableInfo = this.db.prepare(`PRAGMA table_info(dental_treatments)`).all()
+    const columnNames = tableInfo.map(col => col.name)
+    const hasToothNumber = columnNames.includes('tooth_number')
+
+    const orderBy = hasToothNumber ? 'dt.tooth_number ASC' : 'dt.created_at DESC'
+
+    const stmt = this.db.prepare(`
+      SELECT dt.*,
+             p.full_name as patient_name,
+             a.title as appointment_title
+      FROM dental_treatments dt
+      LEFT JOIN patients p ON dt.patient_id = p.id
+      LEFT JOIN appointments a ON dt.appointment_id = a.id
+      WHERE dt.patient_id = ?
+      ORDER BY ${orderBy}
+    `)
+    return stmt.all(patientId)
+  }
+
+  async getDentalTreatmentsByTooth(patientId, toothNumber) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    // Check if tooth_number column exists
+    const tableInfo = this.db.prepare(`PRAGMA table_info(dental_treatments)`).all()
+    const columnNames = tableInfo.map(col => col.name)
+    const hasToothNumber = columnNames.includes('tooth_number')
+
+    if (!hasToothNumber) {
+      // If tooth_number doesn't exist, return empty array or all treatments for patient
+      console.log('⚠️ [DEBUG] tooth_number column not found, returning empty array')
+      return []
+    }
+
+    const stmt = this.db.prepare(`
+      SELECT dt.*,
+             p.full_name as patient_name,
+             a.title as appointment_title
+      FROM dental_treatments dt
+      LEFT JOIN patients p ON dt.patient_id = p.id
+      LEFT JOIN appointments a ON dt.appointment_id = a.id
+      WHERE dt.patient_id = ? AND dt.tooth_number = ?
+      ORDER BY dt.created_at DESC
+    `)
+    return stmt.all(patientId, toothNumber)
+  }
+
+  async createDentalTreatment(treatment) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    console.log('🦷 Creating dental treatment:', {
+      patient_id: treatment.patient_id,
+      tooth_number: treatment.tooth_number,
+      tooth_name: treatment.tooth_name,
+      treatment_status: treatment.treatment_status
+    })
+
+    // Get current table schema to determine which columns exist
+    const tableInfo = this.db.prepare(`PRAGMA table_info(dental_treatments)`).all()
+    const columnNames = tableInfo.map(col => col.name)
+
+    // Build dynamic INSERT statement based on existing columns
+    const baseColumns = ['id', 'patient_id', 'created_at', 'updated_at']
+    const baseValues = [id, treatment.patient_id, now, now]
+
+    // Add columns that exist in the table
+    const columnMappings = {
+      'appointment_id': treatment.appointment_id || null,
+      'tooth_number': treatment.tooth_number || 1,
+      'tooth_name': treatment.tooth_name || '',
+      'current_treatment': treatment.current_treatment || '',
+      'next_treatment': treatment.next_treatment || '',
+      'treatment_details': treatment.treatment_details || '',
+      'treatment_status': (() => {
+        let status = treatment.treatment_status
+        // تحويل القيم القديمة إلى الجديدة
+        if (status === 'active') status = 'in_progress'
+        else if (status === 'on_hold') status = 'planned'
+
+        // التحقق من صحة القيمة
+        const validStatuses = ['planned', 'in_progress', 'completed', 'cancelled']
+        return validStatuses.includes(status) ? status : 'planned'
+      })(),
+      'treatment_color': treatment.treatment_color || '#ef4444',
+      'cost': treatment.cost || 0,
+      'notes': treatment.notes || '',
+      'treatment_date': now, // Required field in existing schema
+      'patient_age': treatment.patient_age || null,
+      'patient_gender': treatment.patient_gender || null,
+      'total_cost': treatment.total_cost || treatment.cost || 0,
+      'paid_amount': treatment.paid_amount || 0,
+      'next_appointment_date': treatment.next_appointment_date || null
+    }
+
+    // Add existing columns to the query
+    Object.keys(columnMappings).forEach(column => {
+      if (columnNames.includes(column)) {
+        baseColumns.push(column)
+        baseValues.push(columnMappings[column])
+      }
+    })
+
+    const placeholders = baseValues.map(() => '?').join(', ')
+    const columnsStr = baseColumns.join(', ')
+
+    console.log('🔍 [DEBUG] Using columns:', baseColumns)
+
+    const stmt = this.db.prepare(`
+      INSERT INTO dental_treatments (${columnsStr})
+      VALUES (${placeholders})
+    `)
+
+    const result = stmt.run(...baseValues)
+
+    console.log('✅ Dental treatment created successfully:', { id, changes: result.changes })
+
+    // Force WAL checkpoint to ensure data is written
+    this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+    return { ...treatment, id, created_at: now, updated_at: now }
+  }
+
+  async updateDentalTreatment(id, updates) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const now = new Date().toISOString()
+
+    // قائمة الأعمدة المسموحة في جدول dental_treatments
+    const allowedColumns = [
+      'patient_id', 'appointment_id', 'tooth_number', 'tooth_name',
+      'current_treatment', 'next_treatment', 'treatment_details',
+      'treatment_status', 'treatment_color', 'cost', 'notes'
+    ]
+
+    // تصفية البيانات للاحتفاظ بالأعمدة المسموحة فقط
+    const filteredUpdates = {}
+    Object.keys(updates).forEach(key => {
+      if (allowedColumns.includes(key) && key !== 'id') {
+        let value = updates[key]
+
+        // تحويل قيم treatment_status القديمة إلى الجديدة
+        if (key === 'treatment_status') {
+          const validStatuses = ['planned', 'in_progress', 'completed', 'cancelled']
+          if (value === 'active') value = 'in_progress'
+          else if (value === 'on_hold') value = 'planned'
+
+          // التأكد من أن القيمة صحيحة
+          if (!validStatuses.includes(value)) {
+            console.warn(`Invalid treatment_status value: ${value}, defaulting to 'planned'`)
+            value = 'planned'
+          }
+        }
+
+        filteredUpdates[key] = value
+      }
+    })
+
+    const fields = Object.keys(filteredUpdates)
+    if (fields.length === 0) {
+      console.log('No valid fields to update')
+      return { id, updated_at: now }
+    }
+
+    const setClause = fields.map(field => `${field} = ?`).join(', ')
+    const values = fields.map(field => filteredUpdates[field])
+
+    const stmt = this.db.prepare(`
+      UPDATE dental_treatments
+      SET ${setClause}, updated_at = ?
+      WHERE id = ?
+    `)
+
+    stmt.run(...values, now, id)
+    return { ...filteredUpdates, id, updated_at: now }
+  }
+
+  async deleteDentalTreatment(id) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const stmt = this.db.prepare('DELETE FROM dental_treatments WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  async fixDentalTreatmentStatusConstraint() {
+    try {
+      console.log('🔧 [DEBUG] Fixing dental treatment status constraint...')
+
+      // Check if the table exists and has the problematic CHECK constraint
+      const tableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='dental_treatments'
+      `).get()
+
+      if (tableExists) {
+        // Get table schema to check for CHECK constraints
+        const tableSchema = this.db.prepare(`
+          SELECT sql FROM sqlite_master WHERE type='table' AND name='dental_treatments'
+        `).get()
+
+        console.log('🔍 [DEBUG] Current table schema:', tableSchema?.sql)
+
+        // If the schema contains the old CHECK constraint, recreate the table
+        if (tableSchema?.sql && tableSchema.sql.includes("treatment_status IN ('active', 'completed', 'cancelled', 'on_hold')")) {
+          console.log('🔧 [DEBUG] Found problematic CHECK constraint, recreating table...')
+
+          // Disable foreign keys temporarily
+          this.db.exec('PRAGMA foreign_keys = OFF')
+
+          try {
+            // Create backup of existing data
+            this.db.exec(`
+              CREATE TABLE IF NOT EXISTS dental_treatments_backup AS
+              SELECT * FROM dental_treatments
+            `)
+
+            // Drop the problematic table
+            this.db.exec('DROP TABLE dental_treatments')
+
+            // Create new table with correct structure (no CHECK constraints for treatment_status)
+            this.db.exec(`
+              CREATE TABLE dental_treatments (
+                id TEXT PRIMARY KEY,
+                patient_id TEXT NOT NULL,
+                appointment_id TEXT,
+                tooth_number INTEGER NOT NULL CHECK (tooth_number >= 1 AND tooth_number <= 32),
+                tooth_name TEXT,
+                current_treatment TEXT,
+                next_treatment TEXT,
+                treatment_details TEXT,
+                treatment_status TEXT DEFAULT 'planned',
+                treatment_color TEXT DEFAULT '#ef4444',
+                cost REAL DEFAULT 0,
+                notes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+                FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+              )
+            `)
+
+            // Restore data with status conversion
+            this.db.exec(`
+              INSERT INTO dental_treatments
+              SELECT id, patient_id, appointment_id, tooth_number, tooth_name,
+                     current_treatment, next_treatment, treatment_details,
+                     CASE
+                       WHEN treatment_status = 'active' THEN 'in_progress'
+                       WHEN treatment_status = 'on_hold' THEN 'planned'
+                       ELSE COALESCE(treatment_status, 'planned')
+                     END as treatment_status,
+                     treatment_color, cost, notes, created_at, updated_at
+              FROM dental_treatments_backup
+            `)
+
+            // Clean up backup
+            this.db.exec('DROP TABLE dental_treatments_backup')
+
+            console.log('✅ [DEBUG] Table recreated successfully with correct constraints')
+
+          } finally {
+            // Re-enable foreign keys
+            this.db.exec('PRAGMA foreign_keys = ON')
+          }
+        } else {
+          console.log('✅ [DEBUG] Table schema is correct, no fix needed')
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ [DEBUG] Error fixing dental treatment status constraint:', error)
+      // Don't throw the error, just log it and continue
+    }
+  }
+
+  async ensureDentalTreatmentTablesExist() {
+    try {
+      console.log('🔍 [DEBUG] Checking if dental treatment tables exist...')
+
+      // First, try to fix the status constraint issue
+      await this.fixDentalTreatmentStatusConstraint()
+
+      // Check if dental_treatments table exists
+      const dentalTreatmentsTableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='dental_treatments'
+      `).get()
+
+      // Check if dental_treatment_images table exists
+      const dentalTreatmentImagesTableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='dental_treatment_images'
+      `).get()
+
+      // Check if dental_treatment_prescriptions table exists
+      const dentalTreatmentPrescriptionsTableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='dental_treatment_prescriptions'
+      `).get()
+
+      console.log('🔍 [DEBUG] Dental treatment tables status:')
+      console.log('  - dental_treatments:', !!dentalTreatmentsTableExists)
+      console.log('  - dental_treatment_images:', !!dentalTreatmentImagesTableExists)
+      console.log('  - dental_treatment_prescriptions:', !!dentalTreatmentPrescriptionsTableExists)
+
+      // If dental_treatments table exists, check if it has the correct schema
+      if (dentalTreatmentsTableExists) {
+        console.log('🔍 [DEBUG] Checking dental_treatments table schema...')
+
+        // Get current table schema
+        const tableInfo = this.db.prepare(`PRAGMA table_info(dental_treatments)`).all()
+        const columnNames = tableInfo.map(col => col.name)
+        console.log('🔍 [DEBUG] Current dental_treatments columns:', columnNames)
+
+        // Check if required columns exist
+        const hasToothNumber = columnNames.includes('tooth_number')
+        const hasToothName = columnNames.includes('tooth_name')
+        const hasCurrentTreatment = columnNames.includes('current_treatment')
+        const hasNextTreatment = columnNames.includes('next_treatment')
+        const hasTreatmentDetails = columnNames.includes('treatment_details')
+        const hasTreatmentColor = columnNames.includes('treatment_color')
+        const hasCost = columnNames.includes('cost')
+
+        console.log('🔍 [DEBUG] Schema check:')
+        console.log('  - has tooth_number:', hasToothNumber)
+        console.log('  - has tooth_name:', hasToothName)
+        console.log('  - has current_treatment:', hasCurrentTreatment)
+        console.log('  - has next_treatment:', hasNextTreatment)
+        console.log('  - has treatment_details:', hasTreatmentDetails)
+        console.log('  - has treatment_color:', hasTreatmentColor)
+        console.log('  - has cost:', hasCost)
+
+        // Add missing columns one by one
+        if (!hasToothNumber) {
+          console.log('🔧 [DEBUG] Adding tooth_number column to dental_treatments table...')
+          this.db.exec(`ALTER TABLE dental_treatments ADD COLUMN tooth_number INTEGER NOT NULL DEFAULT 1`)
+          console.log('✅ [DEBUG] tooth_number column added successfully')
+        }
+
+        if (!hasToothName) {
+          console.log('🔧 [DEBUG] Adding tooth_name column to dental_treatments table...')
+          this.db.exec(`ALTER TABLE dental_treatments ADD COLUMN tooth_name TEXT DEFAULT ''`)
+          console.log('✅ [DEBUG] tooth_name column added successfully')
+        }
+
+        if (!hasCurrentTreatment) {
+          console.log('🔧 [DEBUG] Adding current_treatment column to dental_treatments table...')
+          this.db.exec(`ALTER TABLE dental_treatments ADD COLUMN current_treatment TEXT DEFAULT ''`)
+          console.log('✅ [DEBUG] current_treatment column added successfully')
+        }
+
+        if (!hasNextTreatment) {
+          console.log('🔧 [DEBUG] Adding next_treatment column to dental_treatments table...')
+          this.db.exec(`ALTER TABLE dental_treatments ADD COLUMN next_treatment TEXT DEFAULT ''`)
+          console.log('✅ [DEBUG] next_treatment column added successfully')
+        }
+
+        if (!hasTreatmentDetails) {
+          console.log('🔧 [DEBUG] Adding treatment_details column to dental_treatments table...')
+          this.db.exec(`ALTER TABLE dental_treatments ADD COLUMN treatment_details TEXT DEFAULT ''`)
+          console.log('✅ [DEBUG] treatment_details column added successfully')
+        }
+
+        if (!hasTreatmentColor) {
+          console.log('🔧 [DEBUG] Adding treatment_color column to dental_treatments table...')
+          this.db.exec(`ALTER TABLE dental_treatments ADD COLUMN treatment_color TEXT DEFAULT '#ef4444'`)
+          console.log('✅ [DEBUG] treatment_color column added successfully')
+        }
+
+        if (!hasCost) {
+          console.log('🔧 [DEBUG] Adding cost column to dental_treatments table...')
+          this.db.exec(`ALTER TABLE dental_treatments ADD COLUMN cost REAL DEFAULT 0`)
+          console.log('✅ [DEBUG] cost column added successfully')
+        }
+      }
+
+      // Create dental_treatments table if it doesn't exist
+      if (!dentalTreatmentsTableExists) {
+        console.log('🏗️ [DEBUG] Creating dental_treatments table...')
+        this.db.exec(`
+          CREATE TABLE dental_treatments (
+            id TEXT PRIMARY KEY,
+            patient_id TEXT NOT NULL,
+            appointment_id TEXT,
+            tooth_number INTEGER NOT NULL,
+            tooth_name TEXT,
+            current_treatment TEXT,
+            next_treatment TEXT,
+            treatment_details TEXT,
+            treatment_status TEXT DEFAULT 'planned',
+            treatment_color TEXT DEFAULT '#ef4444',
+            cost REAL DEFAULT 0,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+            FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+          )
+        `)
+        console.log('✅ [DEBUG] Dental treatments table created successfully')
+      } else {
+        console.log('✅ [DEBUG] Dental treatments table already exists')
+      }
+
+      // Create dental_treatment_images table if it doesn't exist
+      if (!dentalTreatmentImagesTableExists) {
+        console.log('🏗️ [DEBUG] Creating dental_treatment_images table...')
+        this.db.exec(`
+          CREATE TABLE dental_treatment_images (
+            id TEXT PRIMARY KEY,
+            dental_treatment_id TEXT NOT NULL,
+            image_type TEXT NOT NULL CHECK (image_type IN ('before', 'after', 'xray')),
+            image_path TEXT NOT NULL,
+            description TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (dental_treatment_id) REFERENCES dental_treatments(id) ON DELETE CASCADE
+          )
+        `)
+        console.log('✅ [DEBUG] Dental treatment images table created successfully')
+      } else {
+        console.log('✅ [DEBUG] Dental treatment images table already exists')
+
+        // Check if the table has the correct schema
+        const imagesTableInfo = this.db.prepare(`PRAGMA table_info(dental_treatment_images)`).all()
+        const imagesColumnNames = imagesTableInfo.map(col => col.name)
+        console.log('🔍 [DEBUG] Current dental_treatment_images columns:', imagesColumnNames)
+
+        // The existing table might have different columns, but we'll work with what exists
+        // The main columns we need are: id, dental_treatment_id, image_type, image_path
+      }
+
+      // Create dental_treatment_prescriptions table if it doesn't exist
+      if (!dentalTreatmentPrescriptionsTableExists) {
+        console.log('🏗️ [DEBUG] Creating dental_treatment_prescriptions table...')
+        this.db.exec(`
+          CREATE TABLE dental_treatment_prescriptions (
+            id TEXT PRIMARY KEY,
+            dental_treatment_id TEXT NOT NULL,
+            prescription_id TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (dental_treatment_id) REFERENCES dental_treatments(id) ON DELETE CASCADE,
+            FOREIGN KEY (prescription_id) REFERENCES prescriptions(id) ON DELETE CASCADE
+          )
+        `)
+        console.log('✅ [DEBUG] Dental treatment prescriptions table created successfully')
+      } else {
+        console.log('✅ [DEBUG] Dental treatment prescriptions table already exists')
+      }
+
+      // Create indexes if they don't exist
+      this.createDentalTreatmentIndexes()
+
+    } catch (error) {
+      console.error('❌ [DEBUG] Error in ensureDentalTreatmentTablesExist:', error)
+      console.error('❌ [DEBUG] Error stack:', error.stack)
+      throw error
+    }
+  }
+
+  createDentalTreatmentIndexes() {
+    try {
+      console.log('🔍 Creating dental treatment indexes...')
+
+      const indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_dental_treatments_patient ON dental_treatments(patient_id)',
+        'CREATE INDEX IF NOT EXISTS idx_dental_treatments_appointment ON dental_treatments(appointment_id)',
+        'CREATE INDEX IF NOT EXISTS idx_dental_treatments_tooth ON dental_treatments(tooth_number)',
+        'CREATE INDEX IF NOT EXISTS idx_dental_treatments_status ON dental_treatments(treatment_status)',
+        'CREATE INDEX IF NOT EXISTS idx_dental_treatments_patient_tooth ON dental_treatments(patient_id, tooth_number)',
+        'CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_treatment ON dental_treatment_images(dental_treatment_id)',
+        'CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_type ON dental_treatment_images(image_type)',
+        'CREATE INDEX IF NOT EXISTS idx_dental_treatment_prescriptions_treatment ON dental_treatment_prescriptions(dental_treatment_id)',
+        'CREATE INDEX IF NOT EXISTS idx_dental_treatment_prescriptions_prescription ON dental_treatment_prescriptions(prescription_id)'
+      ]
+
+      indexes.forEach(indexSql => {
+        try {
+          this.db.exec(indexSql)
+        } catch (error) {
+          console.warn('Index creation warning:', error.message)
+        }
+      })
+
+      console.log('✅ Dental treatment indexes created successfully')
+    } catch (error) {
+      console.error('❌ Error creating dental treatment indexes:', error)
+    }
+  }
+
+  // Dental Treatment Image operations
+  async getAllDentalTreatmentImages() {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT dti.*,
+             dt.tooth_number,
+             dt.tooth_name,
+             p.full_name as patient_name
+      FROM dental_treatment_images dti
+      LEFT JOIN dental_treatments dt ON dti.dental_treatment_id = dt.id
+      LEFT JOIN patients p ON dt.patient_id = p.id
+      ORDER BY dti.created_at DESC
+    `)
+    return stmt.all()
+  }
+
+  async getDentalTreatmentImages(treatmentId) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM dental_treatment_images
+      WHERE dental_treatment_id = ?
+      ORDER BY image_type, created_at
+    `)
+    return stmt.all(treatmentId)
+  }
+
+  async getDentalTreatmentImagesByTreatment(treatmentId) {
+    // Alias for getDentalTreatmentImages for compatibility
+    return this.getDentalTreatmentImages(treatmentId)
+  }
+
+  async createDentalTreatmentImage(image) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    const stmt = this.db.prepare(`
+      INSERT INTO dental_treatment_images (
+        id, dental_treatment_id, image_type, image_path, description, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(id, image.dental_treatment_id, image.image_type, image.image_path, image.description, now)
+
+    return { ...image, id, created_at: now }
+  }
+
+  async updateDentalTreatmentImage(id, updates) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const fields = Object.keys(updates).filter(key => key !== 'id')
+    const setClause = fields.map(field => `${field} = ?`).join(', ')
+    const values = fields.map(field => updates[field])
+
+    const stmt = this.db.prepare(`
+      UPDATE dental_treatment_images
+      SET ${setClause}
+      WHERE id = ?
+    `)
+
+    stmt.run(...values, id)
+    return { ...updates, id }
+  }
+
+  async deleteDentalTreatmentImage(id) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const stmt = this.db.prepare('DELETE FROM dental_treatment_images WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  // Dental Treatment Prescription operations
+  async getAllDentalTreatmentPrescriptions() {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT dtp.*,
+             p.prescription_date,
+             p.notes as prescription_notes,
+             pt.full_name as patient_name,
+             dt.tooth_number,
+             dt.tooth_name
+      FROM dental_treatment_prescriptions dtp
+      LEFT JOIN prescriptions p ON dtp.prescription_id = p.id
+      LEFT JOIN patients pt ON p.patient_id = pt.id
+      LEFT JOIN dental_treatments dt ON dtp.dental_treatment_id = dt.id
+      ORDER BY p.prescription_date DESC
+    `)
+    return stmt.all()
+  }
+
+  async getDentalTreatmentPrescriptions(treatmentId) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT dtp.*,
+             p.prescription_date,
+             p.notes as prescription_notes,
+             pt.full_name as patient_name
+      FROM dental_treatment_prescriptions dtp
+      LEFT JOIN prescriptions p ON dtp.prescription_id = p.id
+      LEFT JOIN patients pt ON p.patient_id = pt.id
+      WHERE dtp.dental_treatment_id = ?
+      ORDER BY p.prescription_date DESC
+    `)
+    return stmt.all(treatmentId)
+  }
+
+  async createDentalTreatmentPrescription(link) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    const stmt = this.db.prepare(`
+      INSERT INTO dental_treatment_prescriptions (
+        id, dental_treatment_id, prescription_id, created_at
+      ) VALUES (?, ?, ?, ?)
+    `)
+
+    stmt.run(id, link.dental_treatment_id, link.prescription_id, now)
+
+    return { ...link, id, created_at: now }
+  }
+
+  async deleteDentalTreatmentPrescriptionByIds(treatmentId, prescriptionId) {
+    this.ensureConnection()
+    this.ensureDentalTreatmentTablesExist()
+
+    const stmt = this.db.prepare(`
+      DELETE FROM dental_treatment_prescriptions
+      WHERE dental_treatment_id = ? AND prescription_id = ?
+    `)
+    const result = stmt.run(treatmentId, prescriptionId)
+    return result.changes > 0
   }
 }
 

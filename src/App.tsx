@@ -19,6 +19,7 @@ import PatientsPage from './pages/Patients'
 import AppointmentsPage from './pages/Appointments'
 import Labs from './pages/Labs'
 import Medications from './pages/Medications'
+import DentalTreatments from './pages/DentalTreatments'
 import ThemeToggle from './components/ThemeToggle'
 import { AppSidebar } from './components/AppSidebar'
 import { AppSidebarTrigger } from './components/AppSidebarTrigger'
@@ -268,6 +269,8 @@ function AppContent() {
         return <Labs />;
       case 'medications':
         return <Medications />;
+      case 'dental-treatments':
+        return <DentalTreatments />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':
@@ -289,6 +292,8 @@ function AppContent() {
       payments: 'المدفوعات',
       inventory: 'المخزون',
       labs: 'المختبرات',
+      medications: 'الأدوية والوصفات',
+      'dental-treatments': 'العلاجات السنية',
       reports: 'التقارير',
       settings: 'الإعدادات'
     }

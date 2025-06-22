@@ -88,7 +88,12 @@ app.whenReady().then(async () => {
 
     // Initialize SQLite database service
     const dbPath = require('path').join(app.getPath('userData'), 'dental_clinic.db')
-    databaseService = new DatabaseService(dbPath)
+
+    // Clear require cache to ensure we get the latest version
+    delete require.cache[require.resolve('../src/services/databaseService.js')]
+    const { DatabaseService: FreshDatabaseService } = require('../src/services/databaseService.js')
+
+    databaseService = new FreshDatabaseService(dbPath)
     console.log('✅ SQLite database service initialized successfully')
 
     // Initialize backup service
@@ -122,7 +127,11 @@ app.whenReady().then(async () => {
     // Try to initialize just the SQLite database service without migration
     try {
       console.log('🔄 Attempting direct SQLite initialization...')
+
+      // Clear require cache to ensure we get the latest version
+      delete require.cache[require.resolve('../src/services/databaseService.js')]
       const { DatabaseService } = require('../src/services/databaseService.js')
+
       const dbPath = require('path').join(app.getPath('userData'), 'dental_clinic.db')
       databaseService = new DatabaseService(dbPath)
       console.log('✅ SQLite database service initialized successfully (direct)')
@@ -1160,6 +1169,218 @@ ipcMain.handle('db:prescriptions:search', async (_, query) => {
     }
   } catch (error) {
     console.error('Error searching prescriptions:', error)
+    throw error
+  }
+})
+
+// Dental Treatment IPC Handlers
+ipcMain.handle('db:dentalTreatments:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllDentalTreatments()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting all dental treatments:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatments:getByPatient', async (_, patientId) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getDentalTreatmentsByPatient(patientId)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting dental treatments by patient:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatments:getByTooth', async (_, patientId, toothNumber) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getDentalTreatmentsByTooth(patientId, toothNumber)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting dental treatments by tooth:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatments:create', async (_, treatment) => {
+  try {
+    if (databaseService) {
+      console.log('Creating dental treatment:', treatment)
+      console.log('DatabaseService methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(databaseService)))
+
+      // Check if the method exists
+      if (typeof databaseService.createDentalTreatment === 'function') {
+        const result = await databaseService.createDentalTreatment(treatment)
+        console.log('Dental treatment created successfully:', result.id)
+        return result
+      } else {
+        console.error('createDentalTreatment method not found on databaseService')
+        throw new Error('createDentalTreatment method not available')
+      }
+    } else {
+      const newTreatment = { ...treatment, id: Date.now().toString() }
+      console.log('Creating dental treatment (mock):', newTreatment)
+      return newTreatment
+    }
+  } catch (error) {
+    console.error('Error creating dental treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatments:update', async (_, id, treatment) => {
+  try {
+    if (databaseService) {
+      console.log('Updating dental treatment:', id, treatment)
+      await databaseService.updateDentalTreatment(id, treatment)
+      console.log('Dental treatment updated successfully:', id)
+      return { ...treatment, id }
+    } else {
+      const updatedTreatment = { ...treatment, id }
+      console.log('Updating dental treatment (mock):', updatedTreatment)
+      return updatedTreatment
+    }
+  } catch (error) {
+    console.error('Error updating dental treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatments:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting dental treatment:', id)
+      await databaseService.deleteDentalTreatment(id)
+      console.log('Dental treatment deleted successfully:', id)
+      return true
+    } else {
+      console.log('Deleting dental treatment (mock):', id)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting dental treatment:', error)
+    throw error
+  }
+})
+
+// Dental Treatment Images IPC Handlers
+ipcMain.handle('db:dentalTreatmentImages:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllDentalTreatmentImages()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting all dental treatment images:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatmentImages:getByTreatment', async (_, treatmentId) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getDentalTreatmentImagesByTreatment(treatmentId)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting dental treatment images by treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatmentImages:create', async (_, image) => {
+  try {
+    if (databaseService) {
+      console.log('Creating dental treatment image:', image)
+      const result = await databaseService.createDentalTreatmentImage(image)
+      console.log('Dental treatment image created successfully:', result.id)
+      return result
+    } else {
+      const newImage = { ...image, id: Date.now().toString() }
+      console.log('Creating dental treatment image (mock):', newImage)
+      return newImage
+    }
+  } catch (error) {
+    console.error('Error creating dental treatment image:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatmentImages:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting dental treatment image:', id)
+      await databaseService.deleteDentalTreatmentImage(id)
+      console.log('Dental treatment image deleted successfully:', id)
+      return true
+    } else {
+      console.log('Deleting dental treatment image (mock):', id)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting dental treatment image:', error)
+    throw error
+  }
+})
+
+// Dental Treatment Prescriptions IPC Handlers
+ipcMain.handle('db:dentalTreatmentPrescriptions:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllDentalTreatmentPrescriptions()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting all dental treatment prescriptions:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatmentPrescriptions:create', async (_, link) => {
+  try {
+    if (databaseService) {
+      console.log('Creating dental treatment prescription link:', link)
+      const result = await databaseService.createDentalTreatmentPrescription(link)
+      console.log('Dental treatment prescription link created successfully:', result.id)
+      return result
+    } else {
+      const newLink = { ...link, id: Date.now().toString() }
+      console.log('Creating dental treatment prescription link (mock):', newLink)
+      return newLink
+    }
+  } catch (error) {
+    console.error('Error creating dental treatment prescription link:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:dentalTreatmentPrescriptions:deleteByIds', async (_, treatmentId, prescriptionId) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting dental treatment prescription link:', treatmentId, prescriptionId)
+      await databaseService.deleteDentalTreatmentPrescriptionByIds(treatmentId, prescriptionId)
+      console.log('Dental treatment prescription link deleted successfully')
+      return true
+    } else {
+      console.log('Deleting dental treatment prescription link (mock):', treatmentId, prescriptionId)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting dental treatment prescription link:', error)
     throw error
   }
 })

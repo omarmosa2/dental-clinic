@@ -1,0 +1,14 @@
+{
+  "licenseId": "0a9ec9fc-e4aa-48f2-9315-ea55387fdd27",
+  "licenseType": "standard",
+  "maxDays": 365,
+  "validityMinutes": null,
+  "createdAt": "2025-06-22T07:41:02.678Z",
+  "features": [],
+  "metadata": {
+    "generator": "dental-clinic-license-generator-v2",
+    "version": "2.0.0",
+    "validityType": "days"
+  },
+  "signature": "c02d458ad8d453e7da3f3c94b4e4d78648c57b22501829a734b5aa9e14b0773b"
+}

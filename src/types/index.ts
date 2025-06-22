@@ -239,6 +239,77 @@ export interface PrescriptionMedication {
   medication_instructions?: string
 }
 
+// Dental Treatment interfaces
+export interface DentalTreatment {
+  id: string
+  patient_id: string
+  appointment_id?: string
+  tooth_number: number
+  tooth_name: string
+  current_treatment?: string
+  next_treatment?: string
+  treatment_details?: string
+  treatment_status: 'planned' | 'in_progress' | 'completed' | 'cancelled'
+  treatment_color: string
+  cost?: number
+  notes?: string
+  created_at: string
+  updated_at: string
+  // Populated fields
+  patient?: Patient
+  appointment?: Appointment
+  images?: DentalTreatmentImage[]
+  prescriptions?: Prescription[]
+}
+
+export interface DentalTreatmentImage {
+  id: string
+  dental_treatment_id: string
+  patient_id: string
+  tooth_number: number
+  image_path: string
+  image_type: 'before' | 'after' | 'xray' | 'clinical'
+  description?: string
+  taken_date: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DentalTreatmentPrescription {
+  id: string
+  dental_treatment_id: string
+  prescription_id: string
+  created_at: string
+  // Populated fields
+  prescription?: Prescription
+}
+
+// Tooth information for dental chart
+export interface ToothInfo {
+  number: number
+  name: string
+  arabicName: string
+  position: 'upper' | 'lower'
+  side: 'right' | 'left'
+  type: 'incisor' | 'canine' | 'premolar' | 'molar'
+}
+
+// Treatment status colors
+export const TREATMENT_COLORS = {
+  healthy: '#22c55e',      // Green - سليم
+  filling: '#f97316',      // Orange - حشو
+  root_canal: '#ef4444',   // Red - عصب
+  crown: '#8b5cf6',        // Purple - تاج
+  extraction: '#6b7280',   // Gray - خلع
+  cleaning: '#06b6d4',     // Cyan - تنظيف
+  planned: '#3b82f6',      // Blue - مخطط
+  in_progress: '#eab308',  // Yellow - قيد التنفيذ
+  completed: '#22c55e',    // Green - مكتمل
+  cancelled: '#6b7280'     // Gray - ملغي
+} as const
+
+export type TreatmentColorKey = keyof typeof TREATMENT_COLORS
+
 // Database schema for lowdb
 export interface DatabaseSchema {
   patients: Patient[]
@@ -255,6 +326,9 @@ export interface DatabaseSchema {
   medications: Medication[]
   prescriptions: Prescription[]
   prescriptionMedications: PrescriptionMedication[]
+  dentalTreatments: DentalTreatment[]
+  dentalTreatmentImages: DentalTreatmentImage[]
+  dentalTreatmentPrescriptions: DentalTreatmentPrescription[]
 }
 
 // Reports and Analytics Types
