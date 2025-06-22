@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { usePatientStore } from './store/patientStore'
 import { useAppointmentStore } from './store/appointmentStore'
 import { useSettingsStore } from './store/settingsStore'
-import { useLicenseStore, useLicenseStatus, useLicenseUI } from './store/licenseStore'
-import { licenseGuard } from './services/licenseGuard'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import { useRealTimeSync } from './hooks/useRealTimeSync'
 import AddPatientDialog from './components/patients/AddPatientDialog'
@@ -23,8 +21,6 @@ import DentalTreatments from './pages/DentalTreatments'
 import ThemeToggle from './components/ThemeToggle'
 import { AppSidebar } from './components/AppSidebar'
 import { AppSidebarTrigger } from './components/AppSidebarTrigger'
-import SimpleLicenseLock from './components/SimpleLicenseLock'
-import LicenseProtection from './components/LicenseProtection'
 import LiveDateTime from './components/LiveDateTime'
 
 // shadcn/ui imports
@@ -72,30 +68,7 @@ function AppContent() {
   const [appointmentSearchQuery, setAppointmentSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  // License state
-  const {
-    licenseInfo,
-    canUseApp,
-    showLockScreen,
-    loadLicenseInfo,
-    checkLicenseStatus,
-    activateLicense,
-    isLoading: licenseLoading
-  } = useLicenseStore()
 
-  // Real-time license monitoring - disabled to prevent constant reloading
-  // License state changes are handled by the store and components automatically
-  // useEffect(() => {
-  //   const interval = setInterval(() => {
-  //     const currentState = useLicenseStore.getState()
-  //     if (!currentState.canUseApp && !currentState.isLoading) {
-  //       // Force immediate UI update when license becomes invalid
-  //       window.location.reload()
-  //     }
-  //   }, 1000) // Check every second
-
-  //   return () => clearInterval(interval)
-  // }, [])
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     toast({
@@ -123,59 +96,20 @@ function AppContent() {
   } = useSettingsStore()
 
   useEffect(() => {
-    // Initialize license check first
+    // Initialize app
     const initializeApp = async () => {
-      await loadLicenseInfo()
-      await checkLicenseStatus()
-
       // Load settings automatically when app starts
       await loadSettings()
 
-      // Set up real-time license validation callbacks
-      licenseGuard.setOnLicenseExpiredCallback(() => {
-        showNotification('انتهت صلاحية الترخيص - سيتم إغلاق التطبيق', 'error')
-        // Force reload to show license screen
-        window.location.reload()
-      })
-
-      licenseGuard.setOnLicenseInvalidCallback(() => {
-        showNotification('الترخيص غير صالح - سيتم إغلاق التطبيق', 'error')
-        // Force reload to show license screen
-        window.location.reload()
-      })
-
-      // Only load app data if license is valid
-      const currentState = useLicenseStore.getState()
-      if (currentState.canUseApp) {
-        loadPatients()
-        loadAppointments()
-      }
+      // Load app data
+      loadPatients()
+      loadAppointments()
     }
 
     initializeApp()
+  }, [loadPatients, loadAppointments, loadSettings])
 
-    // Cleanup on unmount
-    return () => {
-      licenseGuard.stopRealTimeValidation()
-    }
-  }, [loadPatients, loadAppointments, loadLicenseInfo, checkLicenseStatus, loadSettings])
 
-  // License handlers
-  const handleLicenseActivationSuccess = async () => {
-    showNotification('تم تفعيل الترخيص بنجاح', 'success')
-    await loadLicenseInfo()
-    await checkLicenseStatus()
-
-    // Load settings and app data after successful activation
-    await loadSettings()
-    loadPatients()
-    loadAppointments()
-  }
-
-  const handleLicenseUpdate = async () => {
-    await loadLicenseInfo()
-    await checkLicenseStatus()
-  }
 
 
 
@@ -301,12 +235,7 @@ function AppContent() {
   }
 
   return (
-    <LicenseProtection
-      licenseInfo={licenseInfo}
-      onLicenseUpdate={handleLicenseUpdate}
-      isLoading={licenseLoading}
-    >
-      <SidebarProvider>
+    <SidebarProvider>
         <AppSidebar activeTab={activeTab} onTabChange={setActiveTab} />
         <SidebarInset>
           <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40">
@@ -409,7 +338,6 @@ function AppContent() {
 
         <Toaster />
       </SidebarProvider>
-    </LicenseProtection>
   );
 }
 

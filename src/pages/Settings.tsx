@@ -24,15 +24,8 @@ import {
   Mail,
   Info
 } from 'lucide-react'
-import LicenseInfoCard from '../components/LicenseInfoCard'
-import LicenseActivationDialog from '../components/LicenseActivationDialog'
 import LogoTest from '../components/debug/LogoTest'
 import LogoUploadTest from '../components/debug/LogoUploadTest'
-import { licenseGuard } from '../services/licenseGuard'
-import { licenseActivationService } from '../services/licenseActivationService'
-import { licenseManagerRenderer } from '../services/licenseServiceRenderer'
-import { LicenseInfo, LicenseActivationResponse } from '../types/license'
-import { useLicenseStore } from '../store/licenseStore'
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('backup')
@@ -42,12 +35,6 @@ export default function Settings() {
     type: 'success' | 'error' | 'info'
     show: boolean
   }>({ message: '', type: 'success', show: false })
-
-  // License state
-  const [licenseInfo, setLicenseInfo] = useState<LicenseInfo | null>(null)
-  const [deviceInfo, setDeviceInfo] = useState<any>(null)
-  const [showLicenseActivation, setShowLicenseActivation] = useState(false)
-  const [isLoadingLicense, setIsLoadingLicense] = useState(false)
 
   const {
     backups,
@@ -76,28 +63,7 @@ export default function Settings() {
   useEffect(() => {
     loadBackups()
     loadSettings()
-    loadLicenseInfo()
   }, [loadBackups, loadSettings])
-
-  const loadLicenseInfo = async () => {
-    setIsLoadingLicense(true)
-    try {
-      const detailedInfo = await licenseGuard.getDetailedLicenseInfo()
-      setLicenseInfo(detailedInfo.licenseInfo)
-      setDeviceInfo(detailedInfo.deviceInfo)
-
-      // If no license info, ensure we clear the state
-      if (!detailedInfo.licenseInfo) {
-        setLicenseInfo(null)
-      }
-    } catch (error) {
-      console.error('Failed to load license info:', error)
-      setLicenseInfo(null)
-      setDeviceInfo(null)
-    } finally {
-      setIsLoadingLicense(false)
-    }
-  }
 
   useEffect(() => {
     if (error) {
@@ -204,36 +170,9 @@ export default function Settings() {
     }
   }
 
-  const handleLicenseActivationSuccess = (response: LicenseActivationResponse) => {
-    showNotification('تم تفعيل الترخيص بنجاح', 'success')
-    // Wait a moment before reloading to ensure the activation is processed
-    setTimeout(() => {
-      loadLicenseInfo() // Reload license info
-    }, 500)
-  }
 
-  const handleLicenseActivationError = (error: string) => {
-    showNotification(`فشل في تفعيل الترخيص: ${error}`, 'error')
-  }
 
-  const { deactivateLicense } = useLicenseStore()
 
-  const handleDeleteLicense = async () => {
-    try {
-      const confirmed = window.confirm(
-        'هل أنت متأكد من حذف الترخيص الحالي؟ سيتم إلغاء تفعيل التطبيق ولن تتمكن من استخدامه حتى تقوم بتفعيل ترخيص جديد.'
-      )
-
-      if (confirmed) {
-        // Use the store's deactivateLicense which handles immediate lockdown
-        await deactivateLicense()
-        showNotification('تم حذف الترخيص بنجاح - سيتم إعادة تحميل التطبيق', 'success')
-      }
-    } catch (error) {
-      console.error('Error deleting license:', error)
-      showNotification(`فشل في حذف الترخيص: ${error}`, 'error')
-    }
-  }
 
   const handleUpdateSettings = async (settingsData: any) => {
     try {
@@ -275,7 +214,7 @@ export default function Settings() {
                 'تكرار النسخ': backupFrequency === 'daily' ? 'يومياً' : backupFrequency === 'weekly' ? 'أسبوعياً' : 'شهرياً',
                 'إجمالي النسخ الاحتياطية': backupStatus.totalBackups,
                 'آخر نسخة احتياطية': backupStatus.lastBackup || 'لا توجد',
-                'معلومات الترخيص': licenseInfo ? 'متوفرة' : 'غير متوفرة',
+
                 'تاريخ التصدير': formatDate(new Date())
               }
 
@@ -302,7 +241,6 @@ export default function Settings() {
       <div className="border-b border-border">
         <nav className="-mb-px flex space-x-8 space-x-reverse">
           {[
-            { id: 'license', name: 'الترخيص', icon: Shield },
             { id: 'backup', name: 'النسخ الاحتياطية', icon: Database },
             { id: 'appearance', name: 'المظهر', icon: Palette },
             { id: 'clinic', name: 'إعدادات العيادة', icon: SettingsIcon },
@@ -325,71 +263,6 @@ export default function Settings() {
       </div>
 
       {/* Tab Content */}
-      {/* License Tab */}
-      {activeTab === 'license' && (
-        <div className="space-y-6">
-          <LicenseInfoCard
-            licenseInfo={licenseInfo}
-            deviceInfo={deviceInfo}
-            onEnterNewLicense={() => setShowLicenseActivation(true)}
-            onRenewLicense={() => setShowLicenseActivation(true)}
-            onContactSupport={() => {
-              showNotification('يرجى التواصل مع الدعم الفني للمساعدة', 'info')
-            }}
-            className="w-full"
-          />
-
-          {/* License Management Actions */}
-          {licenseInfo && (
-            <div className="bg-card rounded-lg shadow border border-border">
-              <div className="p-6 border-b border-border">
-                <h3 className="text-lg font-medium text-foreground">إدارة الترخيص</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  إجراءات إضافية لإدارة الترخيص الحالي
-                </p>
-              </div>
-              <div className="p-6">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <button
-                    onClick={() => setShowLicenseActivation(true)}
-                    className="flex items-center justify-center space-x-2 space-x-reverse px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-                  >
-                    <Key className="w-5 h-5" />
-                    <span>تفعيل ترخيص جديد</span>
-                  </button>
-
-                  <button
-                    onClick={handleDeleteLicense}
-                    className="flex items-center justify-center space-x-2 space-x-reverse px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                    <span>حذف الترخيص</span>
-                  </button>
-                </div>
-
-                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                  <div className="flex">
-                    <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 ml-2" />
-                    <div>
-                      <h4 className="text-sm font-medium text-red-800 dark:text-red-200">تحذير مهم</h4>
-                      <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                        حذف الترخيص سيؤدي إلى إلغاء تفعيل التطبيق بالكامل. لن تتمكن من استخدام التطبيق حتى تقوم بتفعيل ترخيص جديد صالح.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {isLoadingLicense && (
-            <div className="text-center py-8">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
-              <p className="mt-2 text-muted-foreground">جاري تحميل معلومات الترخيص...</p>
-            </div>
-          )}
-        </div>
-      )}
 
       {activeTab === 'backup' && (
         <div className="space-y-6">
@@ -1029,13 +902,7 @@ export default function Settings() {
         </div>
       )}
 
-      {/* License Activation Dialog */}
-      <LicenseActivationDialog
-        isOpen={showLicenseActivation}
-        onClose={() => setShowLicenseActivation(false)}
-        onActivationSuccess={handleLicenseActivationSuccess}
-        onActivationError={handleLicenseActivationError}
-      />
+
 
       {/* Notification */}
       {notification.show && (

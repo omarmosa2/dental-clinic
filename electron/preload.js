@@ -165,14 +165,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     showSaveDialog: (options) => ipcRenderer.invoke('dialog:showSaveDialog', options)
   },
 
-  // License operations
-  license: {
-    activate: (licenseKey) => ipcRenderer.invoke('license:activate', licenseKey),
-    validate: () => ipcRenderer.invoke('license:validate'),
-    getInfo: () => ipcRenderer.invoke('license:getInfo'),
-    deactivate: () => ipcRenderer.invoke('license:deactivate'),
-    getDeviceInfo: () => ipcRenderer.invoke('license:getDeviceInfo')
-  },
+
 
   // Reports operations
   reports: {
