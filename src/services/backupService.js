@@ -41,7 +41,21 @@ class BackupService {
     const dbDir = require('path').dirname(this.sqliteDbPath)
     this.backupDir = join(dbDir, 'backups')
     this.backupRegistryPath = join(dbDir, 'backup_registry.json')
-    this.dentalImagesPath = join(dbDir, 'dental_images')
+
+    // Set dental images path to project directory instead of database directory
+    // Check if we're in development mode to determine the correct path
+    const isDevelopment = process.env.NODE_ENV === 'development' ||
+                         process.execPath.includes('node') ||
+                         process.execPath.includes('electron') ||
+                         process.cwd().includes('dental-clinic')
+
+    if (isDevelopment) {
+      // In development, use project directory
+      this.dentalImagesPath = join(process.cwd(), 'dental_images')
+    } else {
+      // In production, use directory relative to executable
+      this.dentalImagesPath = join(require('path').dirname(process.execPath), 'dental_images')
+    }
 
     console.log('📍 Backup service paths:')
     console.log('   Database:', this.sqliteDbPath)
@@ -635,7 +649,10 @@ class BackupService {
           console.log(`📸 Images path: ${this.dentalImagesPath}`)
 
           // Count images before adding to backup
-          const imageFiles = glob.sync(join(this.dentalImagesPath, '**', '*'))
+          const imageFiles = glob.sync(join(this.dentalImagesPath, '**', '*')).filter(file => {
+            const stats = require('fs').statSync(file)
+            return stats.isFile()
+          })
           console.log(`📸 Found ${imageFiles.length} image files to backup`)
 
           archive.directory(this.dentalImagesPath, 'dental_images')

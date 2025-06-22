@@ -189,7 +189,40 @@ class DataMigrationService {
 
     console.log('👥 Migrating patients...')
     for (const patient of data.patients) {
-      await this.sqliteService.createPatient(patient)
+      console.log('🔍 Original patient data:', JSON.stringify(patient, null, 2))
+
+      // Transform old LowDB patient format to new SQLite format
+      const serial_number = patient.serial_number || (patient.id ? patient.id.substring(0, 8) : Date.now().toString().substring(0, 8))
+      const full_name = patient.full_name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || 'مريض غير محدد'
+
+      const transformedPatient = {
+        id: patient.id,
+        serial_number: serial_number,
+        full_name: full_name,
+        gender: patient.gender || 'male',
+        age: patient.age || (patient.date_of_birth && patient.date_of_birth !== '' ?
+          Math.floor((new Date() - new Date(patient.date_of_birth)) / (365.25 * 24 * 60 * 60 * 1000)) : 25),
+        patient_condition: patient.patient_condition || patient.medical_history || 'يحتاج إلى تقييم طبي',
+        allergies: patient.allergies || null,
+        medical_conditions: patient.medical_conditions || patient.insurance_info || null,
+        email: patient.email || null,
+        address: patient.address || null,
+        notes: patient.notes || null,
+        phone: patient.phone || null,
+        created_at: patient.created_at || new Date().toISOString(),
+        updated_at: patient.updated_at || new Date().toISOString()
+      }
+
+      console.log('📝 Transformed patient data:', JSON.stringify(transformedPatient, null, 2))
+      console.log('📝 Creating patient in SQLite:', transformedPatient.serial_number, transformedPatient.full_name)
+
+      // Validate required fields before creating
+      if (!transformedPatient.serial_number || !transformedPatient.full_name) {
+        console.error('❌ Missing required fields for patient:', transformedPatient)
+        throw new Error(`Missing required fields for patient: serial_number=${transformedPatient.serial_number}, full_name=${transformedPatient.full_name}`)
+      }
+
+      await this.sqliteService.createPatient(transformedPatient)
       stats.patients++
     }
 
