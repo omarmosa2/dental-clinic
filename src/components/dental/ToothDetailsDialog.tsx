@@ -61,13 +61,15 @@ interface ToothDetailsDialogProps {
   onOpenChange: (open: boolean) => void
   patientId: string
   toothNumber: number | null
+  isPrimaryTeeth?: boolean
 }
 
 export default function ToothDetailsDialog({
   open,
   onOpenChange,
   patientId,
-  toothNumber
+  toothNumber,
+  isPrimaryTeeth = false
 }: ToothDetailsDialogProps) {
   const { toast } = useToast()
   const { patients } = usePatientStore()
@@ -89,7 +91,7 @@ export default function ToothDetailsDialog({
   const [selectedImages, setSelectedImages] = useState<Array<{file: File, type: string}>>([])
 
   const patient = patients.find(p => p.id === patientId)
-  const toothInfo = toothNumber ? getToothInfo(toothNumber) : null
+  const toothInfo = toothNumber ? getToothInfo(toothNumber, isPrimaryTeeth) : null
   const existingTreatment = treatments.find(t => t.tooth_number === toothNumber)
 
   useEffect(() => {

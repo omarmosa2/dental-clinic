@@ -49,6 +49,7 @@ export default function DentalTreatments() {
   const [selectedPrescription, setSelectedPrescription] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isPrimaryTeeth, setIsPrimaryTeeth] = useState(false)
 
   // Enable real-time synchronization
   useRealTimeSync()
@@ -150,7 +151,7 @@ export default function DentalTreatments() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <Stethoscope className="w-8 h-8 text-blue-600" />
+            <Stethoscope className="w-8 h-8 text-blue-600 dark:text-blue-400" />
             العلاجات السنية
           </h1>
           <p className="text-muted-foreground mt-2">
@@ -207,12 +208,12 @@ export default function DentalTreatments() {
 
           {/* Selected Patient Info */}
           {selectedPatient && (
-            <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-              <CardContent className="pt-4">
+            <Card className="bg-muted/30 dark:bg-muted/20 border-border">
+              <CardContent className="pt-4 bg-muted/30 dark:bg-muted/20">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-blue-600" />
-                    <span className="font-medium">{selectedPatient.full_name}</span>
+                    <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span className="font-medium text-foreground">{selectedPatient.full_name}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">الجنس:</span>
@@ -221,16 +222,16 @@ export default function DentalTreatments() {
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-blue-600" />
-                    <span>{selectedPatient.age} سنة</span>
+                    <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-foreground">{selectedPatient.age} سنة</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-blue-600" />
+                    <Phone className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     <a
                       href={`https://wa.me/${selectedPatient.phone?.replace(/\D/g, '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-green-600 hover:underline"
+                      className="text-green-600 dark:text-green-400 hover:underline"
                     >
                       {selectedPatient.phone}
                     </a>
@@ -245,45 +246,45 @@ export default function DentalTreatments() {
       {/* Patient Treatments Summary */}
       {selectedPatient && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Activity className="w-4 h-4 text-green-600" />
+          <Card className="bg-card dark:bg-card border-border">
+            <CardHeader className="pb-2 bg-card dark:bg-card">
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
+                <Activity className="w-4 h-4 text-green-600 dark:text-green-400" />
                 العلاجات
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+            <CardContent className="bg-card dark:bg-card">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {patientTreatments.length}
               </div>
               <p className="text-xs text-muted-foreground">إجمالي العلاجات</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Camera className="w-4 h-4 text-blue-600" />
+          <Card className="bg-card dark:bg-card border-border">
+            <CardHeader className="pb-2 bg-card dark:bg-card">
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
+                <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 الصور
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
+            <CardContent className="bg-card dark:bg-card">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {patientTreatments.reduce((acc, t) => acc + (t.images?.length || 0), 0)}
               </div>
               <p className="text-xs text-muted-foreground">صور العلاجات</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <FileText className="w-4 h-4 text-purple-600" />
+          <Card className="bg-card dark:bg-card border-border">
+            <CardHeader className="pb-2 bg-card dark:bg-card">
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
+                <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                 الوصفات
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
+            <CardContent className="bg-card dark:bg-card">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                 {patientPrescriptions.length}
               </div>
               <p className="text-xs text-muted-foreground">الوصفات الطبية</p>
@@ -299,20 +300,22 @@ export default function DentalTreatments() {
             patientId={selectedPatientId}
             onToothClick={handleToothClick}
             selectedTooth={selectedToothNumber}
+            isPrimaryTeeth={isPrimaryTeeth}
+            onPrimaryTeethChange={setIsPrimaryTeeth}
           />
         </div>
       )}
 
       {/* Prescriptions List */}
       {selectedPatient && patientPrescriptions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className="bg-card dark:bg-card border-border">
+          <CardHeader className="bg-card dark:bg-card">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <FileText className="w-5 h-5" />
               الوصفات الطبية
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="bg-card dark:bg-card">
             <div className="space-y-2">
               {patientPrescriptions.map((prescription) => (
                 <div
@@ -363,6 +366,7 @@ export default function DentalTreatments() {
         onOpenChange={handleToothDialogClose}
         patientId={selectedPatientId}
         toothNumber={selectedToothNumber}
+        isPrimaryTeeth={isPrimaryTeeth}
       />
 
       {selectedPrescription && (

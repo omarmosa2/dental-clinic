@@ -25,8 +25,7 @@ import {
   Info,
   Image
 } from 'lucide-react'
-import LogoTest from '../components/debug/LogoTest'
-import LogoUploadTest from '../components/debug/LogoUploadTest'
+
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('backup')
@@ -683,7 +682,7 @@ export default function Settings() {
                       id="clinic_phone"
                       name="clinic_phone"
                       defaultValue={settings?.clinic_phone || ''}
-                      placeholder="+966 50 123 4567"
+                      placeholder="+963 95 966 9628"
                       className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
@@ -711,7 +710,7 @@ export default function Settings() {
                     id="clinic_address"
                     name="clinic_address"
                     defaultValue={settings?.clinic_address || ''}
-                    placeholder="الرياض، المملكة العربية السعودية"
+                    placeholder="حلب، الجمهورية العربية السورية"
                     rows={3}
                     className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -799,9 +798,7 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Logo Test Components */}
-          <LogoTest />
-          <LogoUploadTest />
+
         </div>
       )}
 
@@ -823,7 +820,7 @@ export default function Settings() {
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-foreground">اسم الفريق</h4>
-                  <p className="text-lg font-bold text-foreground">Augment Code Team</p>
+                  <p className="text-lg font-bold text-foreground">AgorraCode</p>
                   <p className="text-sm text-muted-foreground">فريق تطوير تطبيقات إدارة العيادات</p>
                 </div>
               </div>
@@ -835,11 +832,38 @@ export default function Settings() {
                 </div>
                 <div className="flex-1">
                   <h4 className="text-sm font-medium text-foreground">رقم التواصل</h4>
-                  <p className="text-lg font-bold text-foreground">+966 50 123 4567</p>
+                  <p className="text-lg font-bold text-foreground">00963959669628</p>
                   <p className="text-sm text-muted-foreground">متاح للدعم الفني من 9 صباحاً إلى 6 مساءً</p>
                 </div>
                 <button
-                  onClick={() => window.open('https://api.whatsapp.com/send/?phone=966501234567', '_blank')}
+                  onClick={async () => {
+                    const whatsappUrl = `https://api.whatsapp.com/send/?phone=963959669628`;
+
+                    // Try multiple methods to open external URL
+                    try {
+                      // Method 1: Try electronAPI system.openExternal
+                      if (window.electronAPI && window.electronAPI.system && window.electronAPI.system.openExternal) {
+                        await window.electronAPI.system.openExternal(whatsappUrl);
+                        return;
+                      }
+                    } catch (error) {
+                      console.log('Method 1 failed:', error);
+                    }
+
+                    try {
+                      // Method 2: Try direct shell.openExternal via ipcRenderer
+                      if (window.electronAPI) {
+                        // @ts-ignore
+                        await window.electronAPI.shell?.openExternal?.(whatsappUrl);
+                        return;
+                      }
+                    } catch (error) {
+                      console.log('Method 2 failed:', error);
+                    }
+
+                    // Method 3: Fallback to window.open
+                    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+                  }}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   تواصل عبر واتساب
@@ -853,11 +877,11 @@ export default function Settings() {
                 </div>
                 <div className="flex-1">
                   <h4 className="text-sm font-medium text-foreground">البريد الإلكتروني</h4>
-                  <p className="text-lg font-bold text-foreground">support@augmentcode.com</p>
+                  <p className="text-lg font-bold text-foreground">AgorraCode@gmail.com</p>
                   <p className="text-sm text-muted-foreground">للاستفسارات والدعم الفني</p>
                 </div>
                 <button
-                  onClick={() => window.open('mailto:support@augmentcode.com', '_blank')}
+                  onClick={() => window.open('mailto:AgorraCode@gmail.com', '_blank')}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   إرسال إيميل

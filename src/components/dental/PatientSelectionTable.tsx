@@ -199,14 +199,14 @@ export default function PatientSelectionTable({
   return (
     <div className="space-y-4">
       {/* Table Header Info */}
-      <div className="bg-muted/30 px-4 py-2 border rounded-t-lg">
+      <div className="bg-muted/30 dark:bg-muted/50 px-4 py-2 border border-border rounded-t-lg">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
             عرض {paginatedPatients.length} من أصل {totalCount} مريض
           </span>
           <div className="flex items-center gap-3">
             {selectedPatientId && (
-              <span className="text-blue-600 font-medium">
+              <span className="text-blue-600 dark:text-blue-400 font-medium">
                 المريض المحدد: {patients.find(p => p.id === selectedPatientId)?.full_name}
               </span>
             )}
@@ -225,12 +225,12 @@ export default function PatientSelectionTable({
       </div>
 
       {/* Table */}
-      <div className="border rounded-b-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table className="table-center-all">
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="text-center w-16">
+      <div className="border border-border rounded-b-lg overflow-hidden bg-card dark:bg-card">
+        <div className="overflow-x-auto bg-card dark:bg-card">
+          <Table className="table-center-all bg-card dark:bg-card">
+            <TableHeader className="bg-muted/50 dark:bg-muted/70">
+              <TableRow className="bg-muted/50 dark:bg-muted/70 border-b border-border hover:bg-muted/50 dark:hover:bg-muted/70">
+                <TableHead className="text-center w-16 text-foreground">
                   <span className="font-medium">#</span>
                 </TableHead>
                 <SortableHeader field="serial_number">
@@ -248,37 +248,39 @@ export default function PatientSelectionTable({
                 <SortableHeader field="phone">
                   <span className="font-medium">رقم الهاتف</span>
                 </SortableHeader>
-                <TableHead className="text-center">
+                <TableHead className="text-center text-foreground">
                   <span className="font-medium">عدد العلاجات</span>
                 </TableHead>
-                <TableHead className="text-center">
+                <TableHead className="text-center text-foreground">
                   <span className="font-medium">آخر زيارة</span>
                 </TableHead>
-                <TableHead className="text-center">
+                <TableHead className="text-center text-foreground">
                   <span className="font-medium">الإجراءات</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="bg-card dark:bg-card">
               {paginatedPatients.map((patient, index) => (
                 <TableRow
                   key={patient.id}
-                  className={`hover:bg-muted/50 transition-colors border-b ${
-                    selectedPatientId === patient.id ? 'bg-blue-50 dark:bg-blue-950' : ''
+                  className={`hover:bg-muted/50 dark:hover:bg-muted/70 transition-colors border-b border-border ${
+                    selectedPatientId === patient.id ? 'bg-blue-100/30 dark:bg-blue-900/20 border-blue-300/50 dark:border-blue-600/50' : 'bg-card dark:bg-card'
                   }`}
                 >
                   <TableCell className="font-medium text-muted-foreground">
                     {startIndex + index + 1}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">#{patient.serial_number}</Badge>
+                    <Badge className="bg-card dark:bg-card border border-border text-foreground">
+                      #{patient.serial_number}
+                    </Badge>
                   </TableCell>
                   <TableCell className="font-medium table-cell-wrap-truncate-md">
                     <div className="flex items-center justify-center space-x-2 space-x-reverse">
                       <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
                         {patient.full_name.charAt(0)}
                       </div>
-                      <span>{patient.full_name}</span>
+                      <span className="text-foreground">{patient.full_name}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -289,7 +291,7 @@ export default function PatientSelectionTable({
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
                       <Calendar className="w-3 h-3 text-muted-foreground" />
-                      {patient.age} سنة
+                      <span className="text-foreground">{patient.age} سنة</span>
                     </div>
                   </TableCell>
                   <TableCell className="table-cell-wrap-truncate-sm">
@@ -298,7 +300,7 @@ export default function PatientSelectionTable({
                         href={`https://wa.me/${patient.phone?.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-green-600 hover:underline flex items-center justify-center gap-1"
+                        className="text-green-600 dark:text-green-400 hover:underline flex items-center justify-center gap-1"
                       >
                         <Phone className="w-3 h-3" />
                         {patient.phone}
@@ -308,7 +310,7 @@ export default function PatientSelectionTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                    <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-600">
                       <Activity className="w-3 h-3 ml-1" />
                       {getPatientTreatmentCount(patient.id)} علاج
                     </Badge>
@@ -327,7 +329,7 @@ export default function PatientSelectionTable({
                       size="sm"
                       variant={selectedPatientId === patient.id ? "default" : "outline"}
                       onClick={() => onPatientSelect(patient.id)}
-                      className="text-xs"
+                      className={`text-xs ${selectedPatientId === patient.id ? 'bg-primary text-primary-foreground' : 'border-border hover:bg-muted'}`}
                     >
                       {selectedPatientId === patient.id ? 'محدد' : 'اختيار'}
                     </Button>
@@ -341,7 +343,7 @@ export default function PatientSelectionTable({
 
       {/* Pagination Controls */}
       {totalCount > pageSize && (
-        <div className="flex items-center justify-between px-2">
+        <div className="flex items-center justify-between px-2 py-2 bg-background dark:bg-card border border-border rounded-lg">
           <div className="flex items-center space-x-2 space-x-reverse">
             <p className="text-sm text-muted-foreground">
               عرض {((currentPage - 1) * pageSize) + 1} إلى {Math.min(currentPage * pageSize, totalCount)} من {totalCount} مريض
@@ -350,12 +352,12 @@ export default function PatientSelectionTable({
 
           <div className="flex items-center space-x-6 space-x-reverse lg:space-x-8">
             <div className="flex items-center space-x-2 space-x-reverse">
-              <p className="text-sm font-medium">عدد الصفوف لكل صفحة</p>
+              <p className="text-sm font-medium text-foreground">عدد الصفوف لكل صفحة</p>
               <Select
                 value={`${pageSize}`}
                 onValueChange={handlePageSizeChange}
               >
-                <SelectTrigger className="h-8 w-[70px]">
+                <SelectTrigger className="h-8 w-[70px] border-border">
                   <SelectValue placeholder={pageSize} />
                 </SelectTrigger>
                 <SelectContent side="top">
@@ -368,7 +370,7 @@ export default function PatientSelectionTable({
               </Select>
             </div>
 
-            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+            <div className="flex w-[100px] items-center justify-center text-sm font-medium text-foreground">
               صفحة {currentPage} من {totalPages}
             </div>
 
