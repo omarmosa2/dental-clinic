@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Shield, Download, Upload, RefreshCw, Trash2, AlertCircle, CheckCircle, Clock, Database } from 'lucide-react'
+import { Shield, Download, Upload, RefreshCw, Trash2, AlertCircle, CheckCircle, Clock, Database, Image } from 'lucide-react'
 import { useBackupStore } from '@/store/backupStore'
 import { notify } from '@/services/notificationService'
 import {
@@ -28,6 +28,8 @@ interface BackupInfo {
   platform?: string
   database_type?: string
   backup_format?: string
+  includes_images?: boolean
+  isZipBackup?: boolean
 }
 
 export default function Backup() {
@@ -58,11 +60,14 @@ export default function Backup() {
     loadBackups()
   }, [loadBackups])
 
-  const handleCreateBackup = async () => {
+  const handleCreateBackup = async (withImages = false) => {
     try {
       clearError()
-      await createBackup()
-      notify.backupSuccess('تم إنشاء النسخة الاحتياطية بنجاح')
+      await createBackup(null, withImages)
+      const message = withImages
+        ? 'تم إنشاء النسخة الاحتياطية مع الصور بنجاح'
+        : 'تم إنشاء النسخة الاحتياطية بنجاح'
+      notify.backupSuccess(message)
     } catch (error) {
       console.error('Failed to create backup:', error)
       notify.backupError('فشل في إنشاء النسخة الاحتياطية')
@@ -122,6 +127,7 @@ export default function Backup() {
       const result = await window.electronAPI.dialog.showOpenDialog({
         title: 'اختر ملف النسخة الاحتياطية',
         filters: [
+          { name: 'نسخ احتياطية مع صور', extensions: ['zip'] },
           { name: 'ملفات قاعدة البيانات', extensions: ['db', 'sqlite'] },
           { name: 'ملفات النسخ الاحتياطية القديمة', extensions: ['json'] },
           { name: 'جميع الملفات', extensions: ['*'] }
@@ -170,14 +176,22 @@ export default function Backup() {
           </p>
         </div>
         <div className="flex space-x-2 space-x-reverse">
-          <Button onClick={handleCreateBackup} disabled={isCreatingBackup}>
-            {isCreatingBackup ? (
-              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4 mr-2" />
-            )}
-            إنشاء نسخة احتياطية
-          </Button>
+            <Button onClick={() => handleCreateBackup(false)} disabled={isCreatingBackup}>
+              {isCreatingBackup ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              إنشاء نسخة احتياطية
+            </Button>
+            <Button onClick={() => handleCreateBackup(true)} disabled={isCreatingBackup} variant="outline" className="bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100">
+              {isCreatingBackup ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Image className="w-4 h-4 mr-2" />
+              )}
+              إنشاء نسخة احتياطية مع صور
+            </Button>
           <Button variant="outline" onClick={handleSelectBackupFile} disabled={isRestoringBackup}>
             {isRestoringBackup ? (
               <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -264,10 +278,16 @@ export default function Backup() {
               <p className="text-muted-foreground mb-4">
                 لم يتم العثور على أي نسخ احتياطية. قم بإنشاء نسخة احتياطية أولاً.
               </p>
-              <Button onClick={handleCreateBackup} disabled={isCreatingBackup}>
-                <Download className="w-4 h-4 mr-2" />
-                إنشاء أول نسخة احتياطية
-              </Button>
+              <div className="flex space-x-2 space-x-reverse justify-center">
+                <Button onClick={() => handleCreateBackup(false)} disabled={isCreatingBackup}>
+                  <Download className="w-4 h-4 mr-2" />
+                  إنشاء أول نسخة احتياطية
+                </Button>
+                <Button onClick={() => handleCreateBackup(true)} disabled={isCreatingBackup} variant="outline" className="bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100">
+                  <Image className="w-4 h-4 mr-2" />
+                  مع صور
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -285,6 +305,12 @@ export default function Backup() {
                       {backup.backup_format === 'sqlite_only' && (
                         <Badge variant="outline" className="text-xs">
                           محسن
+                        </Badge>
+                      )}
+                      {backup.includes_images && (
+                        <Badge variant="default" className="text-xs bg-blue-600">
+                          <Image className="w-3 h-3 mr-1" />
+                          مع صور
                         </Badge>
                       )}
                     </div>
@@ -353,7 +379,13 @@ export default function Backup() {
             <div className="flex items-start gap-2">
               <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
               <div>
-                <strong>إنشاء النسخ الاحتياطية:</strong> يتم حفظ النسخ الاحتياطية كملفات SQLite يمكن استعادتها في أي وقت.
+                <strong>إنشاء النسخ الاحتياطية:</strong> يمكن إنشاء نسخ احتياطية لقاعدة البيانات فقط (.db) أو مع الصور (.zip).
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Image className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <strong>النسخ مع الصور:</strong> تتضمن جميع صور المرضى والأشعة السينية، لكنها تستغرق وقتاً أطول وحجماً أكبر.
               </div>
             </div>
             <div className="flex items-start gap-2">

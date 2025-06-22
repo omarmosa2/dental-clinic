@@ -269,13 +269,13 @@ export default function ToothDetailsDialog({
               console.log('Image saved via Electron API:', relativePath)
               resolve(relativePath)
             } else {
-              // Fallback: create a simulated path with new structure
+              // Fallback: create a simulated path with new structure (Patient/ImageType/ToothName)
               const timestamp = Date.now()
               const extension = file.name.split('.').pop() || 'jpg'
               const cleanPatientName = (patient?.full_name || 'Unknown_Patient').replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
               const cleanToothName = (toothInfo?.arabicName || `Tooth_${toothNumber}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
-              const fileName = `${cleanPatientName}-${cleanToothName}-${timestamp}.${extension}`
-              const relativePath = `dental_images/${imageType || 'other'}/${fileName}`
+              const fileName = `${cleanToothName}-${timestamp}.${extension}`
+              const relativePath = `dental_images/${cleanPatientName}/${imageType || 'other'}/${fileName}`
 
               console.log('Using fallback path (image not actually saved):', relativePath)
               console.log('File size:', file.size, 'bytes')

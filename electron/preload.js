@@ -127,7 +127,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Backup operations
   backup: {
-    create: () => ipcRenderer.invoke('backup:create'),
+    create: (customPath, includeImages) => ipcRenderer.invoke('backup:create', customPath, includeImages),
     restore: (backupPath) => ipcRenderer.invoke('backup:restore', backupPath),
     list: () => ipcRenderer.invoke('backup:list'),
     delete: (backupName) => ipcRenderer.invoke('backup:delete', backupName),

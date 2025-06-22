@@ -24,7 +24,7 @@ interface BackupState {
 interface BackupActions {
   // Data operations
   loadBackups: () => Promise<void>
-  createBackup: () => Promise<string>
+  createBackup: (customPath?: string | null, includeImages?: boolean) => Promise<string>
   restoreBackup: (backupPath: string) => Promise<boolean>
   deleteBackup: (backupName: string) => Promise<void>
 
@@ -103,10 +103,10 @@ export const useBackupStore = create<BackupStore>()(
         }
       },
 
-      createBackup: async () => {
+      createBackup: async (customPath?: string | null, includeImages?: boolean) => {
         set({ isCreatingBackup: true, error: null })
         try {
-          const backupPath = await window.electronAPI.backup.create()
+          const backupPath = await window.electronAPI.backup.create(customPath, includeImages)
 
           // Reload backups list
           await get().loadBackups()
@@ -190,6 +190,7 @@ export const useBackupStore = create<BackupStore>()(
           const result = await window.electronAPI.dialog.showOpenDialog({
             title: 'اختر ملف النسخة الاحتياطية',
             filters: [
+              { name: 'نسخ احتياطية مع صور', extensions: ['zip'] },
               { name: 'ملفات قاعدة البيانات', extensions: ['db', 'sqlite'] },
               { name: 'ملفات النسخ الاحتياطية القديمة', extensions: ['json'] },
               { name: 'ملفات النسخ الاحتياطية الأخرى', extensions: ['backup', 'bak'] },

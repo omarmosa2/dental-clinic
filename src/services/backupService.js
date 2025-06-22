@@ -1,6 +1,9 @@
 const { app } = require('electron')
-const { join, basename } = require('path')
-const { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, rmSync, readFileSync, writeFileSync } = require('fs')
+const { join, basename, dirname } = require('path')
+const { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, rmSync, readFileSync, writeFileSync, lstatSync } = require('fs')
+const fs = require('fs').promises
+const archiver = require('archiver')
+const extract = require('extract-zip')
 
 class BackupService {
   constructor(databaseService) {
@@ -8,6 +11,7 @@ class BackupService {
     this.backupDir = join(app.getPath('userData'), 'backups')
     this.backupRegistryPath = join(app.getPath('userData'), 'backup_registry.json')
     this.sqliteDbPath = join(app.getPath('userData'), 'dental_clinic.db')
+    this.dentalImagesPath = join(app.getPath('userData'), 'dental_images')
     this.ensureBackupDirectory()
     this.ensureBackupRegistry()
   }
@@ -61,29 +65,35 @@ class BackupService {
     }
   }
 
-  async createBackup(customPath = null) {
+  async createBackup(customPath = null, includeImages = false) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const backupName = `backup_${timestamp}`
 
     try {
-      console.log('🚀 Starting SQLite backup creation...')
+      console.log('🚀 Starting backup creation...')
       console.log('📍 Custom path provided:', customPath)
+      console.log('📸 Include images:', includeImages)
 
       let backupPath
       if (customPath) {
-        // Use the custom path provided by user (remove extension if provided)
-        backupPath = customPath.replace(/\.(json|db|sqlite)$/, '') + '.db'
-
-        // Double check - force .db extension
-        if (!backupPath.endsWith('.db')) {
-          backupPath += '.db'
+        // Use the custom path provided by user
+        if (includeImages) {
+          // For backups with images, use .zip extension
+          backupPath = customPath.replace(/\.(json|db|sqlite|zip)$/, '') + '.zip'
+        } else {
+          // For database-only backups, use .db extension
+          backupPath = customPath.replace(/\.(json|db|sqlite|zip)$/, '') + '.db'
         }
 
         console.log('📍 Using custom path (modified):', backupPath)
         console.log('📍 Original custom path was:', customPath)
       } else {
         // Use default backup directory
-        backupPath = join(this.backupDir, `${backupName}.db`)
+        if (includeImages) {
+          backupPath = join(this.backupDir, `${backupName}.zip`)
+        } else {
+          backupPath = join(this.backupDir, `${backupName}.db`)
+        }
         console.log('📍 Using default path:', backupPath)
       }
 
@@ -127,53 +137,63 @@ class BackupService {
         throw new Error('Database connection is not working properly')
       }
 
-      console.log('📁 Creating SQLite database backup...')
-      copyFileSync(this.sqliteDbPath, backupPath)
+      if (includeImages) {
+        // Create backup with images (ZIP format)
+        console.log('📁 Creating backup with images...')
+        await this.createBackupWithImages(backupPath)
+      } else {
+        // Create database-only backup
+        console.log('📁 Creating SQLite database backup...')
+        copyFileSync(this.sqliteDbPath, backupPath)
 
-      // Verify backup was created successfully
-      if (!existsSync(backupPath)) {
-        throw new Error('Backup file was not created successfully')
+        // Verify backup was created successfully
+        if (!existsSync(backupPath)) {
+          throw new Error('Backup file was not created successfully')
+        }
+
+        const backupStats = statSync(backupPath)
+        console.log('📊 Backup file size:', backupStats.size, 'bytes')
+
+        if (backupStats.size !== sourceStats.size) {
+          console.warn('⚠️ Backup file size differs from source!')
+          console.warn('Source:', sourceStats.size, 'bytes, Backup:', backupStats.size, 'bytes')
+        }
+
+        console.log('✅ SQLite database backup created successfully')
       }
-
-      const backupStats = statSync(backupPath)
-      console.log('📊 Backup file size:', backupStats.size, 'bytes')
-
-      if (backupStats.size !== sourceStats.size) {
-        console.warn('⚠️ Backup file size differs from source!')
-        console.warn('Source:', sourceStats.size, 'bytes, Backup:', backupStats.size, 'bytes')
-      }
-
-      console.log('✅ SQLite database backup created successfully')
 
       // Get file stats
-      const sqliteStats = statSync(backupPath)
+      const backupStats = statSync(backupPath)
 
       // Create metadata for backup registry
       const metadata = {
         created_at: new Date().toISOString(),
-        version: '3.0.0', // Updated version for SQLite-only
+        version: '4.0.0', // Updated version for image support
         platform: process.platform,
         backup_type: 'full',
         database_type: 'sqlite',
-        backup_format: 'sqlite_only' // SQLite only
+        backup_format: includeImages ? 'sqlite_with_images' : 'sqlite_only',
+        includes_images: includeImages
       }
 
       // Add to backup registry
       const backupInfo = {
-        name: basename(backupPath, '.db'),
+        name: basename(backupPath, includeImages ? '.zip' : '.db'),
         path: backupPath,
-        size: sqliteStats.size,
+        size: backupStats.size,
         created_at: metadata.created_at,
         version: metadata.version,
         platform: metadata.platform,
         database_type: 'sqlite',
-        backup_format: 'sqlite_only'
+        backup_format: metadata.backup_format,
+        includes_images: includeImages
       }
       this.addToBackupRegistry(backupInfo)
 
-      console.log(`✅ SQLite backup created successfully:`)
+      console.log(`✅ Backup created successfully:`)
       console.log(`   File: ${backupPath}`)
-      console.log(`   Size: ${this.formatFileSize(sqliteStats.size)}`)
+      console.log(`   Size: ${this.formatFileSize(backupStats.size)}`)
+      console.log(`   Includes Images: ${includeImages ? 'Yes' : 'No'}`)
 
       return backupPath
 
@@ -193,30 +213,149 @@ class BackupService {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
+  // Helper function to calculate directory size
+  async calculateDirectorySize(dirPath) {
+    if (!existsSync(dirPath)) {
+      return 0
+    }
+
+    let totalSize = 0
+    try {
+      const items = await fs.readdir(dirPath)
+
+      for (const item of items) {
+        const itemPath = join(dirPath, item)
+        const stats = await fs.lstat(itemPath)
+
+        if (stats.isDirectory()) {
+          totalSize += await this.calculateDirectorySize(itemPath)
+        } else {
+          totalSize += stats.size
+        }
+      }
+    } catch (error) {
+      console.warn(`Warning: Could not calculate size for ${dirPath}:`, error.message)
+    }
+
+    return totalSize
+  }
+
+  // Helper function to copy directory recursively
+  async copyDirectory(source, destination) {
+    if (!existsSync(source)) {
+      console.warn(`Source directory does not exist: ${source}`)
+      return
+    }
+
+    // Create destination directory
+    await fs.mkdir(destination, { recursive: true })
+
+    const items = await fs.readdir(source)
+
+    for (const item of items) {
+      const sourcePath = join(source, item)
+      const destPath = join(destination, item)
+      const stats = await fs.lstat(sourcePath)
+
+      if (stats.isDirectory()) {
+        await this.copyDirectory(sourcePath, destPath)
+      } else {
+        await fs.copyFile(sourcePath, destPath)
+      }
+    }
+  }
+
+  // Create backup with images in ZIP format
+  async createBackupWithImages(backupPath) {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('📦 Creating ZIP backup with images...')
+
+        // Create a file to stream archive data to
+        const output = require('fs').createWriteStream(backupPath)
+        const archive = archiver('zip', {
+          zlib: { level: 9 } // Sets the compression level
+        })
+
+        // Listen for all archive data to be written
+        output.on('close', () => {
+          console.log(`✅ ZIP backup created: ${archive.pointer()} total bytes`)
+          resolve()
+        })
+
+        // Handle warnings (e.g., stat failures and other non-blocking errors)
+        archive.on('warning', (err) => {
+          if (err.code === 'ENOENT') {
+            console.warn('Archive warning:', err)
+          } else {
+            reject(err)
+          }
+        })
+
+        // Handle errors
+        archive.on('error', (err) => {
+          reject(err)
+        })
+
+        // Pipe archive data to the file
+        archive.pipe(output)
+
+        // Add database file
+        console.log('📁 Adding database to backup...')
+        archive.file(this.sqliteDbPath, { name: 'dental_clinic.db' })
+
+        // Add images directory if it exists
+        if (existsSync(this.dentalImagesPath)) {
+          console.log('📸 Adding images to backup...')
+          archive.directory(this.dentalImagesPath, 'dental_images')
+        } else {
+          console.log('📸 No images directory found, skipping...')
+        }
+
+        // Finalize the archive (i.e., we are done appending files but streams have to finish yet)
+        archive.finalize()
+
+      } catch (error) {
+        console.error('❌ Error creating ZIP backup:', error)
+        reject(error)
+      }
+    })
+  }
+
   async restoreBackup(backupPath) {
     try {
       console.log('🔄 Starting backup restoration...')
 
-      // Check if backup file exists
+      // Check if backup file exists and determine type
       let actualBackupPath = backupPath
+      let isZipBackup = false
 
-      // If path doesn't have .db extension, add it
-      if (!backupPath.endsWith('.db')) {
-        actualBackupPath = `${backupPath}.db`
+      // Check for ZIP backup first (with images)
+      if (backupPath.endsWith('.zip') || existsSync(`${backupPath}.zip`)) {
+        actualBackupPath = backupPath.endsWith('.zip') ? backupPath : `${backupPath}.zip`
+        isZipBackup = true
       }
-
-      // Check if the backup file exists
-      if (!existsSync(actualBackupPath)) {
-        // Try legacy JSON format for backward compatibility
-        const jsonBackupPath = backupPath.replace(/\.db$/, '.json')
+      // Check for DB backup (database only)
+      else if (backupPath.endsWith('.db') || existsSync(`${backupPath}.db`)) {
+        actualBackupPath = backupPath.endsWith('.db') ? backupPath : `${backupPath}.db`
+        isZipBackup = false
+      }
+      // Try legacy JSON format for backward compatibility
+      else {
+        const jsonBackupPath = backupPath.replace(/\.(db|zip)$/, '.json')
         if (existsSync(jsonBackupPath)) {
           console.log('📄 Found legacy JSON backup, restoring...')
           return await this.restoreLegacyBackup(jsonBackupPath)
         }
+        throw new Error(`ملف النسخة الاحتياطية غير موجود: ${backupPath}`)
+      }
+
+      // Verify the backup file exists
+      if (!existsSync(actualBackupPath)) {
         throw new Error(`ملف النسخة الاحتياطية غير موجود: ${actualBackupPath}`)
       }
 
-      console.log(`📁 Found SQLite backup: ${actualBackupPath}`)
+      console.log(`📁 Found ${isZipBackup ? 'ZIP' : 'SQLite'} backup: ${actualBackupPath}`)
 
       // Create backup of current database before restoration
       const { app } = require('electron')
@@ -227,9 +366,15 @@ class BackupService {
       }
 
       try {
-        // Direct SQLite restoration
-        console.log('🗄️ Restoring from SQLite backup...')
-        await this.restoreFromSqliteBackup(actualBackupPath)
+        if (isZipBackup) {
+          // Restore from ZIP backup (with images)
+          console.log('🗄️ Restoring from ZIP backup with images...')
+          await this.restoreFromZipBackup(actualBackupPath)
+        } else {
+          // Direct SQLite restoration
+          console.log('🗄️ Restoring from SQLite backup...')
+          await this.restoreFromSqliteBackup(actualBackupPath)
+        }
 
         console.log('✅ Backup restored successfully')
 
@@ -254,6 +399,68 @@ class BackupService {
     } catch (error) {
       console.error('❌ Backup restoration failed:', error)
       throw new Error(`فشل في استعادة النسخة الاحتياطية: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  // Restore from ZIP backup (with images)
+  async restoreFromZipBackup(zipBackupPath) {
+    try {
+      console.log('📦 Extracting ZIP backup...')
+
+      // Create temporary directory for extraction
+      const tempDir = join(app.getPath('userData'), `temp_restore_${Date.now()}`)
+      await fs.mkdir(tempDir, { recursive: true })
+
+      try {
+        // Extract ZIP file
+        await extract(zipBackupPath, { dir: tempDir })
+        console.log('✅ ZIP backup extracted successfully')
+
+        // Check if database file exists in extracted content
+        const extractedDbPath = join(tempDir, 'dental_clinic.db')
+        if (!existsSync(extractedDbPath)) {
+          throw new Error('Database file not found in backup')
+        }
+
+        // Restore database
+        console.log('📁 Restoring database from extracted backup...')
+        await this.restoreFromSqliteBackup(extractedDbPath)
+
+        // Restore images if they exist
+        const extractedImagesPath = join(tempDir, 'dental_images')
+        if (existsSync(extractedImagesPath)) {
+          console.log('📸 Restoring images from backup...')
+
+          // Create backup of current images if they exist
+          if (existsSync(this.dentalImagesPath)) {
+            const currentImagesBackupPath = join(app.getPath('userData'), `current_images_backup_${Date.now()}`)
+            await this.copyDirectory(this.dentalImagesPath, currentImagesBackupPath)
+            console.log(`💾 Current images backed up to: ${currentImagesBackupPath}`)
+          }
+
+          // Remove current images directory
+          if (existsSync(this.dentalImagesPath)) {
+            await fs.rm(this.dentalImagesPath, { recursive: true, force: true })
+          }
+
+          // Copy images from backup
+          await this.copyDirectory(extractedImagesPath, this.dentalImagesPath)
+          console.log('✅ Images restored successfully')
+        } else {
+          console.log('📸 No images found in backup')
+        }
+
+      } finally {
+        // Clean up temporary directory
+        if (existsSync(tempDir)) {
+          await fs.rm(tempDir, { recursive: true, force: true })
+          console.log('🧹 Temporary extraction directory cleaned up')
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to restore from ZIP backup:', error)
+      throw error
     }
   }
 
@@ -460,7 +667,9 @@ class BackupService {
         ...backup,
         formattedSize: this.formatFileSize(backup.size),
         isSqliteOnly: backup.backup_format === 'sqlite_only',
-        isLegacy: backup.backup_format === 'hybrid' || !backup.backup_format
+        isLegacy: backup.backup_format === 'hybrid' || !backup.backup_format,
+        includesImages: backup.includes_images || backup.backup_format === 'sqlite_with_images',
+        isZipBackup: backup.backup_format === 'sqlite_with_images'
       }))
     } catch (error) {
       console.error('Failed to list backups:', error)

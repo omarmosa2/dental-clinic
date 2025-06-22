@@ -706,30 +706,45 @@ ipcMain.handle('db:forceCheckpoint', async () => {
   }
 })
 
-ipcMain.handle('backup:create', async () => {
+ipcMain.handle('backup:create', async (_, customPath, includeImages) => {
   try {
     if (backupService) {
-      // Ask user where to save the backup
-      const timestamp = new Date().toISOString().split('T')[0]
-      const defaultName = `نسخة-احتياطية-عيادة-الاسنان-${timestamp}.db`
+      let filePath = customPath
 
-      const result = await dialog.showSaveDialog(mainWindow, {
-        title: 'اختر مكان حفظ النسخة الاحتياطية',
-        defaultPath: defaultName,
-        filters: [
+      if (!filePath) {
+        // Ask user where to save the backup
+        const timestamp = new Date().toISOString().split('T')[0]
+        const extension = includeImages ? 'zip' : 'db'
+        const defaultName = `نسخة-احتياطية-عيادة-الاسنان-${timestamp}.${extension}`
+
+        const filters = includeImages ? [
+          { name: 'نسخ احتياطية مع صور', extensions: ['zip'] },
           { name: 'ملفات قاعدة البيانات', extensions: ['db', 'sqlite'] },
+          { name: 'جميع الملفات', extensions: ['*'] }
+        ] : [
+          { name: 'ملفات قاعدة البيانات', extensions: ['db', 'sqlite'] },
+          { name: 'نسخ احتياطية مع صور', extensions: ['zip'] },
           { name: 'ملفات النسخ الاحتياطية القديمة', extensions: ['json'] },
           { name: 'جميع الملفات', extensions: ['*'] }
-        ],
-        properties: ['createDirectory']
-      })
+        ]
 
-      if (result.canceled) {
-        throw new Error('تم إلغاء العملية')
+        const result = await dialog.showSaveDialog(mainWindow, {
+          title: includeImages ? 'اختر مكان حفظ النسخة الاحتياطية مع الصور' : 'اختر مكان حفظ النسخة الاحتياطية',
+          defaultPath: defaultName,
+          filters,
+          properties: ['createDirectory']
+        })
+
+        if (result.canceled) {
+          throw new Error('تم إلغاء العملية')
+        }
+
+        filePath = result.filePath
       }
 
-      console.log('📍 User selected file path:', result.filePath)
-      const backupPath = await backupService.createBackup(result.filePath)
+      console.log('📍 User selected file path:', filePath)
+      console.log('📸 Include images:', includeImages)
+      const backupPath = await backupService.createBackup(filePath, includeImages)
       console.log('✅ Backup created successfully:', backupPath)
       return backupPath
     } else {
@@ -2173,22 +2188,35 @@ ipcMain.handle('files:getDentalImage', async (_, imagePath) => {
     // Try different possible paths
     let fullPath
 
-    // First try: userData directory (primary storage)
+    // First try: userData directory (primary storage) - new structure
     const userDataPath = path.join(app.getPath('userData'), imagePath)
     if (fs.existsSync(userDataPath)) {
       fullPath = userDataPath
     } else {
-      // Second try: public/upload directory (fallback)
+      // Second try: public/upload directory (fallback) - new structure
       const publicPath = path.join(__dirname, '..', 'public', 'upload', imagePath)
       if (fs.existsSync(publicPath)) {
         fullPath = publicPath
       } else {
-        // Third try: relative to project root
+        // Third try: relative to project root - new structure
         const relativePath = path.join(__dirname, '..', imagePath)
         if (fs.existsSync(relativePath)) {
           fullPath = relativePath
         } else {
-          throw new Error(`Image not found: ${imagePath}`)
+          // Fourth try: old structure for backward compatibility
+          // Extract patient ID and tooth number from old path format
+          const oldPathMatch = imagePath.match(/dental_images\/([^\/]+)\/(\d+)\/(.+)/)
+          if (oldPathMatch) {
+            const [, patientId, toothNumber, fileName] = oldPathMatch
+            const oldUserDataPath = path.join(app.getPath('userData'), 'dental_images', patientId, toothNumber, fileName)
+            if (fs.existsSync(oldUserDataPath)) {
+              fullPath = oldUserDataPath
+            }
+          }
+
+          if (!fullPath) {
+            throw new Error(`Image not found: ${imagePath}`)
+          }
         }
       }
     }
@@ -2239,12 +2267,25 @@ ipcMain.handle('files:checkImageExists', async (_, imagePath) => {
     const fs = require('fs')
     const path = require('path')
 
-    // Check different possible paths
+    // Check different possible paths (new structure)
     const userDataPath = path.join(app.getPath('userData'), imagePath)
     const publicPath = path.join(__dirname, '..', 'public', 'upload', imagePath)
     const relativePath = path.join(__dirname, '..', imagePath)
 
-    return fs.existsSync(userDataPath) || fs.existsSync(publicPath) || fs.existsSync(relativePath)
+    // Check new structure paths
+    if (fs.existsSync(userDataPath) || fs.existsSync(publicPath) || fs.existsSync(relativePath)) {
+      return true
+    }
+
+    // Check old structure for backward compatibility
+    const oldPathMatch = imagePath.match(/dental_images\/([^\/]+)\/(\d+)\/(.+)/)
+    if (oldPathMatch) {
+      const [, patientId, toothNumber, fileName] = oldPathMatch
+      const oldUserDataPath = path.join(app.getPath('userData'), 'dental_images', patientId, toothNumber, fileName)
+      return fs.existsSync(oldUserDataPath)
+    }
+
+    return false
   } catch (error) {
     console.error('Error checking image exists:', error)
     return false
@@ -2308,8 +2349,9 @@ ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientI
     const fs = require('fs')
     const path = require('path')
 
-    // Create upload directory organized by image type in public/upload (fallback)
-    const uploadDir = path.join(__dirname, '..', 'public', 'upload', 'dental_images', imageType || 'other')
+    // Create upload directory organized by patient name, then image type in public/upload (fallback)
+    const cleanPatientName = (patientName || `Patient_${patientId}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+    const uploadDir = path.join(__dirname, '..', 'public', 'upload', 'dental_images', cleanPatientName, imageType || 'other')
     console.log('Upload directory:', uploadDir)
 
     if (!fs.existsSync(uploadDir)) {
@@ -2317,17 +2359,21 @@ ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientI
       console.log('Created upload directory:', uploadDir)
     }
 
-    // Generate meaningful filename: PatientName-ToothName.extension
+    // Generate meaningful filename: ToothName.extension (with timestamp if needed)
     const extension = path.extname(fileName) || '.jpg'
     const timestamp = Date.now()
 
-    // Clean patient name and tooth name for filename
-    const cleanPatientName = (patientName || `Patient_${patientId}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
+    // Clean tooth name for filename
     const cleanToothName = (toothName || `Tooth_${toothNumber}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
 
-    // Create filename: PatientName-ToothName-Timestamp.extension
-    const meaningfulFileName = `${cleanPatientName}-${cleanToothName}-${timestamp}${extension}`
+    // Create filename: ToothName-Timestamp.extension (timestamp to avoid conflicts)
+    const meaningfulFileName = `${cleanToothName}-${timestamp}${extension}`
     const filePath = path.join(uploadDir, meaningfulFileName)
+
+    console.log('Saving file to (fallback):', filePath)
+    console.log('Generated filename:', meaningfulFileName)
+    console.log('Patient folder:', cleanPatientName)
+    console.log('Image type folder:', imageType || 'other')
 
     // Remove data URL prefix if present
     const base64 = base64Data.replace(/^data:image\/[a-z]+;base64,/, '')
@@ -2336,7 +2382,7 @@ ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientI
     fs.writeFileSync(filePath, base64, 'base64')
 
     // Return relative path for database storage
-    const relativePath = `dental_images/${imageType || 'other'}/${meaningfulFileName}`
+    const relativePath = `dental_images/${cleanPatientName}/${imageType || 'other'}/${meaningfulFileName}`
     console.log('Dental image saved successfully:', relativePath)
 
     return relativePath

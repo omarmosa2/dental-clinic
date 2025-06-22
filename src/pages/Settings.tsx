@@ -22,7 +22,8 @@ import {
   Users,
   Phone,
   Mail,
-  Info
+  Info,
+  Image
 } from 'lucide-react'
 import LogoTest from '../components/debug/LogoTest'
 import LogoUploadTest from '../components/debug/LogoUploadTest'
@@ -110,10 +111,13 @@ export default function Settings() {
     }, 5000)
   }
 
-  const handleCreateBackup = async () => {
+  const handleCreateBackup = async (withImages = false) => {
     try {
-      await createBackup()
-      showNotification('تم إنشاء النسخة الاحتياطية بنجاح', 'success')
+      await createBackup(null, withImages)
+      const message = withImages
+        ? 'تم إنشاء النسخة الاحتياطية مع الصور بنجاح'
+        : 'تم إنشاء النسخة الاحتياطية بنجاح'
+      showNotification(message, 'success')
     } catch (error) {
       showNotification('فشل في إنشاء النسخة الاحتياطية', 'error')
     }
@@ -320,12 +324,21 @@ export default function Settings() {
             <div className="p-6">
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
-                  onClick={handleCreateBackup}
+                  onClick={() => handleCreateBackup(false)}
                   disabled={isCreatingBackup}
                   className="flex items-center justify-center space-x-2 space-x-reverse px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Download className="w-5 h-5" />
                   <span>{isCreatingBackup ? 'جاري الإنشاء...' : 'إنشاء نسخة احتياطية'}</span>
+                </button>
+
+                <button
+                  onClick={() => handleCreateBackup(true)}
+                  disabled={isCreatingBackup}
+                  className="flex items-center justify-center space-x-2 space-x-reverse px-6 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Image className="w-5 h-5" />
+                  <span>{isCreatingBackup ? 'جاري الإنشاء...' : 'إنشاء نسخة احتياطية مع صور'}</span>
                 </button>
 
                 <button
@@ -347,8 +360,12 @@ export default function Settings() {
                       استعادة النسخة الاحتياطية ستستبدل جميع البيانات الحالية. تأكد من إنشاء نسخة احتياطية حديثة قبل الاستعادة.
                     </p>
                     <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
-                      <strong>تنسيق الملف:</strong> يدعم النظام ملفات SQLite (.db) للنسخ الاحتياطية الجديدة، مع دعم ملفات JSON القديمة للتوافق.
+                      <strong>أنواع النسخ الاحتياطية:</strong>
                     </p>
+                    <ul className="text-sm text-yellow-700 dark:text-yellow-300 mt-1 mr-4">
+                      <li>• <strong>نسخة عادية (.db):</strong> قاعدة البيانات فقط - سريعة وحجم صغير</li>
+                      <li>• <strong>نسخة مع صور (.zip):</strong> قاعدة البيانات + جميع الصور - حماية شاملة</li>
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -440,6 +457,12 @@ export default function Settings() {
                             {backup.isSqliteOnly && (
                               <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-full">
                                 SQLite
+                              </span>
+                            )}
+                            {backup.includesImages && (
+                              <span className="px-2 py-1 text-xs bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 rounded-full flex items-center gap-1">
+                                <Image className="w-3 h-3" />
+                                مع صور
                               </span>
                             )}
                             {backup.isLegacy && (
