@@ -273,7 +273,7 @@ export default function PatientSelectionTable({
                   <TableCell>
                     <Badge variant="outline">#{patient.serial_number}</Badge>
                   </TableCell>
-                  <TableCell className="font-medium">
+                  <TableCell className="font-medium table-cell-wrap-truncate-md">
                     <div className="flex items-center justify-center space-x-2 space-x-reverse">
                       <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
                         {patient.full_name.charAt(0)}
@@ -292,7 +292,7 @@ export default function PatientSelectionTable({
                       {patient.age} سنة
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="table-cell-wrap-truncate-sm">
                     {patient.phone ? (
                       <a
                         href={`https://wa.me/${patient.phone?.replace(/\D/g, '')}`}

@@ -67,10 +67,7 @@ export default function DeletePaymentDialog({ open, onOpenChange, payment }: Del
   const getPaymentMethodLabel = (method: string) => {
     const methods = {
       cash: 'نقداً',
-      card: 'بطاقة ائتمان',
-      bank_transfer: 'تحويل بنكي',
-      check: 'شيك',
-      insurance: 'تأمين'
+      bank_transfer: 'تحويل بنكي'
     }
     return methods[method as keyof typeof methods] || method
   }
@@ -78,11 +75,8 @@ export default function DeletePaymentDialog({ open, onOpenChange, payment }: Del
   const getStatusLabel = (status: string) => {
     const statuses = {
       completed: 'مكتمل',
-      pending: 'معلق',
       partial: 'جزئي',
-      overdue: 'متأخر',
-      failed: 'فاشل',
-      refunded: 'مسترد'
+      pending: 'معلق'
     }
     return statuses[status as keyof typeof statuses] || status
   }

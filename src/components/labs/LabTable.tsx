@@ -114,16 +114,26 @@ export default function LabTable({ labs, onEdit, onDelete, searchQuery }: LabTab
               <TableCell className="font-medium text-center">
                 {index + 1}
               </TableCell>
-              <TableCell className="font-medium text-center">
+              <TableCell className="font-medium text-center table-cell-wrap-truncate-md">
                 <div className="flex items-center gap-2 justify-center">
                   {lab.name}
                   <Building2 className="h-4 w-4 text-blue-600" />
                 </div>
               </TableCell>
-              <TableCell className="text-center">
+              <TableCell className="text-center table-cell-wrap-truncate-sm">
                 {lab.contact_info ? (
                   <div className="flex items-center gap-2 justify-center">
-                    <span className="text-sm">{lab.contact_info}</span>
+                    <button
+                      onClick={() => {
+                        // تنظيف رقم الهاتف من الرموز والمسافات
+                        const cleanPhone = lab.contact_info?.replace(/[^\d]/g, '') || ''
+                        // فتح واتساب
+                        window.open(`https://api.whatsapp.com/send/?phone=${cleanPhone}`, '_blank')
+                      }}
+                      className="text-sm text-green-600 hover:text-green-700 hover:underline transition-colors cursor-pointer"
+                    >
+                      {lab.contact_info}
+                    </button>
                     <Phone className="h-4 w-4 text-green-600" />
                   </div>
                 ) : (
@@ -151,23 +161,25 @@ export default function LabTable({ labs, onEdit, onDelete, searchQuery }: LabTab
               <TableCell className="text-sm text-muted-foreground text-center">
                 {formatDate(lab.created_at)}
               </TableCell>
-              <TableCell className="text-center">
-                <div className="flex items-center gap-2 justify-center">
+              <TableCell className="min-w-[140px] text-center">
+                <div className="flex items-center justify-center space-x-1 space-x-reverse">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="action-btn-edit"
                     onClick={() => handleEdit(lab)}
-                    className="h-8 w-8 p-0"
                   >
-                    <Edit className="h-4 w-4" />
+                    <Edit className="w-4 h-4 ml-1" />
+                    <span className="text-xs arabic-enhanced">تعديل</span>
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="action-btn-delete"
                     onClick={() => handleDelete(lab)}
-                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="w-4 h-4 ml-1" />
+                    <span className="text-xs arabic-enhanced">حذف</span>
                   </Button>
                 </div>
               </TableCell>

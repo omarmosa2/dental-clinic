@@ -230,8 +230,8 @@ export default function AddAppointmentDialog({
                     }
                   }}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر المريض" />
+                  <SelectTrigger className="bg-background border-input text-foreground">
+                    <SelectValue placeholder="اختر المريض" className="text-muted-foreground" />
                   </SelectTrigger>
                   <SelectContent>
                     {patients.map(patient => (

@@ -107,7 +107,7 @@ export default function MedicationTable({ medications, onEdit, onDelete, searchQ
               <TableCell className="text-center">
                 <div className="max-w-xs mx-auto">
                   {medication.instructions ? (
-                    <div className="text-sm text-muted-foreground truncate" title={medication.instructions}>
+                    <div className="text-sm text-muted-foreground" title={medication.instructions}>
                       {medication.instructions}
                     </div>
                   ) : (
@@ -126,7 +126,7 @@ export default function MedicationTable({ medications, onEdit, onDelete, searchQ
                     variant="ghost"
                     size="sm"
                     onClick={() => handleEdit(medication)}
-                    className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                    className="action-btn-edit action-btn-icon"
                     title="تعديل الدواء"
                   >
                     <Edit className="w-4 h-4" />
@@ -135,7 +135,7 @@ export default function MedicationTable({ medications, onEdit, onDelete, searchQ
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(medication)}
-                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                    className="action-btn-delete action-btn-icon"
                     title="حذف الدواء"
                   >
                     <Trash2 className="w-4 h-4" />

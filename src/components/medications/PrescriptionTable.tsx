@@ -171,7 +171,7 @@ export default function PrescriptionTable({ prescriptions, onEdit, onDelete }: P
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="text-sm text-muted-foreground truncate cursor-help">
+                          <div className="text-sm text-muted-foreground cursor-help">
                             {prescription.notes}
                           </div>
                         </TooltipTrigger>
@@ -191,7 +191,7 @@ export default function PrescriptionTable({ prescriptions, onEdit, onDelete }: P
                     variant="ghost"
                     size="sm"
                     onClick={() => handleView(prescription)}
-                    className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                    className="action-btn-view action-btn-icon"
                     title="عرض التفاصيل"
                   >
                     <Eye className="w-4 h-4" />
@@ -200,7 +200,7 @@ export default function PrescriptionTable({ prescriptions, onEdit, onDelete }: P
                     variant="ghost"
                     size="sm"
                     onClick={() => handlePrint(prescription)}
-                    className="h-8 w-8 p-0 hover:bg-green-50 hover:text-green-600"
+                    className="action-btn-print action-btn-icon"
                     title="طباعة الوصفة"
                   >
                     <Printer className="w-4 h-4" />
@@ -209,7 +209,7 @@ export default function PrescriptionTable({ prescriptions, onEdit, onDelete }: P
                     variant="ghost"
                     size="sm"
                     onClick={() => handleEdit(prescription)}
-                    className="h-8 w-8 p-0 hover:bg-yellow-50 hover:text-yellow-600"
+                    className="action-btn-warning action-btn-icon"
                     title="تعديل الوصفة"
                   >
                     <Edit className="w-4 h-4" />
@@ -218,7 +218,7 @@ export default function PrescriptionTable({ prescriptions, onEdit, onDelete }: P
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(prescription)}
-                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                    className="action-btn-delete action-btn-icon"
                     title="حذف الوصفة"
                   >
                     <Trash2 className="w-4 h-4" />

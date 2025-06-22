@@ -451,40 +451,40 @@ export default function InventoryTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                        className="action-btn-view"
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
                           onViewDetails(item)
                         }}
                       >
-                        <Eye className="w-4 h-4 mr-1" />
+                        <Eye className="w-4 h-4 ml-1" />
                         <span className="text-xs arabic-enhanced">عرض</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 px-2 text-blue-600 hover:text-blue-600 hover:bg-blue-50"
+                        className="action-btn-edit"
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
                           onEdit(item)
                         }}
                       >
-                        <Edit className="w-4 h-4 mr-1" />
+                        <Edit className="w-4 h-4 ml-1" />
                         <span className="text-xs arabic-enhanced">تعديل</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="action-btn-delete"
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
                           onDelete(item.id)
                         }}
                       >
-                        <Trash2 className="w-4 h-4 mr-1" />
+                        <Trash2 className="w-4 h-4 ml-1" />
                         <span className="text-xs arabic-enhanced">حذف</span>
                       </Button>
                     </div>
@@ -496,79 +496,77 @@ export default function InventoryTable({
         </div>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground arabic-enhanced">
-              عرض {startIndex + 1} إلى {Math.min(startIndex + pageSize, sortedItems.length)} من {sortedItems.length}
-            </span>
-            <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(Number(value))}>
-              <SelectTrigger className="w-[100px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="5">5</SelectItem>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-              </SelectContent>
-            </Select>
+      {/* Pagination Controls */}
+      {sortedItems.length > 0 && (
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center space-x-2 space-x-reverse">
+            <p className="text-sm text-muted-foreground arabic-enhanced">
+              عرض {startIndex + 1} إلى {Math.min(startIndex + pageSize, sortedItems.length)} من {sortedItems.length} عنصر
+            </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronsRight className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const pageNumber = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
-                if (pageNumber > totalPages) return null
-
-                return (
-                  <Button
-                    key={pageNumber}
-                    variant={currentPage === pageNumber ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(pageNumber)}
-                    className="w-8 h-8 p-0"
-                  >
-                    {pageNumber}
-                  </Button>
-                )
-              })}
+          <div className="flex items-center space-x-6 space-x-reverse lg:space-x-8">
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <p className="text-sm font-medium arabic-enhanced">عدد الصفوف لكل صفحة</p>
+              <Select
+                value={`${pageSize}`}
+                onValueChange={(value) => setPageSize(Number(value))}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={pageSize} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[5, 10, 20, 30, 50].map((size) => (
+                    <SelectItem key={size} value={`${size}`}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              <ChevronsLeft className="w-4 h-4" />
-            </Button>
+            <div className="flex w-[100px] items-center justify-center text-sm font-medium arabic-enhanced">
+              صفحة {currentPage} من {totalPages}
+            </div>
+
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <Button
+                variant="outline"
+                className="hidden h-8 w-8 p-0 lg:flex"
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+              >
+                <span className="sr-only">الذهاب إلى الصفحة الأولى</span>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <span className="sr-only">الذهاب إلى الصفحة السابقة</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                <span className="sr-only">الذهاب إلى الصفحة التالية</span>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="hidden h-8 w-8 p-0 lg:flex"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+              >
+                <span className="sr-only">الذهاب إلى الصفحة الأخيرة</span>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       )}

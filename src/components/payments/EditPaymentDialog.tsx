@@ -37,11 +37,11 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
     patient_id: '',
     appointment_id: 'none',
     amount: '',
-    payment_method: 'cash' as 'cash' | 'card' | 'bank_transfer' | 'check' | 'insurance',
+    payment_method: 'cash' as 'cash' | 'bank_transfer',
     payment_date: '',
     description: '',
     receipt_number: '',
-    status: 'completed' as 'completed' | 'pending' | 'partial' | 'overdue' | 'failed' | 'refunded',
+    status: 'completed' as 'completed' | 'partial' | 'pending',
     notes: '',
     discount_amount: '',
     tax_amount: '',
@@ -260,8 +260,8 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     value={formData.patient_id}
                     onValueChange={(value) => handleInputChange('patient_id', value)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر المريض" />
+                    <SelectTrigger className="bg-background border-input text-foreground">
+                      <SelectValue placeholder="اختر المريض" className="text-muted-foreground" />
                     </SelectTrigger>
                     <SelectContent>
                       {patients.map((patient) => (
@@ -280,8 +280,8 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     value={formData.appointment_id}
                     onValueChange={(value) => handleInputChange('appointment_id', value)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر الموعد" />
+                    <SelectTrigger className="bg-background border-input text-foreground">
+                      <SelectValue placeholder="اختر الموعد" className="text-muted-foreground" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">بدون موعد محدد</SelectItem>
@@ -327,15 +327,12 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     value={formData.payment_method}
                     onValueChange={(value) => handleInputChange('payment_method', value)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر طريقة الدفع" />
+                    <SelectTrigger className="bg-background border-input text-foreground">
+                      <SelectValue placeholder="اختر طريقة الدفع" className="text-muted-foreground" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="cash">نقداً</SelectItem>
-                      <SelectItem value="card">بطاقة ائتمان</SelectItem>
                       <SelectItem value="bank_transfer">تحويل بنكي</SelectItem>
-                      <SelectItem value="check">شيك</SelectItem>
-                      <SelectItem value="insurance">تأمين</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -360,16 +357,13 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     value={formData.status}
                     onValueChange={(value) => handleInputChange('status', value)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر الحالة" />
+                    <SelectTrigger className="bg-background border-input text-foreground">
+                      <SelectValue placeholder="اختر الحالة" className="text-muted-foreground" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="completed">مكتمل</SelectItem>
-                      <SelectItem value="pending">معلق</SelectItem>
                       <SelectItem value="partial">جزئي</SelectItem>
-                      <SelectItem value="overdue">متأخر</SelectItem>
-                      <SelectItem value="failed">فاشل</SelectItem>
-                      <SelectItem value="refunded">مسترد</SelectItem>
+                      <SelectItem value="pending">معلق</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

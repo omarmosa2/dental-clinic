@@ -132,8 +132,8 @@ export default function EditPatientDialog({ isOpen, patient, onClose, onSave }: 
                   الجنس *
                 </Label>
                 <Select value={formData.gender} onValueChange={(value: 'male' | 'female') => setFormData({...formData, gender: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر الجنس" />
+                  <SelectTrigger className="bg-background border-input text-foreground">
+                    <SelectValue placeholder="اختر الجنس" className="text-muted-foreground" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="male">ذكر</SelectItem>

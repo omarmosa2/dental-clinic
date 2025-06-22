@@ -49,11 +49,11 @@ export interface Payment {
   patient_id: string
   appointment_id?: string
   amount: number // المبلغ المدفوع في هذه الدفعة
-  payment_method: 'cash' | 'card' | 'bank_transfer' | 'check' | 'insurance'
+  payment_method: 'cash' | 'bank_transfer'
   payment_date: string
   description?: string
   receipt_number?: string
-  status: 'pending' | 'completed' | 'partial' | 'overdue' | 'failed' | 'refunded'
+  status: 'completed' | 'partial' | 'pending'
   notes?: string
   discount_amount?: number
   tax_amount?: number

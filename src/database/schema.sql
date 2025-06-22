@@ -52,11 +52,11 @@ CREATE TABLE IF NOT EXISTS payments (
     patient_id TEXT NOT NULL,
     appointment_id TEXT,
     amount DECIMAL(10,2) NOT NULL, -- المبلغ المدفوع في هذه الدفعة
-    payment_method TEXT NOT NULL, -- cash, card, bank_transfer, insurance, installment
+    payment_method TEXT NOT NULL, -- cash, bank_transfer
     payment_date DATETIME NOT NULL,
     description TEXT,
     receipt_number TEXT,
-    status TEXT DEFAULT 'completed', -- pending, completed, partial, failed, refunded
+    status TEXT DEFAULT 'completed', -- completed, partial, pending
     notes TEXT,
     discount_amount DECIMAL(10,2) DEFAULT 0,
     tax_amount DECIMAL(10,2) DEFAULT 0,

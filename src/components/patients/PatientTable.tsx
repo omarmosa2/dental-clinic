@@ -233,9 +233,6 @@ export default function PatientTable({
                   <span className="arabic-enhanced font-medium">حالة المريض</span>
                 </SortableHeader>
                 <TableHead className="text-center">
-                  <span className="arabic-enhanced font-medium">ملاحظات</span>
-                </TableHead>
-                <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الاجراءات</span>
                 </TableHead>
               </TableRow>
@@ -260,7 +257,7 @@ export default function PatientTable({
                 </Badge>
               </TableCell>
               <TableCell className="text-center">{patient.age} سنة</TableCell>
-              <TableCell className="min-w-[120px] text-center">
+              <TableCell className="min-w-[120px] text-center table-cell-wrap-truncate-sm">
                 {patient.phone ? (
                   <div className="flex items-center justify-center space-x-1 space-x-reverse">
                     <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -308,21 +305,12 @@ export default function PatientTable({
                   {patient.patient_condition}
                 </Badge>
               </TableCell>
-              <TableCell className="min-w-[120px] text-center">
-                {patient.notes ? (
-                  <span className="text-sm truncate max-w-[100px] block arabic-enhanced" title={patient.notes}>
-                    {patient.notes}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground text-sm arabic-enhanced">لا توجد</span>
-                )}
-              </TableCell>
               <TableCell className="min-w-[180px] text-center">
                 <div className="flex items-center justify-center space-x-1 space-x-reverse">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                    className="action-btn-view"
                     onClick={() => onViewDetails(patient)}
                   >
                     <Eye className="w-4 h-4 ml-1" />
@@ -331,7 +319,7 @@ export default function PatientTable({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 px-2 text-blue-600 hover:text-blue-600 hover:bg-blue-50"
+                    className="action-btn-edit"
                     onClick={() => onEdit(patient)}
                   >
                     <Edit className="w-4 h-4 ml-1" />
@@ -340,7 +328,7 @@ export default function PatientTable({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    className="action-btn-delete"
                     onClick={() => onDelete(patient.id)}
                   >
                     <Trash2 className="w-4 h-4 ml-1" />

@@ -193,36 +193,36 @@ export default function LabOrderTable({ labOrders, onEdit, onDelete, onView }: L
               <TableCell className="text-center">
                 {getPaymentStatusBadge(order.cost, order.paid_amount)}
               </TableCell>
-              <TableCell className="text-center">
-                <div className="flex items-center gap-1 justify-center">
+              <TableCell className="min-w-[180px] text-center">
+                <div className="flex items-center justify-center space-x-1 space-x-reverse">
                   {onView && (
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
+                      className="action-btn-view"
                       onClick={() => onView(order)}
-                      className="h-8 w-8 p-0"
-                      title="عرض التفاصيل"
                     >
-                      <Eye className="h-4 w-4" />
+                      <Eye className="w-4 h-4 ml-1" />
+                      <span className="text-xs arabic-enhanced">عرض</span>
                     </Button>
                   )}
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="action-btn-edit"
                     onClick={() => onEdit(order)}
-                    className="h-8 w-8 p-0"
-                    title="تعديل"
                   >
-                    <Edit className="h-4 w-4" />
+                    <Edit className="w-4 h-4 ml-1" />
+                    <span className="text-xs arabic-enhanced">تعديل</span>
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="action-btn-delete"
                     onClick={() => onDelete(order)}
-                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                    title="حذف"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="w-4 h-4 ml-1" />
+                    <span className="text-xs arabic-enhanced">حذف</span>
                   </Button>
                 </div>
               </TableCell>

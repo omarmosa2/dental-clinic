@@ -38,11 +38,11 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
     patient_id: '',
     appointment_id: 'none',
     amount: '',
-    payment_method: 'cash' as 'cash' | 'card' | 'bank_transfer' | 'check' | 'insurance',
+    payment_method: 'cash' as 'cash' | 'bank_transfer',
     payment_date: new Date().toISOString().split('T')[0],
     description: '',
     receipt_number: '',
-    status: 'completed' as 'completed' | 'pending' | 'partial' | 'overdue' | 'failed' | 'refunded',
+    status: 'completed' as 'completed' | 'partial' | 'pending',
     notes: '',
     discount_amount: '',
     tax_amount: '',
@@ -296,8 +296,8 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
                       appointment_id: 'none'
                     }))}
                   >
-                    <SelectTrigger className={errors.patient_id ? 'border-destructive' : ''}>
-                      <SelectValue placeholder="اختر المريض" />
+                    <SelectTrigger className={errors.patient_id ? 'border-destructive bg-background text-foreground' : 'bg-background border-input text-foreground'}>
+                      <SelectValue placeholder="اختر المريض" className="text-muted-foreground" />
                     </SelectTrigger>
                     <SelectContent>
                       {patients.map((patient) => (
@@ -320,8 +320,8 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
                     onValueChange={(value) => setFormData(prev => ({ ...prev, appointment_id: value }))}
                     disabled={!formData.patient_id}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر الموعد" />
+                    <SelectTrigger className="bg-background border-input text-foreground">
+                      <SelectValue placeholder="اختر الموعد" className="text-muted-foreground" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">بدون موعد محدد</SelectItem>
@@ -410,19 +410,16 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
                   <Label className="text-foreground font-medium">طريقة الدفع</Label>
                   <Select
                     value={formData.payment_method}
-                    onValueChange={(value: 'cash' | 'card' | 'bank_transfer' | 'check' | 'insurance') =>
+                    onValueChange={(value: 'cash' | 'bank_transfer') =>
                       setFormData(prev => ({ ...prev, payment_method: value }))
                     }
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر طريقة الدفع" />
+                    <SelectTrigger className="bg-background border-input text-foreground">
+                      <SelectValue placeholder="اختر طريقة الدفع" className="text-muted-foreground" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="cash">نقداً</SelectItem>
-                      <SelectItem value="card">بطاقة ائتمان</SelectItem>
                       <SelectItem value="bank_transfer">تحويل بنكي</SelectItem>
-                      <SelectItem value="check">شيك</SelectItem>
-                      <SelectItem value="insurance">تأمين</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -446,19 +443,17 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
                   <Label className="text-foreground font-medium">الحالة</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(value: 'completed' | 'pending' | 'partial' | 'overdue' | 'failed' | 'refunded') =>
+                    onValueChange={(value: 'completed' | 'partial' | 'pending') =>
                       setFormData(prev => ({ ...prev, status: value }))
                     }
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر الحالة" />
+                    <SelectTrigger className="bg-background border-input text-foreground">
+                      <SelectValue placeholder="اختر الحالة" className="text-muted-foreground" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="completed">مكتمل</SelectItem>
-                      <SelectItem value="pending">معلق</SelectItem>
                       <SelectItem value="partial">جزئي</SelectItem>
-                      <SelectItem value="overdue">متأخر</SelectItem>
-                      <SelectItem value="failed">فاشل</SelectItem>
+                      <SelectItem value="pending">معلق</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

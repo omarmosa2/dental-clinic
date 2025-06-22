@@ -703,7 +703,7 @@ export default function PatientReports() {
                       <td className="p-3 font-medium text-center">
                         {index + 1}
                       </td>
-                      <td className="p-3 font-medium text-center">
+                      <td className="p-3 font-medium text-center table-cell-wrap-truncate-md">
                         <div className="flex items-center justify-center gap-2">
                           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
                             {patient.full_name ? patient.full_name.charAt(0) : (patient.first_name || '').charAt(0)}
@@ -713,8 +713,8 @@ export default function PatientReports() {
                           </span>
                         </div>
                       </td>
-                      <td className="p-3 text-muted-foreground text-center arabic-enhanced">{patient.phone || '-'}</td>
-                      <td className="p-3 text-muted-foreground text-center arabic-enhanced">{patient.email || '-'}</td>
+                      <td className="p-3 text-muted-foreground text-center arabic-enhanced table-cell-wrap-truncate-sm">{patient.phone || '-'}</td>
+                      <td className="p-3 text-muted-foreground text-center arabic-enhanced table-cell-wrap-truncate-lg">{patient.email || '-'}</td>
                       <td className="p-3 text-muted-foreground text-center arabic-enhanced">
                         {formatDate(patient.created_at)}
                       </td>

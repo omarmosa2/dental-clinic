@@ -160,10 +160,7 @@ export default function PaymentTable({
   const getPaymentMethodLabel = (method: string) => {
     const methods = {
       cash: 'نقداً',
-      card: 'بطاقة ائتمان',
-      bank_transfer: 'تحويل بنكي',
-      check: 'شيك',
-      insurance: 'تأمين'
+      bank_transfer: 'تحويل بنكي'
     }
     return methods[method as keyof typeof methods] || method
   }
@@ -172,11 +169,8 @@ export default function PaymentTable({
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       completed: { label: 'مكتمل', variant: 'default' as const },
-      pending: { label: 'معلق', variant: 'secondary' as const },
       partial: { label: 'جزئي', variant: 'outline' as const },
-      overdue: { label: 'متأخر', variant: 'destructive' as const },
-      failed: { label: 'فاشل', variant: 'destructive' as const },
-      refunded: { label: 'مسترد', variant: 'secondary' as const }
+      pending: { label: 'معلق', variant: 'secondary' as const }
     }
 
     const config = statusConfig[status as keyof typeof statusConfig] || { label: status, variant: 'outline' as const }
@@ -342,34 +336,34 @@ export default function PaymentTable({
                       {formatDate(payment.payment_date)}
                     </div>
                   </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center gap-1 justify-center">
+                  <TableCell className="min-w-[180px] text-center">
+                    <div className="flex items-center justify-center space-x-1 space-x-reverse">
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="action-btn-receipt"
                         onClick={() => onShowReceipt(payment)}
-                        className="h-8 w-8 p-0 hover:bg-primary/10"
-                        title="عرض الإيصال"
                       >
-                        <Receipt className="w-4 h-4 text-primary" />
+                        <Receipt className="w-4 h-4 ml-1" />
+                        <span className="text-xs arabic-enhanced">إيصال</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="action-btn-edit"
                         onClick={() => onEdit(payment)}
-                        className="h-8 w-8 p-0 hover:bg-blue-500/10"
-                        title="تحرير"
                       >
-                        <Edit className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <Edit className="w-4 h-4 ml-1" />
+                        <span className="text-xs arabic-enhanced">تعديل</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="action-btn-delete"
                         onClick={() => onDelete(payment)}
-                        className="h-8 w-8 p-0 hover:bg-destructive/10"
-                        title="حذف"
                       >
-                        <Trash2 className="w-4 h-4 text-destructive" />
+                        <Trash2 className="w-4 h-4 ml-1" />
+                        <span className="text-xs arabic-enhanced">حذف</span>
                       </Button>
                     </div>
                   </TableCell>
@@ -380,74 +374,78 @@ export default function PaymentTable({
         </div>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+      {/* Pagination Controls */}
+      {sortedPayments.length > 0 && (
+        <div className="flex items-center justify-between px-2">
           <div className="flex items-center space-x-2 space-x-reverse">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground arabic-enhanced">
               عرض {startIndex + 1} إلى {Math.min(startIndex + pageSize, sortedPayments.length)} من {sortedPayments.length} مدفوعة
             </p>
           </div>
-          <div className="flex items-center space-x-2 space-x-reverse">
+
+          <div className="flex items-center space-x-6 space-x-reverse lg:space-x-8">
             <div className="flex items-center space-x-2 space-x-reverse">
-              <p className="text-sm font-medium">عدد الصفوف لكل صفحة</p>
+              <p className="text-sm font-medium arabic-enhanced">عدد الصفوف لكل صفحة</p>
               <Select
-                value={pageSize.toString()}
+                value={`${pageSize}`}
                 onValueChange={(value) => {
                   setPageSize(Number(value))
                   setCurrentPage(1)
                 }}
               >
                 <SelectTrigger className="h-8 w-[70px]">
-                  <SelectValue />
+                  <SelectValue placeholder={pageSize} />
                 </SelectTrigger>
                 <SelectContent side="top">
                   {[5, 10, 20, 30, 50].map((size) => (
-                    <SelectItem key={size} value={size.toString()}>
+                    <SelectItem key={size} value={`${size}`}>
                       {size}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center space-x-1 space-x-reverse">
+
+            <div className="flex w-[100px] items-center justify-center text-sm font-medium arabic-enhanced">
+              صفحة {currentPage} من {totalPages}
+            </div>
+
+            <div className="flex items-center space-x-2 space-x-reverse">
               <Button
                 variant="outline"
-                size="sm"
+                className="hidden h-8 w-8 p-0 lg:flex"
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage === 1}
               >
-                <ChevronsRight className="w-4 h-4" />
+                <span className="sr-only">الذهاب إلى الصفحة الأولى</span>
+                <ChevronsRight className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
-                size="sm"
+                className="h-8 w-8 p-0"
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
               >
-                <ChevronRight className="w-4 h-4" />
+                <span className="sr-only">الذهاب إلى الصفحة السابقة</span>
+                <ChevronRight className="h-4 w-4" />
               </Button>
-              <div className="flex items-center space-x-1 space-x-reverse">
-                <span className="text-sm font-medium">صفحة</span>
-                <span className="text-sm font-medium">{currentPage}</span>
-                <span className="text-sm font-medium">من</span>
-                <span className="text-sm font-medium">{totalPages}</span>
-              </div>
               <Button
                 variant="outline"
-                size="sm"
+                className="h-8 w-8 p-0"
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
               >
-                <ChevronLeft className="w-4 h-4" />
+                <span className="sr-only">الذهاب إلى الصفحة التالية</span>
+                <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
-                size="sm"
+                className="hidden h-8 w-8 p-0 lg:flex"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage === totalPages}
               >
-                <ChevronsLeft className="w-4 h-4" />
+                <span className="sr-only">الذهاب إلى الصفحة الأخيرة</span>
+                <ChevronsLeft className="h-4 w-4" />
               </Button>
             </div>
           </div>

@@ -88,11 +88,8 @@ export default function PatientDetailsModal({
   const getPaymentStatusBadge = (status: string) => {
     const statusMap = {
       completed: { label: 'مكتمل', variant: 'default' as const },
-      pending: { label: 'معلق', variant: 'secondary' as const },
       partial: { label: 'جزئي', variant: 'outline' as const },
-      overdue: { label: 'متأخر', variant: 'destructive' as const },
-      failed: { label: 'فاشل', variant: 'destructive' as const },
-      refunded: { label: 'مسترد', variant: 'outline' as const },
+      pending: { label: 'معلق', variant: 'secondary' as const }
     }
     return statusMap[status as keyof typeof statusMap] || { label: status, variant: 'outline' as const }
   }
@@ -544,10 +541,7 @@ export default function PatientDetailsModal({
                                   </td>
                                   <td className="px-4 py-3 text-sm text-muted-foreground">
                                     {payment.payment_method === 'cash' ? 'نقداً' :
-                                     payment.payment_method === 'card' ? 'بطاقة ائتمان' :
                                      payment.payment_method === 'bank_transfer' ? 'تحويل بنكي' :
-                                     payment.payment_method === 'check' ? 'شيك' :
-                                     payment.payment_method === 'insurance' ? 'تأمين' :
                                      payment.payment_method}
                                   </td>
                                   <td className="px-4 py-3 text-sm">

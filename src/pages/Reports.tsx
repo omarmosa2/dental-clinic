@@ -480,7 +480,7 @@ export default function Reports() {
                     </TableHeader>
                     <TableBody>
                       <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right">
+                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
                           <div className="flex items-center gap-2 justify-end">
                             <span className="arabic-enhanced">المرضى الجدد</span>
                             <Users className="h-4 w-4 text-blue-500" />
@@ -496,7 +496,7 @@ export default function Reports() {
                         </TableCell>
                       </TableRow>
                       <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right">
+                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
                           <div className="flex items-center gap-2 justify-end">
                             <span className="arabic-enhanced">معدل الحضور</span>
                             <Calendar className="h-4 w-4 text-purple-500" />
@@ -515,13 +515,13 @@ export default function Reports() {
                         </TableCell>
                       </TableRow>
                       <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right">
+                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
                           <div className="flex items-center gap-2 justify-end">
                             <span className="arabic-enhanced">المدفوعات المعلقة</span>
                             <DollarSign className="h-4 w-4 text-red-500" />
                           </div>
                         </TableCell>
-                        <TableCell className="text-center font-bold">
+                        <TableCell className="text-center font-bold table-cell-wrap-truncate-sm">
                           <CurrencyDisplay amount={financialReports?.totalPending || 0} currency={currency} />
                         </TableCell>
                         <TableCell className="text-center">
@@ -534,7 +534,7 @@ export default function Reports() {
                         </TableCell>
                       </TableRow>
                       <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right">
+                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
                           <div className="flex items-center gap-2 justify-end">
                             <span className="arabic-enhanced">تنبيهات المخزون</span>
                             <AlertTriangle className="h-4 w-4 text-orange-500" />

@@ -248,8 +248,8 @@ export default function AddPrescriptionDialog({
                 المريض <span className="text-red-500">*</span>
               </Label>
               <Select value={formData.patient_id} onValueChange={(value) => handleInputChange('patient_id', value)}>
-                <SelectTrigger className={`text-right ${errors.patient_id ? 'border-red-500' : ''}`} dir="rtl">
-                  <SelectValue placeholder="اختر مريض" />
+                <SelectTrigger className={`text-right bg-background border-input text-foreground ${errors.patient_id ? 'border-red-500' : ''}`} dir="rtl">
+                  <SelectValue placeholder="اختر مريض" className="text-muted-foreground" />
                 </SelectTrigger>
                 <SelectContent>
                   {patients.map((patient) => (
@@ -277,8 +277,8 @@ export default function AddPrescriptionDialog({
                 onValueChange={(value) => handleInputChange('appointment_id', value)}
                 disabled={!formData.patient_id}
               >
-                <SelectTrigger className="text-right" dir="rtl">
-                  <SelectValue placeholder={formData.patient_id ? "اختر موعد" : "اختر مريض أولاً"} />
+                <SelectTrigger className="text-right bg-background border-input text-foreground" dir="rtl">
+                  <SelectValue placeholder={formData.patient_id ? "اختر موعد" : "اختر مريض أولاً"} className="text-muted-foreground" />
                 </SelectTrigger>
                 <SelectContent>
                   {filteredAppointments.map((appointment) => (
@@ -363,8 +363,8 @@ export default function AddPrescriptionDialog({
                         value={med.medication_id}
                         onValueChange={(value) => updateMedication(index, 'medication_id', value)}
                       >
-                        <SelectTrigger className={`text-right ${errors[`medication_${index}`] ? 'border-red-500' : ''}`} dir="rtl">
-                          <SelectValue placeholder="اختر دواء" />
+                        <SelectTrigger className={`text-right bg-background border-input text-foreground ${errors[`medication_${index}`] ? 'border-red-500' : ''}`} dir="rtl">
+                          <SelectValue placeholder="اختر دواء" className="text-muted-foreground" />
                         </SelectTrigger>
                         <SelectContent>
                           {medications.map((medication) => (

@@ -288,9 +288,9 @@ export default function Appointments() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="space-y-6">
         {/* Main Content Area */}
-        <div className="lg:col-span-3">
+        <div className="w-full">
           <Tabs defaultValue="table" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="calendar" className="flex items-center space-x-2 space-x-reverse">
@@ -351,79 +351,86 @@ export default function Appointments() {
                   setSelectedPatientForDetails(patient)
                   setShowPatientDetails(true)
                 }}
+                onSelectAppointment={(appointment) => {
+                  setSelectedAppointment(appointment)
+                }}
               />
             </TabsContent>
           </Tabs>
         </div>
 
-        {/* Appointment Details */}
-        <div className="lg:col-span-1">
-          {selectedAppointment ? (
+        {/* Bottom Cards - Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Appointment Details - Compact Card */}
+          {selectedAppointment && (
             <Card>
-              <CardHeader>
-                <CardTitle className="arabic-enhanced">تفاصيل الموعد</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg arabic-enhanced">تفاصيل الموعد</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4" dir="rtl">
-                <div>
-                  <h4 className="font-medium mb-2 arabic-enhanced">{selectedAppointment.title}</h4>
-                  <Badge className={getStatusColor(selectedAppointment.status)}>
-                    {getStatusInArabic(selectedAppointment.status)}
-                  </Badge>
+              <CardContent className="space-y-3" dir="rtl">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium mb-1 arabic-enhanced text-sm">{selectedAppointment.title}</h4>
+                    <div className="space-y-1">
+                      <div className="flex items-center text-xs gap-2">
+                        <Clock className="w-3 h-3 text-muted-foreground" />
+                        <span>{formatDateTime(selectedAppointment.start_time)}</span>
+                      </div>
+                      <div className="flex items-center text-xs gap-2">
+                        <User className="w-3 h-3 text-muted-foreground" />
+                        <span className="arabic-enhanced">{selectedAppointment.patient?.full_name}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 ml-3">
+                    <Badge className={`${getStatusColor(selectedAppointment.status)} text-xs`}>
+                      {getStatusInArabic(selectedAppointment.status)}
+                    </Badge>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm gap-2">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span>{formatDateTime(selectedAppointment.start_time)}</span>
-                  </div>
-
-                  <div className="flex items-center text-sm gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <span className="arabic-enhanced">{selectedAppointment.patient?.full_name}</span>
-                  </div>
-                </div>
-
-                {selectedAppointment.description && (
-                  <div>
-                    <h5 className="font-medium mb-1 arabic-enhanced">الوصف</h5>
-                    <p className="text-sm text-muted-foreground arabic-enhanced">
-                      {selectedAppointment.description}
-                    </p>
-                  </div>
-                )}
-
-                {selectedAppointment.treatment && (
-                  <div>
-                    <h5 className="font-medium mb-1 arabic-enhanced">العلاج</h5>
-                    <p className="text-sm text-muted-foreground arabic-enhanced">
-                      {selectedAppointment.treatment.name}
-                    </p>
-                  </div>
-                )}
-
-                {selectedAppointment.cost && (
-                  <div>
-                    <h5 className="font-medium mb-1 arabic-enhanced">التكلفة</h5>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedAppointment.cost} ريال
-                    </p>
+                {(selectedAppointment.description || selectedAppointment.treatment || selectedAppointment.cost) && (
+                  <div className="grid grid-cols-1 gap-2 pt-2 border-t">
+                    {selectedAppointment.description && (
+                      <div>
+                        <span className="text-xs font-medium arabic-enhanced">الوصف: </span>
+                        <span className="text-xs text-muted-foreground arabic-enhanced">
+                          {selectedAppointment.description}
+                        </span>
+                      </div>
+                    )}
+                    {selectedAppointment.treatment && (
+                      <div>
+                        <span className="text-xs font-medium arabic-enhanced">العلاج: </span>
+                        <span className="text-xs text-muted-foreground arabic-enhanced">
+                          {selectedAppointment.treatment.name}
+                        </span>
+                      </div>
+                    )}
+                    {selectedAppointment.cost && (
+                      <div>
+                        <span className="text-xs font-medium arabic-enhanced">التكلفة: </span>
+                        <span className="text-xs text-muted-foreground">
+                          {selectedAppointment.cost} ريال
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <div className="pt-4 space-y-2">
+                <div className="flex gap-2 pt-2">
                   <Button
-                    className="w-full arabic-enhanced"
+                    className="flex-1 arabic-enhanced"
                     size="sm"
                     onClick={() => {
-                      // Keep the selected appointment when opening edit dialog
                       setShowAddDialog(true)
                     }}
                   >
-                    تعديل الموعد
+                    تعديل
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full arabic-enhanced"
+                    className="flex-1 arabic-enhanced"
                     size="sm"
                     disabled={isLoading || selectedAppointment?.status === 'completed'}
                     onClick={async () => {
@@ -432,11 +439,8 @@ export default function Appointments() {
                       setIsLoading(true)
                       try {
                         await updateAppointment(selectedAppointment.id, { status: 'completed' })
-
-                        // Update the selected appointment in the UI
                         const updatedAppointment = { ...selectedAppointment, status: 'completed' as const }
                         setSelectedAppointment(updatedAppointment)
-
                         toast({
                           title: 'نجح',
                           description: 'تم تحديد الموعد كمكتمل',
@@ -454,36 +458,24 @@ export default function Appointments() {
                       }
                     }}
                   >
-                    {isLoading ? 'جاري التحديث...' :
-                     selectedAppointment?.status === 'completed' ? 'مكتمل ✓' : 'تحديد كمكتمل'}
+                    {isLoading ? 'جاري...' :
+                     selectedAppointment?.status === 'completed' ? 'مكتمل ✓' : 'مكتمل'}
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="pt-6" dir="rtl">
-                <div className="text-center py-8">
-                  <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-lg font-medium mb-2 arabic-enhanced">لم يتم اختيار موعد</h3>
-                  <p className="text-muted-foreground arabic-enhanced">
-                    انقر على موعد لعرض التفاصيل
-                  </p>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Today's Appointments Summary */}
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="arabic-enhanced">جدول اليوم</CardTitle>
-              <CardDescription className="arabic-enhanced">
+          {/* Today's Appointments Summary - Compact */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg arabic-enhanced">جدول اليوم</CardTitle>
+              <CardDescription className="text-sm arabic-enhanced">
                 {formatDate(new Date(), 'long')}
               </CardDescription>
             </CardHeader>
             <CardContent dir="rtl">
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {appointments
                   .filter(apt => {
                     const today = new Date().toDateString()
@@ -494,18 +486,20 @@ export default function Appointments() {
                   .map(appointment => (
                     <div
                       key={appointment.id}
-                      className="flex items-center justify-between p-2 rounded border cursor-pointer hover:bg-muted/50"
+                      className="flex items-center justify-between p-2 rounded border cursor-pointer hover:bg-muted/50 gap-2"
                       onClick={() => setSelectedAppointment(appointment)}
                     >
-                      <div>
-                        <p className="text-sm font-medium arabic-enhanced">{appointment.title}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium arabic-enhanced truncate" title={appointment.title}>
+                          {appointment.title}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {formatTime(appointment.start_time)}
                         </p>
                       </div>
                       <Badge
                         variant="outline"
-                        className={getStatusColor(appointment.status)}
+                        className={`${getStatusColor(appointment.status)} whitespace-nowrap flex-shrink-0 text-xs`}
                       >
                         {getStatusInArabic(appointment.status)}
                       </Badge>
@@ -517,7 +511,7 @@ export default function Appointments() {
                   const aptDate = new Date(apt.start_time).toDateString()
                   return today === aptDate
                 }).length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4 arabic-enhanced">
+                  <p className="text-xs text-muted-foreground text-center py-4 arabic-enhanced">
                     لا توجد مواعيد اليوم
                   </p>
                 )}

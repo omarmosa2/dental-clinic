@@ -213,8 +213,8 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
                 disabled={isLoading}
                 dir="rtl"
               >
-                <SelectTrigger className={`text-right ${errors.lab_id ? 'border-destructive' : ''}`}>
-                  <SelectValue placeholder="اختر المختبر" />
+                <SelectTrigger className={`text-right bg-background border-input text-foreground ${errors.lab_id ? 'border-destructive' : ''}`}>
+                  <SelectValue placeholder="اختر المختبر" className="text-muted-foreground" />
                 </SelectTrigger>
                 <SelectContent>
                   {labs.map((lab) => (
@@ -241,8 +241,8 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
                 disabled={isLoading}
                 dir="rtl"
               >
-                <SelectTrigger className="text-right">
-                  <SelectValue placeholder="اختر المريض (اختياري)" />
+                <SelectTrigger className="text-right bg-background border-input text-foreground">
+                  <SelectValue placeholder="اختر المريض (اختياري)" className="text-muted-foreground" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">بدون مريض محدد</SelectItem>
@@ -370,8 +370,8 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
                 disabled={isLoading}
                 dir="rtl"
               >
-                <SelectTrigger className="text-right">
-                  <SelectValue />
+                <SelectTrigger className="text-right bg-background border-input text-foreground">
+                  <SelectValue className="text-muted-foreground" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="معلق">معلق</SelectItem>

@@ -582,8 +582,8 @@ export default function InventoryReports() {
                     return (
                       <tr key={item.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/50'}>
                         <td className="p-3 font-medium text-center">{index + 1}</td>
-                        <td className="p-3 font-medium text-center">{item.name}</td>
-                        <td className="p-3 text-muted-foreground text-center">{item.category || '-'}</td>
+                        <td className="p-3 font-medium text-center table-cell-wrap-truncate-md">{item.name}</td>
+                        <td className="p-3 text-muted-foreground text-center table-cell-wrap-truncate-sm">{item.category || '-'}</td>
                         <td className="p-3 text-muted-foreground text-center">
                           {item.quantity} {item.unit || 'قطعة'}
                         </td>

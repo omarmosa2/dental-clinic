@@ -148,8 +148,8 @@ export default function AddPatientDialog({ open, onOpenChange }: AddPatientDialo
                   الجنس *
                 </label>
                 <Select onValueChange={(value: 'male' | 'female') => setValue('gender', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر الجنس" />
+                  <SelectTrigger className="bg-background border-input text-foreground">
+                    <SelectValue placeholder="اختر الجنس" className="text-muted-foreground" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="male">ذكر</SelectItem>

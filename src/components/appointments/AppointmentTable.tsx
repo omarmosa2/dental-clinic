@@ -39,6 +39,7 @@ interface AppointmentTableProps {
   onEdit: (appointment: Appointment) => void
   onDelete: (appointmentId: string) => void
   onViewPatient: (patient: Patient) => void
+  onSelectAppointment?: (appointment: Appointment) => void
 }
 
 type SortField = 'patient_name' | 'start_time' | 'end_time' | 'status' | 'title'
@@ -50,7 +51,8 @@ export default function AppointmentTable({
   isLoading,
   onEdit,
   onDelete,
-  onViewPatient
+  onViewPatient,
+  onSelectAppointment
 }: AppointmentTableProps) {
   const { toast } = useToast()
   const [sortField, setSortField] = useState<SortField>('start_time')
@@ -181,9 +183,9 @@ export default function AppointmentTable({
     setCurrentPage(1)
   }, [searchQuery, statusFilter])
 
-  const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+  const SortableHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => (
     <TableHead
-      className="cursor-pointer hover:bg-muted/50 select-none text-center"
+      className={`cursor-pointer hover:bg-muted/50 select-none text-center ${className || ''}`}
       onClick={() => handleSort(field)}
     >
       <div className="flex items-center gap-1 justify-center">
@@ -309,103 +311,120 @@ export default function AppointmentTable({
 
       <div className="border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <Table className="table-center-all">
+          <Table className="table-center-all w-full">
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="text-center">
+                <TableHead className="text-center min-w-[80px]">
                   <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
                 </TableHead>
-                <SortableHeader field="patient_name">
+                <SortableHeader field="patient_name" className="min-w-[180px]">
                   <span className="arabic-enhanced font-medium">اسم المريض</span>
                 </SortableHeader>
-                <SortableHeader field="start_time">
+                <SortableHeader field="start_time" className="min-w-[140px]">
                   <span className="arabic-enhanced font-medium">تاريخ ووقت البداية</span>
                 </SortableHeader>
-                <SortableHeader field="end_time">
+                <SortableHeader field="end_time" className="min-w-[140px]">
                   <span className="arabic-enhanced font-medium">تاريخ ووقت النهاية</span>
                 </SortableHeader>
-                <SortableHeader field="status">
+                <SortableHeader field="status" className="min-w-[100px]">
                   <span className="arabic-enhanced font-medium">حالة الموعد</span>
                 </SortableHeader>
-                <TableHead className="text-center">
+                <TableHead className="text-center min-w-[200px]">
                   <span className="arabic-enhanced font-medium">الاجراءات</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedAppointments.map((appointment, index) => (
-                <TableRow key={appointment.id} className="hover:bg-muted/50">
+                <TableRow
+                  key={appointment.id}
+                  className="hover:bg-muted/50 cursor-pointer"
+                  onClick={() => onSelectAppointment?.(appointment)}
+                >
                   <TableCell className="font-medium text-center">
                     {startIndex + index + 1}
                   </TableCell>
                   <TableCell className="font-medium text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
+                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium flex-shrink-0">
                         {appointment.patient_name.charAt(0)}
                       </div>
-                      <span className="arabic-enhanced">{appointment.patient_name}</span>
+                      <span className="arabic-enhanced" title={appointment.patient_name}>
+                        {appointment.patient_name}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{formatDateTime(appointment.start_time)}</span>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-sm font-medium">
+                        {formatDateTime(appointment.start_time).split(' ')[0]}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDateTime(appointment.start_time).split(' ')[1]}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{formatDateTime(appointment.end_time)}</span>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-sm font-medium">
+                        {formatDateTime(appointment.end_time).split(' ')[0]}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDateTime(appointment.end_time).split(' ')[1]}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge
                       variant="outline"
-                      className={`${getStatusColor(appointment.status)} arabic-enhanced`}
+                      className={`${getStatusColor(appointment.status)} arabic-enhanced text-xs whitespace-nowrap`}
                     >
                       {getStatusText(appointment.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="min-w-[200px] text-center">
-                    <div className="flex items-center justify-center gap-1">
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1 flex-wrap">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 px-2 text-blue-600 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                        className="action-btn-edit"
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
                           onEdit(appointment)
                         }}
                       >
-                        <Edit className="w-4 h-4 mr-1" />
+                        <Edit className="w-4 h-4 ml-1" />
                         <span className="text-xs arabic-enhanced">تعديل</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="action-btn-delete"
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
                           onDelete(appointment.id)
                         }}
                       >
-                        <Trash2 className="w-4 h-4 mr-1" />
+                        <Trash2 className="w-4 h-4 ml-1" />
                         <span className="text-xs arabic-enhanced">حذف</span>
                       </Button>
-                      {appointment.patient && (
+                      {(appointment.patient || patientMap.get(appointment.patient_id)) && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                          className="action-btn-view"
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            onViewPatient(appointment.patient!)
+                            const patient = appointment.patient || patientMap.get(appointment.patient_id)
+                            if (patient) {
+                              onViewPatient(patient)
+                            }
                           }}
                         >
-                          <Eye className="w-4 h-4 mr-1" />
+                          <Eye className="w-4 h-4 ml-1" />
                           <span className="text-xs arabic-enhanced">عرض المريض</span>
                         </Button>
                       )}
