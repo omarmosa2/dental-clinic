@@ -72,21 +72,14 @@ class DeviceBoundLicenseGenerator {
     // إنشاء hash أساسي
     const baseHash = crypto.createHash('sha256').update(seed).digest('hex')
 
-    // تقسيم الـ hash إلى أجزاء
-    const part1 = baseHash.substring(0, 8).toUpperCase()
-    const part2 = baseHash.substring(8, 12).toUpperCase()
-    const part3 = baseHash.substring(16, 20).toUpperCase()
-    const part4 = baseHash.substring(24, 28).toUpperCase()
+    // تقسيم الـ hash إلى أجزاء (5 أحرف لكل جزء)
+    const part1 = baseHash.substring(0, 5).toUpperCase()
+    const part2 = baseHash.substring(8, 13).toUpperCase()
+    const part3 = baseHash.substring(16, 21).toUpperCase()
+    const part4 = baseHash.substring(24, 29).toUpperCase()
 
-    // إنشاء checksum للتحقق
-    const checksum = crypto.createHash('md5')
-      .update(part1 + part2 + part3 + part4 + deviceId)
-      .digest('hex')
-      .substring(0, 4)
-      .toUpperCase()
-
-    // دمج الأجزاء مع الـ checksum
-    return `${checksum}-${part2}-${part3}-${part4}`
+    // تنسيق المفتاح: XXXXX-XXXXX-XXXXX-XXXXX
+    return `${part1}-${part2}-${part3}-${part4}`
   }
 
   /**

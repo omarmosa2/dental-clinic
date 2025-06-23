@@ -47,7 +47,8 @@ export default function LicenseEntryScreen({
   }
 
   const validateLicenseFormat = (key: string) => {
-    const regex = /^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$/
+    // يقبل كلا التنسيقين: XXXXX-XXXXX-XXXXX-XXXXX أو XXXX-XXXX-XXXX-XXXX
+    const regex = /^[A-Z0-9]{4,5}-[A-Z0-9]{4,5}-[A-Z0-9]{4,5}-[A-Z0-9]{4,5}$/
     return regex.test(key)
   }
 

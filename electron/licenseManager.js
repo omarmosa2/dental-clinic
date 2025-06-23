@@ -9,8 +9,8 @@ const { isValidLicense, getLicenseInfo: getProductionLicenseInfo } = require('./
 const { isLicenseAvailable, markLicenseAsUsed, updateLastValidation } = require('./usedLicensesTracker')
 const { validateDeviceBoundLicense, getCurrentDeviceId } = require('./deviceBoundLicenseGenerator')
 
-// License configuration
-const LICENSE_FORMAT_REGEX = /^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$/
+// License configuration - يقبل كلا التنسيقين
+const LICENSE_FORMAT_REGEX = /^[A-Z0-9]{4,5}-[A-Z0-9]{4,5}-[A-Z0-9]{4,5}-[A-Z0-9]{4,5}$/
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm'
 const KEY_DERIVATION_ITERATIONS = 100000
 const APP_SALT = 'dental-clinic-license-salt-2025'
