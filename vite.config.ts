@@ -12,6 +12,11 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    commonjsOptions: {
+      ignoreTryCatch: false,
+      include: [/node_modules/],
+      exclude: ['core-js/**']
+    },
     rollupOptions: {
       external: [
         'electron',
@@ -21,8 +26,15 @@ export default defineConfig({
         'electron-store',
         'child_process',
         'fs',
-        'path'
-      ]
+        'path',
+        /^core-js/
+      ],
+      onwarn(warning, warn) {
+        if (warning.code === 'UNRESOLVED_IMPORT') return
+        if (warning.message.includes('core-js')) return
+        if (warning.message.includes('define-globalThis-property')) return
+        warn(warning)
+      }
     }
   },
   server: {

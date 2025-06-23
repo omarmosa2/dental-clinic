@@ -2,6 +2,7 @@
   "name": "dental-clinic-management",
   "version": "1.0.0",
   "description": "Comprehensive Dental Clinic Management System",
+  "author": "فريق تطوير العيادة السنية <dev@dental-clinic.com>",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -13,7 +14,11 @@
     "rebuild": "npx electron-rebuild",
     "postinstall": "npx electron-rebuild",
     "test": "echo \"No tests specified\"",
-    "install-deps": "npm install vite @vitejs/plugin-react react react-dom typescript"
+    "install-deps": "npm install vite @vitejs/plugin-react react react-dom typescript",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
@@ -37,7 +42,6 @@
     "clsx": "^2.1.1",
     "concurrently": "^9.1.2",
     "crypto-js": "^4.2.0",
-    "electron": "^36.4.0",
     "electron-store": "^10.1.0",
     "exceljs": "^4.4.0",
     "extract-zip": "^2.0.1",
@@ -73,10 +77,80 @@
     "@vitejs/plugin-react": "^4.1.1",
     "autoprefixer": "^10.4.16",
     "cross-env": "^7.0.3",
+    "electron": "^36.4.0",
+    "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5",
     "typescript": "^5.2.2",
     "vite": "^4.5.0"
+  },
+  "build": {
+    "appId": "com.dentalclinic.management",
+    "productName": "نظام إدارة العيادة السنية",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "sign": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "perMachine": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "نظام إدارة العيادة السنية",
+      "include": "installer/installer.nsh",
+      "script": "installer/modern-ui.nsh",
+      "language": "1025",
+      "displayLanguageSelector": true,
+      "multiLanguageInstaller": true,
+      "license": "installer/license-ar.txt",
+      "artifactName": "${productName}-${version}-Setup.${ext}",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "menuCategory": "Healthcare",
+      "warningsAsErrors": false,
+      "unicode": true,
+      "guid": "dental-clinic-management-system",
+      "installerSidebar": "assets/installer-sidebar.bmp",
+      "uninstallerSidebar": "assets/installer-sidebar.bmp"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.healthcare-fitness"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png",
+      "category": "Office"
+    },
+    "publish": null
   }
 }
