@@ -687,6 +687,34 @@ export class DatabaseService {
     })
   }
 
+  async checkAppointmentConflict(startTime: string, endTime: string, excludeId?: string): Promise<boolean> {
+    // Check if there are any appointments that overlap with the given time range
+    let query = `
+      SELECT COUNT(*) as count
+      FROM appointments
+      WHERE status != 'cancelled'
+        AND (
+          (start_time < ? AND end_time > ?) OR
+          (start_time < ? AND end_time > ?) OR
+          (start_time >= ? AND start_time < ?) OR
+          (end_time > ? AND end_time <= ?)
+        )
+    `
+
+    const params = [endTime, startTime, startTime, endTime, startTime, endTime, startTime, endTime]
+
+    // Exclude current appointment when updating
+    if (excludeId) {
+      query += ' AND id != ?'
+      params.push(excludeId)
+    }
+
+    const stmt = this.db.prepare(query)
+    const result = stmt.get(...params) as { count: number }
+
+    return result.count > 0
+  }
+
   async createAppointment(appointment: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>): Promise<Appointment> {
     const id = uuidv4()
     const now = new Date().toISOString()
@@ -695,6 +723,14 @@ export class DatabaseService {
       // Validate patient_id exists (required)
       if (!appointment.patient_id) {
         throw new Error('Patient ID is required')
+      }
+
+      // Check for appointment conflicts
+      if (appointment.start_time && appointment.end_time) {
+        const hasConflict = await this.checkAppointmentConflict(appointment.start_time, appointment.end_time)
+        if (hasConflict) {
+          throw new Error('يوجد موعد آخر في نفس الوقت المحدد. يرجى اختيار وقت آخر.')
+        }
       }
 
       const patientCheck = this.db.prepare('SELECT id FROM patients WHERE id = ?')
@@ -790,6 +826,14 @@ export class DatabaseService {
     const now = new Date().toISOString()
 
     console.log('🔄 Updating appointment:', { id, appointment })
+
+    // Check for appointment conflicts when updating time
+    if (appointment.start_time && appointment.end_time) {
+      const hasConflict = await this.checkAppointmentConflict(appointment.start_time, appointment.end_time, id)
+      if (hasConflict) {
+        throw new Error('يوجد موعد آخر في نفس الوقت المحدد. يرجى اختيار وقت آخر.')
+      }
+    }
 
     const stmt = this.db.prepare(`
       UPDATE appointments SET

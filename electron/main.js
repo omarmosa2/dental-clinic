@@ -395,6 +395,23 @@ ipcMain.handle('db:appointments:delete', async (_, id) => {
   }
 })
 
+ipcMain.handle('db:appointments:checkConflict', async (_, startTime, endTime, excludeId) => {
+  try {
+    if (databaseService) {
+      console.log('Checking appointment conflict:', { startTime, endTime, excludeId })
+      const result = await databaseService.checkAppointmentConflict(startTime, endTime, excludeId)
+      console.log('Conflict check result:', result)
+      return result
+    } else {
+      console.log('Checking appointment conflict (mock):', { startTime, endTime, excludeId })
+      return false
+    }
+  } catch (error) {
+    console.error('Error checking appointment conflict:', error)
+    throw error
+  }
+})
+
 // Payment IPC Handlers
 ipcMain.handle('db:payments:getAll', async () => {
   try {

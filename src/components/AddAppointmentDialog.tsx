@@ -111,7 +111,7 @@ export default function AddAppointmentDialog({
     }
   }, [selectedDate, selectedTime, initialData, patients, isOpen])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // Validate required fields
@@ -144,6 +144,27 @@ export default function AddAppointmentDialog({
         variant: "destructive",
       })
       return
+    }
+
+    // Check for appointment conflicts
+    try {
+      const hasConflict = await window.electronAPI.appointments.checkConflict(
+        startDate.toISOString(),
+        endDate.toISOString(),
+        initialData?.id // Exclude current appointment when editing
+      )
+
+      if (hasConflict) {
+        toast({
+          title: "تعارض في المواعيد",
+          description: "يوجد موعد آخر في نفس الوقت المحدد. يرجى اختيار وقت آخر.",
+          variant: "destructive",
+        })
+        return
+      }
+    } catch (error) {
+      console.error('Error checking appointment conflict:', error)
+      // Continue with saving if conflict check fails
     }
 
     // Generate a title automatically based on patient and date
@@ -317,7 +338,7 @@ export default function AddAppointmentDialog({
             <div className="space-y-2">
               <Label className="flex items-center">
                 <DollarSign className="w-4 h-4 ml-1" />
-                التكلفة (ريال)
+                التكلفة ($)
               </Label>
               <Input
                 type="number"

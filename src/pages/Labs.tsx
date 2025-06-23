@@ -333,7 +333,7 @@ export default function Labs() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" dir="rtl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" dir="rtl">
         {/* Total Orders */}
         <Card className={getCardStyles('blue')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2" dir="rtl">
@@ -358,6 +358,20 @@ export default function Labs() {
             <div className="text-2xl font-bold text-foreground">{formatCurrency(totalCost)}</div>
             <p className="text-xs text-muted-foreground">
               تكلفة جميع الطلبات
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total Payments */}
+        <Card className={getCardStyles('purple')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2" dir="rtl">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي الدفعات</CardTitle>
+            <CheckCircle className={`h-4 w-4 ${getIconStyles('purple')}`} />
+          </CardHeader>
+          <CardContent className="text-right">
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(totalPaid)}</div>
+            <p className="text-xs text-muted-foreground">
+              جميع الدفعات المسجلة
             </p>
           </CardContent>
         </Card>

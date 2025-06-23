@@ -17,7 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAll: () => ipcRenderer.invoke('db:appointments:getAll'),
     create: (appointment) => ipcRenderer.invoke('db:appointments:create', appointment),
     update: (id, appointment) => ipcRenderer.invoke('db:appointments:update', id, appointment),
-    delete: (id) => ipcRenderer.invoke('db:appointments:delete', id)
+    delete: (id) => ipcRenderer.invoke('db:appointments:delete', id),
+    checkConflict: (startTime, endTime, excludeId) => ipcRenderer.invoke('db:appointments:checkConflict', startTime, endTime, excludeId)
   },
 
   // Payment operations

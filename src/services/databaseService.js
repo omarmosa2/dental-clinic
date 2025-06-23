@@ -787,6 +787,34 @@ class DatabaseService {
     return stmt.all()
   }
 
+  async checkAppointmentConflict(startTime, endTime, excludeId) {
+    // Check if there are any appointments that overlap with the given time range
+    let query = `
+      SELECT COUNT(*) as count
+      FROM appointments
+      WHERE status != 'cancelled'
+        AND (
+          (start_time < ? AND end_time > ?) OR
+          (start_time < ? AND end_time > ?) OR
+          (start_time >= ? AND start_time < ?) OR
+          (end_time > ? AND end_time <= ?)
+        )
+    `
+
+    const params = [endTime, startTime, startTime, endTime, startTime, endTime, startTime, endTime]
+
+    // Exclude current appointment when updating
+    if (excludeId) {
+      query += ' AND id != ?'
+      params.push(excludeId)
+    }
+
+    const stmt = this.db.prepare(query)
+    const result = stmt.get(...params)
+
+    return result.count > 0
+  }
+
   async createAppointment(appointment) {
     const id = uuidv4()
     const now = new Date().toISOString()
@@ -795,6 +823,14 @@ class DatabaseService {
       // Validate patient_id exists (required)
       if (!appointment.patient_id) {
         throw new Error('Patient ID is required')
+      }
+
+      // Check for appointment conflicts
+      if (appointment.start_time && appointment.end_time) {
+        const hasConflict = await this.checkAppointmentConflict(appointment.start_time, appointment.end_time)
+        if (hasConflict) {
+          throw new Error('يوجد موعد آخر في نفس الوقت المحدد. يرجى اختيار وقت آخر.')
+        }
       }
 
       const patientCheck = this.db.prepare('SELECT id FROM patients WHERE id = ?')
@@ -861,6 +897,15 @@ class DatabaseService {
 
   async updateAppointment(id, updates) {
     const now = new Date().toISOString()
+
+    // Check for appointment conflicts when updating time
+    if (updates.start_time && updates.end_time) {
+      const hasConflict = await this.checkAppointmentConflict(updates.start_time, updates.end_time, id)
+      if (hasConflict) {
+        throw new Error('يوجد موعد آخر في نفس الوقت المحدد. يرجى اختيار وقت آخر.')
+      }
+    }
+
     const fields = Object.keys(updates).filter(key => key !== 'id')
     const setClause = fields.map(field => `${field} = ?`).join(', ')
     const values = fields.map(field => updates[field])
