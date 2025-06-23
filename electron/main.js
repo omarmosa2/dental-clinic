@@ -34,10 +34,15 @@ function createWindow() {
       contextIsolation: true,
       enableRemoteModule: false,
     },
-    titleBarStyle: 'default',
+    titleBarStyle: 'hiddenInset', // شريط عنوان شفاف
+    titleBarOverlay: {
+      color: 'rgba(255, 255, 255, 0.1)', // شفاف
+      symbolColor: '#1e293b',
+      height: 40
+    },
     show: false,
     title: 'نظام إدارة العيادة السنية',
-    icon: join(__dirname, '../assets/icon.png'), // إضافة أيقونة إذا كانت متوفرة
+    icon: join(__dirname, '../assets/icon.png')
   })
 
   // Set CSP headers for security
