@@ -1118,9 +1118,46 @@ class DatabaseService {
     return stmt.all(searchTerm, searchTerm, searchTerm)
   }
 
+  // Ensure password columns exist in settings table
+  ensurePasswordColumns() {
+    try {
+      this.ensureConnection()
+
+      // Check if columns exist
+      const columns = this.db.prepare("PRAGMA table_info(settings)").all()
+      const columnNames = columns.map(col => col.name)
+
+      console.log('Current settings table columns:', columnNames)
+
+      if (!columnNames.includes('app_password')) {
+        console.log('🔧 Adding app_password column to settings table')
+        this.db.exec('ALTER TABLE settings ADD COLUMN app_password TEXT')
+        console.log('✅ app_password column added successfully')
+      }
+
+      if (!columnNames.includes('password_enabled')) {
+        console.log('🔧 Adding password_enabled column to settings table')
+        this.db.exec('ALTER TABLE settings ADD COLUMN password_enabled INTEGER DEFAULT 0')
+        console.log('✅ password_enabled column added successfully')
+      }
+
+      // Verify columns were added
+      const updatedColumns = this.db.prepare("PRAGMA table_info(settings)").all()
+      const updatedColumnNames = updatedColumns.map(col => col.name)
+      console.log('Updated settings table columns:', updatedColumnNames)
+
+    } catch (error) {
+      console.error('❌ Error ensuring password columns:', error)
+      throw error
+    }
+  }
+
   // Settings operations
   async getSettings() {
     this.ensureConnection()
+
+    // Ensure password columns exist
+    this.ensurePasswordColumns()
 
     const stmt = this.db.prepare('SELECT * FROM settings LIMIT 1')
     const result = stmt.get()
@@ -1144,6 +1181,8 @@ class DatabaseService {
         working_hours_start: '08:00',
         working_hours_end: '18:00',
         working_days: 'السبت,الأحد,الاثنين,الثلاثاء,الأربعاء',
+        app_password: null,
+        password_enabled: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -1158,12 +1197,32 @@ class DatabaseService {
   async updateSettings(settings) {
     const now = new Date().toISOString()
 
+    try {
+      // Ensure password columns exist
+      this.ensurePasswordColumns()
+    } catch (error) {
+      console.error('Failed to ensure password columns:', error)
+      // Continue without password fields if migration fails
+    }
+
     // Check if settings exist
     const existing = this.db.prepare('SELECT id FROM settings LIMIT 1').get()
 
     if (existing) {
-      // Update existing settings
-      const fields = Object.keys(settings).filter(key => key !== 'id')
+      // Get current table columns to filter out non-existent ones
+      const columns = this.db.prepare("PRAGMA table_info(settings)").all()
+      const columnNames = columns.map(col => col.name)
+
+      // Update existing settings - only include fields that exist in the table
+      const fields = Object.keys(settings).filter(key =>
+        key !== 'id' && columnNames.includes(key)
+      )
+
+      if (fields.length === 0) {
+        console.log('No valid fields to update')
+        return { ...settings, id: existing.id, updated_at: now }
+      }
+
       const setClause = fields.map(field => `${field} = ?`).join(', ')
       const values = fields.map(field => settings[field])
 
@@ -1178,23 +1237,35 @@ class DatabaseService {
     } else {
       // Insert new settings
       const id = settings.id || uuidv4()
+
+      // Get current table columns to build dynamic insert
+      const columns = this.db.prepare("PRAGMA table_info(settings)").all()
+      const columnNames = columns.map(col => col.name)
+
+      // Build insert statement based on available columns
+      const baseFields = ['id', 'clinic_name', 'doctor_name', 'clinic_address', 'clinic_phone',
+                         'clinic_email', 'clinic_logo', 'currency', 'language', 'timezone',
+                         'backup_frequency', 'auto_save_interval', 'appointment_duration',
+                         'working_hours_start', 'working_hours_end', 'working_days', 'created_at', 'updated_at']
+
+      const passwordFields = ['app_password', 'password_enabled']
+      const availableFields = baseFields.concat(passwordFields.filter(field => columnNames.includes(field)))
+
+      const placeholders = availableFields.map(() => '?').join(', ')
+      const fieldsList = availableFields.join(', ')
+
       const stmt = this.db.prepare(`
-        INSERT INTO settings (
-          id, clinic_name, doctor_name, clinic_address, clinic_phone, clinic_email, clinic_logo,
-          currency, language, timezone, backup_frequency, auto_save_interval,
-          appointment_duration, working_hours_start, working_hours_end, working_days,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO settings (${fieldsList}) VALUES (${placeholders})
       `)
 
-      stmt.run(
-        id, settings.clinic_name, settings.doctor_name, settings.clinic_address, settings.clinic_phone,
-        settings.clinic_email, settings.clinic_logo, settings.currency,
-        settings.language, settings.timezone, settings.backup_frequency,
-        settings.auto_save_interval, settings.appointment_duration,
-        settings.working_hours_start, settings.working_hours_end,
-        settings.working_days, settings.created_at || now, now
-      )
+      const values = availableFields.map(field => {
+        if (field === 'id') return id
+        if (field === 'created_at') return settings.created_at || now
+        if (field === 'updated_at') return now
+        return settings[field] || null
+      })
+
+      stmt.run(...values)
 
       return { ...settings, id, created_at: settings.created_at || now, updated_at: now }
     }

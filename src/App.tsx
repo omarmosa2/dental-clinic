@@ -4,6 +4,8 @@ import { useAppointmentStore } from './store/appointmentStore'
 import { useSettingsStore } from './store/settingsStore'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import { useRealTimeSync } from './hooks/useRealTimeSync'
+import { useAuth } from './hooks/useAuth'
+import LoginScreen from './components/auth/LoginScreen'
 import AddPatientDialog from './components/patients/AddPatientDialog'
 import ConfirmDeleteDialog from './components/ConfirmDeleteDialog'
 import AppointmentCard from './components/AppointmentCard'
@@ -51,12 +53,14 @@ import './styles/globals.css'
 function AppContent() {
   const { isDarkMode } = useTheme()
   const { toast } = useToast()
+  const { isAuthenticated, isLoading: authLoading, passwordEnabled, login } = useAuth()
 
   // Enable real-time synchronization for the entire application
   useRealTimeSync()
 
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showAddPatient, setShowAddPatient] = useState(false)
+  const [loginLoading, setLoginLoading] = useState(false)
 
 
 
@@ -96,18 +100,47 @@ function AppContent() {
   } = useSettingsStore()
 
   useEffect(() => {
-    // Initialize app
+    // Initialize app only if authenticated
     const initializeApp = async () => {
-      // Load settings automatically when app starts
-      await loadSettings()
+      if (isAuthenticated) {
+        // Load settings automatically when app starts
+        await loadSettings()
 
-      // Load app data
-      loadPatients()
-      loadAppointments()
+        // Load app data
+        loadPatients()
+        loadAppointments()
+      }
     }
 
     initializeApp()
-  }, [loadPatients, loadAppointments, loadSettings])
+  }, [isAuthenticated, loadPatients, loadAppointments, loadSettings])
+
+  const handleLogin = async (password: string): Promise<boolean> => {
+    setLoginLoading(true)
+    try {
+      const success = await login(password)
+      return success
+    } finally {
+      setLoginLoading(false)
+    }
+  }
+
+  // Show loading screen while checking auth status
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">جاري التحميل...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login screen if password is enabled and user is not authenticated
+  if (passwordEnabled && !isAuthenticated) {
+    return <LoginScreen onLogin={handleLogin} isLoading={loginLoading} />
+  }
 
 
 

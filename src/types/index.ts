@@ -169,6 +169,8 @@ export interface ClinicSettings {
   working_hours_start: string
   working_hours_end: string
   working_days: string
+  app_password?: string | null
+  password_enabled?: number
   created_at: string
   updated_at: string
 }

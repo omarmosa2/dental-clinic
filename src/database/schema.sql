@@ -147,6 +147,8 @@ CREATE TABLE IF NOT EXISTS settings (
     working_hours_start TEXT DEFAULT '09:00',
     working_hours_end TEXT DEFAULT '17:00',
     working_days TEXT DEFAULT 'monday,tuesday,wednesday,thursday,friday',
+    app_password TEXT, -- Password for app protection (hashed)
+    password_enabled INTEGER DEFAULT 0, -- 0 = disabled, 1 = enabled
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

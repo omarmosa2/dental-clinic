@@ -264,9 +264,28 @@ export class DatabaseService {
           console.log('✅ Migration 4 completed successfully')
         }
 
-        // Migration 5: Create dental treatment tables
+        // Migration 5: Add password fields to settings table
         if (!appliedMigrations.has(5)) {
-          console.log('🔄 Applying migration 5: Create dental treatment tables')
+          console.log('🔄 Applying migration 5: Add password fields to settings')
+
+          const settingsColumns = this.db.prepare("PRAGMA table_info(settings)").all() as any[]
+          const settingsColumnNames = settingsColumns.map(col => col.name)
+
+          if (!settingsColumnNames.includes('app_password')) {
+            this.db.exec('ALTER TABLE settings ADD COLUMN app_password TEXT')
+          }
+
+          if (!settingsColumnNames.includes('password_enabled')) {
+            this.db.exec('ALTER TABLE settings ADD COLUMN password_enabled INTEGER DEFAULT 0')
+          }
+
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(5, 'Add password fields to settings')
+          console.log('✅ Migration 5 completed successfully')
+        }
+
+        // Migration 6: Create dental treatment tables
+        if (!appliedMigrations.has(6)) {
+          console.log('🔄 Applying migration 6: Create dental treatment tables')
 
           const tables = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]
           const tableNames = tables.map(t => t.name)
@@ -338,13 +357,13 @@ export class DatabaseService {
           this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_prescriptions_treatment ON dental_treatment_prescriptions(dental_treatment_id)')
           this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_prescriptions_prescription ON dental_treatment_prescriptions(prescription_id)')
 
-          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(5, 'Create dental treatment tables')
-          console.log('✅ Migration 5 completed successfully')
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(6, 'Create dental treatment tables')
+          console.log('✅ Migration 6 completed successfully')
         }
 
-        // Migration 6: Fix dental_treatment_images table structure
-        if (!appliedMigrations.has(6)) {
-          console.log('🔄 Applying migration 6: Fix dental_treatment_images table structure')
+        // Migration 7: Fix dental_treatment_images table structure
+        if (!appliedMigrations.has(7)) {
+          console.log('🔄 Applying migration 7: Fix dental_treatment_images table structure')
 
           // Check if dental_treatment_images table has tooth_record_id column
           const imageTableColumns = this.db.prepare("PRAGMA table_info(dental_treatment_images)").all() as any[]
@@ -398,13 +417,13 @@ export class DatabaseService {
           this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_treatment ON dental_treatment_images(dental_treatment_id)')
           this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_patient ON dental_treatment_images(patient_id)')
 
-          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(6, 'Fix dental_treatment_images table structure')
-          console.log('✅ Migration 6 completed successfully')
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(7, 'Fix dental_treatment_images table structure')
+          console.log('✅ Migration 7 completed successfully')
         }
 
-        // Migration 7: Force recreate dental_treatment_images table
-        if (!appliedMigrations.has(7)) {
-          console.log('🔄 Applying migration 7: Force recreate dental_treatment_images table')
+        // Migration 8: Force recreate dental_treatment_images table
+        if (!appliedMigrations.has(8)) {
+          console.log('🔄 Applying migration 8: Force recreate dental_treatment_images table')
 
           // Always recreate the table to ensure correct structure
           this.db.exec('DROP TABLE IF EXISTS dental_treatment_images_backup')
@@ -483,8 +502,8 @@ export class DatabaseService {
           this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_patient ON dental_treatment_images(patient_id)')
           this.db.exec('CREATE INDEX IF NOT EXISTS idx_dental_treatment_images_tooth ON dental_treatment_images(tooth_number)')
 
-          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(7, 'Force recreate dental_treatment_images table')
-          console.log('✅ Migration 7 completed successfully')
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(8, 'Force recreate dental_treatment_images table')
+          console.log('✅ Migration 8 completed successfully')
         }
 
       } catch (error) {
@@ -2150,6 +2169,8 @@ export class DatabaseService {
         working_hours_start = COALESCE(?, working_hours_start),
         working_hours_end = COALESCE(?, working_hours_end),
         working_days = COALESCE(?, working_days),
+        app_password = COALESCE(?, app_password),
+        password_enabled = COALESCE(?, password_enabled),
         updated_at = ?
       WHERE id = ?
     `)
@@ -2160,7 +2181,7 @@ export class DatabaseService {
       settings.language, settings.timezone, settings.backup_frequency,
       settings.auto_save_interval, settings.appointment_duration,
       settings.working_hours_start, settings.working_hours_end,
-      settings.working_days, now, 'clinic_settings'
+      settings.working_days, settings.app_password, settings.password_enabled, now, 'clinic_settings'
     )
 
     return this.getSettings()

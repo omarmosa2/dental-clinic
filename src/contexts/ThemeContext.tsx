@@ -16,12 +16,31 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const { isDarkMode, toggleDarkMode: storeToggleDarkMode, initializeDarkMode } = useSettingsStore()
 
-  // Initialize theme on mount
+  // Initialize theme immediately and on mount
   useEffect(() => {
+    // Initialize dark mode immediately when provider mounts
     initializeDarkMode()
+
+    // Also apply the current state immediately
+    const storedTheme = localStorage.getItem('dental-clinic-theme')
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+
+    let shouldBeDark = false
+    if (storedTheme) {
+      shouldBeDark = storedTheme === 'dark'
+    } else {
+      shouldBeDark = systemPrefersDark
+    }
+
+    // Apply immediately to prevent flash
+    if (shouldBeDark) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
   }, [initializeDarkMode])
 
-  // Apply theme changes to document
+  // Apply theme changes to document when state changes
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark')
@@ -156,6 +175,20 @@ export function useThemeClasses() {
     notificationInfo: isDarkMode
       ? 'bg-blue-900/20 text-blue-400 border border-blue-800 shadow-lg'
       : 'bg-blue-50 text-blue-800 border border-blue-200 shadow-md',
+
+    // Alert classes - Enhanced Sky Theme
+    alertError: isDarkMode
+      ? 'bg-destructive/20 border-destructive/30'
+      : 'bg-destructive/10 border-destructive/20',
+    alertWarning: isDarkMode
+      ? 'bg-amber-900/20 border-amber-800/50'
+      : 'bg-amber-50 border-amber-200',
+    alertSuccess: isDarkMode
+      ? 'bg-green-900/20 border-green-800/50'
+      : 'bg-green-50 border-green-200',
+    alertInfo: isDarkMode
+      ? 'bg-blue-900/20 border-blue-800/50'
+      : 'bg-blue-50 border-blue-200',
   }
 }
 

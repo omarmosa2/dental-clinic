@@ -167,6 +167,21 @@
     direction: rtl; /* RTL support for Arabic */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  }
+
+  /* Ensure proper dark mode support for all elements */
+  .dark body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Ensure root element supports dark mode */
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html:not(.dark) {
+    color-scheme: light;
   }
 
   /* Arabic text optimization */
@@ -723,6 +738,43 @@
     text-align: center !important;
   }
 
+  /* Enhanced Login Screen Styles */
+  .login-gradient-bg {
+    background: linear-gradient(135deg,
+      hsl(var(--background)) 0%,
+      hsl(var(--muted) / 0.3) 25%,
+      hsl(var(--background)) 50%,
+      hsl(var(--accent) / 0.2) 75%,
+      hsl(var(--background)) 100%);
+  }
+
+  .login-card-glow {
+    box-shadow:
+      0 0 0 1px hsl(var(--border) / 0.5),
+      0 10px 25px -5px hsl(var(--primary) / 0.1),
+      0 20px 40px -10px hsl(var(--primary) / 0.05);
+  }
+
+  .dark .login-card-glow {
+    box-shadow:
+      0 0 0 1px hsl(var(--border) / 0.5),
+      0 10px 25px -5px hsl(var(--primary) / 0.2),
+      0 20px 40px -10px hsl(var(--primary) / 0.1),
+      0 0 60px -15px hsl(var(--primary) / 0.1);
+  }
+
+  .login-floating-orb {
+    filter: blur(40px);
+    opacity: 0.6;
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33% { transform: translateY(-20px) rotate(120deg); }
+    66% { transform: translateY(10px) rotate(240deg); }
+  }
+
   .table-center-all th.cursor-pointer > div {
     justify-content: center !important;
     text-align: center !important;
@@ -1036,6 +1088,40 @@
   .dental-chart-container {
     direction: rtl;
     text-align: center;
+  }
+
+  /* Background grid pattern for login screen */
+  .bg-grid-pattern {
+    background-image:
+      linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    background-size: 24px 24px;
+    animation: grid-move 20s linear infinite;
+  }
+
+  .dark .bg-grid-pattern {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  @keyframes grid-move {
+    0% {
+      background-position: 0 0;
+    }
+    100% {
+      background-position: 24px 24px;
+    }
+  }
+
+  /* Custom shadow for dark mode */
+  .shadow-3xl {
+    box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25);
+  }
+
+  .dark .shadow-3xl {
+    box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.5);
   }
 
   /* Action Button Hover Effects - Different for each action type */

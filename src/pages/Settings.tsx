@@ -3,6 +3,7 @@ import { useBackupStore } from '@/store/backupStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useTheme } from '@/contexts/ThemeContext'
 import { formatDate } from '@/lib/utils'
+import SecuritySettings from '@/components/settings/SecuritySettings'
 import {
   Download,
   Upload,
@@ -267,6 +268,7 @@ export default function Settings() {
           {[
             { id: 'backup', name: 'النسخ الاحتياطية', icon: Database },
             { id: 'appearance', name: 'المظهر', icon: Palette },
+            { id: 'security', name: 'الأمان', icon: Key },
             { id: 'clinic', name: 'إعدادات العيادة', icon: SettingsIcon },
             { id: 'development', name: 'فريق التطوير', icon: Users }
           ].map(tab => (
@@ -618,6 +620,11 @@ export default function Settings() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Security Settings Tab */}
+      {activeTab === 'security' && (
+        <SecuritySettings showNotification={showNotification} />
       )}
 
       {/* Clinic Settings Tab */}

@@ -6,6 +6,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="/fonts/fonts.css" />
     <title>Dental Clinic Management System</title>
+
+    <!-- Immediate dark mode initialization to prevent flash -->
+    <script>
+      (function() {
+        try {
+          const storedTheme = localStorage.getItem('dental-clinic-theme');
+          const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+          let shouldBeDark = false;
+          if (storedTheme) {
+            shouldBeDark = storedTheme === 'dark';
+          } else {
+            shouldBeDark = systemPrefersDark;
+            localStorage.setItem('dental-clinic-theme', shouldBeDark ? 'dark' : 'light');
+          }
+
+          if (shouldBeDark) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {
+          // Fallback to light mode if there's any error
+          console.warn('Failed to initialize theme:', e);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

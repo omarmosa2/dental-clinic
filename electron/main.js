@@ -56,6 +56,22 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+
+  // Clear session only when window is actually closing (not on refresh)
+  mainWindow.on('close', (event) => {
+    if (mainWindow && mainWindow.webContents && !mainWindow.isDestroyed()) {
+      try {
+        // Only clear session storage, keep localStorage for theme persistence
+        mainWindow.webContents.executeJavaScript(`
+          sessionStorage.removeItem('dental_clinic_auth');
+        `).catch(() => {
+          // Ignore errors if window is already destroyed
+        })
+      } catch (error) {
+        // Ignore errors if window is already destroyed
+      }
+    }
+  })
 }
 
 app.whenReady().then(async () => {
@@ -176,6 +192,24 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
+  }
+})
+
+// Clear authentication session when app is about to quit
+app.on('before-quit', () => {
+  console.log('🔐 Clearing authentication session before app quit')
+  if (mainWindow && mainWindow.webContents && !mainWindow.isDestroyed()) {
+    try {
+      // Only clear session storage, keep localStorage for theme and other preferences
+      mainWindow.webContents.executeJavaScript(`
+        sessionStorage.removeItem('dental_clinic_auth');
+        console.log('🔐 Authentication session cleared');
+      `).catch(() => {
+        console.log('Could not clear session (window already destroyed)')
+      })
+    } catch (error) {
+      console.log('Could not clear session (window already destroyed)')
+    }
   }
 })
 
@@ -853,6 +887,30 @@ ipcMain.handle('system:getVersion', async () => {
 
 ipcMain.handle('system:getPath', async (_, name) => {
   return app.getPath(name)
+})
+
+// Authentication IPC Handlers
+ipcMain.handle('auth:clearSession', async () => {
+  try {
+    console.log('🔐 Clearing authentication session via IPC')
+    if (mainWindow && mainWindow.webContents && !mainWindow.isDestroyed()) {
+      try {
+        // Only clear session storage, keep localStorage for theme and other preferences
+        await mainWindow.webContents.executeJavaScript(`
+          sessionStorage.removeItem('dental_clinic_auth');
+          console.log('🔐 Authentication session cleared via IPC');
+        `)
+        return { success: true }
+      } catch (jsError) {
+        console.log('Could not execute JavaScript (window destroyed):', jsError.message)
+        return { success: false, error: 'Window destroyed' }
+      }
+    }
+    return { success: false, error: 'Window not available' }
+  } catch (error) {
+    console.error('Error clearing session:', error)
+    return { success: false, error: error.message }
+  }
 })
 
 // Shell IPC Handlers (alternative method)

@@ -144,6 +144,11 @@ export interface ElectronAPI {
     generateOverviewReport: (filter: ReportFilter) => Promise<ReportData>
     exportReport: (type: string, filter: ReportFilter, options: ReportExportOptions) => Promise<string>
   }
+
+  // Authentication operations
+  auth: {
+    clearSession: () => Promise<{ success: boolean; error?: string }>
+  }
 }
 
 declare global {

@@ -157,6 +157,8 @@ class LowDBService {
       working_hours_start: '08:00',
       working_hours_end: '18:00',
       working_days: 'السبت,الأحد,الاثنين,الثلاثاء,الأربعاء',
+      app_password: null,
+      password_enabled: 0,
       created_at: now,
       updated_at: now
     }

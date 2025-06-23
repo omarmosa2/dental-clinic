@@ -160,6 +160,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openExternal: (url) => ipcRenderer.invoke('system:openExternal', url)
   },
 
+  // Authentication operations
+  auth: {
+    clearSession: () => ipcRenderer.invoke('auth:clearSession')
+  },
+
   // Shell operations (direct access)
   shell: {
     openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
