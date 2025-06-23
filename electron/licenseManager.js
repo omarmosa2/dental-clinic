@@ -4,25 +4,8 @@ const { app } = require('electron')
 const fs = require('fs')
 const path = require('path')
 
-// تحميل مفاتيح الترخيص من ملف الإنتاج
-let productionLicenses = null
-try {
-  const licensePath = path.join(__dirname, '..', 'production-licenses.json')
-  if (fs.existsSync(licensePath)) {
-    const licenseData = JSON.parse(fs.readFileSync(licensePath, 'utf8'))
-    productionLicenses = licenseData.licenses
-    console.log(`✅ Loaded ${productionLicenses.length} production license keys`)
-  } else {
-    console.log('⚠️ Production licenses file not found, using predefined licenses')
-    const { isPredefinedLicense, getLicenseInfo } = require('./predefinedLicenses')
-    productionLicenses = { isPredefinedLicense, getLicenseInfo }
-  }
-} catch (error) {
-  console.error('❌ Error loading production licenses:', error)
-  console.log('⚠️ Falling back to predefined licenses')
-  const { isPredefinedLicense, getLicenseInfo } = require('./predefinedLicenses')
-  productionLicenses = { isPredefinedLicense, getLicenseInfo }
-}
+// استيراد validator مفاتيح الإنتاج
+const { isValidLicense, getLicenseInfo: getProductionLicenseInfo } = require('./productionLicenseValidator')
 
 // License configuration
 const LICENSE_FORMAT_REGEX = /^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$/
@@ -176,61 +159,14 @@ class LicenseManager {
    * Check if license key exists in production licenses
    */
   isValidProductionLicense(licenseKey) {
-    if (!licenseKey || typeof licenseKey !== 'string') {
-      return false
-    }
-
-    const normalizedKey = licenseKey.trim().toUpperCase()
-
-    // إذا كان لدينا مفاتيح الإنتاج
-    if (Array.isArray(productionLicenses)) {
-      return productionLicenses.some(license => license.key === normalizedKey)
-    }
-
-    // إذا كنا نستخدم النظام القديم
-    if (productionLicenses && productionLicenses.isPredefinedLicense) {
-      return productionLicenses.isPredefinedLicense(normalizedKey)
-    }
-
-    return false
+    return isValidLicense(licenseKey)
   }
 
   /**
    * Get production license information
    */
   getProductionLicenseInfo(licenseKey) {
-    if (!licenseKey || typeof licenseKey !== 'string') {
-      return null
-    }
-
-    const normalizedKey = licenseKey.trim().toUpperCase()
-
-    // إذا كان لدينا مفاتيح الإنتاج
-    if (Array.isArray(productionLicenses)) {
-      const license = productionLicenses.find(l => l.key === normalizedKey)
-      if (license) {
-        return {
-          key: license.key,
-          id: license.id,
-          hash: license.hash,
-          metadata: license.metadata,
-          isProduction: true
-        }
-      }
-    }
-
-    // إذا كنا نستخدم النظام القديم
-    if (productionLicenses && productionLicenses.getLicenseInfo) {
-      const info = productionLicenses.getLicenseInfo(normalizedKey)
-      if (info) {
-        return {
-          ...info,
-          isProduction: false
-        }
-      }
-    }
-
-    return null
+    return getProductionLicenseInfo(licenseKey)
   }
 
   /**
