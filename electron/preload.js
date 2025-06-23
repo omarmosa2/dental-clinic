@@ -166,6 +166,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearSession: () => ipcRenderer.invoke('auth:clearSession')
   },
 
+  // License operations
+  license: {
+    checkStatus: () => ipcRenderer.invoke('license:checkStatus'),
+    activate: (licenseKey) => ipcRenderer.invoke('license:activate', licenseKey),
+    getMachineInfo: () => ipcRenderer.invoke('license:getMachineInfo'),
+    getLicenseInfo: () => ipcRenderer.invoke('license:getLicenseInfo'),
+    clearData: () => ipcRenderer.invoke('license:clearData'),
+    getStorageInfo: () => ipcRenderer.invoke('license:getStorageInfo'),
+
+    // Predefined licenses operations
+    getPredefinedLicenses: (category) => ipcRenderer.invoke('license:getPredefinedLicenses', category),
+    searchPredefinedLicenses: (searchTerm) => ipcRenderer.invoke('license:searchPredefinedLicenses', searchTerm),
+    getRandomPredefinedLicense: (category) => ipcRenderer.invoke('license:getRandomPredefinedLicense', category),
+    validatePredefinedLicense: (licenseKey) => ipcRenderer.invoke('license:validatePredefinedLicense', licenseKey)
+  },
+
   // Shell operations (direct access)
   shell: {
     openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)

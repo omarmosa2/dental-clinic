@@ -5,7 +5,9 @@ import { useSettingsStore } from './store/settingsStore'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import { useRealTimeSync } from './hooks/useRealTimeSync'
 import { useAuth } from './hooks/useAuth'
+import { useLicense } from './hooks/useLicense'
 import LoginScreen from './components/auth/LoginScreen'
+import LicenseEntryScreen from './components/auth/LicenseEntryScreen'
 import AddPatientDialog from './components/patients/AddPatientDialog'
 import ConfirmDeleteDialog from './components/ConfirmDeleteDialog'
 import AppointmentCard from './components/AppointmentCard'
@@ -54,6 +56,14 @@ function AppContent() {
   const { isDarkMode } = useTheme()
   const { toast } = useToast()
   const { isAuthenticated, isLoading: authLoading, passwordEnabled, login } = useAuth()
+  const {
+    isLicenseValid,
+    isFirstRun,
+    isLoading: licenseLoading,
+    error: licenseError,
+    machineInfo,
+    activateLicense
+  } = useLicense()
 
   // Enable real-time synchronization for the entire application
   useRealTimeSync()
@@ -100,20 +110,24 @@ function AppContent() {
   } = useSettingsStore()
 
   useEffect(() => {
-    // Initialize app only if authenticated
+    // Initialize app only if both license is valid AND authenticated
     const initializeApp = async () => {
-      if (isAuthenticated) {
+      if (isLicenseValid && isAuthenticated) {
+        console.log('🚀 Initializing app with valid license and authentication')
+
         // Load settings automatically when app starts
         await loadSettings()
 
         // Load app data
         loadPatients()
         loadAppointments()
+      } else {
+        console.log('⏳ Waiting for license validation and authentication before initializing app')
       }
     }
 
     initializeApp()
-  }, [isAuthenticated, loadPatients, loadAppointments, loadSettings])
+  }, [isLicenseValid, isAuthenticated, loadPatients, loadAppointments, loadSettings])
 
   const handleLogin = async (password: string): Promise<boolean> => {
     setLoginLoading(true)
@@ -125,19 +139,69 @@ function AppContent() {
     }
   }
 
-  // Show loading screen while checking auth status
-  if (authLoading) {
+  const handleLicenseActivation = async (licenseKey: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🔐 Handling license activation...')
+      const result = await activateLicense(licenseKey)
+
+      if (result.success) {
+        toast({
+          title: 'نجح التفعيل',
+          description: 'تم تفعيل الترخيص بنجاح',
+          variant: 'default',
+        })
+      } else {
+        toast({
+          title: 'فشل التفعيل',
+          description: result.error || 'فشل في تفعيل الترخيص',
+          variant: 'destructive',
+        })
+      }
+
+      return result
+    } catch (error) {
+      console.error('❌ License activation error:', error)
+      const errorMessage = 'حدث خطأ أثناء تفعيل الترخيص'
+      toast({
+        title: 'خطأ',
+        description: errorMessage,
+        variant: 'destructive',
+      })
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  }
+
+  // Show loading screen while checking license or auth status
+  if (licenseLoading || authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">جاري التحميل...</p>
+          <p className="text-muted-foreground">
+            {licenseLoading ? 'جاري التحقق من الترخيص...' : 'جاري التحميل...'}
+          </p>
         </div>
       </div>
     )
   }
 
+  // CRITICAL: Show license entry screen if license is invalid or first run
+  // This must come BEFORE authentication check to ensure license is validated first
+  if (!isLicenseValid || isFirstRun) {
+    return (
+      <LicenseEntryScreen
+        onActivate={handleLicenseActivation}
+        isLoading={licenseLoading}
+        machineInfo={machineInfo || undefined}
+      />
+    )
+  }
+
   // Show login screen if password is enabled and user is not authenticated
+  // This only shows AFTER license is validated
   if (passwordEnabled && !isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} isLoading={loginLoading} />
   }

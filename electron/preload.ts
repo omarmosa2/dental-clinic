@@ -127,6 +127,73 @@ export interface ElectronAPI {
   files: {
     uploadDentalImage: (fileBuffer: ArrayBuffer, fileName: string, patientId: string, toothNumber: number) => Promise<string>
   }
+
+  // License operations
+  license: {
+    checkStatus: () => Promise<{
+      isValid: boolean
+      error?: string
+      isFirstRun: boolean
+      licenseData?: any
+    }>
+    activate: (licenseKey: string) => Promise<{
+      success: boolean
+      error?: string
+      licenseData?: any
+    }>
+    getMachineInfo: () => Promise<{
+      hwid: string
+      platform: string
+      arch: string
+      error?: string
+    }>
+    getLicenseInfo: () => Promise<{
+      license?: string
+      hwid: string
+      activated: boolean
+      timestamp?: number
+      error?: string
+    } | null>
+    clearData: () => Promise<{
+      success: boolean
+      error?: string
+    }>
+    getStorageInfo: () => Promise<{
+      usingElectronStore: boolean
+      storageType: string
+      storePath: string
+      error?: string
+    }>
+  }
+
+  // Authentication operations
+  auth: {
+    clearSession: () => Promise<{ success: boolean; error?: string }>
+  }
+
+  // System operations
+  system: {
+    getVersion: () => Promise<string>
+    getPath: (name: string) => Promise<string>
+    openExternal: (url: string) => Promise<void>
+  }
+
+  // Export operations
+  export: {
+    pdf: (data: any, type: string) => Promise<any>
+    excel: (data: any, type: string) => Promise<any>
+  }
+
+  // Reports operations
+  reports: {
+    generatePatientReport: (filter: any) => Promise<any>
+    generateAppointmentReport: (filter: any) => Promise<any>
+    generateFinancialReport: (filter: any) => Promise<any>
+    generateInventoryReport: (filter: any) => Promise<any>
+    generateAnalyticsReport: (filter: any) => Promise<any>
+    generateOverviewReport: (filter: any) => Promise<any>
+    exportReport: (type: string, filter: any, options: any) => Promise<any>
+  }
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -247,6 +314,40 @@ const electronAPI: ElectronAPI = {
     getDentalImage: (imagePath) => ipcRenderer.invoke('files:getDentalImage', imagePath),
     checkImageExists: (imagePath) => ipcRenderer.invoke('files:checkImageExists', imagePath)
   },
+
+  license: {
+    checkStatus: () => ipcRenderer.invoke('license:checkStatus'),
+    activate: (licenseKey) => ipcRenderer.invoke('license:activate', licenseKey),
+    getMachineInfo: () => ipcRenderer.invoke('license:getMachineInfo'),
+    getLicenseInfo: () => ipcRenderer.invoke('license:getLicenseInfo'),
+    clearData: () => ipcRenderer.invoke('license:clearData'),
+    getStorageInfo: () => ipcRenderer.invoke('license:getStorageInfo')
+  },
+
+  auth: {
+    clearSession: () => ipcRenderer.invoke('auth:clearSession')
+  },
+
+  system: {
+    getVersion: () => ipcRenderer.invoke('system:getVersion'),
+    getPath: (name) => ipcRenderer.invoke('system:getPath', name),
+    openExternal: (url) => ipcRenderer.invoke('system:openExternal', url)
+  },
+
+  export: {
+    pdf: (data, type) => ipcRenderer.invoke('export:pdf', data, type),
+    excel: (data, type) => ipcRenderer.invoke('export:excel', data, type)
+  },
+
+  reports: {
+    generatePatientReport: (filter) => ipcRenderer.invoke('reports:generatePatientReport', filter),
+    generateAppointmentReport: (filter) => ipcRenderer.invoke('reports:generateAppointmentReport', filter),
+    generateFinancialReport: (filter) => ipcRenderer.invoke('reports:generateFinancialReport', filter),
+    generateInventoryReport: (filter) => ipcRenderer.invoke('reports:generateInventoryReport', filter),
+    generateAnalyticsReport: (filter) => ipcRenderer.invoke('reports:generateAnalyticsReport', filter),
+    generateOverviewReport: (filter) => ipcRenderer.invoke('reports:generateOverviewReport', filter),
+    exportReport: (type, filter, options) => ipcRenderer.invoke('reports:exportReport', type, filter, options)
+  }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

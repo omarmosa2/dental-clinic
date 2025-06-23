@@ -1,6 +1,20 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
 const { join } = require('path')
 
+// Import license manager and predefined licenses
+let licenseManager = null
+let predefinedLicenses = null
+try {
+  const { licenseManager: lm } = require('./licenseManager.js')
+  licenseManager = lm
+
+  predefinedLicenses = require('./predefinedLicenses.js')
+  console.log('✅ License manager loaded successfully')
+  console.log('✅ Predefined licenses loaded successfully')
+} catch (error) {
+  console.error('❌ Failed to load license manager:', error)
+}
+
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
 let mainWindow = null
@@ -938,6 +952,264 @@ ipcMain.handle('shell:openExternal', async (_, url) => {
   } catch (error) {
     console.error('Error opening external URL via shell:', error)
     return { success: false, error: error.message }
+  }
+})
+
+// License IPC Handlers
+ipcMain.handle('license:checkStatus', async () => {
+  try {
+    if (!licenseManager) {
+      return {
+        isValid: false,
+        error: 'License manager not available',
+        isFirstRun: true
+      }
+    }
+
+    console.log('🔐 Checking license status...')
+    const validation = await licenseManager.validateStoredLicense()
+    const isFirstRun = licenseManager.isFirstRun()
+
+    console.log('🔐 License validation result:', validation.isValid)
+    console.log('🔐 Is first run:', isFirstRun)
+
+    return {
+      isValid: validation.isValid,
+      error: validation.error,
+      isFirstRun: isFirstRun,
+      licenseData: validation.licenseData
+    }
+  } catch (error) {
+    console.error('❌ Error checking license status:', error)
+    return {
+      isValid: false,
+      error: 'License status check failed',
+      isFirstRun: true
+    }
+  }
+})
+
+ipcMain.handle('license:activate', async (_, licenseKey) => {
+  try {
+    if (!licenseManager) {
+      return {
+        success: false,
+        error: 'License manager not available'
+      }
+    }
+
+    console.log('🔐 Attempting to activate license...')
+    const result = await licenseManager.activateLicense(licenseKey)
+
+    if (result.isValid) {
+      console.log('✅ License activated successfully')
+      return {
+        success: true,
+        licenseData: result.licenseData
+      }
+    } else {
+      console.log('❌ License activation failed:', result.error)
+      return {
+        success: false,
+        error: result.error
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error activating license:', error)
+    return {
+      success: false,
+      error: 'License activation failed'
+    }
+  }
+})
+
+ipcMain.handle('license:getMachineInfo', async () => {
+  try {
+    if (!licenseManager) {
+      return {
+        hwid: 'unavailable',
+        error: 'License manager not available'
+      }
+    }
+
+    const hwid = licenseManager.getCurrentHWID()
+    console.log('🔐 Machine HWID requested:', hwid.substring(0, 8) + '...')
+
+    return {
+      hwid: hwid,
+      platform: process.platform,
+      arch: process.arch
+    }
+  } catch (error) {
+    console.error('❌ Error getting machine info:', error)
+    return {
+      hwid: 'error',
+      error: 'Failed to get machine info'
+    }
+  }
+})
+
+ipcMain.handle('license:getLicenseInfo', async () => {
+  try {
+    if (!licenseManager) {
+      return {
+        activated: false,
+        error: 'License manager not available'
+      }
+    }
+
+    const info = await licenseManager.getLicenseInfo()
+    console.log('🔐 License info requested')
+
+    return info
+  } catch (error) {
+    console.error('❌ Error getting license info:', error)
+    return {
+      activated: false,
+      error: 'Failed to get license info'
+    }
+  }
+})
+
+ipcMain.handle('license:clearData', async () => {
+  try {
+    if (!licenseManager) {
+      return {
+        success: false,
+        error: 'License manager not available'
+      }
+    }
+
+    // Only allow clearing in development mode for security
+    if (!isDev) {
+      return {
+        success: false,
+        error: 'License clearing only allowed in development mode'
+      }
+    }
+
+    await licenseManager.clearLicenseData()
+    console.log('🔐 License data cleared (development mode)')
+
+    return { success: true }
+  } catch (error) {
+    console.error('❌ Error clearing license data:', error)
+    return {
+      success: false,
+      error: 'Failed to clear license data'
+    }
+  }
+})
+
+ipcMain.handle('license:getStorageInfo', async () => {
+  try {
+    if (!licenseManager) {
+      return {
+        error: 'License manager not available'
+      }
+    }
+
+    const info = licenseManager.getStorageInfo()
+    console.log('🔐 Storage info requested:', info)
+
+    return info
+  } catch (error) {
+    console.error('❌ Error getting storage info:', error)
+    return {
+      error: 'Failed to get storage info'
+    }
+  }
+})
+
+// Predefined Licenses IPC Handlers
+ipcMain.handle('license:getPredefinedLicenses', async (_, category = null) => {
+  try {
+    if (!predefinedLicenses) {
+      return {
+        error: 'Predefined licenses not available'
+      }
+    }
+
+    if (category) {
+      const licenses = predefinedLicenses.getLicensesByCategory(category)
+      console.log(`🔐 Predefined licenses requested for category: ${category}`)
+      return { licenses, category }
+    } else {
+      const stats = predefinedLicenses.getLicenseStatistics()
+      console.log('🔐 All predefined license statistics requested')
+      return { statistics: stats }
+    }
+  } catch (error) {
+    console.error('❌ Error getting predefined licenses:', error)
+    return {
+      error: 'Failed to get predefined licenses'
+    }
+  }
+})
+
+ipcMain.handle('license:searchPredefinedLicenses', async (_, searchTerm) => {
+  try {
+    if (!predefinedLicenses) {
+      return {
+        error: 'Predefined licenses not available'
+      }
+    }
+
+    const results = predefinedLicenses.searchLicenses(searchTerm)
+    console.log(`🔐 License search performed: "${searchTerm}" - ${results.length} results`)
+
+    return { results, searchTerm }
+  } catch (error) {
+    console.error('❌ Error searching predefined licenses:', error)
+    return {
+      error: 'Failed to search predefined licenses'
+    }
+  }
+})
+
+ipcMain.handle('license:getRandomPredefinedLicense', async (_, category = null) => {
+  try {
+    if (!predefinedLicenses) {
+      return {
+        error: 'Predefined licenses not available'
+      }
+    }
+
+    const randomLicense = predefinedLicenses.getRandomPredefinedLicense(category)
+    console.log(`🔐 Random license requested for category: ${category || 'all'}`)
+
+    return { license: randomLicense }
+  } catch (error) {
+    console.error('❌ Error getting random predefined license:', error)
+    return {
+      error: 'Failed to get random predefined license'
+    }
+  }
+})
+
+ipcMain.handle('license:validatePredefinedLicense', async (_, licenseKey) => {
+  try {
+    if (!predefinedLicenses) {
+      return {
+        error: 'Predefined licenses not available'
+      }
+    }
+
+    const isValid = predefinedLicenses.isPredefinedLicense(licenseKey)
+    const info = isValid ? predefinedLicenses.getLicenseInfo(licenseKey) : null
+
+    console.log(`🔐 License validation requested: ${licenseKey} - Valid: ${isValid}`)
+
+    return {
+      isValid,
+      licenseInfo: info,
+      licenseKey: licenseKey
+    }
+  } catch (error) {
+    console.error('❌ Error validating predefined license:', error)
+    return {
+      error: 'Failed to validate predefined license'
+    }
   }
 })
 
