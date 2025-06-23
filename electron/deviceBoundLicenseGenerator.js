@@ -17,17 +17,22 @@ class DeviceBoundLicenseGenerator {
   }
 
   /**
-   * الحصول على معرف الجهاز الحالي
+   * الحصول على معرف الجهاز الحالي (متوافق مع licenseManager)
    */
   getCurrentDeviceId() {
     try {
+      // استخدام نفس الطريقة المستخدمة في licenseManager
       const machineId = machineIdSync()
-      // إنشاء hash ثابت من معرف الجهاز
-      return crypto.createHash('sha256').update(machineId).digest('hex').substring(0, 32)
+      const hash = crypto.createHash('sha256')
+      hash.update(machineId + 'dental-clinic-license-salt-2025') // نفس APP_SALT
+      return hash.digest('hex').substring(0, 32)
     } catch (error) {
       console.error('Error getting device ID:', error)
-      // fallback إذا فشل في الحصول على معرف الجهاز
-      return crypto.createHash('sha256').update('fallback-device-id').digest('hex').substring(0, 32)
+      // fallback متوافق مع licenseManager
+      const fallbackData = `${process.platform}-${process.arch}-${Date.now()}`
+      const hash = crypto.createHash('sha256')
+      hash.update(fallbackData + 'dental-clinic-license-salt-2025')
+      return hash.digest('hex').substring(0, 32)
     }
   }
 
@@ -142,8 +147,11 @@ class DeviceBoundLicenseGenerator {
       // تجربة أنواع تراخيص مختلفة
       const licenseTypes = ['STANDARD', 'PROFESSIONAL', 'ENTERPRISE', 'PREMIUM', 'ULTIMATE', 'TEST']
 
+      console.log(`🔍 Testing key ${licenseKey} against device ${deviceId.substring(0, 8)}...`)
+
       for (const licenseType of licenseTypes) {
         const expectedKey = this.generateAlgorithmicKey(deviceId, { licenseType })
+        console.log(`   Testing ${licenseType}: expected ${expectedKey}`)
         if (expectedKey === licenseKey) {
           console.log(`✅ Key matches for license type: ${licenseType}`)
           return true
