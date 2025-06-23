@@ -6,7 +6,6 @@ import {
   Settings,
   Users,
   Stethoscope,
-  ChevronUp,
   User2,
   Package,
   BarChart3,
@@ -27,12 +26,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+
 import { useSettingsStore } from "@/store/settingsStore"
 
 // Navigation items data
@@ -104,8 +98,27 @@ export function AppSidebar({ activeTab, onTabChange, ...props }: AppSidebarProps
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/30 transition-colors duration-200">
-                <div className="flex aspect-square size-12 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-lg">
-                  <Stethoscope className="size-6" />
+                <div className="flex aspect-square size-12 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-lg overflow-hidden">
+                  {settings?.clinic_logo && settings.clinic_logo.trim() !== '' ? (
+                    <img
+                      src={settings.clinic_logo}
+                      alt="شعار العيادة"
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={(e) => {
+                        console.error('Sidebar header logo failed to load:', settings.clinic_logo)
+                        // Fallback to default icon
+                        e.currentTarget.style.display = 'none'
+                        const parent = e.currentTarget.parentElement
+                        if (parent) {
+                          const fallbackIcon = document.createElement('div')
+                          fallbackIcon.innerHTML = '<svg class="size-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+                          parent.appendChild(fallbackIcon)
+                        }
+                      }}
+                    />
+                  ) : (
+                    <Stethoscope className="size-6" />
+                  )}
                 </div>
                 <div className="grid flex-1 text-right leading-tight">
                   <span className="truncate font-bold text-xl text-foreground">
@@ -148,39 +161,36 @@ export function AppSidebar({ activeTab, onTabChange, ...props }: AppSidebarProps
       <SidebarFooter className="border-t border-border/40 bg-gradient-to-r from-background to-accent/10">
         <SidebarMenu>
           <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-accent/50 transition-colors duration-200 py-2 px-3"
-                >
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-600 text-white">
-                    <User2 className="size-4" />
-                  </div>
-                  <div className="grid flex-1 text-right leading-tight">
-                    <span className="truncate font-semibold text-sm">د. {settings?.doctor_name || 'طبيب الأسنان'}</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {settings?.clinic_name || 'العيادة السنية'}
-                    </span>
-                  </div>
-                  <ChevronUp className="ml-auto size-4 text-muted-foreground" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                side="bottom"
-                align="start"
-                sideOffset={4}
-              >
-                <DropdownMenuItem
-                  onClick={() => onTabChange('settings')}
-                  className="cursor-pointer hover:bg-accent/50 transition-colors duration-200 flex items-center gap-2 py-2 px-3"
-                >
-                  <Settings className="size-4 text-sky-600 dark:text-sky-400" />
-                  <span className="font-semibold text-sm">الإعدادات</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-3 p-2 rounded-lg">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-600 text-white overflow-hidden">
+                {settings?.clinic_logo && settings.clinic_logo.trim() !== '' ? (
+                  <img
+                    src={settings.clinic_logo}
+                    alt="شعار العيادة"
+                    className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      console.error('Sidebar footer logo failed to load:', settings.clinic_logo)
+                      // Fallback to default icon
+                      e.currentTarget.style.display = 'none'
+                      const parent = e.currentTarget.parentElement
+                      if (parent) {
+                        const fallbackIcon = document.createElement('div')
+                        fallbackIcon.innerHTML = '<svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>'
+                        parent.appendChild(fallbackIcon)
+                      }
+                    }}
+                  />
+                ) : (
+                  <User2 className="size-4" />
+                )}
+              </div>
+              <div className="grid flex-1 text-right leading-tight">
+                <span className="truncate font-semibold text-sm">د. {settings?.doctor_name || 'طبيب الأسنان'}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {settings?.clinic_name || 'العيادة السنية'}
+                </span>
+              </div>
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
