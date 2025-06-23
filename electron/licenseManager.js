@@ -4,8 +4,9 @@ const { app } = require('electron')
 const fs = require('fs')
 const path = require('path')
 
-// استيراد validator مفاتيح الإنتاج
+// استيراد validator مفاتيح الإنتاج ونظام التتبع
 const { isValidLicense, getLicenseInfo: getProductionLicenseInfo } = require('./productionLicenseValidator')
+const { isLicenseAvailable, markLicenseAsUsed, updateLastValidation } = require('./usedLicensesTracker')
 
 // License configuration
 const LICENSE_FORMAT_REGEX = /^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$/
@@ -292,6 +293,9 @@ class LicenseManager {
       // Update last validation timestamp
       licenseStore.set('lastValidation', Date.now())
 
+      // تحديث آخر تحقق في نظام التتبع
+      updateLastValidation(licenseData.license, this.currentHWID)
+
       return {
         isValid: true,
         licenseData: licenseData
@@ -329,6 +333,15 @@ class LicenseManager {
         }
       }
 
+      // التحقق من أن المفتاح غير مُستخدم على جهاز آخر
+      if (!isLicenseAvailable(normalizedKey, this.currentHWID)) {
+        console.log(`❌ License key already used on different device: ${normalizedKey}`)
+        return {
+          isValid: false,
+          error: 'مفتاح الترخيص مُستخدم بالفعل على جهاز آخر. كل مفتاح يعمل على جهاز واحد فقط.'
+        }
+      }
+
       // الحصول على معلومات المفتاح
       const licenseInfo = this.getProductionLicenseInfo(normalizedKey)
       console.log(`✅ Valid production license found:`, licenseInfo)
@@ -352,6 +365,19 @@ class LicenseManager {
 
         const categoryName = licenseInfo.categoryInfo ? licenseInfo.categoryInfo.name : 'Production License'
         console.log(`🎉 License activated successfully: ${normalizedKey} (${categoryName})`)
+
+        // تسجيل المفتاح كمُستخدم
+        const marked = markLicenseAsUsed(normalizedKey, this.currentHWID, {
+          licenseId: licenseInfo.id,
+          category: licenseInfo.category,
+          activatedBy: 'user'
+        })
+
+        if (marked) {
+          console.log(`📝 License marked as used in tracker: ${normalizedKey}`)
+        } else {
+          console.warn(`⚠️ Failed to mark license as used in tracker: ${normalizedKey}`)
+        }
 
         return {
           isValid: true,
