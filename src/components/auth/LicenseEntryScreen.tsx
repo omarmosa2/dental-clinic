@@ -12,10 +12,10 @@ interface LicenseEntryScreenProps {
   }
 }
 
-export default function LicenseEntryScreen({ 
-  onActivate, 
+export default function LicenseEntryScreen({
+  onActivate,
   isLoading = false,
-  machineInfo 
+  machineInfo
 }: LicenseEntryScreenProps) {
   const { isDarkMode, toggleDarkMode } = useTheme()
   const themeClasses = useThemeClasses()
@@ -29,13 +29,13 @@ export default function LicenseEntryScreen({
   const formatLicenseKey = (value: string) => {
     // Remove all non-alphanumeric characters
     const cleaned = value.replace(/[^A-Z0-9]/gi, '').toUpperCase()
-    
+
     // Split into groups of 5 characters
     const groups = []
     for (let i = 0; i < cleaned.length; i += 5) {
       groups.push(cleaned.slice(i, i + 5))
     }
-    
+
     // Join with hyphens, limit to 4 groups (20 characters total)
     return groups.slice(0, 4).join('-')
   }
@@ -69,7 +69,7 @@ export default function LicenseEntryScreen({
 
     try {
       const result = await onActivate(licenseKey)
-      
+
       if (!result.success) {
         setError(result.error || 'فشل في تفعيل الترخيص')
       }
@@ -174,6 +174,42 @@ export default function LicenseEntryScreen({
                   أدخل مفتاح الترخيص المكون من 20 حرف وأرقام مقسمة إلى 4 مجموعات
                 </p>
               </div>
+
+              {/* Device ID Display */}
+              {machineInfo && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className={`text-sm font-medium ${themeClasses.textSecondary} arabic-enhanced`}>
+                      معرف الجهاز (أرسله للمطور)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (machineInfo.hwid) {
+                          navigator.clipboard.writeText(machineInfo.hwid)
+                          // يمكن إضافة toast notification هنا
+                        }
+                      }}
+                      className={`text-xs px-3 py-1 rounded-md ${themeClasses.button} hover:opacity-80 transition-opacity`}
+                      title="انقر للنسخ"
+                    >
+                      📋 نسخ
+                    </button>
+                  </div>
+                  <div className={`p-4 ${themeClasses.cardSecondary} rounded-lg border border-border/50 bg-muted/30`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Info className="w-4 h-4 text-primary flex-shrink-0" />
+                      <span className="text-sm font-medium text-primary arabic-enhanced">معرف جهازك الفريد</span>
+                    </div>
+                    <code className="text-sm font-mono text-foreground break-all bg-background/50 p-2 rounded block">
+                      {machineInfo.hwid}
+                    </code>
+                    <p className="text-xs text-muted-foreground mt-3 arabic-enhanced leading-relaxed">
+                      💡 أرسل هذا المعرف للمطور عبر الواتساب أو الإيميل للحصول على مفتاح ترخيص مخصص لجهازك فقط
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Error Message */}
               {error && (

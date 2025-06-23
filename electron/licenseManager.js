@@ -4,9 +4,10 @@ const { app } = require('electron')
 const fs = require('fs')
 const path = require('path')
 
-// استيراد validator مفاتيح الإنتاج ونظام التتبع
+// استيراد validator مفاتيح الإنتاج ونظام التتبع ونظام الربط بالجهاز
 const { isValidLicense, getLicenseInfo: getProductionLicenseInfo } = require('./productionLicenseValidator')
 const { isLicenseAvailable, markLicenseAsUsed, updateLastValidation } = require('./usedLicensesTracker')
+const { validateDeviceBoundLicense, getCurrentDeviceId } = require('./deviceBoundLicenseGenerator')
 
 // License configuration
 const LICENSE_FORMAT_REGEX = /^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$/
@@ -324,9 +325,52 @@ class LicenseManager {
 
       const normalizedKey = licenseKey.trim().toUpperCase()
 
+      // أولاً: محاولة التحقق كمفتاح مرتبط بالجهاز (النظام الجديد)
+      console.log('🔍 Attempting device-bound license validation...')
+      const deviceBoundValidation = validateDeviceBoundLicense(normalizedKey)
+
+      if (deviceBoundValidation.isValid) {
+        console.log('✅ Device-bound license validation successful')
+
+        // Store the license with current hardware ID
+        const success = await this.storeLicense(normalizedKey, this.currentHWID)
+
+        if (success) {
+          const licenseData = {
+            license: normalizedKey,
+            hwid: this.currentHWID,
+            timestamp: Date.now(),
+            activated: true,
+            licenseType: 'DEVICE_BOUND',
+            deviceBound: true,
+            metadata: deviceBoundValidation.licenseData.metadata,
+            category: 'DEVICE_BOUND',
+            categoryInfo: {
+              name: 'Device-Bound License',
+              description: 'Secure device-bound license with maximum protection'
+            }
+          }
+
+          console.log(`🎉 Device-bound license activated successfully: ${normalizedKey}`)
+
+          return {
+            isValid: true,
+            licenseData: licenseData
+          }
+        } else {
+          return {
+            isValid: false,
+            error: 'فشل في حفظ بيانات الترخيص'
+          }
+        }
+      }
+
+      // ثانياً: التحقق من النظام القديم (مفاتيح الإنتاج)
+      console.log('🔍 Attempting production license validation...')
+
       // التحقق من أن المفتاح موجود في مفاتيح الإنتاج
       if (!this.isValidProductionLicense(normalizedKey)) {
-        console.log(`❌ License key not in production list: ${normalizedKey}`)
+        console.log(`❌ License key not valid in any system: ${normalizedKey}`)
         return {
           isValid: false,
           error: 'مفتاح الترخيص غير صالح أو غير مُعتمد. يرجى التأكد من صحة المفتاح.'
