@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { usePatientStore } from '@/store/patientStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
 import { usePaymentStore } from '@/store/paymentStore'
@@ -34,7 +36,9 @@ import {
   Calendar,
   User,
   RefreshCw,
-  Download
+  Download,
+  Filter,
+  X
 } from 'lucide-react'
 
 export default function Patients() {
@@ -66,6 +70,12 @@ export default function Patients() {
   const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [patientToDelete, setPatientToDelete] = useState<string | null>(null)
+
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false)
+  const [genderFilter, setGenderFilter] = useState('all')
+  const [ageRangeFilter, setAgeRangeFilter] = useState('all')
+  const [conditionFilter, setConditionFilter] = useState('all')
 
   // Load patients on component mount
   useEffect(() => {
@@ -122,6 +132,48 @@ export default function Patients() {
     }
   }
 
+  // Apply advanced filters to patients
+  const filteredPatientsWithAdvancedFilters = React.useMemo(() => {
+    let filtered = [...filteredPatients]
+
+    // Gender filter
+    if (genderFilter !== 'all') {
+      filtered = filtered.filter(patient => patient.gender === genderFilter)
+    }
+
+    // Age range filter
+    if (ageRangeFilter !== 'all') {
+      filtered = filtered.filter(patient => {
+        if (!patient.date_of_birth) return ageRangeFilter === 'unknown'
+
+        const age = calculateAge(patient.date_of_birth)
+        switch (ageRangeFilter) {
+          case 'child': return age < 18
+          case 'adult': return age >= 18 && age < 60
+          case 'senior': return age >= 60
+          case 'unknown': return false
+          default: return true
+        }
+      })
+    }
+
+    // Condition filter
+    if (conditionFilter !== 'all') {
+      filtered = filtered.filter(patient => patient.patient_condition === conditionFilter)
+    }
+
+    return filtered
+  }, [filteredPatients, genderFilter, ageRangeFilter, conditionFilter])
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery('')
+    setGenderFilter('all')
+    setAgeRangeFilter('all')
+    setConditionFilter('all')
+    setShowFilters(false)
+  }
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -148,14 +200,14 @@ export default function Patients() {
             variant="outline"
             onClick={() => {
               // Export patients data
-              if (filteredPatients.length === 0) {
+              if (filteredPatientsWithAdvancedFilters.length === 0) {
                 notify.noDataToExport('لا توجد بيانات مرضى للتصدير')
                 return
               }
 
               try {
                 // Match the table columns exactly
-                const csvData = filteredPatients.map(patient => ({
+                const csvData = filteredPatientsWithAdvancedFilters.map(patient => ({
                   'الاسم الكامل للمريض': patient.full_name || '',
                   'الجنس': patient.gender === 'male' ? 'ذكر' : 'أنثى',
                   'العمر': patient.age || '',
@@ -188,7 +240,7 @@ export default function Patients() {
                 link.click()
                 document.body.removeChild(link)
 
-                notify.exportSuccess(`تم تصدير ${filteredPatients.length} مريض بنجاح!`)
+                notify.exportSuccess(`تم تصدير ${filteredPatientsWithAdvancedFilters.length} مريض بنجاح!`)
               } catch (error) {
                 console.error('Error exporting patients:', error)
                 notify.exportError('فشل في تصدير بيانات المرضى')
@@ -208,19 +260,92 @@ export default function Patients() {
       {/* Search and Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="البحث بالاسم أو الهاتف أو البريد الإلكتروني..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pr-10"
-              />
+          <div className="space-y-4" dir="rtl">
+            <div className="flex items-center gap-4" dir="rtl">
+              <div className="relative flex-1">
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="البحث بالاسم أو الهاتف أو البريد الإلكتروني..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pr-10 text-right"
+                  dir="rtl"
+                />
+              </div>
+              <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Filter className="w-4 h-4 mr-2" />
+                    تصفية
+                    {(genderFilter !== 'all' || ageRangeFilter !== 'all' || conditionFilter !== 'all') && (
+                      <span className="mr-2 w-2 h-2 bg-primary rounded-full"></span>
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+              </Collapsible>
+              {(searchQuery || genderFilter !== 'all' || ageRangeFilter !== 'all' || conditionFilter !== 'all') && (
+                <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                  <X className="w-4 h-4 mr-2" />
+                  مسح الكل
+                </Button>
+              )}
             </div>
-            <Button variant="outline">
-              تصفية
-            </Button>
+
+            {/* Advanced Filters */}
+            <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+              <CollapsibleContent className="space-y-4" dir="rtl">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg" dir="rtl">
+                  {/* Gender Filter */}
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">الجنس</label>
+                    <Select value={genderFilter} onValueChange={setGenderFilter} dir="rtl">
+                      <SelectTrigger className="text-right">
+                        <SelectValue placeholder="جميع الأجناس" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">جميع الأجناس</SelectItem>
+                        <SelectItem value="male">ذكر</SelectItem>
+                        <SelectItem value="female">أنثى</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Age Range Filter */}
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">الفئة العمرية</label>
+                    <Select value={ageRangeFilter} onValueChange={setAgeRangeFilter} dir="rtl">
+                      <SelectTrigger className="text-right">
+                        <SelectValue placeholder="جميع الأعمار" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">جميع الأعمار</SelectItem>
+                        <SelectItem value="child">أطفال (أقل من 18)</SelectItem>
+                        <SelectItem value="adult">بالغين (18-59)</SelectItem>
+                        <SelectItem value="senior">كبار السن (60+)</SelectItem>
+                        <SelectItem value="unknown">غير محدد</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Condition Filter */}
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">حالة المريض</label>
+                    <Select value={conditionFilter} onValueChange={setConditionFilter} dir="rtl">
+                      <SelectTrigger className="text-right">
+                        <SelectValue placeholder="جميع الحالات" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">جميع الحالات</SelectItem>
+                        <SelectItem value="جديد">جديد</SelectItem>
+                        <SelectItem value="متابعة">متابعة</SelectItem>
+                        <SelectItem value="مكتمل">مكتمل</SelectItem>
+                        <SelectItem value="معلق">معلق</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </CardContent>
       </Card>
@@ -228,7 +353,7 @@ export default function Patients() {
       {/* Patient Table */}
       <div className="space-y-6">
         <PatientTable
-          patients={filteredPatients}
+          patients={filteredPatientsWithAdvancedFilters}
           isLoading={isLoading}
           onEdit={handleEditPatient}
           onDelete={handleDeletePatient}

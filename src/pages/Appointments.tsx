@@ -5,12 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useAppointmentStore } from '@/store/appointmentStore'
 import { usePatientStore } from '@/store/patientStore'
 import { useToast } from '@/hooks/use-toast'
 import { formatDate, formatDateTime, formatTime, getStatusColor } from '@/lib/utils'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
-import { Calendar, Plus, ChevronLeft, ChevronRight, Clock, User, RefreshCw, Download, Table } from 'lucide-react'
+import { Calendar, Plus, ChevronLeft, ChevronRight, Clock, User, RefreshCw, Download, Table, Search, Filter, X, CalendarDays } from 'lucide-react'
 import AppointmentTable from '@/components/appointments/AppointmentTable'
 import { notify } from '@/services/notificationService'
 import AddAppointmentDialog from '@/components/AddAppointmentDialog'
@@ -64,11 +67,70 @@ export default function Appointments() {
   const [showPatientDetails, setShowPatientDetails] = useState(false)
   const [selectedPatientForDetails, setSelectedPatientForDetails] = useState<any>(null)
 
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [patientFilter, setPatientFilter] = useState('all')
+  const [dateRangeFilter, setDateRangeFilter] = useState({ start: '', end: '' })
+
   // Load appointments and patients on component mount
   useEffect(() => {
     loadAppointments()
     loadPatients()
   }, [loadAppointments, loadPatients])
+
+  // Apply advanced filters to appointments
+  const filteredAppointments = React.useMemo(() => {
+    let filtered = [...appointments]
+
+    // Text search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(appointment => {
+        const patientName = appointment.patient?.full_name?.toLowerCase() || ''
+        const title = appointment.title?.toLowerCase() || ''
+        const description = appointment.description?.toLowerCase() || ''
+
+        return patientName.includes(query) ||
+               title.includes(query) ||
+               description.includes(query)
+      })
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(appointment => appointment.status === statusFilter)
+    }
+
+    // Patient filter
+    if (patientFilter !== 'all') {
+      filtered = filtered.filter(appointment => appointment.patient_id === patientFilter)
+    }
+
+    // Date range filter
+    if (dateRangeFilter.start && dateRangeFilter.end) {
+      const startDate = new Date(dateRangeFilter.start)
+      const endDate = new Date(dateRangeFilter.end)
+      endDate.setHours(23, 59, 59, 999) // Include the entire end date
+
+      filtered = filtered.filter(appointment => {
+        const appointmentDate = new Date(appointment.start_time)
+        return appointmentDate >= startDate && appointmentDate <= endDate
+      })
+    }
+
+    return filtered
+  }, [appointments, searchQuery, statusFilter, patientFilter, dateRangeFilter])
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery('')
+    setStatusFilter('all')
+    setPatientFilter('all')
+    setDateRangeFilter({ start: '', end: '' })
+    setShowFilters(false)
+  }
 
   // Handle delete confirmation
   const handleDeleteConfirm = async () => {
@@ -225,7 +287,7 @@ export default function Appointments() {
             variant="outline"
             onClick={() => {
               // Export appointments data
-              if (appointments.length === 0) {
+              if (filteredAppointments.length === 0) {
                 notify.noDataToExport('لا توجد بيانات مواعيد للتصدير')
                 return
               }
@@ -233,7 +295,7 @@ export default function Appointments() {
               try {
 
               // Match the table columns exactly
-              const csvData = appointments.map((appointment, index) => ({
+              const csvData = filteredAppointments.map((appointment, index) => ({
                 'الرقم التسلسلي': index + 1,
                 'اسم المريض': appointment.patient ? appointment.patient.full_name : 'غير محدد',
                 'تاريخ ووقت البداية': formatDateTime(appointment.start_time),
@@ -268,7 +330,7 @@ export default function Appointments() {
                 link.click()
                 document.body.removeChild(link)
 
-                notify.exportSuccess(`تم تصدير ${appointments.length} موعد بنجاح!`)
+                notify.exportSuccess(`تم تصدير ${filteredAppointments.length} موعد بنجاح!`)
               } catch (error) {
                 console.error('Error exporting appointments:', error)
                 notify.exportError('فشل في تصدير بيانات المواعيد')
@@ -287,6 +349,108 @@ export default function Appointments() {
           </Button>
         </div>
       </div>
+
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-4" dir="rtl">
+            <div className="flex items-center gap-4" dir="rtl">
+              <div className="relative flex-1">
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="البحث في المواعيد (اسم المريض، العنوان، الوصف)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pr-10 text-right"
+                  dir="rtl"
+                />
+              </div>
+              <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Filter className="w-4 h-4 mr-2" />
+                    تصفية
+                    {(statusFilter !== 'all' || patientFilter !== 'all' || dateRangeFilter.start || dateRangeFilter.end) && (
+                      <span className="mr-2 w-2 h-2 bg-primary rounded-full"></span>
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+              </Collapsible>
+              {(searchQuery || statusFilter !== 'all' || patientFilter !== 'all' || dateRangeFilter.start || dateRangeFilter.end) && (
+                <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                  <X className="w-4 h-4 mr-2" />
+                  مسح الكل
+                </Button>
+              )}
+            </div>
+
+            {/* Advanced Filters */}
+            <Collapsible open={showFilters} onOpenChange={setShowFilters}>
+              <CollapsibleContent className="space-y-4" dir="rtl">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg" dir="rtl">
+                  {/* Status Filter */}
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">حالة الموعد</label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter} dir="rtl">
+                      <SelectTrigger className="text-right">
+                        <SelectValue placeholder="جميع الحالات" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">جميع الحالات</SelectItem>
+                        <SelectItem value="scheduled">مجدول</SelectItem>
+                        <SelectItem value="completed">مكتمل</SelectItem>
+                        <SelectItem value="cancelled">ملغي</SelectItem>
+                        <SelectItem value="no_show">لم يحضر</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Patient Filter */}
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">المريض</label>
+                    <Select value={patientFilter} onValueChange={setPatientFilter} dir="rtl">
+                      <SelectTrigger className="text-right">
+                        <SelectValue placeholder="جميع المرضى" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">جميع المرضى</SelectItem>
+                        {patients.map((patient) => (
+                          <SelectItem key={patient.id} value={patient.id}>
+                            {patient.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Date Range Filter */}
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">من تاريخ</label>
+                    <Input
+                      type="date"
+                      value={dateRangeFilter.start}
+                      onChange={(e) => setDateRangeFilter(prev => ({ ...prev, start: e.target.value }))}
+                      className="text-right"
+                      dir="rtl"
+                    />
+                  </div>
+
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">إلى تاريخ</label>
+                    <Input
+                      type="date"
+                      value={dateRangeFilter.end}
+                      onChange={(e) => setDateRangeFilter(prev => ({ ...prev, end: e.target.value }))}
+                      className="text-right"
+                      dir="rtl"
+                    />
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="space-y-6">
         {/* Main Content Area */}
@@ -335,7 +499,7 @@ export default function Appointments() {
 
             <TabsContent value="table" className="mt-6">
               <AppointmentTable
-                appointments={appointments}
+                appointments={filteredAppointments}
                 patients={patients}
                 isLoading={isLoading}
                 onEdit={(appointment) => {
@@ -476,7 +640,7 @@ export default function Appointments() {
             </CardHeader>
             <CardContent dir="rtl">
               <div className="space-y-2 max-h-48 overflow-y-auto">
-                {appointments
+                {filteredAppointments
                   .filter(apt => {
                     const today = new Date().toDateString()
                     const aptDate = new Date(apt.start_time).toDateString()
