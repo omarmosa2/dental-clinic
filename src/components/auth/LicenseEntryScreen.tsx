@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Key, Shield, AlertCircle, CheckCircle, Moon, Sun, Loader2, Info } from 'lucide-react'
+import { Key, Shield, AlertCircle, CheckCircle, Moon, Sun, Loader2, Info, MessageCircle } from 'lucide-react'
 import { useTheme, useThemeClasses } from '../../contexts/ThemeContext'
 
 interface LicenseEntryScreenProps {
@@ -138,6 +138,72 @@ export default function LicenseEntryScreen({
           </p>
         </div>
 
+        {/* Contact Support Section */}
+        <div className="mb-6">
+          <div className={`${themeClasses.card} backdrop-blur-xl rounded-2xl p-6 border border-border/50 relative overflow-hidden`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-blue-500/5 rounded-2xl"></div>
+            <div className="relative z-10">
+              <div className="text-center mb-4">
+                <h3 className={`text-lg font-bold ${themeClasses.textPrimary} arabic-enhanced`}>
+                  تحتاج مساعدة في التفعيل؟
+                </h3>
+                <p className={`text-sm ${themeClasses.textSecondary} arabic-enhanced mt-1`}>
+                  تواصل مع فريق التطوير للحصول على مفتاح الترخيص أو المساعدة الفنية
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+                {/* WhatsApp Contact */}
+                <div className="flex items-center space-x-3 space-x-reverse">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                    <MessageCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="text-center sm:text-right">
+                    <p className={`text-sm font-medium ${themeClasses.textPrimary}`}>رقم الواتساب</p>
+                    <p className={`text-lg font-bold ${themeClasses.textPrimary} arabic-enhanced`}>00963959669628</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const whatsappUrl = `https://api.whatsapp.com/send/?phone=963959669628&text=مرحباً، أحتاج مساعدة في تفعيل ترخيص نظام إدارة العيادة السنية`;
+
+                    // Try multiple methods to open external URL
+                    try {
+                      // Method 1: Try electronAPI system.openExternal
+                      if (window.electronAPI && window.electronAPI.system && window.electronAPI.system.openExternal) {
+                        await window.electronAPI.system.openExternal(whatsappUrl);
+                        return;
+                      }
+                    } catch (error) {
+                      console.log('Method 1 failed:', error);
+                    }
+
+                    try {
+                      // Method 2: Try direct shell.openExternal via ipcRenderer
+                      if (window.electronAPI) {
+                        // @ts-ignore
+                        await window.electronAPI.shell?.openExternal?.(whatsappUrl);
+                        return;
+                      }
+                    } catch (error) {
+                      console.log('Method 2 failed:', error);
+                    }
+
+                    // Method 3: Fallback to window.open
+                    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl flex items-center space-x-2 space-x-reverse"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  <span className="arabic-enhanced">تواصل عبر الواتساب</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* License Entry Form */}
         <div className={`${themeClasses.card} backdrop-blur-xl rounded-3xl p-10 login-card-glow hover:scale-[1.02] transition-all duration-500 border border-border/50 relative overflow-hidden`}>
           {/* Card Background Gradient */}
@@ -250,6 +316,8 @@ export default function LicenseEntryScreen({
           </div>
         </div>
 
+
+
         {/* Machine Info Panel */}
         {showMachineInfo && machineInfo && (
           <div className={`mt-6 ${themeClasses.card} backdrop-blur-xl rounded-2xl p-6 border border-border/50 relative overflow-hidden`}>
@@ -279,8 +347,10 @@ export default function LicenseEntryScreen({
           </div>
         )}
 
+
+
         {/* Footer */}
-        <div className="text-center mt-12">
+        <div className="text-center mt-8">
           <div className={`inline-flex items-center space-x-3 space-x-reverse px-8 py-4 ${themeClasses.card} backdrop-blur-md rounded-full shadow-lg hover:shadow-xl transition-all duration-300 border border-border/30`}>
             <Shield className="w-5 h-5 text-primary" />
             <p className={`text-base ${themeClasses.textSecondary} font-semibold arabic-enhanced`}>

@@ -16,20 +16,37 @@ interface SecuritySettingsProps {
   showNotification: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
+// Hash function for password (same as useAuth)
+async function hashPassword(password: string): Promise<string> {
+  try {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(password + 'dental_clinic_salt_2024')
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  } catch (error) {
+    console.error('Error hashing password:', error)
+    throw error
+  }
+}
+
 export default function SecuritySettings({ showNotification }: SecuritySettingsProps) {
   const { passwordEnabled, setPassword, removePassword, changePassword } = useAuth()
 
   const [showSetPassword, setShowSetPassword] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
+  const [showRemovePassword, setShowRemovePassword] = useState(false)
 
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [oldPassword, setOldPassword] = useState('')
+  const [removePasswordInput, setRemovePasswordInput] = useState('')
   const [showPasswords, setShowPasswords] = useState({
     new: false,
     confirm: false,
-    old: false
+    old: false,
+    remove: false
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -119,6 +136,57 @@ export default function SecuritySettings({ showNotification }: SecuritySettingsP
     }
   }
 
+  const handleRemovePasswordWithVerification = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!removePasswordInput.trim()) {
+      showNotification('يرجى إدخال كلمة المرور الحالية', 'error')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      console.log('🔐 SecuritySettings: Verifying password for removal...')
+
+      // Get current settings to verify password
+      const currentSettings = await window.electronAPI.settings.get()
+
+      if (!currentSettings?.app_password) {
+        showNotification('لا توجد كلمة مرور مُعيّنة', 'error')
+        setIsLoading(false)
+        return
+      }
+
+      // Hash the input password using the same method as useAuth
+      const hashedInput = await hashPassword(removePasswordInput)
+
+      if (hashedInput !== currentSettings.app_password) {
+        showNotification('كلمة المرور غير صحيحة', 'error')
+        setIsLoading(false)
+        return
+      }
+
+      // If password is correct, proceed with removal
+      console.log('🔐 SecuritySettings: Password verified, removing...')
+      const success = await removePassword()
+      console.log('🔐 SecuritySettings: Password removal result:', success)
+
+      if (success) {
+        showNotification('تم إزالة كلمة المرور بنجاح', 'success')
+        setShowRemovePassword(false)
+        setRemovePasswordInput('')
+        setShowPasswords(prev => ({ ...prev, remove: false }))
+      } else {
+        showNotification('فشل في إزالة كلمة المرور', 'error')
+      }
+    } catch (error) {
+      console.error('❌ SecuritySettings: Error removing password:', error)
+      showNotification('حدث خطأ أثناء إزالة كلمة المرور', 'error')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleRemovePassword = async () => {
     setIsLoading(true)
     try {
@@ -140,7 +208,7 @@ export default function SecuritySettings({ showNotification }: SecuritySettingsP
     }
   }
 
-  const togglePasswordVisibility = (field: 'new' | 'confirm' | 'old') => {
+  const togglePasswordVisibility = (field: 'new' | 'confirm' | 'old' | 'remove') => {
     setShowPasswords(prev => ({
       ...prev,
       [field]: !prev[field]
@@ -208,7 +276,7 @@ export default function SecuritySettings({ showNotification }: SecuritySettingsP
                   <span>تغيير كلمة المرور</span>
                 </button>
                 <button
-                  onClick={() => setShowRemoveConfirm(true)}
+                  onClick={() => setShowRemovePassword(true)}
                   className="flex items-center space-x-2 space-x-reverse px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
                   <Unlock className="w-4 h-4" />
@@ -305,6 +373,39 @@ export default function SecuritySettings({ showNotification }: SecuritySettingsP
             show={showPasswords.confirm}
             onToggleShow={() => togglePasswordVisibility('confirm')}
             placeholder="أعد إدخال كلمة المرور الجديدة"
+          />
+        </PasswordDialog>
+      )}
+
+      {/* Remove Password Dialog */}
+      {showRemovePassword && (
+        <PasswordDialog
+          title="إزالة كلمة المرور"
+          onSubmit={handleRemovePasswordWithVerification}
+          onCancel={() => {
+            setShowRemovePassword(false)
+            setRemovePasswordInput('')
+            setShowPasswords(prev => ({ ...prev, remove: false }))
+          }}
+          isLoading={isLoading}
+        >
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-start space-x-3 space-x-reverse">
+              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm text-red-800 dark:text-red-200">
+                  تحذير: إزالة كلمة المرور ستجعل التطبيق غير محمي. يرجى إدخال كلمة المرور الحالية للتأكيد.
+                </p>
+              </div>
+            </div>
+          </div>
+          <PasswordInput
+            label="كلمة المرور الحالية"
+            value={removePasswordInput}
+            onChange={setRemovePasswordInput}
+            show={showPasswords.remove}
+            onToggleShow={() => togglePasswordVisibility('remove')}
+            placeholder="أدخل كلمة المرور الحالية"
           />
         </PasswordDialog>
       )}
