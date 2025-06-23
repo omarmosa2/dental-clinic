@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron')
 const { join } = require('path')
 
 // Import license manager and predefined licenses
@@ -36,6 +36,8 @@ function createWindow() {
     },
     titleBarStyle: 'default',
     show: false,
+    title: 'نظام إدارة العيادة السنية',
+    icon: join(__dirname, '../assets/icon.png'), // إضافة أيقونة إذا كانت متوفرة
   })
 
   // Set CSP headers for security
@@ -90,6 +92,9 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   console.log('🚀 Electron app is ready, initializing services...')
+
+  // إخفاء شريط القوائم الافتراضي
+  Menu.setApplicationMenu(null)
 
   // Initialize database service with migration support
   try {
@@ -197,6 +202,65 @@ app.whenReady().then(async () => {
   }
 
   createWindow()
+
+  // تحديث العنوان والأيقونة بعد تحميل التطبيق
+  setTimeout(async () => {
+    try {
+      if (mainWindow && databaseService) {
+        const settings = await databaseService.getSettings()
+        if (settings) {
+          let windowTitle = 'نظام إدارة العيادة السنية'
+
+          if (settings.doctor_name && settings.clinic_name) {
+            windowTitle = `د. ${settings.doctor_name} | ${settings.clinic_name}`
+          } else if (settings.doctor_name) {
+            windowTitle = `د. ${settings.doctor_name} | نظام إدارة العيادة السنية`
+          } else if (settings.clinic_name) {
+            windowTitle = `${settings.clinic_name} | نظام إدارة العيادة السنية`
+          }
+
+          mainWindow.setTitle(windowTitle)
+
+          // تحديث أيقونة النافذة إذا كان هناك شعار مخصص
+          if (settings.clinic_logo && settings.clinic_logo.trim() !== '') {
+            try {
+              const logoData = settings.clinic_logo
+              console.log('🔍 محاولة تحديث الأيقونة عند البدء:', logoData.substring(0, 50) + '...')
+
+              // التحقق من نوع البيانات
+              if (logoData.startsWith('data:image/')) {
+                // إذا كانت البيانات base64 data URL
+                const { nativeImage } = require('electron')
+                const image = nativeImage.createFromDataURL(logoData)
+                if (!image.isEmpty()) {
+                  mainWindow.setIcon(image)
+                  console.log('✅ تم تحديث أيقونة النافذة بنجاح من base64 عند البدء')
+                } else {
+                  console.log('❌ فشل في إنشاء الصورة من base64 عند البدء')
+                }
+              } else {
+                // إذا كانت مسار ملف
+                const fs = require('fs')
+                const path = require('path')
+                const absolutePath = path.isAbsolute(logoData) ? logoData : path.resolve(logoData)
+
+                if (fs.existsSync(absolutePath)) {
+                  mainWindow.setIcon(absolutePath)
+                  console.log('✅ تم تحديث أيقونة النافذة بنجاح من ملف عند البدء:', absolutePath)
+                } else {
+                  console.log('❌ الملف غير موجود عند البدء:', absolutePath)
+                }
+              }
+            } catch (error) {
+              console.log('⚠️ فشل في تحديث أيقونة النافذة عند البدء:', error.message)
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ فشل في تحديث العنوان والأيقونة عند البدء:', error.message)
+    }
+  }, 3000) // انتظار 3 ثوان لضمان تحميل قاعدة البيانات
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -1840,7 +1904,59 @@ ipcMain.handle('db:dentalTreatmentPrescriptions:deleteByIds', async (_, treatmen
 ipcMain.handle('settings:get', async () => {
   try {
     if (databaseService) {
-      return await databaseService.getSettings()
+      const settings = await databaseService.getSettings()
+
+      // تحديث عنوان النافذة وأيقونة النافذة بناءً على الإعدادات
+      if (mainWindow && settings) {
+        let windowTitle = 'نظام إدارة العيادة السنية'
+
+        if (settings.doctor_name && settings.clinic_name) {
+          windowTitle = `د. ${settings.doctor_name} | ${settings.clinic_name}`
+        } else if (settings.doctor_name) {
+          windowTitle = `د. ${settings.doctor_name} | نظام إدارة العيادة السنية`
+        } else if (settings.clinic_name) {
+          windowTitle = `${settings.clinic_name} | نظام إدارة العيادة السنية`
+        }
+
+        mainWindow.setTitle(windowTitle)
+
+        // تحديث أيقونة النافذة إذا كان هناك شعار مخصص
+        if (settings.clinic_logo && settings.clinic_logo.trim() !== '') {
+          try {
+            const logoData = settings.clinic_logo
+            console.log('🔍 محاولة تحديث الأيقونة:', logoData.substring(0, 50) + '...')
+
+            // التحقق من نوع البيانات
+            if (logoData.startsWith('data:image/')) {
+              // إذا كانت البيانات base64 data URL
+              const { nativeImage } = require('electron')
+              const image = nativeImage.createFromDataURL(logoData)
+              if (!image.isEmpty()) {
+                mainWindow.setIcon(image)
+                console.log('✅ تم تحديث أيقونة النافذة بنجاح من base64')
+              } else {
+                console.log('❌ فشل في إنشاء الصورة من base64')
+              }
+            } else {
+              // إذا كانت مسار ملف
+              const fs = require('fs')
+              const path = require('path')
+              const absolutePath = path.isAbsolute(logoData) ? logoData : path.resolve(logoData)
+
+              if (fs.existsSync(absolutePath)) {
+                mainWindow.setIcon(absolutePath)
+                console.log('✅ تم تحديث أيقونة النافذة بنجاح من ملف:', absolutePath)
+              } else {
+                console.log('❌ الملف غير موجود:', absolutePath)
+              }
+            }
+          } catch (error) {
+            console.log('⚠️ فشل في تحديث أيقونة النافذة:', error.message)
+          }
+        }
+      }
+
+      return settings
     } else {
       return {
         id: '1',
@@ -1858,7 +1974,59 @@ ipcMain.handle('settings:get', async () => {
 ipcMain.handle('settings:update', async (_, settings) => {
   try {
     if (databaseService) {
-      return await databaseService.updateSettings(settings)
+      const updatedSettings = await databaseService.updateSettings(settings)
+
+      // تحديث عنوان النافذة وأيقونة النافذة عند تحديث الإعدادات
+      if (mainWindow && updatedSettings) {
+        let windowTitle = 'نظام إدارة العيادة السنية'
+
+        if (updatedSettings.doctor_name && updatedSettings.clinic_name) {
+          windowTitle = `د. ${updatedSettings.doctor_name} | ${updatedSettings.clinic_name}`
+        } else if (updatedSettings.doctor_name) {
+          windowTitle = `د. ${updatedSettings.doctor_name} | نظام إدارة العيادة السنية`
+        } else if (updatedSettings.clinic_name) {
+          windowTitle = `${updatedSettings.clinic_name} | نظام إدارة العيادة السنية`
+        }
+
+        mainWindow.setTitle(windowTitle)
+
+        // تحديث أيقونة النافذة إذا كان هناك شعار مخصص
+        if (updatedSettings.clinic_logo && updatedSettings.clinic_logo.trim() !== '') {
+          try {
+            const logoData = updatedSettings.clinic_logo
+            console.log('🔍 محاولة تحديث الأيقونة عند التحديث:', logoData.substring(0, 50) + '...')
+
+            // التحقق من نوع البيانات
+            if (logoData.startsWith('data:image/')) {
+              // إذا كانت البيانات base64 data URL
+              const { nativeImage } = require('electron')
+              const image = nativeImage.createFromDataURL(logoData)
+              if (!image.isEmpty()) {
+                mainWindow.setIcon(image)
+                console.log('✅ تم تحديث أيقونة النافذة بنجاح من base64 عند التحديث')
+              } else {
+                console.log('❌ فشل في إنشاء الصورة من base64 عند التحديث')
+              }
+            } else {
+              // إذا كانت مسار ملف
+              const fs = require('fs')
+              const path = require('path')
+              const absolutePath = path.isAbsolute(logoData) ? logoData : path.resolve(logoData)
+
+              if (fs.existsSync(absolutePath)) {
+                mainWindow.setIcon(absolutePath)
+                console.log('✅ تم تحديث أيقونة النافذة بنجاح من ملف عند التحديث:', absolutePath)
+              } else {
+                console.log('❌ الملف غير موجود عند التحديث:', absolutePath)
+              }
+            }
+          } catch (error) {
+            console.log('⚠️ فشل في تحديث أيقونة النافذة عند التحديث:', error.message)
+          }
+        }
+      }
+
+      return updatedSettings
     } else {
       console.log('Updating settings (mock):', settings)
       return settings
