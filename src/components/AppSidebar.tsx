@@ -5,12 +5,12 @@ import {
   LayoutDashboard,
   Settings,
   Users,
-  Stethoscope,
   User2,
   Package,
   BarChart3,
-  Microscope,
+  TestTube,
   Pill,
+  Tooth,
 } from "lucide-react"
 
 import {
@@ -59,7 +59,7 @@ const navigationItems = [
   {
     title: "المختبرات",
     url: "labs",
-    icon: Microscope,
+    icon: TestTube,
   },
   {
     title: "الأدوية والوصفات",
@@ -69,7 +69,7 @@ const navigationItems = [
   {
     title: "العلاجات السنية",
     url: "dental-treatments",
-    icon: Stethoscope,
+    icon: Tooth,
   },
   {
     title: "التقارير",
