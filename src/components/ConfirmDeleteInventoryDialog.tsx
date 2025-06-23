@@ -59,7 +59,7 @@ export default function ConfirmDeleteInventoryDialog({
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
-      <AlertDialogContent className="sm:max-w-[425px]">
+      <AlertDialogContent className="sm:max-w-[425px]" dir="rtl">
         <AlertDialogHeader>
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">

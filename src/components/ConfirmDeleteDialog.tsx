@@ -41,7 +41,7 @@ export default function ConfirmDeleteDialog({
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
-      <AlertDialogContent className="max-w-md">
+      <AlertDialogContent className="max-w-md" dir="rtl">
         <AlertDialogHeader>
           <div className="flex items-center space-x-3 space-x-reverse">
             <div className="flex-shrink-0">
