@@ -355,23 +355,13 @@ export default function AppointmentTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="text-sm font-medium">
-                        {formatDateTime(appointment.start_time).split(' ')[0]}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDateTime(appointment.start_time).split(' ')[1]}
-                      </span>
+                    <div className="text-sm font-medium arabic-enhanced">
+                      {formatDateTime(appointment.start_time)}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="text-sm font-medium">
-                        {formatDateTime(appointment.end_time).split(' ')[0]}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDateTime(appointment.end_time).split(' ')[1]}
-                      </span>
+                    <div className="text-sm font-medium arabic-enhanced">
+                      {formatDateTime(appointment.end_time)}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">

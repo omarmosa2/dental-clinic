@@ -14,7 +14,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { notify } from '@/services/notificationService'
 import {
   AlertTriangle,
-  TestTube,
+  Microscope,
   Building2,
   User,
   DollarSign,
@@ -73,12 +73,12 @@ export default function DeleteLabOrderDialog({ open, onOpenChange, labOrder }: D
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
+        <DialogHeader dir="rtl">
+          <DialogTitle className="flex items-center gap-2 text-destructive text-right">
             <AlertTriangle className="h-5 w-5" />
             تأكيد حذف طلب المختبر
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-right">
             هذا الإجراء لا يمكن التراجع عنه. سيتم حذف طلب المختبر نهائياً من النظام.
           </DialogDescription>
         </DialogHeader>
@@ -91,9 +91,9 @@ export default function DeleteLabOrderDialog({ open, onOpenChange, labOrder }: D
               <span className="font-semibold">المختبر:</span>
               <span>{labOrder.lab?.name || 'غير محدد'}</span>
             </div>
-            
+
             <div className="flex items-center gap-2">
-              <TestTube className="h-4 w-4 text-purple-600" />
+              <Microscope className="h-4 w-4 text-purple-600" />
               <span className="font-semibold">اسم الخدمة:</span>
               <span>{labOrder.service_name}</span>
             </div>
@@ -105,7 +105,7 @@ export default function DeleteLabOrderDialog({ open, onOpenChange, labOrder }: D
                 <span>{labOrder.patient.full_name}</span>
               </div>
             )}
-            
+
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-green-600" />
               <span className="font-semibold">التكلفة:</span>
@@ -127,7 +127,7 @@ export default function DeleteLabOrderDialog({ open, onOpenChange, labOrder }: D
                 <span className="font-bold text-red-600">{formatCurrency(labOrder.remaining_balance)}</span>
               </div>
             )}
-            
+
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-gray-600" />
               <span className="font-semibold">تاريخ الطلب:</span>
@@ -157,7 +157,7 @@ export default function DeleteLabOrderDialog({ open, onOpenChange, labOrder }: D
                 <span className="font-semibold">تحذير</span>
               </div>
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                هذا الطلب يحتوي على مدفوعات بقيمة {formatCurrency(labOrder.paid_amount)}. 
+                هذا الطلب يحتوي على مدفوعات بقيمة {formatCurrency(labOrder.paid_amount)}.
                 حذف الطلب لن يؤثر على سجلات المدفوعات الأخرى في النظام.
               </p>
             </div>
@@ -174,7 +174,7 @@ export default function DeleteLabOrderDialog({ open, onOpenChange, labOrder }: D
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2" dir="rtl">
           <Button
             type="button"
             variant="outline"

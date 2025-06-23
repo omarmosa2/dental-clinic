@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { CreditCard, DollarSign, Receipt, Calculator, Sparkles } from 'lucide-react'
+import { CreditCard, DollarSign, Receipt, Calculator, Sparkles, AlertCircle } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { Payment } from '@/types'
 
@@ -30,7 +30,7 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
   console.log('AddPaymentDialog rendered, open:', open)
 
   const { toast } = useToast()
-  const { createPayment, isLoading, getPaymentsByPatient } = usePaymentStore()
+  const { createPayment, isLoading, getPaymentsByPatient, getPaymentsByAppointment } = usePaymentStore()
   const { patients } = usePatientStore()
   const { appointments } = useAppointmentStore()
 
@@ -67,11 +67,11 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
     return `RCP-${year}${month}${day}-${time}`
   }
 
-  // حساب إجمالي المدفوعات السابقة للمريض
-  const calculatePreviousPayments = (patientId: string) => {
-    if (!patientId) return 0
-    const patientPayments = getPaymentsByPatient(patientId)
-    return patientPayments.reduce((total, payment) => total + payment.amount, 0)
+  // حساب إجمالي المدفوعات السابقة للموعد المحدد
+  const calculatePreviousPayments = (appointmentId: string) => {
+    if (!appointmentId || appointmentId === 'none') return 0
+    const appointmentPayments = getPaymentsByAppointment(appointmentId)
+    return appointmentPayments.reduce((total, payment) => total + payment.amount, 0)
   }
 
   // جلب تكلفة الموعد تلقائياً
@@ -102,12 +102,12 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
     return amount + taxAmount - discountAmount
   }
 
-  // تحديث الحسابات التلقائية عند تغيير المريض
+  // تحديث الحسابات التلقائية عند تغيير الموعد
   useEffect(() => {
-    if (formData.patient_id) {
+    if (formData.appointment_id && formData.appointment_id !== 'none') {
       setAutoCalculations(prev => ({ ...prev, isCalculating: true }))
 
-      const previousPayments = calculatePreviousPayments(formData.patient_id)
+      const previousPayments = calculatePreviousPayments(formData.appointment_id)
       const suggestedReceiptNumber = generateReceiptNumber()
 
       setAutoCalculations({
@@ -120,8 +120,15 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
       if (!formData.receipt_number) {
         setFormData(prev => ({ ...prev, receipt_number: suggestedReceiptNumber }))
       }
+    } else {
+      // إذا لم يتم اختيار موعد، اجعل المدفوعات السابقة = 0
+      setAutoCalculations(prev => ({
+        ...prev,
+        previousPayments: 0,
+        suggestedReceiptNumber: generateReceiptNumber()
+      }))
     }
-  }, [formData.patient_id])
+  }, [formData.appointment_id])
 
   // تحديث المبلغ المطلوب عند تغيير الموعد
   useEffect(() => {
@@ -188,19 +195,28 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
       newErrors.payment_date = 'يرجى اختيار تاريخ الدفع'
     }
 
-    // التحقق من أن المبلغ المدفوع في هذه الدفعة لا يتجاوز المبلغ المتبقي
-    const totalAmountDue = parseFloat(formData.total_amount_due) || 0
-    const currentAmount = parseFloat(formData.amount) || 0
-    const remainingBeforeThisPayment = totalAmountDue - autoCalculations.previousPayments
+    // التحقق من صحة المبلغ للمواعيد المرتبطة
+    if (formData.appointment_id && formData.appointment_id !== 'none') {
+      const appointmentCost = getAppointmentCost(formData.appointment_id)
+      const currentAmount = parseFloat(formData.amount) || 0
+      const remainingBeforeThisPayment = appointmentCost - autoCalculations.previousPayments
 
-    if (totalAmountDue > 0 && currentAmount > remainingBeforeThisPayment) {
-      newErrors.amount = `مبلغ هذه الدفعة لا يمكن أن يكون أكبر من المبلغ المتبقي (${remainingBeforeThisPayment.toFixed(2)} ريال)`
-    }
+      if (appointmentCost > 0 && currentAmount > remainingBeforeThisPayment) {
+        newErrors.amount = `مبلغ هذه الدفعة لا يمكن أن يكون أكبر من المبلغ المتبقي للموعد (${remainingBeforeThisPayment.toFixed(2)} ريال)`
+      }
 
-    // التحقق من أن إجمالي المدفوعات لا يتجاوز المبلغ المطلوب
-    const totalPaid = calculateTotalAmountPaid()
-    if (totalAmountDue > 0 && totalPaid > totalAmountDue) {
-      newErrors.amount = 'إجمالي المدفوعات لا يمكن أن يتجاوز المبلغ الإجمالي المطلوب'
+      if (currentAmount <= 0) {
+        newErrors.amount = 'يجب أن يكون مبلغ الدفعة أكبر من صفر'
+      }
+    } else {
+      // للمدفوعات العامة غير المرتبطة بموعد
+      const totalAmountDue = parseFloat(formData.total_amount_due) || 0
+      const currentAmount = parseFloat(formData.amount) || 0
+      const totalPaid = calculateTotalAmountPaid()
+
+      if (totalAmountDue > 0 && totalPaid > totalAmountDue) {
+        newErrors.amount = 'إجمالي المدفوعات لا يمكن أن يتجاوز المبلغ الإجمالي المطلوب'
+      }
     }
 
     setErrors(newErrors)
@@ -219,9 +235,6 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
       const discountAmount = formData.discount_amount ? parseFloat(formData.discount_amount) : 0
       const taxAmount = formData.tax_amount ? parseFloat(formData.tax_amount) : 0
       const totalAmount = amount + taxAmount - discountAmount
-      const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : totalAmount
-      const amountPaid = calculateTotalAmountPaid() // استخدام الحساب التلقائي
-      const remainingBalance = totalAmountDue - amountPaid
 
       const paymentData: Omit<Payment, 'id' | 'created_at' | 'updated_at'> = {
         patient_id: formData.patient_id,
@@ -230,15 +243,28 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
         payment_method: formData.payment_method,
         payment_date: formData.payment_date,
         description: formData.description || undefined,
-        receipt_number: formData.receipt_number || autoCalculations.suggestedReceiptNumber, // استخدام الرقم المولد تلقائياً
+        receipt_number: formData.receipt_number || autoCalculations.suggestedReceiptNumber,
         status: formData.status,
         notes: formData.notes || undefined,
         discount_amount: discountAmount > 0 ? discountAmount : undefined,
         tax_amount: taxAmount > 0 ? taxAmount : undefined,
         total_amount: totalAmount,
-        total_amount_due: totalAmountDue,
-        amount_paid: amountPaid,
-        remaining_balance: remainingBalance,
+      }
+
+      // إضافة البيانات الخاصة بالمواعيد أو المدفوعات العامة
+      if (formData.appointment_id && formData.appointment_id !== 'none') {
+        // دفعة مرتبطة بموعد - سيتم حساب البيانات تلقائياً في قاعدة البيانات
+        const appointmentCost = getAppointmentCost(formData.appointment_id)
+        paymentData.appointment_total_cost = appointmentCost
+      } else {
+        // دفعة عامة غير مرتبطة بموعد
+        const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : totalAmount
+        const amountPaid = calculateTotalAmountPaid()
+        const remainingBalance = totalAmountDue - amountPaid
+
+        paymentData.total_amount_due = totalAmountDue
+        paymentData.amount_paid = amountPaid
+        paymentData.remaining_balance = remainingBalance
       }
 
       await createPayment(paymentData)
@@ -466,31 +492,61 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
             <CardHeader>
               <CardTitle className="flex items-center text-lg text-card-foreground">
                 <Sparkles className="w-4 h-4 ml-2 text-primary" />
-                تتبع المدفوعات التلقائي
+                تتبع المدفوعات للموعد
               </CardTitle>
               <CardDescription className="text-muted-foreground">
-                تتبع المبالغ المطلوبة والمدفوعة والمتبقية مع الحسابات التلقائية
+                تتبع دقيق للمدفوعات والرصيد المتبقي لكل موعد على حدة
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Auto Calculations Info */}
-              {formData.patient_id && (
+              {/* Appointment Payment Summary */}
+              {formData.appointment_id && formData.appointment_id !== 'none' && (
                 <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200 dark:border-blue-800 shadow-sm transition-all duration-200">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm font-medium text-primary">الحسابات التلقائية</span>
+                      <span className="text-sm font-medium text-primary">ملخص مدفوعات الموعد</span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">المدفوعات السابقة:</span>
-                        <span className="font-medium text-foreground">${autoCalculations.previousPayments.toFixed(2)}</span>
+                        <span className="text-muted-foreground">تكلفة الموعد:</span>
+                        <span className="font-medium text-foreground">{getAppointmentCost(formData.appointment_id).toFixed(2)} ريال</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">رقم الإيصال المقترح:</span>
-                        <span className="font-medium text-xs text-foreground">{autoCalculations.suggestedReceiptNumber}</span>
+                        <span className="text-muted-foreground">المدفوع سابقاً:</span>
+                        <span className="font-medium text-foreground">{autoCalculations.previousPayments.toFixed(2)} ريال</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">المتبقي قبل هذه الدفعة:</span>
+                        <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                          {(getAppointmentCost(formData.appointment_id) - autoCalculations.previousPayments).toFixed(2)} ريال
+                        </span>
                       </div>
                     </div>
+                    {formData.amount && (
+                      <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">المتبقي بعد هذه الدفعة:</span>
+                          <span className="font-bold text-lg text-emerald-600 dark:text-emerald-400">
+                            {calculateRemainingBalance().toFixed(2)} ريال
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {formData.appointment_id === 'none' && (
+                <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950/50 dark:to-yellow-900/30 border-yellow-200 dark:border-yellow-800 shadow-sm transition-all duration-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                      <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">دفعة عامة غير مرتبطة بموعد</span>
+                    </div>
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                      هذه دفعة عامة غير مرتبطة بموعد محدد، يمكنك تحديد المبلغ المطلوب يدوياً
+                    </p>
                   </CardContent>
                 </Card>
               )}

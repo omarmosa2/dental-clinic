@@ -827,6 +827,10 @@ export class DatabaseService {
 
     console.log('🔄 Updating appointment:', { id, appointment })
 
+    // احصل على التكلفة الحالية للموعد قبل التحديث
+    const currentAppointment = this.db.prepare('SELECT cost FROM appointments WHERE id = ?').get(id) as { cost?: number }
+    const oldCost = currentAppointment?.cost
+
     // Check for appointment conflicts when updating time
     if (appointment.start_time && appointment.end_time) {
       const hasConflict = await this.checkAppointmentConflict(appointment.start_time, appointment.end_time, id)
@@ -860,6 +864,12 @@ export class DatabaseService {
 
     if (result.changes === 0) {
       throw new Error(`No appointment found with id: ${id}`)
+    }
+
+    // إذا تغيرت التكلفة، أعد حساب جميع المدفوعات المرتبطة بهذا الموعد
+    if (appointment.cost !== undefined && appointment.cost !== oldCost) {
+      await this.recalculateAppointmentPayments(id)
+      console.log(`🔄 Recalculated payments for appointment ${id} due to cost change: ${oldCost} → ${appointment.cost}`)
     }
 
     // Force WAL checkpoint to ensure data is written
@@ -916,7 +926,9 @@ export class DatabaseService {
         pt.full_name as patient_full_name,
         pt.phone as patient_phone,
         pt.email as patient_email,
-        a.title as appointment_title
+        a.title as appointment_title,
+        a.start_time as appointment_start_time,
+        a.end_time as appointment_end_time
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
       LEFT JOIN appointments a ON p.appointment_id = a.id
@@ -938,7 +950,9 @@ export class DatabaseService {
       } : null,
       appointment: payment.appointment_id ? {
         id: payment.appointment_id,
-        title: payment.appointment_title
+        title: payment.appointment_title,
+        start_time: payment.appointment_start_time,
+        end_time: payment.appointment_end_time
       } : null
     }))
   }
@@ -950,6 +964,7 @@ export class DatabaseService {
     try {
       console.log('💰 Creating payment:', {
         patient_id: payment.patient_id,
+        appointment_id: payment.appointment_id,
         amount: payment.amount,
         payment_method: payment.payment_method
       })
@@ -958,13 +973,47 @@ export class DatabaseService {
       const discountAmount = payment.discount_amount || 0
       const taxAmount = payment.tax_amount || 0
       const totalAmount = payment.amount + taxAmount - discountAmount
-      const totalAmountDue = payment.total_amount_due || totalAmount
-      const amountPaid = payment.amount_paid || payment.amount
-      const remainingBalance = totalAmountDue - amountPaid
 
-      // Determine status based on remaining balance
-      let status = payment.status
-      if (!status) {
+      let appointmentTotalCost = null
+      let appointmentTotalPaid = null
+      let appointmentRemainingBalance = null
+      let totalAmountDue = null
+      let amountPaid = null
+      let remainingBalance = null
+      let status = payment.status || 'completed'
+
+      if (payment.appointment_id) {
+        // دفعة مرتبطة بموعد - احسب الرصيد للموعد
+        const appointment = this.db.prepare('SELECT cost FROM appointments WHERE id = ?').get(payment.appointment_id) as { cost?: number }
+
+        if (appointment?.cost) {
+          appointmentTotalCost = appointment.cost
+
+          // احسب إجمالي المدفوعات السابقة لهذا الموعد
+          const previousPayments = this.db.prepare(`
+            SELECT COALESCE(SUM(amount), 0) as total
+            FROM payments
+            WHERE appointment_id = ?
+          `).get(payment.appointment_id) as { total: number }
+
+          appointmentTotalPaid = previousPayments.total + payment.amount
+          appointmentRemainingBalance = Math.max(0, appointmentTotalCost - appointmentTotalPaid)
+
+          // تحديد الحالة بناءً على الرصيد المتبقي للموعد
+          if (appointmentRemainingBalance <= 0) {
+            status = 'completed'
+          } else if (appointmentTotalPaid > 0) {
+            status = 'partial'
+          } else {
+            status = 'pending'
+          }
+        }
+      } else {
+        // دفعة عامة غير مرتبطة بموعد
+        totalAmountDue = payment.total_amount_due || totalAmount
+        amountPaid = payment.amount_paid || payment.amount
+        remainingBalance = totalAmountDue - amountPaid
+
         if (remainingBalance <= 0) {
           status = 'completed'
         } else if (amountPaid > 0 && remainingBalance > 0) {
@@ -978,15 +1027,18 @@ export class DatabaseService {
         INSERT INTO payments (
           id, patient_id, appointment_id, amount, payment_method, payment_date,
           description, receipt_number, status, notes, discount_amount, tax_amount,
-          total_amount, total_amount_due, amount_paid, remaining_balance, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          total_amount, appointment_total_cost, appointment_total_paid, appointment_remaining_balance,
+          total_amount_due, amount_paid, remaining_balance, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       const result = stmt.run(
         id, payment.patient_id, payment.appointment_id, payment.amount,
         payment.payment_method, payment.payment_date, payment.description,
         payment.receipt_number, status, payment.notes,
-        discountAmount, taxAmount, totalAmount, totalAmountDue, amountPaid, remainingBalance, now, now
+        discountAmount, taxAmount, totalAmount,
+        appointmentTotalCost, appointmentTotalPaid, appointmentRemainingBalance,
+        totalAmountDue, amountPaid, remainingBalance, now, now
       )
 
       console.log('✅ Payment created successfully:', { id, changes: result.changes })
@@ -994,7 +1046,20 @@ export class DatabaseService {
       // Force WAL checkpoint to ensure data is written
       this.db.pragma('wal_checkpoint(TRUNCATE)')
 
-      return { ...payment, id, created_at: now, updated_at: now }
+      return {
+        ...payment,
+        id,
+        status,
+        total_amount: totalAmount,
+        appointment_total_cost: appointmentTotalCost,
+        appointment_total_paid: appointmentTotalPaid,
+        appointment_remaining_balance: appointmentRemainingBalance,
+        total_amount_due: totalAmountDue,
+        amount_paid: amountPaid,
+        remaining_balance: remainingBalance,
+        created_at: now,
+        updated_at: now
+      }
     } catch (error) {
       console.error('❌ Failed to create payment:', error)
       throw error
@@ -1067,13 +1132,126 @@ export class DatabaseService {
     return result.changes > 0
   }
 
+  // دالة لإعادة حساب جميع المدفوعات المرتبطة بموعد
+  async recalculateAppointmentPayments(appointmentId: string): Promise<void> {
+    try {
+      // احصل على تكلفة الموعد
+      const appointment = this.db.prepare('SELECT cost FROM appointments WHERE id = ?').get(appointmentId) as { cost?: number }
+
+      if (!appointment?.cost) {
+        console.log('No cost found for appointment:', appointmentId)
+        return
+      }
+
+      // احصل على جميع المدفوعات المرتبطة بهذا الموعد مرتبة حسب تاريخ الإنشاء
+      const payments = this.db.prepare(`
+        SELECT id, amount, created_at
+        FROM payments
+        WHERE appointment_id = ?
+        ORDER BY created_at ASC
+      `).all(appointmentId) as { id: string; amount: number; created_at: string }[]
+
+      let runningTotal = 0
+      const appointmentCost = appointment.cost
+
+      // استخدم transaction لضمان تحديث جميع المدفوعات بشكل متسق
+      const transaction = this.db.transaction(() => {
+        const updateStmt = this.db.prepare(`
+          UPDATE payments SET
+            appointment_total_cost = ?,
+            appointment_total_paid = ?,
+            appointment_remaining_balance = ?,
+            status = ?,
+            updated_at = ?
+          WHERE id = ?
+        `)
+
+        payments.forEach(payment => {
+          runningTotal += payment.amount
+          const remainingBalance = Math.max(0, appointmentCost - runningTotal)
+
+          let status: 'completed' | 'partial' | 'pending'
+          if (remainingBalance <= 0) {
+            status = 'completed'
+          } else if (runningTotal > 0) {
+            status = 'partial'
+          } else {
+            status = 'pending'
+          }
+
+          updateStmt.run(
+            appointmentCost,
+            runningTotal,
+            remainingBalance,
+            status,
+            new Date().toISOString(),
+            payment.id
+          )
+        })
+      })
+
+      transaction()
+      console.log(`✅ Recalculated ${payments.length} payments for appointment ${appointmentId}`)
+    } catch (error) {
+      console.error('❌ Failed to recalculate appointment payments:', error)
+      throw error
+    }
+  }
+
+  // دالة للحصول على ملخص المدفوعات لموعد محدد
+  async getAppointmentPaymentSummary(appointmentId: string): Promise<{
+    appointmentCost: number
+    totalPaid: number
+    remainingBalance: number
+    paymentCount: number
+    status: 'completed' | 'partial' | 'pending'
+    payments: Payment[]
+  }> {
+    // احصل على تكلفة الموعد
+    const appointment = this.db.prepare('SELECT cost FROM appointments WHERE id = ?').get(appointmentId) as { cost?: number }
+    const appointmentCost = appointment?.cost || 0
+
+    // احصل على جميع المدفوعات المرتبطة بهذا الموعد
+    const payments = this.db.prepare(`
+      SELECT * FROM payments WHERE appointment_id = ? ORDER BY created_at ASC
+    `).all(appointmentId) as Payment[]
+
+    const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0)
+    const remainingBalance = Math.max(0, appointmentCost - totalPaid)
+
+    let status: 'completed' | 'partial' | 'pending'
+    if (remainingBalance <= 0 && appointmentCost > 0) {
+      status = 'completed'
+    } else if (totalPaid > 0) {
+      status = 'partial'
+    } else {
+      status = 'pending'
+    }
+
+    return {
+      appointmentCost,
+      totalPaid,
+      remainingBalance,
+      paymentCount: payments.length,
+      status,
+      payments
+    }
+  }
+
   async searchPayments(query: string): Promise<Payment[]> {
     const stmt = this.db.prepare(`
       SELECT
         p.*,
-        pt.full_name as patient_name
+        pt.full_name as patient_name,
+        pt.full_name as patient_full_name,
+        pt.phone as patient_phone,
+        pt.email as patient_email,
+        a.title as appointment_title,
+        a.start_time as appointment_start_time,
+        a.end_time as appointment_end_time
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
+      LEFT JOIN appointments a ON p.appointment_id = a.id
       WHERE
         pt.full_name LIKE ? OR
         p.receipt_number LIKE ? OR
@@ -1081,7 +1259,26 @@ export class DatabaseService {
       ORDER BY p.payment_date DESC
     `)
     const searchTerm = `%${query}%`
-    return stmt.all(searchTerm, searchTerm, searchTerm) as Payment[]
+    const payments = stmt.all(searchTerm, searchTerm, searchTerm) as any[]
+
+    // Transform the data to include patient and appointment objects
+    return payments.map(payment => ({
+      ...payment,
+      patient: payment.patient_id ? {
+        id: payment.patient_id,
+        full_name: payment.patient_full_name,
+        first_name: payment.patient_full_name?.split(' ')[0] || '',
+        last_name: payment.patient_full_name?.split(' ').slice(1).join(' ') || '',
+        phone: payment.patient_phone,
+        email: payment.patient_email
+      } : null,
+      appointment: payment.appointment_id ? {
+        id: payment.appointment_id,
+        title: payment.appointment_title,
+        start_time: payment.appointment_start_time,
+        end_time: payment.appointment_end_time
+      } : null
+    }))
   }
 
   // Treatment operations

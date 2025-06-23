@@ -35,7 +35,7 @@ import {
   Filter,
   Download,
   RefreshCw,
-  TestTube,
+  Microscope,
   Building2,
   DollarSign,
   Clock,
@@ -338,7 +338,7 @@ export default function Labs() {
         <Card className={getCardStyles('blue')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2" dir="rtl">
             <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي الطلبات</CardTitle>
-            <TestTube className={`h-4 w-4 ${getIconStyles('blue')}`} />
+            <Microscope className={`h-4 w-4 ${getIconStyles('blue')}`} />
           </CardHeader>
           <CardContent className="text-right">
             <div className="text-2xl font-bold text-foreground">{totalOrders}</div>
@@ -410,7 +410,7 @@ export default function Labs() {
         <div className="flex items-center justify-between" dir="rtl">
           <TabsList className="grid w-fit grid-cols-2">
             <TabsTrigger value="orders" className="flex items-center gap-2">
-              <TestTube className="w-4 h-4" />
+              <Microscope className="w-4 h-4" />
               طلبات المختبرات
             </TabsTrigger>
             <TabsTrigger value="labs" className="flex items-center gap-2">
@@ -539,7 +539,7 @@ export default function Labs() {
           <Card>
             <CardHeader dir="rtl">
               <CardTitle className="flex items-center gap-2 text-right">
-                <TestTube className="w-5 h-5" />
+                <Microscope className="w-5 h-5" />
                 طلبات المختبرات
               </CardTitle>
               <CardDescription className="text-right">

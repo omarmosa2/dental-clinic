@@ -47,7 +47,7 @@ export interface Appointment {
 export interface Payment {
   id: string
   patient_id: string
-  appointment_id?: string
+  appointment_id?: string // ربط مباشر بالموعد
   amount: number // المبلغ المدفوع في هذه الدفعة
   payment_method: 'cash' | 'bank_transfer'
   payment_date: string
@@ -58,9 +58,17 @@ export interface Payment {
   discount_amount?: number
   tax_amount?: number
   total_amount?: number // المبلغ الإجمالي لهذه الدفعة (amount + tax - discount)
-  total_amount_due?: number // المبلغ الإجمالي المطلوب للعلاج/الخدمة
-  amount_paid?: number // إجمالي المبلغ المدفوع حتى الآن
-  remaining_balance?: number // المبلغ المتبقي (total_amount_due - amount_paid)
+
+  // حقول تتبع الرصيد لكل موعد
+  appointment_total_cost?: number // التكلفة الإجمالية للموعد
+  appointment_total_paid?: number // إجمالي المدفوع لهذا الموعد حتى الآن
+  appointment_remaining_balance?: number // المتبقي لهذا الموعد
+
+  // حقول عامة للمدفوعات غير المرتبطة بموعد
+  total_amount_due?: number // المبلغ الإجمالي المطلوب (للمدفوعات العامة)
+  amount_paid?: number // إجمالي المبلغ المدفوع (للمدفوعات العامة)
+  remaining_balance?: number // المبلغ المتبقي (للمدفوعات العامة)
+
   created_at: string
   updated_at: string
   // Populated fields

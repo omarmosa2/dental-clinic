@@ -140,7 +140,7 @@ export default function LabOrderTable({ labOrders, onEdit, onDelete, onView }: L
           <TableRow>
             <TableHead className="text-center w-[60px]">رقم</TableHead>
             <TableHead className="text-center">اسم المختبر</TableHead>
-            <TableHead className="text-center">اسم الخدمة/التحليل</TableHead>
+            <TableHead className="text-center">اسم الخدمة</TableHead>
             <TableHead className="text-center">التكلفة</TableHead>
             <TableHead className="text-center">تاريخ الطلب</TableHead>
             <TableHead className="text-center">الحالة</TableHead>
@@ -170,10 +170,7 @@ export default function LabOrderTable({ labOrders, onEdit, onDelete, onView }: L
                 </div>
               </TableCell>
               <TableCell className="text-center">
-                <div className="flex items-center gap-2 justify-center">
-                  <span>{order.service_name}</span>
-                  <TestTube className="h-4 w-4 text-purple-600" />
-                </div>
+                <span>{order.service_name}</span>
               </TableCell>
               <TableCell className="text-center">
                 <div className="flex items-center gap-2 justify-center">

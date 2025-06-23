@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Edit, CreditCard, DollarSign, Receipt, Calculator, Sparkles } from 'lucide-react'
+import { Edit, CreditCard, DollarSign, Receipt, Calculator, Sparkles, AlertCircle } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { Payment } from '@/types'
 
@@ -29,7 +29,7 @@ interface EditPaymentDialogProps {
 
 export default function EditPaymentDialog({ open, onOpenChange, payment }: EditPaymentDialogProps) {
   const { toast } = useToast()
-  const { updatePayment, isLoading, getPaymentsByPatient } = usePaymentStore()
+  const { updatePayment, isLoading, getPaymentsByPatient, getPaymentsByAppointment } = usePaymentStore()
   const { patients } = usePatientStore()
   const { appointments } = useAppointmentStore()
 
@@ -65,11 +65,11 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
     return `RCP-${year}${month}${day}-${time}`
   }
 
-  // حساب إجمالي المدفوعات السابقة للمريض (باستثناء هذه الدفعة)
-  const calculatePreviousPayments = (patientId: string, excludePaymentId: string) => {
-    if (!patientId) return 0
-    const patientPayments = getPaymentsByPatient(patientId)
-    return patientPayments
+  // حساب إجمالي المدفوعات السابقة للموعد المحدد (باستثناء هذه الدفعة)
+  const calculatePreviousPayments = (appointmentId: string, excludePaymentId: string) => {
+    if (!appointmentId || appointmentId === 'none') return 0
+    const appointmentPayments = getPaymentsByAppointment(appointmentId)
+    return appointmentPayments
       .filter(p => p.id !== excludePaymentId)
       .reduce((total, payment) => total + payment.amount, 0)
   }
@@ -102,12 +102,12 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
     return amount + taxAmount - discountAmount
   }
 
-  // تحديث الحسابات التلقائية عند تغيير المريض
+  // تحديث الحسابات التلقائية عند تغيير الموعد
   useEffect(() => {
-    if (formData.patient_id && payment) {
+    if (formData.appointment_id && formData.appointment_id !== 'none' && payment) {
       setAutoCalculations(prev => ({ ...prev, isCalculating: true }))
 
-      const previousPayments = calculatePreviousPayments(formData.patient_id, payment.id)
+      const previousPayments = calculatePreviousPayments(formData.appointment_id, payment.id)
       const originalAmount = payment.amount
 
       setAutoCalculations({
@@ -115,8 +115,15 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
         originalAmount,
         isCalculating: false
       })
+    } else if (payment) {
+      // إذا لم يتم اختيار موعد، اجعل المدفوعات السابقة = 0
+      setAutoCalculations({
+        previousPayments: 0,
+        originalAmount: payment.amount,
+        isCalculating: false
+      })
     }
-  }, [formData.patient_id, payment])
+  }, [formData.appointment_id, payment])
 
   // تحديث المبلغ المطلوب عند تغيير الموعد
   useEffect(() => {
@@ -412,23 +419,37 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Auto Calculations Info */}
-              {formData.patient_id && (
+              {formData.appointment_id && formData.appointment_id !== 'none' && (
                 <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200 dark:border-blue-800 shadow-sm transition-all duration-200">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm font-medium text-primary">الحسابات التلقائية</span>
+                      <span className="text-sm font-medium text-primary">الحسابات التلقائية للموعد</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">المدفوعات السابقة:</span>
+                        <span className="text-muted-foreground">المدفوعات السابقة لهذا الموعد:</span>
                         <span className="font-medium text-foreground">${autoCalculations.previousPayments.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">المبلغ الأصلي:</span>
+                        <span className="text-muted-foreground">المبلغ الأصلي لهذه الدفعة:</span>
                         <span className="font-medium text-foreground">${autoCalculations.originalAmount.toFixed(2)}</span>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {formData.appointment_id === 'none' && (
+                <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950/50 dark:to-yellow-900/30 border-yellow-200 dark:border-yellow-800 shadow-sm transition-all duration-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                      <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">دفعة بدون موعد محدد</span>
+                    </div>
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                      هذه الدفعة غير مرتبطة بموعد محدد، لذلك لا توجد مدفوعات سابقة مرتبطة بها
+                    </p>
                   </CardContent>
                 </Card>
               )}

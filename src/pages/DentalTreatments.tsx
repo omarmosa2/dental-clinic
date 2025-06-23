@@ -38,7 +38,7 @@ import {
 export default function DentalTreatments() {
   const { toast } = useToast()
   const { patients, loadPatients } = usePatientStore()
-  const { treatments, loadTreatments, loadTreatmentsByPatient } = useDentalTreatmentStore()
+  const { treatments, images, loadTreatments, loadTreatmentsByPatient, loadImages } = useDentalTreatmentStore()
   const { prescriptions, loadPrescriptions } = usePrescriptionStore()
   const { settings, currency } = useSettingsStore()
 
@@ -58,7 +58,8 @@ export default function DentalTreatments() {
     loadPatients()
     loadTreatments()
     loadPrescriptions()
-  }, [loadPatients, loadTreatments, loadPrescriptions])
+    loadImages() // تحميل جميع الصور
+  }, [loadPatients, loadTreatments, loadPrescriptions, loadImages])
 
   // Filter patients based on search query
   const filteredPatients = patients.filter(patient =>
@@ -91,12 +92,18 @@ export default function DentalTreatments() {
     return sortedTreatments[0].created_at
   }
 
+  // Calculate total images count for patient
+  const getPatientImagesCount = (patientId: string) => {
+    return images.filter(img => img.patient_id === patientId).length
+  }
+
   const handlePatientSelect = (patientId: string) => {
     setSelectedPatientId(patientId)
     setSelectedToothNumber(null)
     // تحميل العلاجات للمريض المحدد
     if (patientId) {
       loadTreatmentsByPatient(patientId)
+      loadImages() // تحميل الصور أيضاً
       // Scroll to dental chart after selection
       setTimeout(() => {
         const dentalChartElement = document.getElementById('dental-chart-section')
@@ -121,6 +128,7 @@ export default function DentalTreatments() {
     // إعادة تحميل البيانات عند إغلاق الحوار
     if (!open && selectedPatientId) {
       loadTreatmentsByPatient(selectedPatientId)
+      loadImages() // إعادة تحميل الصور أيضاً
     }
   }
 
@@ -135,7 +143,8 @@ export default function DentalTreatments() {
       await Promise.all([
         loadPatients(),
         loadTreatments(),
-        loadPrescriptions()
+        loadPrescriptions(),
+        loadImages() // تحديث الصور أيضاً
       ])
       notify.success('تم تحديث البيانات بنجاح')
     } catch (error) {
@@ -270,7 +279,7 @@ export default function DentalTreatments() {
             </CardHeader>
             <CardContent className="bg-card dark:bg-card">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {patientTreatments.reduce((acc, t) => acc + (t.images?.length || 0), 0)}
+                {getPatientImagesCount(selectedPatientId)}
               </div>
               <p className="text-xs text-muted-foreground">صور العلاجات</p>
             </CardContent>

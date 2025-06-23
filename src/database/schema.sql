@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS appointments (
 CREATE TABLE IF NOT EXISTS payments (
     id TEXT PRIMARY KEY,
     patient_id TEXT NOT NULL,
-    appointment_id TEXT,
+    appointment_id TEXT, -- ربط مباشر بالموعد
     amount DECIMAL(10,2) NOT NULL, -- المبلغ المدفوع في هذه الدفعة
     payment_method TEXT NOT NULL, -- cash, bank_transfer
     payment_date DATETIME NOT NULL,
@@ -61,9 +61,14 @@ CREATE TABLE IF NOT EXISTS payments (
     discount_amount DECIMAL(10,2) DEFAULT 0,
     tax_amount DECIMAL(10,2) DEFAULT 0,
     total_amount DECIMAL(10,2), -- المبلغ الإجمالي لهذه الدفعة (amount + tax - discount)
-    total_amount_due DECIMAL(10,2), -- المبلغ الإجمالي المطلوب للعلاج/الخدمة
-    amount_paid DECIMAL(10,2), -- إجمالي المبلغ المدفوع حتى الآن
-    remaining_balance DECIMAL(10,2), -- المبلغ المتبقي (total_amount_due - amount_paid)
+    -- حقول تتبع الرصيد لكل موعد
+    appointment_total_cost DECIMAL(10,2), -- التكلفة الإجمالية للموعد (من جدول appointments)
+    appointment_total_paid DECIMAL(10,2), -- إجمالي المدفوع لهذا الموعد حتى الآن
+    appointment_remaining_balance DECIMAL(10,2), -- المتبقي لهذا الموعد
+    -- حقول عامة للمدفوعات غير المرتبطة بموعد
+    total_amount_due DECIMAL(10,2), -- المبلغ الإجمالي المطلوب (للمدفوعات العامة)
+    amount_paid DECIMAL(10,2), -- إجمالي المبلغ المدفوع (للمدفوعات العامة)
+    remaining_balance DECIMAL(10,2), -- المبلغ المتبقي (للمدفوعات العامة)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,

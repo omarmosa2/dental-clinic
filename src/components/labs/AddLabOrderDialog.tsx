@@ -24,7 +24,7 @@ import { usePatientStore } from '@/store/patientStore'
 import { formatCurrency } from '@/lib/utils'
 import { notify } from '@/services/notificationService'
 import {
-  TestTube,
+  Microscope,
   Building2,
   User,
   DollarSign,
@@ -188,7 +188,7 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader dir="rtl">
           <DialogTitle className="flex items-center gap-2 text-right">
-            <TestTube className="h-5 w-5 text-purple-600" />
+            <Microscope className="h-5 w-5 text-purple-600" />
             {editingOrder ? 'تعديل طلب المختبر' : 'إضافة طلب مختبر جديد'}
           </DialogTitle>
           <DialogDescription className="text-right">
@@ -259,8 +259,8 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
           {/* Service Name */}
           <div className="space-y-2 text-right">
             <Label htmlFor="service_name" className="flex items-center gap-2 justify-end">
-              اسم الخدمة/التحليل *
-              <TestTube className="h-4 w-4" />
+              اسم الخدمة *
+              <Microscope className="h-4 w-4" />
             </Label>
             <Input
               id="service_name"
@@ -362,7 +362,7 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
             <div className="space-y-2 text-right">
               <Label htmlFor="status" className="flex items-center gap-2 justify-end">
                 الحالة *
-                <TestTube className="h-4 w-4" />
+                <Microscope className="h-4 w-4" />
               </Label>
               <Select
                 value={formData.status}

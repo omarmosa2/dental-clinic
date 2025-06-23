@@ -27,7 +27,7 @@ export default function DentalChart({
   isPrimaryTeeth: externalIsPrimaryTeeth = false,
   onPrimaryTeethChange
 }: DentalChartProps) {
-  const { treatments, loadTreatmentsByPatient } = useDentalTreatmentStore()
+  const { treatments, images, loadTreatmentsByPatient, loadImages } = useDentalTreatmentStore()
   const { isDarkMode } = useTheme()
   const [hoveredTooth, setHoveredTooth] = useState<number | null>(null)
   const [internalIsPrimaryTeeth, setInternalIsPrimaryTeeth] = useState(false)
@@ -39,13 +39,14 @@ export default function DentalChart({
   useEffect(() => {
     if (patientId) {
       loadTreatmentsByPatient(patientId)
+      loadImages() // تحميل الصور أيضاً
     }
-  }, [patientId, loadTreatmentsByPatient])
+  }, [patientId, loadTreatmentsByPatient, loadImages])
 
-  // Force re-render when treatments change
+  // Force re-render when treatments or images change
   useEffect(() => {
-    // This effect will trigger when treatments array changes
-  }, [treatments])
+    // This effect will trigger when treatments or images array changes
+  }, [treatments, images])
 
   // Get treatment for specific tooth
   const getToothTreatment = (toothNumber: number): DentalTreatment | undefined => {
@@ -70,12 +71,18 @@ export default function DentalChart({
     return 'سليم'
   }
 
+  // Get images count for specific tooth
+  const getToothImagesCount = (toothNumber: number): number => {
+    return images.filter(img => img.tooth_number === toothNumber && img.patient_id === patientId).length
+  }
+
   // Render individual tooth
   const renderTooth = (toothNumber: number) => {
     const toothInfo = getToothInfo(toothNumber, isPrimaryTeeth)
     const treatment = getToothTreatment(toothNumber)
     const color = getToothColor(toothNumber)
     const status = getToothStatus(toothNumber)
+    const imagesCount = getToothImagesCount(toothNumber)
     const isSelected = selectedTooth === toothNumber
     const isHovered = hoveredTooth === toothNumber
 
@@ -133,6 +140,25 @@ export default function DentalChart({
                 />
               </div>
             )}
+
+            {/* Images count indicator */}
+            {imagesCount > 0 && (
+              <div className="absolute -top-2 -left-2 z-10">
+                <div
+                  className={`${imagesCount > 9 ? 'w-7 h-6 px-1' : 'w-6 h-6'} rounded-full border-2 border-white bg-blue-600 flex items-center justify-center text-white font-bold shadow-lg transition-transform duration-200 hover:scale-110`}
+                  style={{
+                    fontSize: imagesCount > 9 ? '10px' : '12px',
+                    fontWeight: '800',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4), 0 2px 4px rgba(0,0,0,0.3)',
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                    minWidth: '24px'
+                  }}
+                >
+                  {imagesCount > 99 ? '99+' : imagesCount}
+                </div>
+              </div>
+            )}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs bg-white dark:bg-gray-800 border shadow-lg" dir="rtl">
@@ -156,6 +182,11 @@ export default function DentalChart({
             {treatment?.next_treatment && (
               <div className="text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 p-1 rounded">
                 العلاج القادم: {treatment.next_treatment}
+              </div>
+            )}
+            {imagesCount > 0 && (
+              <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-1 rounded">
+                📷 {imagesCount} صورة
               </div>
             )}
           </div>

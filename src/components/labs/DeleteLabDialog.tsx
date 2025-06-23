@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { useLabStore } from '@/store/labStore'
 import { useLabOrderStore } from '@/store/labOrderStore'
 import { notify } from '@/services/notificationService'
-import { AlertTriangle, Building2, TestTube, Loader2 } from 'lucide-react'
+import { AlertTriangle, Building2, Microscope, Loader2 } from 'lucide-react'
 import type { Lab } from '@/types'
 
 interface DeleteLabDialogProps {
@@ -44,12 +44,12 @@ export default function DeleteLabDialog({ open, onOpenChange, lab }: DeleteLabDi
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
+        <DialogHeader dir="rtl">
+          <DialogTitle className="flex items-center gap-2 text-destructive text-right">
             <AlertTriangle className="h-5 w-5" />
             تأكيد حذف المختبر
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-right">
             هذا الإجراء لا يمكن التراجع عنه. سيتم حذف المختبر نهائياً من النظام.
           </DialogDescription>
         </DialogHeader>
@@ -62,14 +62,14 @@ export default function DeleteLabDialog({ open, onOpenChange, lab }: DeleteLabDi
               <span className="font-semibold">اسم المختبر:</span>
               <span>{lab.name}</span>
             </div>
-            
+
             {lab.contact_info && (
               <div className="flex items-center gap-2">
                 <span className="font-semibold">معلومات الاتصال:</span>
                 <span className="text-sm">{lab.contact_info}</span>
               </div>
             )}
-            
+
             {lab.address && (
               <div className="flex items-center gap-2">
                 <span className="font-semibold">العنوان:</span>
@@ -89,7 +89,7 @@ export default function DeleteLabDialog({ open, onOpenChange, lab }: DeleteLabDi
                 هذا المختبر يحتوي على طلبات مرتبطة به. حذف المختبر سيؤدي إلى حذف جميع الطلبات المرتبطة به أيضاً.
               </p>
               <div className="flex items-center gap-2">
-                <TestTube className="h-4 w-4 text-destructive" />
+                <Microscope className="h-4 w-4 text-destructive" />
                 <span className="text-sm font-medium">عدد الطلبات المرتبطة:</span>
                 <Badge variant="destructive" className="text-xs">
                   {labOrders.length} طلب
@@ -111,7 +111,7 @@ export default function DeleteLabDialog({ open, onOpenChange, lab }: DeleteLabDi
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2" dir="rtl">
           <Button
             type="button"
             variant="outline"

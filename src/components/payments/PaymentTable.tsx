@@ -215,9 +215,9 @@ export default function PaymentTable({
           <TableHeader>
             <TableRow>
               <TableHead className="text-center">الرقم التسلسلي</TableHead>
-              <SortableHeader field="receipt_number">رقم الإيصال</SortableHeader>
               <SortableHeader field="patient_name">المريض</SortableHeader>
-              <SortableHeader field="amount">المبلغ</SortableHeader>
+              <TableHead className="text-center">الموعد</TableHead>
+              <SortableHeader field="amount">المبلغ والرصيد</SortableHeader>
               <SortableHeader field="payment_method">طريقة الدفع</SortableHeader>
               <SortableHeader field="status">الحالة</SortableHeader>
               <SortableHeader field="payment_date">تاريخ الدفع</SortableHeader>
@@ -228,7 +228,7 @@ export default function PaymentTable({
           </TableHeader>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8">
+              <TableCell colSpan={8} className="text-center py-8">
                 <div className="flex flex-col items-center space-y-2">
                   <DollarSign className="w-12 h-12 text-muted-foreground opacity-50" />
                   <p className="text-muted-foreground">
@@ -254,14 +254,14 @@ export default function PaymentTable({
                 <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
                 </TableHead>
-                <SortableHeader field="receipt_number">
-                  <span className="arabic-enhanced font-medium">رقم الإيصال</span>
-                </SortableHeader>
                 <SortableHeader field="patient_name">
                   <span className="arabic-enhanced font-medium">المريض</span>
                 </SortableHeader>
+                <TableHead className="text-center">
+                  <span className="arabic-enhanced font-medium">الموعد</span>
+                </TableHead>
                 <SortableHeader field="amount">
-                  <span className="arabic-enhanced font-medium">المبلغ</span>
+                  <span className="arabic-enhanced font-medium">المبلغ والرصيد</span>
                 </SortableHeader>
                 <SortableHeader field="payment_method">
                   <span className="arabic-enhanced font-medium">طريقة الدفع</span>
@@ -285,14 +285,6 @@ export default function PaymentTable({
                   </TableCell>
                   <TableCell className="font-medium text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <Receipt className="w-4 h-4 text-muted-foreground" />
-                      <span className="arabic-enhanced">
-                        {payment.receipt_number || `#${payment.id.slice(-6)}`}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium text-center">
-                    <div className="flex items-center justify-center gap-2">
                       <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
                         {getPatientName(payment).charAt(0)}
                       </div>
@@ -307,19 +299,91 @@ export default function PaymentTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
+                    {payment.appointment_id ? (
+                      <div className="space-y-1">
+                        {(() => {
+                          // تحقق من وجود تاريخ الموعد
+                          const appointmentDate = payment.appointment?.start_time
+
+                          if (appointmentDate) {
+                            try {
+                              const date = new Date(appointmentDate)
+                              if (!isNaN(date.getTime())) {
+                                return (
+                                  <>
+                                    <div className="text-sm font-medium arabic-enhanced">
+                                      {date.toLocaleDateString('en-GB', {
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit'
+                                      })}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {date.toLocaleTimeString('ar-SA', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        hour12: true
+                                      })}
+                                    </div>
+                                  </>
+                                )
+                              }
+                            } catch (error) {
+                              console.error('Error parsing appointment date:', error)
+                            }
+                          }
+
+                          // إذا لم يكن هناك تاريخ صحيح، اعرض "موعد محدد"
+                          return (
+                            <div className="text-sm font-medium arabic-enhanced">
+                              موعد محدد
+                            </div>
+                          )
+                        })()}
+
+                        {payment.appointment_total_cost && (
+                          <div className="text-xs text-muted-foreground">
+                            تكلفة: {formatCurrency(payment.appointment_total_cost)}
+                          </div>
+                        )}
+                        {payment.appointment_remaining_balance !== undefined && payment.appointment_remaining_balance > 0 && (
+                          <div className="text-xs text-orange-600 dark:text-orange-400">
+                            متبقي: {formatCurrency(payment.appointment_remaining_balance)}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground arabic-enhanced">
+                        دفعة عامة
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
                     <div className="space-y-1">
                       <div className="font-medium text-lg">
                         {formatCurrency(payment.amount)}
                       </div>
-                      {payment.total_amount_due && (
-                        <div className="text-xs text-muted-foreground">
-                          من أصل {formatCurrency(payment.total_amount_due)}
-                        </div>
-                      )}
-                      {payment.remaining_balance && payment.remaining_balance > 0 && (
-                        <div className="text-xs text-orange-600 dark:text-orange-400">
-                          متبقي: {formatCurrency(payment.remaining_balance)}
-                        </div>
+                      {payment.appointment_id ? (
+                        // للمدفوعات المرتبطة بموعد
+                        payment.appointment_total_paid && (
+                          <div className="text-xs text-muted-foreground">
+                            إجمالي مدفوع: {formatCurrency(payment.appointment_total_paid)}
+                          </div>
+                        )
+                      ) : (
+                        // للمدفوعات العامة
+                        <>
+                          {payment.total_amount_due && (
+                            <div className="text-xs text-muted-foreground">
+                              من أصل {formatCurrency(payment.total_amount_due)}
+                            </div>
+                          )}
+                          {payment.remaining_balance && payment.remaining_balance > 0 && (
+                            <div className="text-xs text-orange-600 dark:text-orange-400">
+                              متبقي: {formatCurrency(payment.remaining_balance)}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </TableCell>

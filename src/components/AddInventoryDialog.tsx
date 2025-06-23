@@ -57,7 +57,7 @@ interface AddInventoryDialogProps {
 // Predefined categories for dental clinic
 const defaultCategories = [
   'أدوات طبية',
-  'مواد استهلاكية', 
+  'مواد استهلاكية',
   'أدوية',
   'مواد حشو',
   'معدات تعقيم',
@@ -118,7 +118,7 @@ export default function AddInventoryDialog({
         category: customCategory || data.category,
         supplier: customSupplier || data.supplier,
       }
-      
+
       await onSave(finalData)
       form.reset()
       setCustomCategory('')
@@ -295,7 +295,7 @@ export default function AddInventoryDialog({
                 name="cost_per_unit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium">تكلفة الوحدة (ريال)</FormLabel>
+                    <FormLabel className="text-sm font-medium">تكلفة الوحدة (دولار)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"

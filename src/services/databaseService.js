@@ -937,7 +937,9 @@ class DatabaseService {
         pt.full_name as patient_full_name,
         pt.phone as patient_phone,
         pt.email as patient_email,
-        a.title as appointment_title
+        a.title as appointment_title,
+        a.start_time as appointment_start_time,
+        a.end_time as appointment_end_time
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
       LEFT JOIN appointments a ON p.appointment_id = a.id
@@ -959,7 +961,9 @@ class DatabaseService {
       } : null,
       appointment: payment.appointment_id ? {
         id: payment.appointment_id,
-        title: payment.appointment_title
+        title: payment.appointment_title,
+        start_time: payment.appointment_start_time,
+        end_time: payment.appointment_end_time
       } : null
     }))
   }
@@ -1037,14 +1041,42 @@ class DatabaseService {
 
   async searchPayments(query) {
     const stmt = this.db.prepare(`
-      SELECT p.*, pt.full_name as patient_name
+      SELECT
+        p.*,
+        pt.full_name as patient_name,
+        pt.full_name as patient_full_name,
+        pt.phone as patient_phone,
+        pt.email as patient_email,
+        a.title as appointment_title,
+        a.start_time as appointment_start_time,
+        a.end_time as appointment_end_time
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
+      LEFT JOIN appointments a ON p.appointment_id = a.id
       WHERE pt.full_name LIKE ? OR p.receipt_number LIKE ?
       ORDER BY p.payment_date DESC
     `)
     const searchTerm = `%${query}%`
-    return stmt.all(searchTerm, searchTerm)
+    const payments = stmt.all(searchTerm, searchTerm)
+
+    // Transform the data to include patient and appointment objects
+    return payments.map(payment => ({
+      ...payment,
+      patient: payment.patient_id ? {
+        id: payment.patient_id,
+        full_name: payment.patient_full_name,
+        first_name: payment.patient_full_name?.split(' ')[0] || '',
+        last_name: payment.patient_full_name?.split(' ').slice(1).join(' ') || '',
+        phone: payment.patient_phone,
+        email: payment.patient_email
+      } : null,
+      appointment: payment.appointment_id ? {
+        id: payment.appointment_id,
+        title: payment.appointment_title,
+        start_time: payment.appointment_start_time,
+        end_time: payment.appointment_end_time
+      } : null
+    }))
   }
 
   // Treatment operations
