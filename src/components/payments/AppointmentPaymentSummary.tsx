@@ -2,7 +2,7 @@ import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { Calendar, DollarSign, TrendingUp, AlertCircle } from 'lucide-react'
 import { Payment, Appointment } from '@/types'
 
@@ -12,17 +12,17 @@ interface AppointmentPaymentSummaryProps {
   className?: string
 }
 
-export default function AppointmentPaymentSummary({ 
-  appointment, 
-  payments, 
-  className = '' 
+export default function AppointmentPaymentSummary({
+  appointment,
+  payments,
+  className = ''
 }: AppointmentPaymentSummaryProps) {
   // حساب إحصائيات المدفوعات للموعد
   const appointmentCost = appointment.cost || 0
   const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0)
   const remainingBalance = Math.max(0, appointmentCost - totalPaid)
   const paymentProgress = appointmentCost > 0 ? (totalPaid / appointmentCost) * 100 : 0
-  
+
   // تحديد حالة الدفع
   let paymentStatus: 'completed' | 'partial' | 'pending' = 'pending'
   if (remainingBalance <= 0 && appointmentCost > 0) {
@@ -65,8 +65,8 @@ export default function AppointmentPaymentSummary({
             <Calendar className="w-5 h-5 text-primary" />
             <span className="arabic-enhanced">ملخص مدفوعات الموعد</span>
           </div>
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className={`${getStatusColor(paymentStatus)} arabic-enhanced`}
           >
             {getStatusText(paymentStatus)}
@@ -80,7 +80,7 @@ export default function AppointmentPaymentSummary({
             {appointment.title}
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(appointment.start_time).toLocaleDateString('ar-SA')}
+            {formatDate(appointment.start_time)}
           </div>
         </div>
 
@@ -132,14 +132,14 @@ export default function AppointmentPaymentSummary({
             </div>
             <div className="space-y-1 max-h-32 overflow-y-auto">
               {payments.map((payment, index) => (
-                <div 
-                  key={payment.id} 
+                <div
+                  key={payment.id}
                   className="flex justify-between items-center text-xs bg-muted/30 rounded p-2"
                 >
                   <div>
                     <span className="font-medium">دفعة #{index + 1}</span>
                     <span className="text-muted-foreground mr-2">
-                      {new Date(payment.payment_date).toLocaleDateString('ar-SA')}
+                      {formatDate(payment.payment_date)}
                     </span>
                   </div>
                   <div className="font-medium">

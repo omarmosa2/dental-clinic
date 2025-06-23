@@ -8,10 +8,10 @@ interface RealTimeIndicatorProps {
   className?: string
 }
 
-export default function RealTimeIndicator({ 
-  isActive = true, 
+export default function RealTimeIndicator({
+  isActive = true,
   lastUpdate,
-  className = '' 
+  className = ''
 }: RealTimeIndicatorProps) {
   const [isUpdating, setIsUpdating] = useState(false)
 
@@ -54,7 +54,11 @@ export default function RealTimeIndicator({
     } else if (hours < 24) {
       return `منذ ${hours} ساعة`
     } else {
-      return date.toLocaleDateString('ar-SA')
+      // Use Gregorian calendar format
+      const day = date.getDate().toString().padStart(2, '0')
+      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
     }
   }
 
@@ -68,8 +72,8 @@ export default function RealTimeIndicator({
   }
 
   return (
-    <Badge 
-      variant={isUpdating ? "default" : "secondary"} 
+    <Badge
+      variant={isUpdating ? "default" : "secondary"}
       className={`flex items-center gap-1 ${className} ${
         isUpdating ? 'bg-green-500 text-white' : 'bg-green-100 text-green-800'
       }`}

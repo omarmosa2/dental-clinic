@@ -1,7 +1,8 @@
 /**
  * Live Date Time Component
- * Displays current date and time in Arabic with Gregorian calendar
+ * Displays current date and time in Arabic with Gregorian calendar ONLY
  * Updates every second to show real-time clock
+ * التقويم الميلادي فقط - لا يستخدم التقويم الهجري
  */
 
 import React, { useState, useEffect } from 'react'
@@ -18,6 +19,7 @@ export default function LiveDateTime() {
   }, [])
 
   const formatGregorianDateTime = (date: Date): string => {
+    // Using Gregorian calendar system ONLY - التقويم الميلادي فقط
     const day = date.getDate()
     const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
     const year = date.getFullYear()
@@ -25,14 +27,14 @@ export default function LiveDateTime() {
     const minutes = date.getMinutes()
     const seconds = date.getSeconds()
 
-    // Format date as DD/MM/YYYY
+    // Format date as DD/MM/YYYY (Gregorian format)
     const formattedDay = day.toString().padStart(2, '0')
     const formattedMonth = month.toString().padStart(2, '0')
     const formattedHours = hours.toString().padStart(2, '0')
     const formattedMinutes = minutes.toString().padStart(2, '0')
     const formattedSeconds = seconds.toString().padStart(2, '0')
 
-    // Format: 20/06/2025 - 12:30:45
+    // Format: 20/06/2025 - 12:30:45 (Gregorian calendar)
     const dateNumbers = `${formattedDay}/${formattedMonth}/${year}`
     const timeNumbers = `${formattedHours}:${formattedMinutes}:${formattedSeconds}`
 

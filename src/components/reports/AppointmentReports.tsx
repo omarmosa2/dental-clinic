@@ -1,3 +1,7 @@
+/**
+ * Appointment Reports - تقارير المواعيد تستخدم التقويم الميلادي فقط
+ * All appointment charts use ONLY Gregorian calendar system
+ */
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -6,7 +10,7 @@ import { useReportsStore } from '@/store/reportsStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useRealTimeReportsByType } from '@/hooks/useRealTimeReports'
-import { formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue } from '@/lib/utils'
+import { formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue, formatGregorianMonthYear } from '@/lib/utils'
 import { validateNumericData, validateDateData, transformToChartData, groupDataByPeriod, ensureAppointmentStatusData } from '@/lib/chartDataHelpers'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -150,11 +154,10 @@ export default function AppointmentReports() {
             return acc
           }
 
-          // Use Arabic month format for better display
-          const monthName = date.toLocaleDateString('ar-SA', {
-            month: 'short',
-            year: 'numeric'
-          })
+          // Use Gregorian calendar with Arabic month names
+          const month = date.getMonth() // 0-11
+          const year = date.getFullYear()
+          const monthName = formatGregorianMonthYear(year, month)
 
           acc[monthName] = (acc[monthName] || 0) + 1
           return acc

@@ -1,3 +1,7 @@
+/**
+ * Financial Reports - التقارير المالية تستخدم التقويم الميلادي فقط
+ * All financial charts use ONLY Gregorian calendar system
+ */
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -6,7 +10,7 @@ import { useReportsStore } from '@/store/reportsStore'
 import { usePaymentStore } from '@/store/paymentStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useRealTimeReportsByType } from '@/hooks/useRealTimeReports'
-import { formatCurrency, formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue } from '@/lib/utils'
+import { formatCurrency, formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue, parseAndFormatGregorianMonth } from '@/lib/utils'
 import { validateNumericData, processFinancialData, groupDataByPeriod, ensurePaymentStatusData, ensurePaymentMethodData } from '@/lib/chartDataHelpers'
 import { validatePayments, validateMonthlyRevenue, validatePaymentMethodStats, sanitizeFinancialResult } from '@/utils/dataValidation'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
@@ -272,12 +276,8 @@ export default function FinancialReports() {
             return isValidMonth && isValidRevenue
           })
           .map(([month, revenue]) => {
-            // Convert to Arabic month format
-            const [year, monthNum] = month.split('-')
-            const monthName = new Date(Number(year), Number(monthNum) - 1).toLocaleDateString('ar-SA', {
-              month: 'short',
-              year: 'numeric'
-            })
+            // Convert to Gregorian calendar format with Arabic month names
+            const monthName = parseAndFormatGregorianMonth(month)
 
             return {
               month: monthName,
@@ -305,12 +305,8 @@ export default function FinancialReports() {
           return isValidMonth && isValidRevenue
         })
         .map(([month, revenue]) => {
-          // Convert to Arabic month format
-          const [year, monthNum] = month.split('-')
-          const monthName = new Date(Number(year), Number(monthNum) - 1).toLocaleDateString('ar-SA', {
-            month: 'short',
-            year: 'numeric'
-          })
+          // Convert to Gregorian calendar format with Arabic month names
+          const monthName = parseAndFormatGregorianMonth(month)
 
           return {
             month: monthName,

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { Calendar as BigCalendar, momentLocalizer, View, Views } from 'react-big-calendar'
 import moment from 'moment'
+import { MOMENT_GREGORIAN_CONFIG } from '@/lib/gregorianCalendar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +21,13 @@ import AddAppointmentDialog from '@/components/AddAppointmentDialog'
 import DeleteAppointmentDialog from '@/components/appointments/DeleteAppointmentDialog'
 import PatientDetailsModal from '@/components/patients/PatientDetailsModal'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
+
+// Configure moment.js to use Gregorian calendar explicitly with Arabic locale
+// استخدام التقويم الميلادي فقط مع اللغة العربية
+moment.locale('ar', MOMENT_GREGORIAN_CONFIG)
+
+// Ensure we're using Gregorian calendar system
+moment.updateLocale('ar', MOMENT_GREGORIAN_CONFIG)
 
 const localizer = momentLocalizer(moment)
 

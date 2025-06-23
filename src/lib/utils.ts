@@ -76,11 +76,12 @@ export function formatCurrency(amount: number, currency: string = 'USD'): string
   }
 }
 
-// Gregorian months in Arabic
-const gregorianMonths = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-]
+// Import Gregorian calendar configuration
+import { GREGORIAN_MONTHS_AR, formatGregorianDate as formatGregorianDateCore, formatGregorianMonthYear as formatGregorianMonthYearCore, parseGregorianMonthString } from './gregorianCalendar'
+
+// Gregorian months in Arabic - التقويم الميلادي
+// This application uses ONLY Gregorian calendar system
+const gregorianMonths = GREGORIAN_MONTHS_AR
 
 // Arabic-Indic numerals
 const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
@@ -103,11 +104,12 @@ export function formatDate(dateString: string | Date | null | undefined, format?
       return '--'
     }
 
+    // Using Gregorian calendar system - التقويم الميلادي
     const day = date.getDate()
     const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
     const year = date.getFullYear()
 
-    // Format as DD/MM/YYYY
+    // Format as DD/MM/YYYY (Gregorian format)
     const formattedDay = day.toString().padStart(2, '0')
     const formattedMonth = month.toString().padStart(2, '0')
 
@@ -137,11 +139,12 @@ export function formatDateTime(dateString: string | Date | null | undefined): st
       return '--'
     }
 
+    // Using Gregorian calendar system - التقويم الميلادي
     const day = date.getDate()
     const month = date.getMonth() + 1 // Add 1 because getMonth() returns 0-11
     const year = date.getFullYear()
 
-    // Format date as DD/MM/YYYY
+    // Format date as DD/MM/YYYY (Gregorian format)
     const formattedDay = day.toString().padStart(2, '0')
     const formattedMonth = month.toString().padStart(2, '0')
     const formattedDate = `${formattedDay}/${formattedMonth}/${year}`
@@ -191,6 +194,16 @@ export function getCurrentGregorianDate(): string {
 
 export function getGregorianMonthName(monthNumber: number): string {
   return gregorianMonths[monthNumber] || ''
+}
+
+// Format month and year using Gregorian calendar with Arabic month names
+export function formatGregorianMonthYear(year: number, monthIndex: number): string {
+  return formatGregorianMonthYearCore(year, monthIndex)
+}
+
+// Parse YYYY-MM format and return Gregorian month name with year
+export function parseAndFormatGregorianMonth(monthString: string): string {
+  return parseGregorianMonthString(monthString)
 }
 
 // Function to get status color (keeping existing functionality)

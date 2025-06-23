@@ -1,3 +1,7 @@
+/**
+ * Dashboard Page - جميع المخططات تستخدم التقويم الميلادي فقط
+ * All charts use ONLY Gregorian calendar system
+ */
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -6,7 +10,7 @@ import { useAppointmentStore } from '@/store/appointmentStore'
 import { usePaymentStore } from '@/store/paymentStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useInventoryStore } from '@/store/inventoryStore'
-import { formatCurrency, formatDate, formatTime, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue } from '@/lib/utils'
+import { formatCurrency, formatDate, formatTime, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue, parseAndFormatGregorianMonth } from '@/lib/utils'
 import { validateNumericData, validateDateData, transformToChartData, groupDataByPeriod, processFinancialData } from '@/lib/chartDataHelpers'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -127,12 +131,8 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
         })
         .slice(-6) // Last 6 months
         .map(([month, revenue]) => {
-          // Convert to DD/MM/YYYY format for better Arabic display
-          const [year, monthNum] = month.split('-')
-          const monthName = new Date(Number(year), Number(monthNum) - 1).toLocaleDateString('ar-SA', {
-            month: 'short',
-            year: 'numeric'
-          })
+          // Convert to Gregorian calendar format with Arabic month names
+          const monthName = parseAndFormatGregorianMonth(month)
 
           return {
             month: monthName,
