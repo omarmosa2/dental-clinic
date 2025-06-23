@@ -22,6 +22,8 @@ import { usePatientStore } from '@/store/patientStore'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
+import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
+import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import { notify } from '@/services/notificationService'
 import LabTable from '@/components/labs/LabTable'
 import AddLabDialog from '@/components/labs/AddLabDialog'
@@ -68,6 +70,12 @@ export default function Labs() {
     isLoading: ordersLoading
   } = useLabOrderStore()
   const { patients, loadPatients } = usePatientStore()
+
+  // Time filtering for lab orders
+  const labOrderStats = useTimeFilteredStats({
+    data: labOrders,
+    dateField: 'order_date'
+  })
 
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilterLocal] = useState('all')
@@ -332,6 +340,15 @@ export default function Labs() {
         </div>
       </div>
 
+      {/* Time Filter Section */}
+      <TimeFilter
+        value={labOrderStats.timeFilter}
+        onChange={labOrderStats.handleFilterChange}
+        onClear={labOrderStats.resetFilter}
+        title="فلترة طلبات المختبرات حسب التاريخ"
+        defaultOpen={false}
+      />
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" dir="rtl">
         {/* Total Orders */}
@@ -341,10 +358,17 @@ export default function Labs() {
             <Microscope className={`h-4 w-4 ${getIconStyles('blue')}`} />
           </CardHeader>
           <CardContent className="text-right">
-            <div className="text-2xl font-bold text-foreground">{totalOrders}</div>
+            <div className="text-2xl font-bold text-foreground">{labOrderStats.filteredData.length}</div>
             <p className="text-xs text-muted-foreground">
-              جميع طلبات المختبرات
+              طلبات في الفترة المحددة
             </p>
+            {labOrderStats.trend && (
+              <div className={`text-xs flex items-center mt-1 ${
+                labOrderStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
+              }`}>
+                <span>{Math.abs(labOrderStats.trend.changePercent)}% من الفترة السابقة</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -355,10 +379,19 @@ export default function Labs() {
             <DollarSign className={`h-4 w-4 ${getIconStyles('green')}`} />
           </CardHeader>
           <CardContent className="text-right">
-            <div className="text-2xl font-bold text-foreground">{formatCurrency(totalCost)}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(labOrderStats.financialStats?.total || 0)}
+            </div>
             <p className="text-xs text-muted-foreground">
-              تكلفة جميع الطلبات
+              تكلفة الطلبات في الفترة المحددة
             </p>
+            {labOrderStats.trend && (
+              <div className={`text-xs flex items-center mt-1 ${
+                labOrderStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
+              }`}>
+                <span>{Math.abs(labOrderStats.trend.changePercent)}% من الفترة السابقة</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

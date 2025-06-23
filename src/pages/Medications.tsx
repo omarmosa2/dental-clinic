@@ -22,6 +22,8 @@ import { usePatientStore } from '@/store/patientStore'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
+import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
+import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import { notify } from '@/services/notificationService'
 import MedicationTable from '@/components/medications/MedicationTable'
 import AddMedicationDialog from '@/components/medications/AddMedicationDialog'
@@ -62,6 +64,12 @@ export default function Medications() {
     isLoading: prescriptionsLoading
   } = usePrescriptionStore()
   const { patients, loadPatients } = usePatientStore()
+
+  // Time filtering for prescriptions
+  const prescriptionStats = useTimeFilteredStats({
+    data: prescriptions,
+    dateField: 'prescription_date'
+  })
 
   // UI State
   const [activeTab, setActiveTab] = useState('prescriptions')
@@ -204,6 +212,15 @@ export default function Medications() {
         </div>
       </div>
 
+      {/* Time Filter Section */}
+      <TimeFilter
+        value={prescriptionStats.timeFilter}
+        onChange={prescriptionStats.handleFilterChange}
+        onClear={prescriptionStats.resetFilter}
+        title="فلترة الوصفات الطبية حسب التاريخ"
+        defaultOpen={false}
+      />
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" dir="rtl">
         <Card className={getCardStyles('blue')}>
@@ -225,10 +242,17 @@ export default function Medications() {
             <FileText className={getIconStyles('green')} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-right">{totalPrescriptions}</div>
+            <div className="text-2xl font-bold text-right">{prescriptionStats.filteredData.length}</div>
             <p className="text-xs text-muted-foreground text-right">
-              جميع الوصفات الطبية
+              وصفات في الفترة المحددة
             </p>
+            {prescriptionStats.trend && (
+              <div className={`text-xs flex items-center mt-1 ${
+                prescriptionStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
+              }`}>
+                <span>{Math.abs(prescriptionStats.trend.changePercent)}% من الفترة السابقة</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

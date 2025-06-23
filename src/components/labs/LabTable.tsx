@@ -17,10 +17,10 @@ import {
   Edit,
   Trash2,
   Building2,
-  Phone,
   MapPin,
   TestTube,
-  MoreHorizontal
+  MoreHorizontal,
+  MessageCircle
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -122,19 +122,43 @@ export default function LabTable({ labs, onEdit, onDelete, searchQuery }: LabTab
               </TableCell>
               <TableCell className="text-center table-cell-wrap-truncate-sm">
                 {lab.contact_info ? (
-                  <div className="flex items-center gap-2 justify-center">
+                  <div className="flex items-center justify-center">
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         // تنظيف رقم الهاتف من الرموز والمسافات
                         const cleanPhone = lab.contact_info?.replace(/[^\d]/g, '') || ''
-                        // فتح واتساب
-                        window.open(`https://api.whatsapp.com/send/?phone=${cleanPhone}`, '_blank')
+                        const whatsappUrl = `https://api.whatsapp.com/send/?phone=${cleanPhone}`
+
+                        // Try multiple methods to open external URL
+                        try {
+                          // Method 1: Try electronAPI system.openExternal
+                          if (window.electronAPI && window.electronAPI.system && window.electronAPI.system.openExternal) {
+                            await window.electronAPI.system.openExternal(whatsappUrl)
+                            return
+                          }
+                        } catch (error) {
+                          console.log('Method 1 failed:', error)
+                        }
+
+                        try {
+                          // Method 2: Try direct shell.openExternal via ipcRenderer
+                          if (window.electronAPI) {
+                            // @ts-ignore
+                            await window.electronAPI.shell?.openExternal?.(whatsappUrl)
+                            return
+                          }
+                        } catch (error) {
+                          console.log('Method 2 failed:', error)
+                        }
+
+                        // Method 3: Fallback to window.open with external behavior
+                        window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
                       }}
-                      className="text-sm text-green-600 hover:text-green-700 hover:underline transition-colors cursor-pointer"
+                      className="text-sm text-green-600 hover:text-green-700 hover:underline transition-colors cursor-pointer flex items-center gap-1"
                     >
                       {lab.contact_info}
+                      <MessageCircle className="h-3 w-3" />
                     </button>
-                    <Phone className="h-4 w-4 text-green-600" />
                   </div>
                 ) : (
                   <span className="text-muted-foreground text-sm">غير محدد</span>

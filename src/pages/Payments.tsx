@@ -15,6 +15,8 @@ import { useToast } from '@/hooks/use-toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
+import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
+import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import AddPaymentDialog from '@/components/payments/AddPaymentDialog'
 import EditPaymentDialog from '@/components/payments/EditPaymentDialog'
 import DeletePaymentDialog from '@/components/payments/DeletePaymentDialog'
@@ -71,6 +73,12 @@ export default function Payments() {
   } = usePaymentStore()
 
   const { loadPatients, patients } = usePatientStore()
+
+  // Time filtering for payments
+  const paymentStats = useTimeFilteredStats({
+    data: payments,
+    dateField: 'payment_date'
+  })
 
   useEffect(() => {
     loadPayments()
@@ -220,6 +228,15 @@ export default function Payments() {
         </div>
       </div>
 
+      {/* Time Filter Section */}
+      <TimeFilter
+        value={paymentStats.timeFilter}
+        onChange={paymentStats.handleFilterChange}
+        onClear={paymentStats.resetFilter}
+        title="فلترة المدفوعات حسب التاريخ"
+        defaultOpen={false}
+      />
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card className={getCardStyles("green")}>
@@ -228,10 +245,20 @@ export default function Payments() {
             <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{formatCurrency(totalRevenue)}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(paymentStats.financialStats?.total || 0)}
+            </div>
             <p className="text-xs text-muted-foreground">
-              من المدفوعات المكتملة
+              من المدفوعات في الفترة المحددة
             </p>
+            {paymentStats.trend && (
+              <div className={`text-xs flex items-center mt-1 ${
+                paymentStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
+              }`}>
+                <TrendingUp className={`w-3 h-3 ml-1 ${paymentStats.trend.isPositive ? '' : 'rotate-180'}`} />
+                <span>{Math.abs(paymentStats.trend.changePercent)}% من الفترة السابقة</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -280,10 +307,18 @@ export default function Payments() {
             <TrendingUp className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{payments.length}</div>
+            <div className="text-2xl font-bold text-foreground">{paymentStats.filteredData.length}</div>
             <p className="text-xs text-muted-foreground">
-              عملية دفع مسجلة
+              عملية دفع في الفترة المحددة
             </p>
+            {paymentStats.trend && (
+              <div className={`text-xs flex items-center mt-1 ${
+                paymentStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
+              }`}>
+                <TrendingUp className={`w-3 h-3 ml-1 ${paymentStats.trend.isPositive ? '' : 'rotate-180'}`} />
+                <span>{Math.abs(paymentStats.trend.changePercent)}% من الفترة السابقة</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

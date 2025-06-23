@@ -17,6 +17,8 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import { useRealTimeDashboard } from '@/hooks/useRealTimeReports'
 import RealTimeIndicator from '@/components/ui/real-time-indicator'
+import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
+import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import {
   Users,
   Calendar,
@@ -63,6 +65,22 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
   useRealTimeSync()
   useRealTimeDashboard()
 
+  // Time filtering for patients, appointments, and payments
+  const patientStats = useTimeFilteredStats({
+    data: patients,
+    dateField: 'created_at'
+  })
+
+  const appointmentStats = useTimeFilteredStats({
+    data: appointments,
+    dateField: 'appointment_date'
+  })
+
+  const paymentStats = useTimeFilteredStats({
+    data: payments,
+    dateField: 'payment_date'
+  })
+
   const [stats, setStats] = useState<DashboardStats>({
     totalPatients: 0,
     totalAppointments: 0,
@@ -94,17 +112,22 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
 
 
   useEffect(() => {
-    // Calculate dashboard statistics with validation
+    // Calculate dashboard statistics with validation using filtered data
     const today = new Date()
     const todayAppointments = getAppointmentsForDate(today)
     const thisMonth = today.toISOString().slice(0, 7)
     const thisMonthRevenue = typeof monthlyRevenue[thisMonth] === 'number' ? monthlyRevenue[thisMonth] : 0
 
+    // Use filtered data for statistics
+    const filteredPatientCount = patientStats.filteredData.length
+    const filteredAppointmentCount = appointmentStats.filteredData.length
+    const filteredPaymentRevenue = paymentStats.financialStats?.total || 0
+
     // Validate all numeric values
     const validatedStats = {
-      totalPatients: Math.max(0, patients.length),
-      totalAppointments: Math.max(0, appointments.length),
-      totalRevenue: Math.max(0, totalRevenue || 0),
+      totalPatients: Math.max(0, filteredPatientCount),
+      totalAppointments: Math.max(0, filteredAppointmentCount),
+      totalRevenue: Math.max(0, filteredPaymentRevenue),
       pendingPayments: Math.max(0, pendingAmount || 0),
       todayAppointments: Math.max(0, todayAppointments.length),
       thisMonthRevenue: Math.max(0, thisMonthRevenue),
@@ -117,7 +140,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
     validatedStats.thisMonthRevenue = Math.round(validatedStats.thisMonthRevenue * 100) / 100
 
     setStats(validatedStats)
-  }, [patients, appointments, totalRevenue, pendingAmount, monthlyRevenue, getAppointmentsForDate, lowStockCount, expiredCount, expiringSoonCount])
+  }, [patientStats.filteredData, appointmentStats.filteredData, paymentStats.financialStats, pendingAmount, monthlyRevenue, getAppointmentsForDate, lowStockCount, expiredCount, expiringSoonCount])
 
   // Enhanced revenue data preparation with comprehensive validation
   const revenueData = (() => {
@@ -221,7 +244,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
             <RealTimeIndicator isActive={true} />
           </div>
           <p className="text-muted-foreground">
-            إليك ما يحدث في عيادتك اليوم - تحديث تلقائي في الوقت الفعلي
+            إليك ما يحدث في عيادتك - تحديث تلقائي في الوقت الفعلي
           </p>
         </div>
         <div className="flex space-x-2 space-x-reverse">
@@ -236,6 +259,34 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
         </div>
       </div>
 
+      {/* Time Filter Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <TimeFilter
+          value={patientStats.timeFilter}
+          onChange={patientStats.handleFilterChange}
+          onClear={patientStats.resetFilter}
+          title="فلترة المرضى"
+          className="lg:col-span-1"
+          defaultOpen={false}
+        />
+        <TimeFilter
+          value={appointmentStats.timeFilter}
+          onChange={appointmentStats.handleFilterChange}
+          onClear={appointmentStats.resetFilter}
+          title="فلترة المواعيد"
+          className="lg:col-span-1"
+          defaultOpen={false}
+        />
+        <TimeFilter
+          value={paymentStats.timeFilter}
+          onChange={paymentStats.handleFilterChange}
+          onClear={paymentStats.resetFilter}
+          title="فلترة المدفوعات"
+          className="lg:col-span-1"
+          defaultOpen={false}
+        />
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className={getCardStyles("blue")}>
@@ -248,19 +299,35 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
             <p className="text-xs text-muted-foreground">
               سجلات المرضى النشطة
             </p>
+            {patientStats.trend && (
+              <div className={`text-xs flex items-center mt-1 ${
+                patientStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
+              }`}>
+                <TrendingUp className={`w-3 h-3 ml-1 ${patientStats.trend.isPositive ? '' : 'rotate-180'}`} />
+                <span>{Math.abs(patientStats.trend.changePercent)}% من الفترة السابقة</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card className={getCardStyles("purple")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">مواعيد اليوم</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">المواعيد المفلترة</CardTitle>
             <Calendar className={`h-4 w-4 ${getIconStyles("purple")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.todayAppointments}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.totalAppointments}</div>
             <p className="text-xs text-muted-foreground">
-              مجدولة لليوم
+              في الفترة المحددة
             </p>
+            {appointmentStats.trend && (
+              <div className={`text-xs flex items-center mt-1 ${
+                appointmentStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
+              }`}>
+                <TrendingUp className={`w-3 h-3 ml-1 ${appointmentStats.trend.isPositive ? '' : 'rotate-180'}`} />
+                <span>{Math.abs(appointmentStats.trend.changePercent)}% من الفترة السابقة</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

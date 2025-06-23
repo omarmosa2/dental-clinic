@@ -15,7 +15,6 @@ import {
   Edit,
   Trash2,
   Eye,
-  Phone,
   User,
   ArrowUpDown,
   ArrowUp,
@@ -23,7 +22,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  MessageCircle
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
@@ -259,8 +259,7 @@ export default function PatientTable({
               <TableCell className="text-center">{patient.age} سنة</TableCell>
               <TableCell className="min-w-[120px] text-center table-cell-wrap-truncate-sm">
                 {patient.phone ? (
-                  <div className="flex items-center justify-center space-x-1 space-x-reverse">
-                    <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div className="flex items-center justify-center">
                     <button
                       onClick={async () => {
                         const whatsappUrl = `https://api.whatsapp.com/send/?phone=${patient.phone}`;
@@ -290,10 +289,11 @@ export default function PatientTable({
                         // Method 3: Fallback to window.open
                         window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
                       }}
-                      className="text-sm arabic-enhanced text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors bg-transparent border-none p-0"
+                      className="text-sm arabic-enhanced text-green-600 hover:text-green-800 hover:underline cursor-pointer transition-colors bg-transparent border-none p-0 flex items-center gap-1"
                       title="فتح محادثة واتساب"
                     >
                       {patient.phone}
+                      <MessageCircle className="w-3 h-3 text-green-600" />
                     </button>
                   </div>
                 ) : (
