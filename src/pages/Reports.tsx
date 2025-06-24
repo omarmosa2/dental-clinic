@@ -9,6 +9,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { usePaymentStore } from '@/store/paymentStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
 import { useInventoryStore } from '@/store/inventoryStore'
+import { usePatientStore } from '@/store/patientStore'
 import { useRealTimeReports } from '@/hooks/useRealTimeReports'
 import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -45,12 +46,14 @@ import {
 
 } from 'lucide-react'
 import { notify } from '@/services/notificationService'
+import { ComprehensiveExportService } from '@/services/comprehensiveExportService'
 
 export default function Reports() {
   const { currency } = useSettingsStore()
   const { totalRevenue, pendingAmount, payments } = usePaymentStore()
   const { appointments } = useAppointmentStore()
   const { items: inventoryItems } = useInventoryStore()
+  const { patients } = usePatientStore()
   const {
     reportData,
     patientReports,
@@ -279,92 +282,45 @@ export default function Reports() {
           <Button
             disabled={isExporting}
             className="flex items-center space-x-2 space-x-reverse bg-sky-600 hover:bg-sky-700"
-            onClick={() => {
-              // Export comprehensive reports data using filtered data
-              const { patientReports, inventoryReports, appointmentReports, financialReports } = useReportsStore.getState()
-
-              if (!patientReports && !inventoryReports && !appointmentReports && !financialReports) {
-                notify.noDataToExport('لا توجد بيانات تقارير للتصدير')
-                return
-              }
-
+onClick={async () => {
               try {
-                // Add filter information
-                const appointmentFilterInfo = appointmentStats.timeFilter.startDate && appointmentStats.timeFilter.endDate
-                  ? `المواعيد: من ${appointmentStats.timeFilter.startDate} إلى ${appointmentStats.timeFilter.endDate}`
-                  : 'المواعيد: جميع البيانات'
-
-                const paymentFilterInfo = paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
-                  ? `المدفوعات: من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
-                  : 'المدفوعات: جميع البيانات'
-
-                const inventoryFilterInfo = inventoryStats.timeFilter.startDate && inventoryStats.timeFilter.endDate
-                  ? `المخزون: من ${inventoryStats.timeFilter.startDate} إلى ${inventoryStats.timeFilter.endDate}`
-                  : 'المخزون: جميع البيانات'
-
-                const comprehensiveData = {
-                  // Filter Information
-                  'نطاق بيانات المواعيد': appointmentFilterInfo,
-                  'نطاق بيانات المدفوعات': paymentFilterInfo,
-                  'نطاق بيانات المخزون': inventoryFilterInfo,
-
-                  // Patient Reports (no filtering as per requirements)
-                  'إجمالي المرضى': patientReports?.totalPatients || 0,
-                  'المرضى الجدد هذا الشهر': patientReports?.newPatientsThisMonth || 0,
-                  'المرضى النشطون': patientReports?.activePatients || 0,
-                  'متوسط عمر المرضى': patientReports?.averageAge || 0,
-
-                  // Filtered Appointment Reports
-                  'المواعيد المفلترة': appointmentStats.filteredData.length,
-                  'المواعيد المكتملة المفلترة': appointmentStats.filteredData.filter(apt => apt.status === 'completed').length,
-                  'المواعيد الملغية المفلترة': appointmentStats.filteredData.filter(apt => apt.status === 'cancelled').length,
-
-                  // Filtered Financial Reports
-                  'الإيرادات المفلترة': paymentStats.financialStats.totalRevenue || 0,
-                  'المدفوعات المعلقة المفلترة': paymentStats.financialStats.pendingAmount || 0,
-                  'المدفوعات المتأخرة المفلترة': paymentStats.financialStats.overdueAmount || 0,
-
-                  // Filtered Inventory Reports
-                  'عناصر المخزون المفلترة': inventoryStats.filteredData.length,
-                  'القيمة الإجمالية للمخزون المفلتر': inventoryStats.filteredData.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
-                  'عناصر منخفضة المخزون المفلترة': inventoryStats.filteredData.filter(item => item.quantity <= item.minimum_stock && item.quantity > 0).length,
-
-                  'تاريخ التقرير الشامل': (() => {
-                    const date = new Date()
-                    const day = date.getDate().toString().padStart(2, '0')
-                    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-                    const year = date.getFullYear()
-                    return `${day}/${month}/${year}`
-                  })()
+                // التحقق من وجود البيانات
+                if (appointments.length === 0 && payments.length === 0 && inventoryItems.length === 0) {
+                  notify.noDataToExport('لا توجد بيانات للتصدير')
+                  return
                 }
 
-              // Create CSV with BOM for Arabic support
-              const csvContent = '\uFEFF' + [
-                'المؤشر,القيمة',
-                ...Object.entries(comprehensiveData).map(([key, value]) =>
-                  `"${key}","${value}"`
-                )
-              ].join('\n')
+                // إعداد معلومات الفلاتر
+                const appointmentFilterInfo = appointmentStats.timeFilter.startDate && appointmentStats.timeFilter.endDate
+                  ? `من ${appointmentStats.timeFilter.startDate} إلى ${appointmentStats.timeFilter.endDate}`
+                  : 'جميع البيانات'
 
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-              const link = document.createElement('a')
-              link.href = URL.createObjectURL(blob)
+                const paymentFilterInfo = paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
+                  ? `من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
+                  : 'جميع البيانات'
 
-              // Generate descriptive filename with date and time
-              const now = new Date()
-              const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-              const fileName = `التقرير_الشامل_${dateStr}_${timeStr}.csv`
+                const inventoryFilterInfo = inventoryStats.timeFilter.startDate && inventoryStats.timeFilter.endDate
+                  ? `من ${inventoryStats.timeFilter.startDate} إلى ${inventoryStats.timeFilter.endDate}`
+                  : 'جميع البيانات'
 
-                link.download = fileName
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
+                // استخدام الخدمة الجديدة للتصدير الشامل
+                await ComprehensiveExportService.exportComprehensiveReport({
+                  patients: patients, // المرضى بدون فلترة كما هو مطلوب
+                  filteredAppointments: appointmentStats.filteredData, // المواعيد المفلترة
+                  filteredPayments: paymentStats.filteredData, // المدفوعات المفلترة
+                  filteredInventory: inventoryStats.filteredData, // المخزون المفلتر
+                  filterInfo: {
+                    appointmentFilter: appointmentFilterInfo,
+                    paymentFilter: paymentFilterInfo,
+                    inventoryFilter: inventoryFilterInfo
+                  }
+                })
 
                 const totalFilteredItems = appointmentStats.filteredData.length +
                                          paymentStats.filteredData.length +
                                          inventoryStats.filteredData.length
-                notify.exportSuccess(`تم تصدير التقرير الشامل بنجاح! (${totalFilteredItems} عنصر مفلتر)`)
+
+                notify.exportSuccess(`تم تصدير التقرير الشامل بنجاح! (${totalFilteredItems} عنصر مفلتر، ${patients.length} مريض)`)
               } catch (error) {
                 console.error('Error exporting comprehensive report:', error)
                 notify.exportError('فشل في تصدير التقرير الشامل')

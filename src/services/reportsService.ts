@@ -380,16 +380,22 @@ export class ReportsService {
     }
 
     const totalRevenue = filteredPayments
-      .filter(p => p.status === 'completed')
+      .filter(p => p.status === 'completed' || p.status === 'partial')
       .reduce((sum, p) => {
-        const amount = validateAmount(p.amount)
+        // For partial payments, use amount_paid if available, otherwise use amount
+        const amount = p.status === 'partial' && p.amount_paid !== undefined
+          ? validateAmount(p.amount_paid)
+          : validateAmount(p.amount)
         return sum + amount
       }, 0)
 
     const totalPaid = filteredPayments
-      .filter(p => p.status === 'completed')
+      .filter(p => p.status === 'completed' || p.status === 'partial')
       .reduce((sum, p) => {
-        const amount = validateAmount(p.amount)
+        // For partial payments, use amount_paid if available, otherwise use amount
+        const amount = p.status === 'partial' && p.amount_paid !== undefined
+          ? validateAmount(p.amount_paid)
+          : validateAmount(p.amount)
         return sum + amount
       }, 0)
 

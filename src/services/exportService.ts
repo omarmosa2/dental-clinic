@@ -1360,15 +1360,21 @@ export class ExportService {
     const overduePayments = payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + Number(p.amount), 0)
 
     // Calculate payment method statistics
-    const paymentMethods = payments.reduce((acc, payment) => {
-      const method = payment.payment_method || 'غير محدد'
-      if (!acc[method]) {
-        acc[method] = { count: 0, amount: 0 }
-      }
-      acc[method].count++
-      acc[method].amount += payment.amount
-      return acc
-    }, {} as Record<string, { count: number; amount: number }>)
+    const paymentMethods = payments
+      .filter(p => p.status === 'completed' || p.status === 'partial')
+      .reduce((acc, payment) => {
+        const method = payment.payment_method || 'غير محدد'
+        if (!acc[method]) {
+          acc[method] = { count: 0, amount: 0 }
+        }
+        acc[method].count++
+        // For partial payments, use amount_paid if available, otherwise use amount
+        const amount = payment.status === 'partial' && payment.amount_paid !== undefined
+          ? Number(payment.amount_paid)
+          : Number(payment.amount)
+        acc[method].amount += amount
+        return acc
+      }, {} as Record<string, { count: number; amount: number }>)
 
     const paymentMethodStats = Object.entries(paymentMethods).map(([method, stats]) => ({
       method,
@@ -1515,15 +1521,21 @@ export class ExportService {
     const overduePayments = payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + Number(p.amount), 0)
 
     // Calculate payment method statistics
-    const paymentMethods = payments.reduce((acc, payment) => {
-      const method = payment.payment_method || 'غير محدد'
-      if (!acc[method]) {
-        acc[method] = { count: 0, amount: 0 }
-      }
-      acc[method].count++
-      acc[method].amount += payment.amount
-      return acc
-    }, {} as Record<string, { count: number; amount: number }>)
+    const paymentMethods = payments
+      .filter(p => p.status === 'completed' || p.status === 'partial')
+      .reduce((acc, payment) => {
+        const method = payment.payment_method || 'غير محدد'
+        if (!acc[method]) {
+          acc[method] = { count: 0, amount: 0 }
+        }
+        acc[method].count++
+        // For partial payments, use amount_paid if available, otherwise use amount
+        const amount = payment.status === 'partial' && payment.amount_paid !== undefined
+          ? Number(payment.amount_paid)
+          : Number(payment.amount)
+        acc[method].amount += amount
+        return acc
+      }, {} as Record<string, { count: number; amount: number }>)
 
     const paymentMethodStats = Object.entries(paymentMethods).map(([method, stats]) => ({
       method,
