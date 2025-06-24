@@ -995,9 +995,20 @@ ipcMain.handle('files:uploadDentalImage', async (_, fileBuffer, fileName, patien
       throw new Error('Missing required parameters: patientId, toothNumber, or imageType')
     }
 
-    // Validate tooth number (1-32)
-    if (toothNumber < 1 || toothNumber > 32) {
-      throw new Error('Invalid tooth number. Must be between 1 and 32')
+    // Validate tooth number (FDI numbering system)
+    const isValidToothNumber = (
+      (toothNumber >= 11 && toothNumber <= 18) ||
+      (toothNumber >= 21 && toothNumber <= 28) ||
+      (toothNumber >= 31 && toothNumber <= 38) ||
+      (toothNumber >= 41 && toothNumber <= 48) ||
+      (toothNumber >= 51 && toothNumber <= 55) ||
+      (toothNumber >= 61 && toothNumber <= 65) ||
+      (toothNumber >= 71 && toothNumber <= 75) ||
+      (toothNumber >= 81 && toothNumber <= 85)
+    )
+
+    if (!isValidToothNumber) {
+      throw new Error('Invalid tooth number. Must be a valid FDI tooth number (11-18, 21-28, 31-38, 41-48, 51-55, 61-65, 71-75, 81-85)')
     }
 
     // Validate image type
@@ -1062,9 +1073,20 @@ ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientI
       throw new Error('Missing required parameters: patientId, toothNumber, or imageType')
     }
 
-    // Validate tooth number (1-32)
-    if (toothNumber < 1 || toothNumber > 32) {
-      throw new Error('Invalid tooth number. Must be between 1 and 32')
+    // Validate tooth number (FDI numbering system)
+    const isValidToothNumber = (
+      (toothNumber >= 11 && toothNumber <= 18) ||
+      (toothNumber >= 21 && toothNumber <= 28) ||
+      (toothNumber >= 31 && toothNumber <= 38) ||
+      (toothNumber >= 41 && toothNumber <= 48) ||
+      (toothNumber >= 51 && toothNumber <= 55) ||
+      (toothNumber >= 61 && toothNumber <= 65) ||
+      (toothNumber >= 71 && toothNumber <= 75) ||
+      (toothNumber >= 81 && toothNumber <= 85)
+    )
+
+    if (!isValidToothNumber) {
+      throw new Error('Invalid tooth number. Must be a valid FDI tooth number (11-18, 21-28, 31-38, 41-48, 51-55, 61-65, 71-75, 81-85)')
     }
 
     // Validate image type

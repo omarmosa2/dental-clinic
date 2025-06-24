@@ -263,7 +263,16 @@ class DatabaseService {
             id TEXT PRIMARY KEY,
             patient_id TEXT NOT NULL,
             appointment_id TEXT,
-            tooth_number INTEGER NOT NULL CHECK (tooth_number >= 1 AND tooth_number <= 32),
+            tooth_number INTEGER NOT NULL CHECK (
+              (tooth_number >= 11 AND tooth_number <= 18) OR
+              (tooth_number >= 21 AND tooth_number <= 28) OR
+              (tooth_number >= 31 AND tooth_number <= 38) OR
+              (tooth_number >= 41 AND tooth_number <= 48) OR
+              (tooth_number >= 51 AND tooth_number <= 55) OR
+              (tooth_number >= 61 AND tooth_number <= 65) OR
+              (tooth_number >= 71 AND tooth_number <= 75) OR
+              (tooth_number >= 81 AND tooth_number <= 85)
+            ),
             tooth_name TEXT,
             current_treatment TEXT,
             next_treatment TEXT,
@@ -347,6 +356,61 @@ class DatabaseService {
 
           PRAGMA foreign_keys = ON;
         `
+      },
+      {
+        version: 9,
+        sql: `
+          -- Fix tooth_number constraint to support FDI numbering system
+          -- FDI system uses: 11-18, 21-28, 31-38, 41-48 for permanent teeth
+          -- and 51-55, 61-65, 71-75, 81-85 for primary teeth
+          PRAGMA foreign_keys = OFF;
+
+          CREATE TABLE IF NOT EXISTS dental_treatments_backup AS
+          SELECT * FROM dental_treatments;
+
+          DROP TABLE IF EXISTS dental_treatments;
+
+          CREATE TABLE dental_treatments (
+            id TEXT PRIMARY KEY,
+            patient_id TEXT NOT NULL,
+            appointment_id TEXT,
+            tooth_number INTEGER NOT NULL CHECK (
+              (tooth_number >= 11 AND tooth_number <= 18) OR
+              (tooth_number >= 21 AND tooth_number <= 28) OR
+              (tooth_number >= 31 AND tooth_number <= 38) OR
+              (tooth_number >= 41 AND tooth_number <= 48) OR
+              (tooth_number >= 51 AND tooth_number <= 55) OR
+              (tooth_number >= 61 AND tooth_number <= 65) OR
+              (tooth_number >= 71 AND tooth_number <= 75) OR
+              (tooth_number >= 81 AND tooth_number <= 85)
+            ),
+            tooth_name TEXT,
+            current_treatment TEXT,
+            next_treatment TEXT,
+            treatment_details TEXT,
+            treatment_status TEXT DEFAULT 'planned',
+            treatment_color TEXT DEFAULT '#ef4444',
+            cost REAL DEFAULT 0,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+            FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+          );
+
+          INSERT INTO dental_treatments (
+            id, patient_id, appointment_id, tooth_number, tooth_name, current_treatment, next_treatment,
+            treatment_details, treatment_status, treatment_color, cost, notes, created_at, updated_at
+          )
+          SELECT
+            id, patient_id, appointment_id, tooth_number, tooth_name, current_treatment, next_treatment,
+            treatment_details, treatment_status, treatment_color, cost, notes, created_at, updated_at
+          FROM dental_treatments_backup;
+
+          DROP TABLE dental_treatments_backup;
+
+          PRAGMA foreign_keys = ON;
+        `
       }
     ]
 
@@ -362,6 +426,77 @@ class DatabaseService {
         }
       }
     })
+
+    // Force check for dental_treatments table tooth_number constraint
+    try {
+      const dentalTreatmentsSchema = this.db.prepare(`
+        SELECT sql FROM sqlite_master
+        WHERE type='table' AND name='dental_treatments'
+      `).get()
+
+      if (dentalTreatmentsSchema && dentalTreatmentsSchema.sql.includes('tooth_number >= 1 AND tooth_number <= 32')) {
+        console.log('🔄 Force applying migration 9: Fix tooth_number constraint for FDI numbering system')
+
+        // Apply migration 9 SQL directly
+        this.db.exec(`
+          PRAGMA foreign_keys = OFF;
+
+          CREATE TABLE IF NOT EXISTS dental_treatments_backup AS
+          SELECT * FROM dental_treatments;
+
+          DROP TABLE IF EXISTS dental_treatments;
+
+          CREATE TABLE dental_treatments (
+            id TEXT PRIMARY KEY,
+            patient_id TEXT NOT NULL,
+            appointment_id TEXT,
+            tooth_number INTEGER NOT NULL CHECK (
+              (tooth_number >= 11 AND tooth_number <= 18) OR
+              (tooth_number >= 21 AND tooth_number <= 28) OR
+              (tooth_number >= 31 AND tooth_number <= 38) OR
+              (tooth_number >= 41 AND tooth_number <= 48) OR
+              (tooth_number >= 51 AND tooth_number <= 55) OR
+              (tooth_number >= 61 AND tooth_number <= 65) OR
+              (tooth_number >= 71 AND tooth_number <= 75) OR
+              (tooth_number >= 81 AND tooth_number <= 85)
+            ),
+            tooth_name TEXT,
+            current_treatment TEXT,
+            next_treatment TEXT,
+            treatment_details TEXT,
+            treatment_status TEXT DEFAULT 'planned',
+            treatment_color TEXT DEFAULT '#ef4444',
+            cost REAL DEFAULT 0,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+            FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+          );
+
+          INSERT INTO dental_treatments (
+            id, patient_id, appointment_id, tooth_number, tooth_name, current_treatment, next_treatment,
+            treatment_details, treatment_status, treatment_color, cost, notes, created_at, updated_at
+          )
+          SELECT
+            id, patient_id, appointment_id, tooth_number, tooth_name, current_treatment, next_treatment,
+            treatment_details, treatment_status, treatment_color, cost, notes, created_at, updated_at
+          FROM dental_treatments_backup;
+
+          DROP TABLE dental_treatments_backup;
+
+          PRAGMA foreign_keys = ON;
+        `)
+
+        // Record that migration 9 was applied
+        this.db.prepare('INSERT OR REPLACE INTO schema_version (version) VALUES (?)').run(9)
+        console.log('✅ Force applied migration 9: tooth_number constraint fixed for FDI numbering')
+      } else {
+        console.log('✅ dental_treatments table tooth_number constraint is correct')
+      }
+    } catch (error) {
+      console.error('❌ Error checking/fixing dental_treatments table:', error.message)
+    }
 
     // Force check for dental_treatment_images table structure and apply migration 8 if needed
     try {
@@ -2401,7 +2536,16 @@ class DatabaseService {
                 id TEXT PRIMARY KEY,
                 patient_id TEXT NOT NULL,
                 appointment_id TEXT,
-                tooth_number INTEGER NOT NULL CHECK (tooth_number >= 1 AND tooth_number <= 32),
+                tooth_number INTEGER NOT NULL CHECK (
+                  (tooth_number >= 11 AND tooth_number <= 18) OR
+                  (tooth_number >= 21 AND tooth_number <= 28) OR
+                  (tooth_number >= 31 AND tooth_number <= 38) OR
+                  (tooth_number >= 41 AND tooth_number <= 48) OR
+                  (tooth_number >= 51 AND tooth_number <= 55) OR
+                  (tooth_number >= 61 AND tooth_number <= 65) OR
+                  (tooth_number >= 71 AND tooth_number <= 75) OR
+                  (tooth_number >= 81 AND tooth_number <= 85)
+                ),
                 tooth_name TEXT,
                 current_treatment TEXT,
                 next_treatment TEXT,

@@ -43,7 +43,16 @@ CREATE TABLE dental_treatments (
   id TEXT PRIMARY KEY,
   patient_id TEXT NOT NULL,
   appointment_id TEXT,
-  tooth_number INTEGER NOT NULL CHECK (tooth_number >= 1 AND tooth_number <= 32),
+  tooth_number INTEGER NOT NULL CHECK (
+    (tooth_number >= 11 AND tooth_number <= 18) OR
+    (tooth_number >= 21 AND tooth_number <= 28) OR
+    (tooth_number >= 31 AND tooth_number <= 38) OR
+    (tooth_number >= 41 AND tooth_number <= 48) OR
+    (tooth_number >= 51 AND tooth_number <= 55) OR
+    (tooth_number >= 61 AND tooth_number <= 65) OR
+    (tooth_number >= 71 AND tooth_number <= 75) OR
+    (tooth_number >= 81 AND tooth_number <= 85)
+  ),
   tooth_name TEXT NOT NULL,
   current_treatment TEXT,
   next_treatment TEXT,
