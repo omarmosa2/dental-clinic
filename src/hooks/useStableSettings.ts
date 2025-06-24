@@ -14,18 +14,33 @@ export function useStableSettings() {
 
   // تحديث الإعدادات المستقرة عند تغيير الإعدادات الأصلية
   useEffect(() => {
-    if (settings && settings.clinic_name && settings.clinic_name !== 'عيادة الأسنان') {
-      // حفظ الإعدادات الصالحة
+    if (settings && settings.clinic_name) {
+      // حفظ الإعدادات الصالحة - إزالة الشرط المقيد لضمان التحديث الفوري
       lastValidSettings.current = settings
       setStableSettings(settings)
       isInitialized.current = true
+
+      // حفظ النسخة الاحتياطية فوراً عند أي تحديث
+      try {
+        localStorage.setItem('dental-clinic-settings-backup', JSON.stringify({
+          clinic_name: settings.clinic_name,
+          doctor_name: settings.doctor_name,
+          clinic_logo: settings.clinic_logo,
+          clinic_phone: settings.clinic_phone,
+          clinic_email: settings.clinic_email,
+          clinic_address: settings.clinic_address,
+          backup_timestamp: Date.now()
+        }))
+      } catch (error) {
+        console.warn('Failed to save settings backup:', error)
+      }
     } else if (!isInitialized.current && !isLoading) {
       // محاولة استعادة من النسخة الاحتياطية في Local Storage
       try {
         const backupStr = localStorage.getItem('dental-clinic-settings-backup')
         if (backupStr) {
           const backup = JSON.parse(backupStr)
-          if (backup.clinic_name && backup.clinic_name !== 'عيادة الأسنان') {
+          if (backup.clinic_name) {
             setStableSettings(backup as ClinicSettings)
             lastValidSettings.current = backup as ClinicSettings
           }
@@ -50,7 +65,7 @@ export function useStableSettings() {
   return {
     settings: finalSettings,
     isLoading: isLoading && !finalSettings, // إخفاء loading إذا كانت لدينا إعدادات مستقرة
-    hasValidSettings: Boolean(finalSettings && finalSettings.clinic_name && finalSettings.clinic_name !== 'عيادة الأسنان'),
+    hasValidSettings: Boolean(finalSettings && finalSettings.clinic_name), // إزالة الشرط المقيد
     refreshSettings: loadSettings
   }
 }
@@ -63,7 +78,7 @@ export function useStableSettingsValue<T>(
   fallback: T
 ): T {
   const { settings } = useStableSettings()
-  
+
   try {
     return settings ? selector(settings) : fallback
   } catch (error) {
@@ -74,32 +89,32 @@ export function useStableSettingsValue<T>(
 
 /**
  * Hook للحصول على اسم العيادة مع ضمان الاستقرار
+ * يتحدث فوراً مع التحديثات
  */
 export function useStableClinicName(): string {
-  return useStableSettingsValue(
-    (settings) => settings?.clinic_name || 'عيادة الأسنان',
-    'عيادة الأسنان'
-  )
+  const { settings } = useStableSettings()
+  return settings?.clinic_name || 'عيادة الأسنان'
 }
 
 /**
  * Hook للحصول على اسم الدكتور مع ضمان الاستقرار
+ * يتحدث فوراً مع التحديثات
  */
 export function useStableDoctorName(): string {
-  return useStableSettingsValue(
-    (settings) => settings?.doctor_name || 'د. محمد أحمد',
-    'د. محمد أحمد'
-  )
+  const { settings } = useStableSettings()
+  return settings?.doctor_name || 'د. محمد أحمد'
 }
 
 /**
  * Hook للحصول على شعار العيادة مع ضمان الاستقرار
+ * يتعامل مع الحذف والتحديث الفوري
  */
 export function useStableClinicLogo(): string {
-  return useStableSettingsValue(
-    (settings) => settings?.clinic_logo || '',
-    ''
-  )
+  const { settings } = useStableSettings()
+
+  // إرجاع القيمة الحالية مباشرة من الإعدادات، حتى لو كانت فارغة
+  // هذا يضمن التحديث الفوري عند الحذف أو التعديل
+  return settings?.clinic_logo || ''
 }
 
 /**
@@ -107,7 +122,7 @@ export function useStableClinicLogo(): string {
  */
 export function useStableContactInfo() {
   const { settings } = useStableSettings()
-  
+
   return {
     phone: settings?.clinic_phone || '',
     email: settings?.clinic_email || '',

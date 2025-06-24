@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useStableClinicName, useStableDoctorName, useStableClinicLogo, useStableContactInfo } from '@/hooks/useStableSettings'
 import { formatDate } from '@/lib/utils'
 import { notify } from '@/services/notificationService'
 import QRCode from 'qrcode'
@@ -41,6 +42,10 @@ export default function PrescriptionReceiptDialog({
   prescription
 }: PrescriptionReceiptDialogProps) {
   const { settings, loadSettings } = useSettingsStore()
+  const clinicName = useStableClinicName()
+  const doctorName = useStableDoctorName()
+  const clinicLogo = useStableClinicLogo()
+  const { phone, email, address } = useStableContactInfo()
   const receiptRef = useRef<HTMLDivElement>(null)
 
   // Load settings when component mounts or dialog opens
@@ -70,8 +75,6 @@ export default function PrescriptionReceiptDialog({
   const generateQRData = () => {
     const prescriptionNumber = `PRX-${prescription.id.slice(-6)}`
     const patientName = prescription.patient?.full_name || 'غير محدد'
-    const clinicName = settings?.clinic_name || 'عيادة الأسنان'
-    const doctorName = settings?.doctor_name || ''
     const formattedDate = formatDate(prescription.prescription_date)
     const medicationsCount = prescription.medications?.length || 0
 
@@ -678,7 +681,7 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
             {/* Header */}
             <div className="header text-center mb-4 pb-3 border-b-2 border-black">
               {/* Clinic Logo */}
-              {printSettings.includeLogo && settings?.clinic_logo && settings.clinic_logo.trim() !== '' && (
+              {printSettings.includeLogo && clinicLogo && clinicLogo.trim() !== '' && (
                 <div className="clinic-logo mb-3" style={{
                   width: printSettings.printerType === 'a4' ? '60px' : '45px',
                   height: printSettings.printerType === 'a4' ? '60px' : '45px',
@@ -690,7 +693,7 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
                   flexShrink: 0
                 }}>
                   <img
-                    src={settings.clinic_logo}
+                    src={clinicLogo}
                     alt="شعار العيادة"
                     style={{
                       width: '100%',
@@ -701,21 +704,21 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
                       maxHeight: printSettings.printerType === 'a4' ? '60px' : '45px'
                     }}
                     onError={(e) => {
-                      console.log('Prescription logo failed to load:', settings.clinic_logo)
+                      console.log('Prescription logo failed to load:', clinicLogo)
                       e.currentTarget.style.display = 'none'
                     }}
                   />
                 </div>
               )}
 
-              {settings?.clinic_name && (
+              {clinicName && (
                 <div className="clinic-name text-lg font-bold mb-2 text-blue-600">
-                  {settings.clinic_name}
+                  {clinicName}
                 </div>
               )}
-              {settings?.doctor_name && (
+              {doctorName && (
                 <div className="doctor-name text-sm font-bold mb-1 text-green-600">
-                  د. {settings.doctor_name}
+                  د. {doctorName}
                 </div>
               )}
               <div className="prescription-title text-base font-bold mt-3 text-red-600 underline">
@@ -874,8 +877,8 @@ ${prescription.notes ? `📝 ملاحظات: ${prescription.notes}` : ''}
             <div className="footer text-center mt-4 pt-3 border-t border-black text-xs">
               <div className="mb-1">شكراً لثقتكم بنا</div>
               <div>تاريخ الطباعة: {formatDate(new Date().toISOString())}</div>
-              {settings?.clinic_name && (
-                <div className="mt-1 font-bold">{settings.clinic_name}</div>
+              {clinicName && (
+                <div className="mt-1 font-bold">{clinicName}</div>
               )}
             </div>
           </div>

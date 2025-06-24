@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useStableClinicName, useStableDoctorName, useStableClinicLogo, useStableContactInfo } from '@/hooks/useStableSettings'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Printer, Download, Receipt, Building2, Phone, MapPin, QrCode, Settings, Eye } from 'lucide-react'
 import QRCode from 'qrcode'
@@ -20,6 +21,10 @@ interface PaymentReceiptDialogProps {
 
 export default function PaymentReceiptDialog({ open, onOpenChange, payment }: PaymentReceiptDialogProps) {
   const { settings, loadSettings } = useSettingsStore()
+  const clinicName = useStableClinicName()
+  const doctorName = useStableDoctorName()
+  const clinicLogo = useStableClinicLogo()
+  const { phone, email, address } = useStableContactInfo()
   const receiptRef = useRef<HTMLDivElement>(null)
 
   // Load settings when component mounts or dialog opens
@@ -49,8 +54,6 @@ export default function PaymentReceiptDialog({ open, onOpenChange, payment }: Pa
   const generateQRData = () => {
     const receiptNumber = payment.receipt_number || `RCP-${payment.id.slice(-6)}`
     const patientName = payment.patient?.full_name || 'غير محدد'
-    const clinicName = settings?.clinic_name || 'عيادة الأسنان'
-    const doctorName = settings?.doctor_name || ''
     const formattedDate = formatDate(payment.payment_date)
     const amount = formatCurrency(payment.amount)
 
@@ -65,8 +68,8 @@ ${doctorName ? `👨‍⚕️ ${doctorName}` : ''}
 ✅ هذا إيصال رسمي معتمد
 🔒 معرف التحقق: ${payment.id.slice(-12)}
 
-${settings?.clinic_phone ? `📞 للاستفسار: ${settings.clinic_phone}` : ''}
-${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` : ''}
+${phone ? `📞 للاستفسار: ${phone}` : ''}
+${address ? `📍 العنوان: ${address}` : ''}
 
 شكراً لثقتكم بنا 🙏`
   }
@@ -681,9 +684,9 @@ ${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` :
                 justifyContent: 'center',
                 background: '#f8f9fa'
               }}>
-                {settings?.clinic_logo && settings.clinic_logo.trim() !== '' ? (
+                {clinicLogo && clinicLogo.trim() !== '' ? (
                   <img
-                    src={settings.clinic_logo}
+                    src={clinicLogo}
                     alt="شعار العيادة"
                     style={{
                       width: '100%',
@@ -694,39 +697,39 @@ ${settings?.clinic_address ? `📍 العنوان: ${settings.clinic_address}` :
                       maxHeight: '60px'
                     }}
                     onError={(e) => {
-                      console.log('Logo failed to load:', settings.clinic_logo)
+                      console.log('Logo failed to load:', clinicLogo)
                       e.currentTarget.style.display = 'none'
                     }}
                   />
                 ) : (
                   <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#495057' }}>
-                    {(settings?.clinic_name || 'عيادة الأسنان').charAt(0)}
+                    {clinicName.charAt(0)}
                   </span>
                 )}
               </div>
             )}
 
             <div className="clinic-name">
-              {settings?.clinic_name || 'عيادة الأسنان'}
+              {clinicName}
             </div>
-            {settings?.doctor_name && (
+            {doctorName && (
               <div className="doctor-name">
-                {settings.doctor_name}
+                {doctorName}
               </div>
             )}
-            {settings?.clinic_phone && (
+            {phone && (
               <div className="clinic-info">
-                📞 {settings.clinic_phone}
+                📞 {phone}
               </div>
             )}
-            {settings?.clinic_address && (
+            {address && (
               <div className="clinic-info">
-                📍 {settings.clinic_address}
+                📍 {address}
               </div>
             )}
-            {settings?.clinic_email && (
+            {email && (
               <div className="clinic-info">
-                ✉️ {settings.clinic_email}
+                ✉️ {email}
               </div>
             )}
           </div>

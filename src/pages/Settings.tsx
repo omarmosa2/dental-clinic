@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useBackupStore } from '@/store/backupStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useTheme } from '@/contexts/ThemeContext'
+import { useStableClinicLogo } from '@/hooks/useStableSettings'
 import { formatDate } from '@/lib/utils'
 import SecuritySettings from '@/components/settings/SecuritySettings'
 import {
@@ -61,6 +62,7 @@ export default function Settings() {
 
   const { settings, updateSettings, loadSettings } = useSettingsStore()
   const { isDarkMode, toggleDarkMode } = useTheme()
+  const stableClinicLogo = useStableClinicLogo()
 
   useEffect(() => {
     loadBackups()
@@ -730,9 +732,9 @@ export default function Settings() {
                     {/* Logo Preview */}
                     <div className="flex-shrink-0">
                       <div className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/50">
-                        {settings?.clinic_logo ? (
+                        {stableClinicLogo ? (
                           <img
-                            src={settings.clinic_logo}
+                            src={stableClinicLogo}
                             alt="شعار العيادة"
                             className="w-full h-full object-cover rounded-lg"
                           />
@@ -775,7 +777,7 @@ export default function Settings() {
                         >
                           اختيار شعار
                         </button>
-                        {settings?.clinic_logo && (
+                        {stableClinicLogo && (
                           <button
                             type="button"
                             onClick={() => handleUpdateSettings({ clinic_logo: '' })}
