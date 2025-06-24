@@ -322,19 +322,18 @@ export default function PatientReports() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
         <StatCard
           title="إجمالي المرضى"
-          value={patientStats.filteredData.length}
+          value={patientReports?.totalPatients || 0}
           icon={Users}
           color="blue"
-          description="العدد الكلي للمرضى في الفترة المحددة"
-          trend={patientStats.trend}
+          description="العدد الكلي للمرضى المسجلين"
         />
         <StatCard
-          title="المرضى الجدد"
+          title="المرضى المفلترين"
           value={patientStats.filteredData.length}
           icon={UserPlus}
           color="green"
           trend={patientStats.trend}
-          description="المرضى المسجلين في الفترة المحددة"
+          description="المرضى في الفترة المحددة"
         />
         <StatCard
           title="المرضى النشطين"

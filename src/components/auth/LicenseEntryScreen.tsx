@@ -148,7 +148,7 @@ export default function LicenseEntryScreen({
                   تحتاج مساعدة في التفعيل؟
                 </h3>
                 <p className={`text-xs ${themeClasses.textSecondary} arabic-enhanced`}>
-                  فريق التطوير - AgerroCode
+                  فريق التطوير - AgorraCode
                 </p>
               </div>
 

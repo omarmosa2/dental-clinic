@@ -523,11 +523,29 @@ export default function FinancialReports() {
       />
 
       {/* Stats Cards - RTL Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" dir="rtl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
         <Card className={getCardStyles("green")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي الإيرادات</CardTitle>
             <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground text-right">
+              <CurrencyDisplay
+                amount={totalRevenue}
+                currency={currency}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-right">
+              إجمالي الإيرادات المحققة
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={getCardStyles("blue")} dir="rtl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">الإيرادات المفلترة</CardTitle>
+            <Receipt className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
@@ -558,12 +576,12 @@ export default function FinancialReports() {
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
               <CurrencyDisplay
-                amount={paymentStats.financialStats.pendingAmount}
+                amount={pendingAmount}
                 currency={currency}
               />
             </div>
             <p className="text-xs text-muted-foreground text-right">
-              {paymentStats.filteredData.filter(p => p.status === 'pending').length} معاملة معلقة
+              إجمالي المبالغ المعلقة
             </p>
           </CardContent>
         </Card>
@@ -576,7 +594,7 @@ export default function FinancialReports() {
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
               <CurrencyDisplay
-                amount={paymentStats.financialStats.overdueAmount}
+                amount={overdueAmount}
                 currency={currency}
               />
             </div>

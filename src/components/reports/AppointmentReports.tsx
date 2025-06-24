@@ -356,11 +356,24 @@ export default function AppointmentReports() {
       />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6" dir="rtl">
         <Card className={getCardStyles("purple")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي المواعيد</CardTitle>
             <Calendar className={`h-4 w-4 ${getIconStyles("purple")}`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground text-right">{stats.total}</div>
+            <p className="text-xs text-muted-foreground text-right">
+              إجمالي المواعيد المسجلة
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={getCardStyles("blue")} dir="rtl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المواعيد المفلترة</CardTitle>
+            <Users className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">{appointmentStats.filteredData.length}</div>
@@ -385,11 +398,10 @@ export default function AppointmentReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
-              {appointmentStats.filteredData.filter(apt => apt.status === 'completed').length}
+              {stats.completed}
             </div>
             <p className="text-xs text-muted-foreground text-right">
-              معدل الحضور: {appointmentStats.filteredData.length > 0 ?
-                Math.round((appointmentStats.filteredData.filter(apt => apt.status === 'completed').length / appointmentStats.filteredData.length) * 100) : 0}%
+              معدل الحضور: {stats.attendanceRate}%
             </p>
           </CardContent>
         </Card>
@@ -401,23 +413,22 @@ export default function AppointmentReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
-              {appointmentStats.filteredData.filter(apt => apt.status === 'cancelled').length}
+              {stats.cancelled}
             </div>
             <p className="text-xs text-muted-foreground text-right">
-              معدل الإلغاء: {appointmentStats.filteredData.length > 0 ?
-                Math.round((appointmentStats.filteredData.filter(apt => apt.status === 'cancelled').length / appointmentStats.filteredData.length) * 100) : 0}%
+              معدل الإلغاء: {stats.cancellationRate}%
             </p>
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("blue")} dir="rtl">
+        <Card className={getCardStyles("gray")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground text-right">المواعيد المجدولة</CardTitle>
-            <Clock className={`h-4 w-4 ${getIconStyles("blue")}`} />
+            <Clock className={`h-4 w-4 ${getIconStyles("gray")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
-              {appointmentStats.filteredData.filter(apt => apt.status === 'scheduled').length}
+              {stats.pending}
             </div>
             <p className="text-xs text-muted-foreground text-right">
               في انتظار التنفيذ

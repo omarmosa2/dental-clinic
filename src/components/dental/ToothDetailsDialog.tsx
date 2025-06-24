@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/select'
 import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
 import { usePatientStore } from '@/store/patientStore'
-import { usePrescriptionStore } from '@/store/prescriptionStore'
 import { getToothInfo, TREATMENT_TYPES, TREATMENT_STATUS_OPTIONS, IMAGE_TYPE_OPTIONS } from '@/data/teethData'
 import { DentalTreatment, DentalTreatmentImage } from '@/types'
 import { formatDate } from '@/lib/utils'
@@ -34,7 +33,6 @@ import {
   Save,
   X,
   Camera,
-  FileText,
   Trash2,
   Plus,
   Eye,
@@ -73,7 +71,6 @@ export default function ToothDetailsDialog({
 }: ToothDetailsDialogProps) {
   const { toast } = useToast()
   const { patients } = usePatientStore()
-  const { prescriptions } = usePrescriptionStore()
   const {
     treatments,
     images,
@@ -395,18 +392,17 @@ export default function ToothDetailsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="treatment" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="treatment" className="w-full" dir="rtl">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="treatment">العلاج</TabsTrigger>
             <TabsTrigger value="images">الصور</TabsTrigger>
-            <TabsTrigger value="prescriptions">الوصفات</TabsTrigger>
           </TabsList>
 
           {/* Treatment Tab */}
-          <TabsContent value="treatment" className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <TabsContent value="treatment" className="space-y-4" dir="rtl">
+            <div className="grid grid-cols-2 gap-4" dir="rtl">
               <div className="space-y-2">
-                <Label htmlFor="current_treatment">العلاج الحالي</Label>
+                <Label htmlFor="current_treatment" className="text-right block">العلاج الحالي</Label>
                 <Select
                   value={treatmentData.current_treatment || ''}
                   onValueChange={(value) => {
@@ -418,7 +414,7 @@ export default function ToothDetailsDialog({
                     }))
                   }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-right" dir="rtl">
                     <SelectValue placeholder="اختر نوع العلاج" />
                   </SelectTrigger>
                   <SelectContent>
@@ -438,7 +434,7 @@ export default function ToothDetailsDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="next_treatment">العلاج القادم</Label>
+                <Label htmlFor="next_treatment" className="text-right block">العلاج القادم</Label>
                 <Input
                   id="next_treatment"
                   value={treatmentData.next_treatment || ''}
@@ -447,11 +443,13 @@ export default function ToothDetailsDialog({
                     next_treatment: e.target.value
                   }))}
                   placeholder="العلاج المخطط له"
+                  className="text-right"
+                  dir="rtl"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="treatment_status">حالة العلاج</Label>
+                <Label htmlFor="treatment_status" className="text-right block">حالة العلاج</Label>
                 <Select
                   value={treatmentData.treatment_status || 'planned'}
                   onValueChange={(value) => setTreatmentData(prev => ({
@@ -459,7 +457,7 @@ export default function ToothDetailsDialog({
                     treatment_status: value as any
                   }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-right" dir="rtl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -478,7 +476,7 @@ export default function ToothDetailsDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cost">التكلفة ($)</Label>
+                <Label htmlFor="cost" className="text-right block">التكلفة ($)</Label>
                 <Input
                   id="cost"
                   type="number"
@@ -488,12 +486,14 @@ export default function ToothDetailsDialog({
                     cost: parseFloat(e.target.value) || 0
                   }))}
                   placeholder="0.00"
+                  className="text-right"
+                  dir="rtl"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="treatment_details">تفاصيل العلاج</Label>
+              <Label htmlFor="treatment_details" className="text-right block">تفاصيل العلاج</Label>
               <Textarea
                 id="treatment_details"
                 value={treatmentData.treatment_details || ''}
@@ -503,11 +503,13 @@ export default function ToothDetailsDialog({
                 }))}
                 placeholder="اكتب تفاصيل العلاج والملاحظات..."
                 rows={4}
+                className="text-right"
+                dir="rtl"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">ملاحظات إضافية</Label>
+              <Label htmlFor="notes" className="text-right block">ملاحظات إضافية</Label>
               <Textarea
                 id="notes"
                 value={treatmentData.notes || ''}
@@ -517,17 +519,19 @@ export default function ToothDetailsDialog({
                 }))}
                 placeholder="ملاحظات أخرى..."
                 rows={3}
+                className="text-right"
+                dir="rtl"
               />
             </div>
           </TabsContent>
 
           {/* Images Tab */}
-          <TabsContent value="images" className="space-y-4">
+          <TabsContent value="images" className="space-y-4" dir="rtl">
             <div className="space-y-4">
               {/* Upload new images with type selection */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
+                  <CardTitle className="text-sm flex items-center gap-2 text-right">
                     <Camera className="w-4 h-4" />
                     إضافة صور جديدة
                   </CardTitle>
@@ -686,23 +690,10 @@ export default function ToothDetailsDialog({
             </div>
           </TabsContent>
 
-          {/* Prescriptions Tab */}
-          <TabsContent value="prescriptions" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">الوصفات المرتبطة</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>سيتم إضافة إدارة الوصفات قريباً</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+
         </Tabs>
 
-        <DialogFooter className="flex justify-end space-x-2 space-x-reverse">
+        <DialogFooter className="flex justify-end space-x-2 space-x-reverse" dir="rtl">
           <Button
             variant="outline"
             onClick={() => {
@@ -710,6 +701,7 @@ export default function ToothDetailsDialog({
               onOpenChange(false)
             }}
           >
+            <X className="w-4 h-4 ml-2" />
             إلغاء
           </Button>
           <Button onClick={handleSave} disabled={isLoading}>

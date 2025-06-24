@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useReportsStore } from '@/store/reportsStore'
 import { useSettingsStore } from '@/store/settingsStore'
+import { usePaymentStore } from '@/store/paymentStore'
 import { useRealTimeReports } from '@/hooks/useRealTimeReports'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
@@ -44,6 +45,7 @@ import { notify } from '@/services/notificationService'
 
 export default function Reports() {
   const { currency } = useSettingsStore()
+  const { totalRevenue, pendingAmount } = usePaymentStore()
   const {
     reportData,
     patientReports,
@@ -298,9 +300,9 @@ export default function Reports() {
                     'المواعيد الملغية': appointmentReports?.cancelledAppointments || 0,
                     'معدل الحضور': appointmentReports?.attendanceRate || 0,
 
-                    // Financial Reports
-                    'إجمالي الإيرادات': financialReports?.totalRevenue || 0,
-                    'المدفوعات المعلقة': financialReports?.pendingPayments || 0,
+                    // Financial Reports - Use real data from payment store
+                    'إجمالي الإيرادات': totalRevenue || 0,
+                    'المدفوعات المعلقة': pendingAmount || 0,
                     'المدفوعات المتأخرة': financialReports?.overduePayments || 0,
 
                     'تاريخ التقرير الشامل': (() => {
@@ -433,7 +435,7 @@ export default function Reports() {
             />
             <StatCard
               title="إجمالي الإيرادات"
-              value={<CurrencyDisplay amount={financialReports?.totalRevenue || 0} currency={currency} />}
+              value={<CurrencyDisplay amount={totalRevenue || 0} currency={currency} />}
               icon={DollarSign}
               color="green"
               description="الإيرادات المحققة"
@@ -517,14 +519,14 @@ export default function Reports() {
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-bold table-cell-wrap-truncate-sm">
-                          <CurrencyDisplay amount={financialReports?.totalPending || 0} currency={currency} />
+                          <CurrencyDisplay amount={pendingAmount || 0} currency={currency} />
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge
-                            variant={(financialReports?.totalPending || 0) > 0 ? "destructive" : "default"}
+                            variant={(pendingAmount || 0) > 0 ? "destructive" : "default"}
                             className="arabic-enhanced"
                           >
-                            {(financialReports?.totalPending || 0) > 0 ? 'يتطلب متابعة' : 'مكتمل'}
+                            {(pendingAmount || 0) > 0 ? 'يتطلب متابعة' : 'مكتمل'}
                           </Badge>
                         </TableCell>
                       </TableRow>

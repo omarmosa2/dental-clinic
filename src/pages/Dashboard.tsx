@@ -123,13 +123,12 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
     // Use filtered data for statistics
     const filteredPatientCount = patientStats.filteredData.length
     const filteredAppointmentCount = appointmentStats.filteredData.length
-    const filteredPaymentRevenue = paymentStats.financialStats?.total || 0
 
     // Validate all numeric values
     const validatedStats = {
       totalPatients: Math.max(0, filteredPatientCount),
       totalAppointments: Math.max(0, filteredAppointmentCount),
-      totalRevenue: Math.max(0, filteredPaymentRevenue),
+      totalRevenue: Math.max(0, totalRevenue || 0), // Use actual total revenue, not filtered
       pendingPayments: Math.max(0, pendingAmount || 0),
       todayAppointments: Math.max(0, todayAppointments.length),
       thisMonthRevenue: Math.max(0, thisMonthRevenue),
@@ -297,39 +296,23 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
             <Users className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.totalPatients}</div>
+            <div className="text-2xl font-bold text-foreground">{patients.length}</div>
             <p className="text-xs text-muted-foreground">
-              سجلات المرضى النشطة
+              إجمالي المرضى المسجلين
             </p>
-            {patientStats.trend && (
-              <div className={`text-xs flex items-center mt-1 ${
-                patientStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
-              }`}>
-                <TrendingUp className={`w-3 h-3 ml-1 ${patientStats.trend.isPositive ? '' : 'rotate-180'}`} />
-                <span>{Math.abs(patientStats.trend.changePercent)}% من الفترة السابقة</span>
-              </div>
-            )}
           </CardContent>
         </Card>
 
         <Card className={getCardStyles("purple")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المواعيد المفلترة</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي المواعيد</CardTitle>
             <Calendar className={`h-4 w-4 ${getIconStyles("purple")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.totalAppointments}</div>
+            <div className="text-2xl font-bold text-foreground">{appointments.length}</div>
             <p className="text-xs text-muted-foreground">
-              في الفترة المحددة
+              إجمالي المواعيد المسجلة
             </p>
-            {appointmentStats.trend && (
-              <div className={`text-xs flex items-center mt-1 ${
-                appointmentStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
-              }`}>
-                <TrendingUp className={`w-3 h-3 ml-1 ${appointmentStats.trend.isPositive ? '' : 'rotate-180'}`} />
-                <span>{Math.abs(appointmentStats.trend.changePercent)}% من الفترة السابقة</span>
-              </div>
-            )}
           </CardContent>
         </Card>
 

@@ -338,12 +338,15 @@ export const usePaymentStore = create<PaymentStore>()(
       // Analytics
       calculateTotalRevenue: () => {
         const { payments } = get()
-        // Only count completed payments for total revenue
+        // Count completed and partial payments for total revenue
         const total = payments
-          .filter(p => p.status === 'completed')
+          .filter(p => p.status === 'completed' || p.status === 'partial')
           .reduce((sum, payment) => {
-            // Ensure amount is a valid number with proper validation
-            const amount = Number(payment.amount)
+            // For partial payments, use amount_paid instead of amount
+            const amount = payment.status === 'partial' && payment.amount_paid !== undefined
+              ? Number(payment.amount_paid)
+              : Number(payment.amount)
+
             if (isNaN(amount) || !isFinite(amount)) {
               console.warn('Invalid payment amount:', payment.amount, 'for payment:', payment.id)
               return sum
@@ -399,7 +402,7 @@ export const usePaymentStore = create<PaymentStore>()(
         const monthlyData: { [key: string]: number } = {}
 
         payments
-          .filter(p => p.status === 'completed')
+          .filter(p => p.status === 'completed' || p.status === 'partial')
           .forEach(payment => {
             try {
               const paymentDate = new Date(payment.payment_date)
@@ -410,7 +413,10 @@ export const usePaymentStore = create<PaymentStore>()(
               }
 
               const month = paymentDate.toISOString().slice(0, 7) // YYYY-MM
-              const amount = Number(payment.amount)
+              // For partial payments, use amount_paid instead of amount
+              const amount = payment.status === 'partial' && payment.amount_paid !== undefined
+                ? Number(payment.amount_paid)
+                : Number(payment.amount)
 
               if (isNaN(amount) || !isFinite(amount)) {
                 console.warn('Invalid payment amount for monthly revenue:', payment.amount, 'for payment:', payment.id)
@@ -439,10 +445,13 @@ export const usePaymentStore = create<PaymentStore>()(
         const methodStats: { [key: string]: number } = {}
 
         payments
-          .filter(p => p.status === 'completed')
+          .filter(p => p.status === 'completed' || p.status === 'partial')
           .forEach(payment => {
             const method = payment.payment_method || 'unknown'
-            const amount = Number(payment.amount)
+            // For partial payments, use amount_paid instead of amount
+            const amount = payment.status === 'partial' && payment.amount_paid !== undefined
+              ? Number(payment.amount_paid)
+              : Number(payment.amount)
 
             if (isNaN(amount) || !isFinite(amount)) {
               console.warn('Invalid payment amount for method stats:', payment.amount, 'for payment:', payment.id)
