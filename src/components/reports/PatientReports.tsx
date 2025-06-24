@@ -201,28 +201,64 @@ export default function PatientReports() {
             variant="outline"
             size="sm"
             onClick={() => {
-              // Export patient reports data
-              if (!patientReports || Object.keys(patientReports).length === 0) {
+              // Use actual patients data for export to ensure accuracy
+              if (!patients || patients.length === 0) {
                 toast({
                   title: "لا توجد بيانات",
-                  description: "لا توجد بيانات تقارير مرضى للتصدير",
+                  description: "لا توجد بيانات مرضى للتصدير",
                   variant: "destructive",
                 })
                 return
               }
 
               try {
+                // Calculate statistics from actual patients data
+                const totalPatients = patients.length
+                const today = new Date()
+                const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+                const newPatientsThisMonth = patients.filter(p =>
+                  new Date(p.created_at) >= thisMonth
+                ).length
+
+                // Calculate age distribution from actual data
+                const ageGroups = { children: 0, teens: 0, adults: 0, seniors: 0 }
+                const genderGroups = { male: 0, female: 0 }
+                let totalAge = 0
+                let patientsWithAge = 0
+
+                patients.forEach(patient => {
+                  // Age calculation
+                  if (patient.date_of_birth) {
+                    const age = new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()
+                    totalAge += age
+                    patientsWithAge++
+
+                    if (age < 13) ageGroups.children++
+                    else if (age < 20) ageGroups.teens++
+                    else if (age < 60) ageGroups.adults++
+                    else ageGroups.seniors++
+                  }
+
+                  // Gender calculation
+                  if (patient.gender === 'male') genderGroups.male++
+                  else if (patient.gender === 'female') genderGroups.female++
+                })
+
+                const averageAge = patientsWithAge > 0 ? Math.round(totalAge / patientsWithAge) : 0
+
                 const reportData = {
-                  'إجمالي المرضى': patientReports.totalPatients || 0,
-                  'المرضى الجدد هذا الشهر': patientReports.newPatientsThisMonth || 0,
-                  'المرضى النشطون': patientReports.activePatientsThisMonth || 0,
-                  'متوسط العمر': patientReports.averageAge || 0,
-                  'توزيع الأعمار - أطفال (0-12)': patientReports.ageDistribution?.children || 0,
-                  'توزيع الأعمار - مراهقون (13-19)': patientReports.ageDistribution?.teens || 0,
-                  'توزيع الأعمار - بالغون (20-59)': patientReports.ageDistribution?.adults || 0,
-                  'توزيع الأعمار - كبار السن (60+)': patientReports.ageDistribution?.seniors || 0,
-                  'توزيع الجنس - ذكور': patientReports.genderDistribution?.male || 0,
-                  'توزيع الجنس - إناث': patientReports.genderDistribution?.female || 0,
+                  'نطاق البيانات': 'جميع المرضى المسجلين',
+                  'إجمالي المرضى': totalPatients,
+                  'المرضى الجدد هذا الشهر': newPatientsThisMonth,
+                  'متوسط العمر': averageAge,
+                  'توزيع الأعمار - أطفال (0-12)': ageGroups.children,
+                  'توزيع الأعمار - مراهقون (13-19)': ageGroups.teens,
+                  'توزيع الأعمار - بالغون (20-59)': ageGroups.adults,
+                  'توزيع الأعمار - كبار السن (60+)': ageGroups.seniors,
+                  'توزيع الجنس - ذكور': genderGroups.male,
+                  'توزيع الجنس - إناث': genderGroups.female,
+                  'عدد المرضى المصدرين': totalPatients,
                   'تاريخ التقرير': formatDate(new Date())
                 }
 
@@ -251,7 +287,7 @@ export default function PatientReports() {
 
                 toast({
                   title: "تم التصدير بنجاح",
-                  description: "تم تصدير تقرير المرضى كملف CSV",
+                  description: `تم تصدير تقرير المرضى كملف CSV (${totalPatients} مريض)`,
                 })
               } catch (error) {
                 console.error('Error exporting CSV:', error)
@@ -272,20 +308,78 @@ export default function PatientReports() {
             size="sm"
             onClick={async () => {
               try {
-                if (!patientReports || Object.keys(patientReports).length === 0) {
+                // Use actual patients data for PDF export to ensure accuracy
+                if (!patients || patients.length === 0) {
                   toast({
                     title: "لا توجد بيانات",
-                    description: "لا توجد بيانات تقارير مرضى للتصدير",
+                    description: "لا توجد بيانات مرضى للتصدير",
                     variant: "destructive",
                   })
                   return
                 }
 
-                await PdfService.exportPatientReport(patientReports, settings)
+                // Calculate statistics from actual patients data for PDF
+                const totalPatients = patients.length
+                const today = new Date()
+                const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+                const newPatientsThisMonth = patients.filter(p =>
+                  new Date(p.created_at) >= thisMonth
+                ).length
+
+                // Calculate age distribution from actual data
+                const ageGroups = { children: 0, teens: 0, adults: 0, seniors: 0 }
+                const genderGroups = { male: 0, female: 0 }
+                let totalAge = 0
+                let patientsWithAge = 0
+
+                patients.forEach(patient => {
+                  // Age calculation
+                  if (patient.date_of_birth) {
+                    const age = new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()
+                    totalAge += age
+                    patientsWithAge++
+
+                    if (age < 13) ageGroups.children++
+                    else if (age < 20) ageGroups.teens++
+                    else if (age < 60) ageGroups.adults++
+                    else ageGroups.seniors++
+                  }
+
+                  // Gender calculation
+                  if (patient.gender === 'male') genderGroups.male++
+                  else if (patient.gender === 'female') genderGroups.female++
+                })
+
+                const averageAge = patientsWithAge > 0 ? Math.round(totalAge / patientsWithAge) : 0
+
+                // Create patient report data structure using actual data
+                const actualPatientReportData = {
+                  totalPatients: totalPatients,
+                  newPatientsThisMonth: newPatientsThisMonth,
+                  activePatients: totalPatients, // All patients are considered active for this report
+                  averageAge: averageAge,
+                  patients: patients,
+                  ageDistribution: [
+                    { ageGroup: 'أطفال (0-12)', count: ageGroups.children },
+                    { ageGroup: 'مراهقون (13-19)', count: ageGroups.teens },
+                    { ageGroup: 'بالغون (20-59)', count: ageGroups.adults },
+                    { ageGroup: 'كبار السن (60+)', count: ageGroups.seniors }
+                  ],
+                  genderDistribution: [
+                    { gender: 'ذكور', count: genderGroups.male },
+                    { gender: 'إناث', count: genderGroups.female }
+                  ],
+                  registrationTrend: [],
+                  filterInfo: 'جميع المرضى المسجلين',
+                  dataCount: totalPatients
+                }
+
+                await PdfService.exportPatientReport(actualPatientReportData, settings)
 
                 toast({
                   title: "تم التصدير بنجاح",
-                  description: "تم تصدير تقرير المرضى كملف PDF",
+                  description: `تم تصدير تقرير المرضى كملف PDF (${totalPatients} مريض)`,
                 })
               } catch (error) {
                 console.error('Error exporting PDF:', error)

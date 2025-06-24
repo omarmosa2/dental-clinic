@@ -1226,15 +1226,58 @@ export class ExportService {
   }
 
   // Legacy export functions for backward compatibility
+  // NOTE: These functions now support filtered data - pass filtered arrays instead of full datasets
   static async exportPatientsToPDF(patients: Patient[], clinicName: string = 'عيادة الأسنان الحديثة'): Promise<void> {
+    // Calculate statistics from the provided patients array (which should be filtered)
+    const today = new Date()
+    const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+    const newPatientsThisMonth = patients.filter(p =>
+      new Date(p.created_at) >= thisMonth
+    ).length
+
+    // Calculate age distribution from actual data
+    const ageGroups = { children: 0, teens: 0, adults: 0, seniors: 0 }
+    const genderGroups = { male: 0, female: 0 }
+    let totalAge = 0
+    let patientsWithAge = 0
+
+    patients.forEach(patient => {
+      // Age calculation
+      if (patient.date_of_birth) {
+        const age = new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()
+        totalAge += age
+        patientsWithAge++
+
+        if (age < 13) ageGroups.children++
+        else if (age < 20) ageGroups.teens++
+        else if (age < 60) ageGroups.adults++
+        else ageGroups.seniors++
+      }
+
+      // Gender calculation
+      if (patient.gender === 'male') genderGroups.male++
+      else if (patient.gender === 'female') genderGroups.female++
+    })
+
+    const averageAge = patientsWithAge > 0 ? Math.round(totalAge / patientsWithAge) : 0
+
     const patientData: PatientReportData = {
       totalPatients: patients.length,
-      newPatientsThisMonth: 0,
+      newPatientsThisMonth: newPatientsThisMonth,
       activePatients: patients.length,
-      averageAge: 0,
+      averageAge: averageAge,
       patients: patients,
-      ageDistribution: [],
-      genderDistribution: [],
+      ageDistribution: [
+        { ageGroup: 'أطفال (0-12)', count: ageGroups.children },
+        { ageGroup: 'مراهقون (13-19)', count: ageGroups.teens },
+        { ageGroup: 'بالغون (20-59)', count: ageGroups.adults },
+        { ageGroup: 'كبار السن (60+)', count: ageGroups.seniors }
+      ],
+      genderDistribution: [
+        { gender: 'ذكور', count: genderGroups.male },
+        { gender: 'إناث', count: genderGroups.female }
+      ],
       registrationTrend: []
     }
 
@@ -1251,20 +1294,38 @@ export class ExportService {
   }
 
   static async exportAppointmentsToPDF(appointments: Appointment[], clinicName: string = 'عيادة الأسنان الحديثة'): Promise<void> {
+    // Calculate statistics from the provided appointments array (which should be filtered)
+    const totalAppointments = appointments.length
+    const completedAppointments = appointments.filter(a => a.status === 'completed').length
+    const cancelledAppointments = appointments.filter(a => a.status === 'cancelled').length
+    const noShowAppointments = appointments.filter(a => a.status === 'no-show').length
+    const scheduledAppointments = appointments.filter(a => a.status === 'scheduled').length
+
+    // Calculate rates
+    const attendanceRate = totalAppointments > 0 ? Math.round((completedAppointments / totalAppointments) * 100) : 0
+    const cancellationRate = totalAppointments > 0 ? Math.round((cancelledAppointments / totalAppointments) * 100) : 0
+
     const appointmentData: AppointmentReportData = {
-      totalAppointments: appointments.length,
-      completedAppointments: appointments.filter(a => a.status === 'completed').length,
-      cancelledAppointments: appointments.filter(a => a.status === 'cancelled').length,
-      noShowAppointments: appointments.filter(a => a.status === 'no-show').length,
-      scheduledAppointments: appointments.filter(a => a.status === 'scheduled').length,
-      attendanceRate: 0,
-      cancellationRate: 0,
-      appointmentsByStatus: [],
+      totalAppointments: totalAppointments,
+      completedAppointments: completedAppointments,
+      cancelledAppointments: cancelledAppointments,
+      noShowAppointments: noShowAppointments,
+      scheduledAppointments: scheduledAppointments,
+      attendanceRate: attendanceRate,
+      cancellationRate: cancellationRate,
+      appointmentsByStatus: [
+        { status: 'مكتمل', count: completedAppointments, percentage: attendanceRate },
+        { status: 'ملغي', count: cancelledAppointments, percentage: cancellationRate },
+        { status: 'لم يحضر', count: noShowAppointments, percentage: totalAppointments > 0 ? Math.round((noShowAppointments / totalAppointments) * 100) : 0 },
+        { status: 'مجدول', count: scheduledAppointments, percentage: totalAppointments > 0 ? Math.round((scheduledAppointments / totalAppointments) * 100) : 0 }
+      ],
       appointmentsByTreatment: [],
       appointmentsByDay: [],
       appointmentsByHour: [],
       peakHours: [],
-      appointmentTrend: []
+      appointmentTrend: [],
+      filterInfo: `البيانات المصدرة: ${totalAppointments} موعد`,
+      dataCount: totalAppointments
     }
 
     const options: ReportExportOptions = {
@@ -1280,16 +1341,41 @@ export class ExportService {
   }
 
   static async exportPaymentsToPDF(payments: Payment[], clinicName: string = 'عيادة الأسنان الحديثة'): Promise<void> {
+    // Calculate statistics from the provided payments array (which should be filtered)
+    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0)
+    const completedPayments = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
+    const pendingPayments = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0)
+    const overduePayments = payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0)
+
+    // Calculate payment method statistics
+    const paymentMethods = payments.reduce((acc, payment) => {
+      const method = payment.payment_method || 'غير محدد'
+      if (!acc[method]) {
+        acc[method] = { count: 0, amount: 0 }
+      }
+      acc[method].count++
+      acc[method].amount += payment.amount
+      return acc
+    }, {} as Record<string, { count: number; amount: number }>)
+
+    const paymentMethodStats = Object.entries(paymentMethods).map(([method, stats]) => ({
+      method,
+      count: stats.count,
+      amount: stats.amount
+    }))
+
     const financialData: FinancialReportData = {
-      totalRevenue: payments.reduce((sum, p) => sum + p.amount, 0),
-      completedPayments: payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0),
-      pendingPayments: payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0),
-      overduePayments: payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0),
-      paymentMethodStats: [],
+      totalRevenue: totalRevenue,
+      completedPayments: completedPayments,
+      pendingPayments: pendingPayments,
+      overduePayments: overduePayments,
+      paymentMethodStats: paymentMethodStats,
       monthlyRevenue: [],
       revenueTrend: [],
       topTreatments: [],
-      outstandingBalance: 0
+      outstandingBalance: pendingPayments + overduePayments,
+      filterInfo: `البيانات المصدرة: ${payments.length} دفعة`,
+      dataCount: payments.length
     }
 
     const options: ReportExportOptions = {
@@ -1305,15 +1391,58 @@ export class ExportService {
   }
 
   // Legacy Excel export functions
+  // NOTE: These functions now support filtered data - pass filtered arrays instead of full datasets
   static async exportPatientsToExcel(patients: Patient[]): Promise<void> {
+    // Calculate statistics from the provided patients array (which should be filtered)
+    const today = new Date()
+    const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+    const newPatientsThisMonth = patients.filter(p =>
+      new Date(p.created_at) >= thisMonth
+    ).length
+
+    // Calculate age distribution from actual data
+    const ageGroups = { children: 0, teens: 0, adults: 0, seniors: 0 }
+    const genderGroups = { male: 0, female: 0 }
+    let totalAge = 0
+    let patientsWithAge = 0
+
+    patients.forEach(patient => {
+      // Age calculation
+      if (patient.date_of_birth) {
+        const age = new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()
+        totalAge += age
+        patientsWithAge++
+
+        if (age < 13) ageGroups.children++
+        else if (age < 20) ageGroups.teens++
+        else if (age < 60) ageGroups.adults++
+        else ageGroups.seniors++
+      }
+
+      // Gender calculation
+      if (patient.gender === 'male') genderGroups.male++
+      else if (patient.gender === 'female') genderGroups.female++
+    })
+
+    const averageAge = patientsWithAge > 0 ? Math.round(totalAge / patientsWithAge) : 0
+
     const patientData: PatientReportData = {
       totalPatients: patients.length,
-      newPatientsThisMonth: 0,
+      newPatientsThisMonth: newPatientsThisMonth,
       activePatients: patients.length,
-      averageAge: 0,
+      averageAge: averageAge,
       patients: patients,
-      ageDistribution: [],
-      genderDistribution: [],
+      ageDistribution: [
+        { ageGroup: 'أطفال (0-12)', count: ageGroups.children },
+        { ageGroup: 'مراهقون (13-19)', count: ageGroups.teens },
+        { ageGroup: 'بالغون (20-59)', count: ageGroups.adults },
+        { ageGroup: 'كبار السن (60+)', count: ageGroups.seniors }
+      ],
+      genderDistribution: [
+        { gender: 'ذكور', count: genderGroups.male },
+        { gender: 'إناث', count: genderGroups.female }
+      ],
       registrationTrend: []
     }
 
@@ -1355,16 +1484,41 @@ export class ExportService {
   }
 
   static async exportPaymentsToExcel(payments: Payment[]): Promise<void> {
+    // Calculate statistics from the provided payments array (which should be filtered)
+    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0)
+    const completedPayments = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
+    const pendingPayments = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0)
+    const overduePayments = payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0)
+
+    // Calculate payment method statistics
+    const paymentMethods = payments.reduce((acc, payment) => {
+      const method = payment.payment_method || 'غير محدد'
+      if (!acc[method]) {
+        acc[method] = { count: 0, amount: 0 }
+      }
+      acc[method].count++
+      acc[method].amount += payment.amount
+      return acc
+    }, {} as Record<string, { count: number; amount: number }>)
+
+    const paymentMethodStats = Object.entries(paymentMethods).map(([method, stats]) => ({
+      method,
+      count: stats.count,
+      amount: stats.amount
+    }))
+
     const financialData: FinancialReportData = {
-      totalRevenue: payments.reduce((sum, p) => sum + p.amount, 0),
-      completedPayments: payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0),
-      pendingPayments: payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0),
-      overduePayments: payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0),
-      paymentMethodStats: [],
+      totalRevenue: totalRevenue,
+      completedPayments: completedPayments,
+      pendingPayments: pendingPayments,
+      overduePayments: overduePayments,
+      paymentMethodStats: paymentMethodStats,
       monthlyRevenue: [],
       revenueTrend: [],
       topTreatments: [],
-      outstandingBalance: 0
+      outstandingBalance: pendingPayments + overduePayments,
+      filterInfo: `البيانات المصدرة: ${payments.length} دفعة`,
+      dataCount: payments.length
     }
 
     const options: ReportExportOptions = {

@@ -178,7 +178,10 @@ export default function Payments() {
                 return statusLabels[status as keyof typeof statusLabels] || status
               }
 
-              const csvData = payments.map(payment => ({
+              // Use filtered data for export to ensure accuracy
+              const dataToExport = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+
+              const csvData = dataToExport.map(payment => ({
                 'رقم الإيصال': payment.receipt_number || `#${payment.id.slice(-6)}`,
                 'المريض': getPatientName(payment),
                 'المبلغ': `$${payment.amount.toFixed(2)}`,
@@ -211,7 +214,12 @@ export default function Payments() {
                 link.click()
                 document.body.removeChild(link)
 
-                notify.exportSuccess(`تم تصدير ${payments.length} دفعة بنجاح!`)
+                // Add filter information to success message
+                const filterInfo = paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
+                  ? ` (مفلترة من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate})`
+                  : ''
+
+                notify.exportSuccess(`تم تصدير ${dataToExport.length} دفعة بنجاح!${filterInfo}`)
               } catch (error) {
                 console.error('Error exporting payments:', error)
                 notify.exportError('فشل في تصدير بيانات المدفوعات')
