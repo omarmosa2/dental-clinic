@@ -18,6 +18,8 @@ import { useTheme } from '@/contexts/ThemeContext'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { PdfService } from '@/services/pdfService'
 import { notify } from '@/services/notificationService'
+import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
+import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import {
   DollarSign,
   TrendingUp,
@@ -61,6 +63,12 @@ export default function FinancialReports() {
   } = usePaymentStore()
   const { currency, settings } = useSettingsStore()
   const { isDarkMode } = useTheme()
+
+  // Time filtering for payments
+  const paymentStats = useTimeFilteredStats({
+    data: payments,
+    dateField: 'payment_date'
+  })
 
   // Use real-time reports hook for automatic updates
   useRealTimeReportsByType('financial')
@@ -505,6 +513,15 @@ export default function FinancialReports() {
         </div>
       </div>
 
+      {/* Time Filter Section */}
+      <TimeFilter
+        value={paymentStats.timeFilter}
+        onChange={paymentStats.handleFilterChange}
+        onClear={paymentStats.resetFilter}
+        title="فلترة المدفوعات حسب التاريخ"
+        defaultOpen={false}
+      />
+
       {/* Stats Cards - RTL Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" dir="rtl">
         <Card className={getCardStyles("green")} dir="rtl">
@@ -514,11 +531,22 @@ export default function FinancialReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
-              <CurrencyDisplay amount={reportData.totalRevenue} currency={currency} />
+              <CurrencyDisplay
+                amount={paymentStats.financialStats.totalRevenue}
+                currency={currency}
+              />
             </div>
             <p className="text-xs text-muted-foreground text-right">
-              من {stats.completedCount} معاملة مكتملة
+              من {paymentStats.filteredData.filter(p => p.status === 'completed').length} معاملة مكتملة
             </p>
+            {paymentStats.trend && (
+              <div className={`text-xs flex items-center justify-end mt-1 ${
+                paymentStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
+              }`}>
+                <span className="ml-1">{Math.abs(paymentStats.trend.changePercent)}%</span>
+                {paymentStats.trend.isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -529,10 +557,13 @@ export default function FinancialReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
-              <CurrencyDisplay amount={reportData.totalPending} currency={currency} />
+              <CurrencyDisplay
+                amount={paymentStats.financialStats.pendingAmount}
+                currency={currency}
+              />
             </div>
             <p className="text-xs text-muted-foreground text-right">
-              {stats.pendingCount} معاملة معلقة
+              {paymentStats.filteredData.filter(p => p.status === 'pending').length} معاملة معلقة
             </p>
           </CardContent>
         </Card>
@@ -544,7 +575,10 @@ export default function FinancialReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
-              <CurrencyDisplay amount={reportData.totalOverdue} currency={currency} />
+              <CurrencyDisplay
+                amount={paymentStats.financialStats.overdueAmount}
+                currency={currency}
+              />
             </div>
             <p className="text-xs text-muted-foreground text-right">
               تحتاج متابعة عاجلة

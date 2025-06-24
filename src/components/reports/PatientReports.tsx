@@ -14,6 +14,9 @@ import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
 import { ensureGenderDistribution, ensureAgeDistribution, formatChartData } from '@/lib/chartDataHelpers'
 import { PdfService } from '@/services/pdfService'
+import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
+import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
+import { usePatientStore } from '@/store/patientStore'
 import {
   Users,
   UserPlus,
@@ -52,14 +55,22 @@ export default function PatientReports() {
   const { currency, settings } = useSettingsStore()
   const { toast } = useToast()
   const { isDarkMode } = useTheme()
+  const { patients, loadPatients } = usePatientStore()
 
   const [searchTerm, setSearchTerm] = useState('')
   const [ageFilter, setAgeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
 
+  // Time filtering for patients
+  const patientStats = useTimeFilteredStats({
+    data: patients,
+    dateField: 'created_at'
+  })
+
   useEffect(() => {
     generateReport('patients')
-  }, [generateReport])
+    loadPatients()
+  }, [generateReport, loadPatients])
 
   // Use real-time reports hook for automatic updates
   useRealTimeReportsByType('patients')
@@ -298,40 +309,43 @@ export default function PatientReports() {
         </div>
       </div>
 
+      {/* Time Filter Section */}
+      <TimeFilter
+        value={patientStats.timeFilter}
+        onChange={patientStats.handleFilterChange}
+        onClear={patientStats.resetFilter}
+        title="فلترة المرضى حسب التاريخ"
+        defaultOpen={false}
+      />
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
         <StatCard
           title="إجمالي المرضى"
-          value={patientReports.totalPatients}
+          value={patientStats.filteredData.length}
           icon={Users}
           color="blue"
-          description="العدد الكلي للمرضى المسجلين"
+          description="العدد الكلي للمرضى في الفترة المحددة"
+          trend={patientStats.trend}
         />
         <StatCard
           title="المرضى الجدد"
-          value={patientReports.newPatients}
+          value={patientStats.filteredData.length}
           icon={UserPlus}
           color="green"
-          trend={
-            patientReports.totalPatients > 0
-              ? {
-                  value: Math.round((patientReports.newPatients / patientReports.totalPatients) * 100),
-                  isPositive: patientReports.newPatients > 0
-                }
-              : undefined
-          }
+          trend={patientStats.trend}
           description="المرضى المسجلين في الفترة المحددة"
         />
         <StatCard
           title="المرضى النشطين"
-          value={patientReports.activePatients}
+          value={patientReports?.activePatients || 0}
           icon={UserCheck}
           color="emerald"
           description="المرضى الذين لديهم مواعيد حديثة"
         />
         <StatCard
           title="المرضى غير النشطين"
-          value={patientReports.inactivePatients}
+          value={patientReports?.inactivePatients || 0}
           icon={UserX}
           color="red"
           description="المرضى بدون مواعيد حديثة"

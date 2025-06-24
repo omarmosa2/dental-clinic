@@ -26,7 +26,7 @@ export function useTimeFilteredStats<T extends FilterableData>({
   const getDefaultFilter = (): TimeFilterOptions => {
     const today = new Date()
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-    
+
     return {
       preset: 'month',
       startDate: monthStart.toISOString().split('T')[0],
@@ -40,6 +40,11 @@ export function useTimeFilteredStats<T extends FilterableData>({
 
   // Filter data based on time filter
   const filteredData = useMemo(() => {
+    // Return empty array if data is not available yet
+    if (!data || !Array.isArray(data)) {
+      return []
+    }
+
     if (!timeFilter.startDate || !timeFilter.endDate) {
       return data
     }
@@ -51,7 +56,7 @@ export function useTimeFilteredStats<T extends FilterableData>({
     return data.filter(item => {
       const itemDateValue = item[dateField]
       if (!itemDateValue) return false
-      
+
       const itemDate = new Date(itemDateValue as string)
       return itemDate >= startDate && itemDate <= endDate
     })
@@ -60,7 +65,19 @@ export function useTimeFilteredStats<T extends FilterableData>({
   // Calculate basic statistics
   const stats = useMemo(() => {
     const total = filteredData.length
-    
+
+    // Return basic stats if data is not available
+    if (!data || !Array.isArray(data)) {
+      return {
+        total: 0,
+        filtered: 0,
+        today: 0,
+        week: 0,
+        month: 0,
+        year: 0
+      }
+    }
+
     // Calculate period-based statistics
     const today = new Date()
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
@@ -101,33 +118,70 @@ export function useTimeFilteredStats<T extends FilterableData>({
 
   // Calculate financial statistics if data has amount fields
   const financialStats = useMemo(() => {
-    const hasAmount = filteredData.some(item => 
+    if (!filteredData || filteredData.length === 0) {
+      return {
+        totalRevenue: 0,
+        pendingAmount: 0,
+        overdueAmount: 0,
+        completedAmount: 0
+      }
+    }
+
+    const hasAmount = filteredData.some(item =>
       'amount' in item || 'total_amount' in item || 'cost' in item || 'price' in item
     )
 
-    if (!hasAmount) return null
+    if (!hasAmount) {
+      return {
+        totalRevenue: 0,
+        pendingAmount: 0,
+        overdueAmount: 0,
+        completedAmount: 0
+      }
+    }
 
-    const totalAmount = filteredData.reduce((sum, item) => {
-      const amount = (item as any).amount || 
-                   (item as any).total_amount || 
-                   (item as any).cost || 
-                   (item as any).price || 0
-      return sum + (typeof amount === 'number' ? amount : parseFloat(amount) || 0)
-    }, 0)
+    const totalRevenue = filteredData
+      .filter((item: any) => item.status === 'completed')
+      .reduce((sum, item) => {
+        const amount = (item as any).amount ||
+                     (item as any).total_amount ||
+                     (item as any).cost ||
+                     (item as any).price || 0
+        return sum + (typeof amount === 'number' ? amount : parseFloat(amount) || 0)
+      }, 0)
 
-    const averageAmount = filteredData.length > 0 ? totalAmount / filteredData.length : 0
+    const pendingAmount = filteredData
+      .filter((item: any) => item.status === 'pending')
+      .reduce((sum, item) => {
+        const amount = (item as any).amount ||
+                     (item as any).total_amount ||
+                     (item as any).cost ||
+                     (item as any).price || 0
+        return sum + (typeof amount === 'number' ? amount : parseFloat(amount) || 0)
+      }, 0)
+
+    const overdueAmount = filteredData
+      .filter((item: any) => item.status === 'overdue')
+      .reduce((sum, item) => {
+        const amount = (item as any).amount ||
+                     (item as any).total_amount ||
+                     (item as any).cost ||
+                     (item as any).price || 0
+        return sum + (typeof amount === 'number' ? amount : parseFloat(amount) || 0)
+      }, 0)
 
     return {
-      total: totalAmount,
-      average: averageAmount,
-      count: filteredData.length
+      totalRevenue,
+      pendingAmount,
+      overdueAmount,
+      completedAmount: totalRevenue
     }
   }, [filteredData])
 
   // Group data by time periods for charts
   const groupedData = useMemo(() => {
     const groups: { [key: string]: T[] } = {}
-    
+
     filteredData.forEach(item => {
       const itemDate = new Date(item[dateField] as string)
       let groupKey = ''
@@ -160,12 +214,12 @@ export function useTimeFilteredStats<T extends FilterableData>({
 
   // Calculate trend (comparison with previous period)
   const trend = useMemo(() => {
-    if (!timeFilter.startDate || !timeFilter.endDate) return null
+    if (!data || !Array.isArray(data) || !timeFilter.startDate || !timeFilter.endDate) return null
 
     const currentStart = new Date(timeFilter.startDate)
     const currentEnd = new Date(timeFilter.endDate)
     const periodLength = currentEnd.getTime() - currentStart.getTime()
-    
+
     const previousStart = new Date(currentStart.getTime() - periodLength)
     const previousEnd = new Date(currentStart.getTime() - 1)
 
@@ -176,11 +230,11 @@ export function useTimeFilteredStats<T extends FilterableData>({
 
     const currentCount = filteredData.length
     const previousCount = previousData.length
-    
+
     if (previousCount === 0) return null
 
     const changePercent = ((currentCount - previousCount) / previousCount) * 100
-    
+
     return {
       current: currentCount,
       previous: previousCount,

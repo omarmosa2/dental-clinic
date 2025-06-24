@@ -30,7 +30,9 @@ import {
   DollarSign,
   Calendar,
   FileText,
-  Loader2
+  Loader2,
+  CreditCard,
+  Calculator
 } from 'lucide-react'
 import type { LabOrder } from '@/types'
 
@@ -185,11 +187,11 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" dir="rtl">
-        <DialogHeader dir="rtl">
-          <DialogTitle className="flex items-center gap-2 text-right">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogHeader className="text-right" dir="rtl">
+          <DialogTitle className="flex items-center gap-2 justify-end text-right">
+            <span>{editingOrder ? 'تعديل طلب المختبر' : 'إضافة طلب مختبر جديد'}</span>
             <Microscope className="h-5 w-5 text-purple-600" />
-            {editingOrder ? 'تعديل طلب المختبر' : 'إضافة طلب مختبر جديد'}
           </DialogTitle>
           <DialogDescription className="text-right">
             {editingOrder
@@ -199,13 +201,13 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4" dir="rtl">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-6" dir="rtl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Lab Selection */}
-            <div className="space-y-2 text-right">
-              <Label htmlFor="lab_id" className="flex items-center gap-2 justify-end">
-                المختبر *
-                <Building2 className="h-4 w-4" />
+            <div className="space-y-2">
+              <Label htmlFor="lab_id" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <Building2 className="h-4 w-4 text-blue-600" />
+                <span>المختبر *</span>
               </Label>
               <Select
                 value={formData.lab_id}
@@ -230,10 +232,10 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
             </div>
 
             {/* Patient Selection */}
-            <div className="space-y-2 text-right">
-              <Label htmlFor="patient_id" className="flex items-center gap-2 justify-end">
-                المريض (اختياري)
-                <User className="h-4 w-4" />
+            <div className="space-y-2">
+              <Label htmlFor="patient_id" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <User className="h-4 w-4 text-green-600" />
+                <span>المريض (اختياري)</span>
               </Label>
               <Select
                 value={formData.patient_id}
@@ -257,10 +259,10 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
           </div>
 
           {/* Service Name */}
-          <div className="space-y-2 text-right">
-            <Label htmlFor="service_name" className="flex items-center gap-2 justify-end">
-              اسم الخدمة *
-              <Microscope className="h-4 w-4" />
+          <div className="space-y-2">
+            <Label htmlFor="service_name" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+              <Microscope className="h-4 w-4 text-purple-600" />
+              <span>اسم الخدمة *</span>
             </Label>
             <Input
               id="service_name"
@@ -276,12 +278,12 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Cost */}
-            <div className="space-y-2 text-right">
-              <Label htmlFor="cost" className="flex items-center gap-2 justify-end">
-                التكلفة *
-                <DollarSign className="h-4 w-4" />
+            <div className="space-y-2">
+              <Label htmlFor="cost" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <DollarSign className="h-4 w-4 text-green-600" />
+                <span>التكلفة *</span>
               </Label>
               <Input
                 id="cost"
@@ -301,10 +303,10 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
             </div>
 
             {/* Paid Amount */}
-            <div className="space-y-2 text-right">
-              <Label htmlFor="paid_amount" className="flex items-center gap-2 justify-end">
-                المبلغ المدفوع
-                <DollarSign className="h-4 w-4" />
+            <div className="space-y-2">
+              <Label htmlFor="paid_amount" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <CreditCard className="h-4 w-4 text-blue-600" />
+                <span>المبلغ المدفوع</span>
               </Label>
               <Input
                 id="paid_amount"
@@ -324,10 +326,10 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
             </div>
 
             {/* Remaining Balance */}
-            <div className="space-y-2 text-right">
-              <Label className="flex items-center gap-2 justify-end">
-                المبلغ المتبقي
-                <DollarSign className="h-4 w-4" />
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <Calculator className="h-4 w-4 text-orange-600" />
+                <span>المبلغ المتبقي</span>
               </Label>
               <div className="h-10 px-3 py-2 border rounded-md bg-muted flex items-center justify-end">
                 <span className="text-sm font-medium">
@@ -337,12 +339,12 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Order Date */}
-            <div className="space-y-2 text-right">
-              <Label htmlFor="order_date" className="flex items-center gap-2 justify-end">
-                تاريخ الطلب *
-                <Calendar className="h-4 w-4" />
+            <div className="space-y-2">
+              <Label htmlFor="order_date" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <Calendar className="h-4 w-4 text-blue-600" />
+                <span>تاريخ الطلب *</span>
               </Label>
               <Input
                 id="order_date"
@@ -359,10 +361,10 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
             </div>
 
             {/* Status */}
-            <div className="space-y-2 text-right">
-              <Label htmlFor="status" className="flex items-center gap-2 justify-end">
-                الحالة *
-                <Microscope className="h-4 w-4" />
+            <div className="space-y-2">
+              <Label htmlFor="status" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <Microscope className="h-4 w-4 text-purple-600" />
+                <span>الحالة *</span>
               </Label>
               <Select
                 value={formData.status}
@@ -383,10 +385,10 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
           </div>
 
           {/* Notes */}
-          <div className="space-y-2 text-right">
-            <Label htmlFor="notes" className="flex items-center gap-2 justify-end">
-              ملاحظات
-              <FileText className="h-4 w-4" />
+          <div className="space-y-2">
+            <Label htmlFor="notes" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+              <FileText className="h-4 w-4 text-gray-600" />
+              <span>ملاحظات</span>
             </Label>
             <Textarea
               id="notes"
@@ -400,7 +402,7 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
             />
           </div>
 
-          <DialogFooter className="gap-2" dir="rtl">
+          <DialogFooter className="flex flex-row-reverse gap-2 pt-4" dir="rtl">
             <Button
               type="submit"
               disabled={isLoading}
@@ -408,7 +410,7 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 ml-2 animate-spin" />
                   {editingOrder ? 'جاري التحديث...' : 'جاري الإضافة...'}
                 </>
               ) : (

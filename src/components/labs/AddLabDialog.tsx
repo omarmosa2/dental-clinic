@@ -125,10 +125,10 @@ export default function AddLabDialog({ open, onOpenChange, editingLab }: AddLabD
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]" dir="rtl">
-        <DialogHeader dir="rtl">
-          <DialogTitle className="flex items-center gap-2 text-right">
+        <DialogHeader className="text-right" dir="rtl">
+          <DialogTitle className="flex items-center gap-2 justify-end text-right">
+            <span>{editingLab ? 'تعديل المختبر' : 'إضافة مختبر جديد'}</span>
             <Building2 className="h-5 w-5 text-blue-600" />
-            {editingLab ? 'تعديل المختبر' : 'إضافة مختبر جديد'}
           </DialogTitle>
           <DialogDescription className="text-right">
             {editingLab
@@ -138,12 +138,12 @@ export default function AddLabDialog({ open, onOpenChange, editingLab }: AddLabD
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4" dir="rtl">
+        <form onSubmit={handleSubmit} className="space-y-6" dir="rtl">
           {/* Lab Name */}
-          <div className="space-y-2 text-right">
-            <Label htmlFor="name" className="flex items-center gap-2 justify-end">
-              اسم المختبر *
-              <Building2 className="h-4 w-4" />
+          <div className="space-y-2">
+            <Label htmlFor="name" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+              <Building2 className="h-4 w-4 text-blue-600" />
+              <span>اسم المختبر *</span>
             </Label>
             <Input
               id="name"
@@ -160,10 +160,10 @@ export default function AddLabDialog({ open, onOpenChange, editingLab }: AddLabD
           </div>
 
           {/* Contact Info */}
-          <div className="space-y-2 text-right">
-            <Label htmlFor="contact_info" className="flex items-center gap-2 justify-end">
-              معلومات الاتصال
-              <Phone className="h-4 w-4" />
+          <div className="space-y-2">
+            <Label htmlFor="contact_info" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+              <Phone className="h-4 w-4 text-green-600" />
+              <span>معلومات الاتصال</span>
             </Label>
             <Input
               id="contact_info"
@@ -180,10 +180,10 @@ export default function AddLabDialog({ open, onOpenChange, editingLab }: AddLabD
           </div>
 
           {/* Address */}
-          <div className="space-y-2 text-right">
-            <Label htmlFor="address" className="flex items-center gap-2 justify-end">
-              العنوان
-              <MapPin className="h-4 w-4" />
+          <div className="space-y-2">
+            <Label htmlFor="address" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+              <MapPin className="h-4 w-4 text-orange-600" />
+              <span>العنوان</span>
             </Label>
             <Textarea
               id="address"
@@ -200,7 +200,7 @@ export default function AddLabDialog({ open, onOpenChange, editingLab }: AddLabD
             )}
           </div>
 
-          <DialogFooter className="gap-2" dir="rtl">
+          <DialogFooter className="flex flex-row-reverse gap-2 pt-4" dir="rtl">
             <Button
               type="submit"
               disabled={isLoading}
@@ -208,7 +208,7 @@ export default function AddLabDialog({ open, onOpenChange, editingLab }: AddLabD
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 ml-2 animate-spin" />
                   {editingLab ? 'جاري التحديث...' : 'جاري الإضافة...'}
                 </>
               ) : (

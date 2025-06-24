@@ -8,9 +8,10 @@ import {
   User2,
   Package,
   BarChart3,
-  TestTube,
+  Microscope,
   Pill,
-  Tooth,
+  Heart,
+  Stethoscope,
 } from "lucide-react"
 
 import {
@@ -59,7 +60,7 @@ const navigationItems = [
   {
     title: "المختبرات",
     url: "labs",
-    icon: TestTube,
+    icon: Microscope,
   },
   {
     title: "الأدوية والوصفات",
@@ -69,7 +70,7 @@ const navigationItems = [
   {
     title: "العلاجات السنية",
     url: "dental-treatments",
-    icon: Tooth,
+    icon: Heart,
   },
   {
     title: "التقارير",

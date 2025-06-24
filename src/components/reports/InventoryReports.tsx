@@ -14,6 +14,9 @@ import { useTheme } from '@/contexts/ThemeContext'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { PdfService } from '@/services/pdfService'
 import { notify } from '@/services/notificationService'
+import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
+import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
+import { useInventoryStore } from '@/store/inventoryStore'
 import {
   Package,
   AlertTriangle,
@@ -56,12 +59,24 @@ export default function InventoryReports() {
   const { currency, settings } = useSettingsStore()
   const { inventoryReports, isLoading, isExporting, generateReport, exportReport, clearCache } = useReportsStore()
   const { isDarkMode } = useTheme()
+  const { items, loadItems } = useInventoryStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [alertFilter, setAlertFilter] = useState('all')
 
+  // Time filtering for inventory
+  const inventoryStats = useTimeFilteredStats({
+    data: items,
+    dateField: 'created_at'
+  })
+
   // Use real-time reports hook for automatic updates
   useRealTimeReportsByType('inventory')
+
+  useEffect(() => {
+    generateReport('inventory')
+    loadItems()
+  }, [generateReport, loadItems])
 
   // Get professional chart colors
   const categoricalColors = getChartColors('categorical', isDarkMode)
@@ -303,32 +318,48 @@ export default function InventoryReports() {
         </div>
       </div>
 
+      {/* Time Filter Section */}
+      <TimeFilter
+        value={inventoryStats.timeFilter}
+        onChange={inventoryStats.handleFilterChange}
+        onClear={inventoryStats.resetFilter}
+        title="فلترة المخزون حسب التاريخ"
+        defaultOpen={false}
+      />
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
         <StatCard
           title="إجمالي العناصر"
-          value={inventoryReports.totalItems}
+          value={inventoryStats.filteredData.length}
           icon={Package}
           color="blue"
-          description="العدد الكلي لعناصر المخزون"
+          description="العدد الكلي لعناصر المخزون في الفترة المحددة"
+          trend={inventoryStats.trend}
         />
         <StatCard
           title="القيمة الإجمالية"
-          value={<CurrencyDisplay amount={inventoryReports.totalValue} currency={currency} />}
+          value={<CurrencyDisplay
+            amount={inventoryStats.filteredData.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)}
+            currency={currency}
+          />}
           icon={TrendingUp}
           color="green"
-          description="القيمة الإجمالية للمخزون"
+          description="القيمة الإجمالية للمخزون في الفترة المحددة"
         />
         <StatCard
           title="مخزون منخفض"
-          value={inventoryReports.lowStockItems}
+          value={inventoryStats.filteredData.filter(item => item.quantity <= item.minimum_stock && item.quantity > 0).length}
           icon={AlertTriangle}
           color="yellow"
           description="عناصر تحتاج إعادة تموين"
         />
         <StatCard
           title="منتهية الصلاحية"
-          value={inventoryReports.expiredItems}
+          value={inventoryStats.filteredData.filter(item => {
+            if (!item.expiry_date) return false
+            return new Date(item.expiry_date) < new Date()
+          }).length}
           icon={Calendar}
           color="red"
           description="عناصر منتهية الصلاحية"

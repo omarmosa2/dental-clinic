@@ -36,7 +36,6 @@ import {
   RefreshCw,
   FileText,
   PieChart,
-  Activity,
   AlertTriangle,
   FileSpreadsheet,
   FileDown
@@ -51,7 +50,7 @@ export default function Reports() {
     appointmentReports,
     financialReports,
     inventoryReports,
-    analyticsReports,
+
     isLoading,
     isExporting,
     error,
@@ -388,7 +387,7 @@ export default function Reports() {
 
       {/* Reports Tabs */}
       <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview" className="flex items-center space-x-2 space-x-reverse">
             <BarChart3 className="w-4 h-4" />
             <span>نظرة عامة</span>
@@ -408,10 +407,6 @@ export default function Reports() {
           <TabsTrigger value="inventory" className="flex items-center space-x-2 space-x-reverse">
             <Package className="w-4 h-4" />
             <span>المخزون</span>
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center space-x-2 space-x-reverse">
-            <Activity className="w-4 h-4" />
-            <span>التحليلات</span>
           </TabsTrigger>
           <TabsTrigger value="validation" className="flex items-center space-x-2 space-x-reverse">
             <FileText className="w-4 h-4" />
@@ -585,13 +580,7 @@ export default function Reports() {
           <InventoryReports />
         </TabsContent>
 
-        <TabsContent value="analytics" dir="rtl">
-          <div className="text-center py-12">
-            <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">التحليلات المتقدمة</h3>
-            <p className="text-muted-foreground">سيتم تطوير هذا القسم قريباً</p>
-          </div>
-        </TabsContent>
+
 
         <TabsContent value="validation" dir="rtl">
           <CalculationValidator />
