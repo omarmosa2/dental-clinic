@@ -11,8 +11,8 @@
     "electron:dev": "concurrently \"npm run dev\" \"cross-env NODE_ENV=development electron .\"",
     "electron": "electron .",
     "electron:build": "npm run build && electron .",
-    "rebuild": "npx electron-rebuild",
-    "postinstall": "npx electron-rebuild",
+    "rebuild": "npx @electron/rebuild -f -w",
+    "postinstall": "npx @electron/rebuild -f -w",
     "test": "echo \"No tests specified\"",
     "install-deps": "npm install vite @vitejs/plugin-react react react-dom typescript",
     "dist": "npm run build && electron-builder",
@@ -69,6 +69,7 @@
     "zustand": "^5.0.5"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
     "@types/jsbarcode": "^3.11.4",
     "@types/pdfmake": "^0.2.11",
     "@types/qrcode": "^1.5.5",
@@ -79,8 +80,8 @@
     "cross-env": "^7.0.3",
     "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
-    "electron-rebuild": "^3.2.9",
     "postcss": "^8.4.31",
+    "rimraf": "^4.4.1",
     "tailwindcss": "^3.3.5",
     "typescript": "^5.2.2",
     "vite": "^4.5.0"
@@ -107,7 +108,10 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64", "ia32"]
+          "arch": [
+            "x64",
+            "ia32"
+          ]
         }
       ],
       "icon": "assets/icon.ico",
