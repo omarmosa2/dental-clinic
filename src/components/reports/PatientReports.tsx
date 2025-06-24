@@ -228,9 +228,9 @@ export default function PatientReports() {
                 let patientsWithAge = 0
 
                 patients.forEach(patient => {
-                  // Age calculation
-                  if (patient.date_of_birth) {
-                    const age = new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()
+                  // Age calculation - use the age field directly from database
+                  if (patient.age && typeof patient.age === 'number' && patient.age > 0) {
+                    const age = patient.age
                     totalAge += age
                     patientsWithAge++
 
@@ -334,9 +334,9 @@ export default function PatientReports() {
                 let patientsWithAge = 0
 
                 patients.forEach(patient => {
-                  // Age calculation
-                  if (patient.date_of_birth) {
-                    const age = new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()
+                  // Age calculation - use the age field directly from database
+                  if (patient.age && typeof patient.age === 'number' && patient.age > 0) {
+                    const age = patient.age
                     totalAge += age
                     patientsWithAge++
 

@@ -430,17 +430,17 @@ export default function FinancialReports() {
                 }
 
                 // Use ExportService for consistent calculation and export
-                await ExportService.exportPaymentsToExcel(dataToExport)
+                await ExportService.exportPaymentsToCSV(dataToExport)
                 notify.exportSuccess(`تم تصدير التقرير المالي بنجاح! (${dataToExport.length} معاملة)`)
               } catch (error) {
-                console.error('Error exporting Excel:', error)
+                console.error('Error exporting CSV:', error)
                 notify.exportError('فشل في تصدير التقرير المالي')
               }
             }}
             disabled={isExporting}
           >
             <Download className="w-4 h-4 ml-2" />
-            تصدير Excel
+            تصدير CSV
           </Button>
           <Button
             variant="default"

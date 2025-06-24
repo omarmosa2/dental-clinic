@@ -523,7 +523,7 @@ export class ExportService {
         </div>
         <div class="summary-card">
           <h3>القيمة الإجمالية</h3>
-          <div class="number">${formatCurrency(data.totalValue || 0)} ريال</div>
+          <div class="number">${formatCurrency(data.totalValue || 0)}</div>
         </div>
         <div class="summary-card">
           <h3>أصناف منخفضة المخزون</h3>
@@ -582,7 +582,7 @@ export class ExportService {
           ${data.financial ? `
           <div class="summary-card">
             <h3>الإيرادات</h3>
-            <div class="number">${formatCurrency(data.financial.totalRevenue || 0)} ريال</div>
+            <div class="number">${formatCurrency(data.financial.totalRevenue || 0)}</div>
           </div>
           ` : ''}
           ${data.inventory ? `
@@ -622,6 +622,17 @@ export class ExportService {
       'installment': 'تقسيط'
     }
     return methodMap[method] || method
+  }
+
+  private static getPaymentStatusInArabic(status: string): string {
+    const statusMap: { [key: string]: string } = {
+      'completed': 'مكتمل',
+      'partial': 'جزئي',
+      'pending': 'معلق',
+      'overdue': 'متأخر',
+      'cancelled': 'ملغي'
+    }
+    return statusMap[status] || status
   }
 
   static addPDFHeader(doc: jsPDF, type: string, options: ReportExportOptions): void {
@@ -786,11 +797,11 @@ export class ExportService {
 
     doc.setFontSize(12)
     doc.setFont('helvetica', 'normal')
-    doc.text(`إجمالي الإيرادات: ${formatCurrency(data.totalRevenue || 0)} ريال`, 20, yPosition)
-    doc.text(`المدفوعات المكتملة: ${formatCurrency(data.completedPayments || 0)} ريال`, 150, yPosition)
+    doc.text(`إجمالي الإيرادات: ${formatCurrency(data.totalRevenue || 0)}`, 20, yPosition)
+    doc.text(`المدفوعات المكتملة: ${formatCurrency(data.completedPayments || 0)}`, 150, yPosition)
     yPosition += 10
-    doc.text(`المدفوعات المعلقة: ${formatCurrency(data.pendingPayments || 0)} ريال`, 20, yPosition)
-    doc.text(`المدفوعات المتأخرة: ${formatCurrency(data.overduePayments || 0)} ريال`, 150, yPosition)
+    doc.text(`المدفوعات المعلقة: ${formatCurrency(data.pendingPayments || 0)}`, 20, yPosition)
+    doc.text(`المدفوعات المتأخرة: ${formatCurrency(data.overduePayments || 0)}`, 150, yPosition)
     yPosition += 20
 
     // Payment methods distribution
@@ -801,7 +812,7 @@ export class ExportService {
 
       data.paymentMethodStats.forEach((method: any) => {
         doc.setFont('helvetica', 'normal')
-        doc.text(`${method.method}: ${formatCurrency(method.amount)} ريال (${method.count} معاملة)`, 30, yPosition)
+        doc.text(`${method.method}: ${formatCurrency(method.amount)} (${method.count} معاملة)`, 30, yPosition)
         yPosition += 8
       })
       yPosition += 10
@@ -815,7 +826,7 @@ export class ExportService {
 
       data.monthlyRevenue.slice(-6).forEach((month: any) => {
         doc.setFont('helvetica', 'normal')
-        doc.text(`${month.month}: ${formatCurrency(month.revenue)} ريال`, 30, yPosition)
+        doc.text(`${month.month}: ${formatCurrency(month.revenue)}`, 30, yPosition)
         yPosition += 8
       })
       yPosition += 10
@@ -837,7 +848,7 @@ export class ExportService {
     doc.setFontSize(12)
     doc.setFont('helvetica', 'normal')
     doc.text(`إجمالي العناصر: ${data.totalItems || 0}`, 20, yPosition)
-    doc.text(`القيمة الإجمالية: ${formatCurrency(data.totalValue || 0)} ريال`, 150, yPosition)
+    doc.text(`القيمة الإجمالية: ${formatCurrency(data.totalValue || 0)}`, 150, yPosition)
     yPosition += 10
     doc.text(`عناصر منخفضة المخزون: ${data.lowStockItems || 0}`, 20, yPosition)
     doc.text(`عناصر منتهية الصلاحية: ${data.expiredItems || 0}`, 150, yPosition)
@@ -1002,13 +1013,13 @@ export class ExportService {
     worksheet.getCell('A3').font = { bold: true }
 
     worksheet.getCell('A4').value = 'إجمالي الإيرادات:'
-    worksheet.getCell('B4').value = `${formatCurrency(data.totalRevenue || 0)} ريال`
+    worksheet.getCell('B4').value = `${formatCurrency(data.totalRevenue || 0)}`
     worksheet.getCell('A5').value = 'المدفوعات المكتملة:'
-    worksheet.getCell('B5').value = `${formatCurrency(data.completedPayments || 0)} ريال`
+    worksheet.getCell('B5').value = `${formatCurrency(data.completedPayments || 0)}`
     worksheet.getCell('A6').value = 'المدفوعات المعلقة:'
-    worksheet.getCell('B6').value = `${formatCurrency(data.pendingPayments || 0)} ريال`
+    worksheet.getCell('B6').value = `${formatCurrency(data.pendingPayments || 0)}`
     worksheet.getCell('A7').value = 'المدفوعات المتأخرة:'
-    worksheet.getCell('B7').value = `${formatCurrency(data.overduePayments || 0)} ريال`
+    worksheet.getCell('B7').value = `${formatCurrency(data.overduePayments || 0)}`
 
     // Payment methods
     if (data.paymentMethodStats) {
@@ -1025,7 +1036,7 @@ export class ExportService {
 
       data.paymentMethodStats.forEach((method: any) => {
         worksheet.getCell(row, 1).value = method.method
-        worksheet.getCell(row, 2).value = `${formatCurrency(method.amount)} ريال`
+        worksheet.getCell(row, 2).value = `${formatCurrency(method.amount)}`
         worksheet.getCell(row, 3).value = method.count
         row++
       })
@@ -1082,7 +1093,7 @@ export class ExportService {
     worksheet.getCell('A4').value = 'إجمالي العناصر:'
     worksheet.getCell('B4').value = data.totalItems || 0
     worksheet.getCell('A5').value = 'القيمة الإجمالية:'
-    worksheet.getCell('B5').value = `${formatCurrency(data.totalValue || 0)} ريال`
+    worksheet.getCell('B5').value = `${formatCurrency(data.totalValue || 0)}`
     worksheet.getCell('A6').value = 'عناصر منخفضة المخزون:'
     worksheet.getCell('B6').value = data.lowStockItems || 0
     worksheet.getCell('A7').value = 'عناصر منتهية الصلاحية:'
@@ -1152,12 +1163,39 @@ export class ExportService {
     csv += `المرضى النشطون,${data.activePatients || 0}\n`
     csv += `متوسط العمر,${data.averageAge || 0} سنة\n\n`
 
+    // Add age distribution to CSV
+    if (data.ageDistribution && data.ageDistribution.length > 0) {
+      csv += 'توزيع الأعمار\n'
+      csv += 'الفئة العمرية,العدد,النسبة المئوية\n'
+
+      data.ageDistribution.forEach((group: any) => {
+        const percentage = data.totalPatients > 0 ? ((group.count / data.totalPatients) * 100).toFixed(1) : '0.0'
+        csv += `"${group.ageGroup}",${group.count},${percentage}%\n`
+      })
+      csv += '\n'
+    }
+
+    // Add gender distribution to CSV
+    if (data.genderDistribution && data.genderDistribution.length > 0) {
+      csv += 'توزيع الجنس\n'
+      csv += 'الجنس,العدد,النسبة المئوية\n'
+
+      data.genderDistribution.forEach((group: any) => {
+        const percentage = data.totalPatients > 0 ? ((group.count / data.totalPatients) * 100).toFixed(1) : '0.0'
+        const genderLabel = group.gender === 'male' || group.gender === 'ذكور' ? 'ذكر' : 'أنثى'
+        csv += `"${genderLabel}",${group.count},${percentage}%\n`
+      })
+      csv += '\n'
+    }
+
     if (options.includeDetails && data.patients) {
       csv += 'تفاصيل المرضى\n'
-      csv += 'الاسم الأول,الاسم الأخير,الهاتف,البريد الإلكتروني,العمر,آخر زيارة\n'
+      csv += 'الرقم التسلسلي,الاسم الكامل,الجنس,العمر,الهاتف,البريد الإلكتروني,تاريخ التسجيل\n'
 
       data.patients.forEach((patient: any) => {
-        csv += `"${patient.first_name || ''}","${patient.last_name || ''}","${patient.phone || ''}","${patient.email || ''}","${patient.age || ''}","${patient.last_visit || ''}"\n`
+        const genderLabel = patient.gender === 'male' ? 'ذكر' : 'أنثى'
+        const registrationDate = patient.created_at ? new Date(patient.created_at).toLocaleDateString('ar-SA') : ''
+        csv += `"${patient.serial_number || ''}","${patient.full_name || ''}","${genderLabel}","${patient.age || ''}","${patient.phone || ''}","${patient.email || ''}","${registrationDate}"\n`
       })
     }
 
@@ -1166,19 +1204,99 @@ export class ExportService {
 
   static generateFinancialCSV(data: FinancialReportData, options: ReportExportOptions): string {
     let csv = 'التقرير المالي - عيادة الأسنان الحديثة\n\n'
-    csv += 'ملخص الإحصائيات المالية\n'
-    csv += `إجمالي الإيرادات,${formatCurrency(data.totalRevenue || 0)} ريال\n`
-    csv += `المدفوعات المكتملة,${formatCurrency(data.completedPayments || 0)} ريال\n`
-    csv += `المدفوعات المعلقة,${formatCurrency(data.pendingPayments || 0)} ريال\n`
-    csv += `المدفوعات المتأخرة,${formatCurrency(data.overduePayments || 0)} ريال\n\n`
 
-    if (data.paymentMethodStats) {
+    // Add current date and time
+    const currentDate = new Date()
+    const day = currentDate.getDate().toString().padStart(2, '0')
+    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
+    const year = currentDate.getFullYear()
+    const formattedDate = `${day}/${month}/${year}`
+    const formattedTime = currentDate.toLocaleTimeString('ar-SA')
+
+    csv += `تاريخ التقرير,${formattedDate}\n`
+    csv += `وقت الإنشاء,${formattedTime}\n\n`
+
+    // Add filter information if available
+    if (data.filterInfo) {
+      csv += 'معلومات الفلترة المطبقة\n'
+      csv += `نطاق البيانات,"${data.filterInfo}"\n`
+      csv += `عدد المعاملات المصدرة,${data.dataCount || 0}\n\n`
+    }
+
+    csv += 'ملخص الإحصائيات المالية\n'
+    csv += `إجمالي الإيرادات,${formatCurrency(data.totalRevenue || 0)}\n`
+    csv += `المدفوعات المكتملة,${formatCurrency(data.completedPayments || 0)}\n`
+    csv += `المدفوعات المعلقة,${formatCurrency(data.pendingPayments || 0)}\n`
+    csv += `المدفوعات المتأخرة,${formatCurrency(data.overduePayments || 0)}\n`
+
+    // إضافة المبالغ المتبقية من الدفعات الجزئية إذا كانت متوفرة
+    if ((data as any).payments && Array.isArray((data as any).payments)) {
+      const partialPaymentsRemaining = (data as any).payments
+        .filter((p: any) => p.status === 'partial')
+        .reduce((sum: number, p: any) => {
+          const remaining = p.remaining_balance !== undefined
+            ? Number(p.remaining_balance)
+            : (Number(p.total_amount_due || p.amount) - Number(p.amount_paid || p.amount))
+          return sum + Math.max(0, remaining)
+        }, 0)
+
+      if (partialPaymentsRemaining > 0) {
+        csv += `المبالغ المتبقية من الدفعات الجزئية,${formatCurrency(partialPaymentsRemaining)}\n`
+      }
+    }
+
+    csv += `الرصيد المستحق الإجمالي,${formatCurrency(data.outstandingBalance || 0)}\n\n`
+
+    if (data.paymentMethodStats && data.paymentMethodStats.length > 0) {
       csv += 'توزيع طرق الدفع\n'
-      csv += 'طريقة الدفع,المبلغ,عدد المعاملات\n'
+      csv += 'طريقة الدفع,المبلغ,عدد المعاملات,النسبة المئوية\n'
+
+      const totalAmount = data.paymentMethodStats.reduce((sum, method) => sum + method.amount, 0)
 
       data.paymentMethodStats.forEach((method: any) => {
-        csv += `"${method.method}","${formatCurrency(method.amount)} ريال","${method.count}"\n`
+        const percentage = totalAmount > 0 ? ((method.amount / totalAmount) * 100).toFixed(1) : '0.0'
+        csv += `"${method.method}","${formatCurrency(method.amount)}","${method.count}","${percentage}%"\n`
       })
+      csv += '\n'
+    }
+
+    // Add detailed payment transactions if available and details are requested
+    if (options.includeDetails && (data as any).payments && Array.isArray((data as any).payments)) {
+      const payments = (data as any).payments
+      csv += 'تفاصيل المعاملات المالية\n'
+      csv += 'رقم الإيصال,تاريخ الدفع,اسم المريض,وصف العلاج,المبلغ الإجمالي,المبلغ المدفوع,الرصيد المتبقي,طريقة الدفع,الحالة,ملاحظات\n'
+
+      payments.forEach((payment: any) => {
+        const receiptNumber = payment.receipt_number || `#${payment.id?.slice(-6) || ''}`
+        const paymentDate = payment.payment_date ? formatDate(payment.payment_date) : ''
+        const patientName = payment.patient_name || `${payment.patient?.first_name || ''} ${payment.patient?.last_name || ''}`.trim() || 'غير محدد'
+        const description = payment.description || payment.treatment_type || 'غير محدد'
+        // حساب المبالغ بناءً على نوع الدفعة
+        let totalAmount, amountPaid, remainingBalance
+
+        if (payment.status === 'partial') {
+          // للدفعات الجزئية: استخدم المبالغ المحسوبة من النظام
+          totalAmount = formatCurrency(Number(payment.total_amount_due || payment.amount) || 0)
+          amountPaid = formatCurrency(Number(payment.amount_paid || payment.amount) || 0)
+          remainingBalance = formatCurrency(Number(payment.remaining_balance || 0))
+        } else if (payment.appointment_id && payment.appointment_total_cost) {
+          // للمدفوعات المرتبطة بمواعيد: استخدم بيانات الموعد
+          totalAmount = formatCurrency(Number(payment.appointment_total_cost) || 0)
+          amountPaid = formatCurrency(Number(payment.appointment_total_paid || payment.amount) || 0)
+          remainingBalance = formatCurrency(Number(payment.appointment_remaining_balance || 0))
+        } else {
+          // للمدفوعات العادية
+          totalAmount = formatCurrency(Number(payment.amount) || 0)
+          amountPaid = formatCurrency(Number(payment.amount) || 0)
+          remainingBalance = formatCurrency(0)
+        }
+        const paymentMethod = this.translatePaymentMethod(payment.payment_method || 'غير محدد')
+        const status = this.getPaymentStatusInArabic(payment.status)
+        const notes = payment.notes || ''
+
+        csv += `"${receiptNumber}","${paymentDate}","${patientName}","${description}","${totalAmount}","${amountPaid}","${remainingBalance}","${paymentMethod}","${status}","${notes}"\n`
+      })
+      csv += '\n'
     }
 
     return csv
@@ -1190,7 +1308,40 @@ export class ExportService {
     csv += `إجمالي المواعيد,${data.totalAppointments || 0}\n`
     csv += `المواعيد المكتملة,${data.completedAppointments || 0}\n`
     csv += `المواعيد الملغية,${data.cancelledAppointments || 0}\n`
-    csv += `معدل الحضور,${data.attendanceRate || 0}%\n`
+    csv += `المواعيد المجدولة,${data.scheduledAppointments || 0}\n`
+    csv += `عدم الحضور,${data.noShowAppointments || 0}\n`
+    csv += `معدل الحضور,${data.attendanceRate?.toFixed(1) || '0.0'}%\n`
+    csv += `معدل الإلغاء,${data.cancellationRate?.toFixed(1) || '0.0'}%\n\n`
+
+    // Add appointment status distribution
+    if (data.appointmentsByStatus && data.appointmentsByStatus.length > 0) {
+      csv += 'توزيع حالات المواعيد\n'
+      csv += 'الحالة,العدد,النسبة المئوية\n'
+
+      data.appointmentsByStatus.forEach((status: any) => {
+        const percentage = status.percentage?.toFixed(1) || '0.0'
+        csv += `"${status.status}",${status.count},${percentage}%\n`
+      })
+      csv += '\n'
+    }
+
+    // Add appointment by treatment distribution
+    if (data.appointmentsByTreatment && data.appointmentsByTreatment.length > 0) {
+      csv += 'توزيع المواعيد حسب نوع العلاج\n'
+      csv += 'نوع العلاج,عدد المواعيد\n'
+
+      data.appointmentsByTreatment.forEach((treatment: any) => {
+        csv += `"${treatment.treatment}",${treatment.count}\n`
+      })
+      csv += '\n'
+    }
+
+    // Add filter information if available
+    if (data.filterInfo) {
+      csv += 'معلومات الفلترة\n'
+      csv += `نطاق البيانات,"${data.filterInfo}"\n`
+      csv += `عدد المواعيد المصدرة,${data.dataCount || data.totalAppointments || 0}\n`
+    }
 
     return csv
   }
@@ -1199,7 +1350,7 @@ export class ExportService {
     let csv = 'تقرير المخزون - عيادة الأسنان الحديثة\n\n'
     csv += 'ملخص إحصائيات المخزون\n'
     csv += `إجمالي العناصر,${data.totalItems || 0}\n`
-    csv += `القيمة الإجمالية,${formatCurrency(data.totalValue || 0)} ريال\n`
+    csv += `القيمة الإجمالية,${formatCurrency(data.totalValue || 0)}\n`
     csv += `عناصر منخفضة المخزون,${data.lowStockItems || 0}\n`
     csv += `عناصر منتهية الصلاحية,${data.expiredItems || 0}\n`
 
@@ -1243,9 +1394,9 @@ export class ExportService {
     let patientsWithAge = 0
 
     patients.forEach(patient => {
-      // Age calculation
-      if (patient.date_of_birth) {
-        const age = new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()
+      // Age calculation - use the age field directly from database
+      if (patient.age && typeof patient.age === 'number' && patient.age > 0) {
+        const age = patient.age
         totalAge += age
         patientsWithAge++
 
@@ -1426,9 +1577,9 @@ export class ExportService {
     let patientsWithAge = 0
 
     patients.forEach(patient => {
-      // Age calculation
-      if (patient.date_of_birth) {
-        const age = new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()
+      // Age calculation - use the age field directly from database
+      if (patient.age && typeof patient.age === 'number' && patient.age > 0) {
+        const age = patient.age
         totalAge += age
         patientsWithAge++
 
@@ -1475,20 +1626,38 @@ export class ExportService {
   }
 
   static async exportAppointmentsToExcel(appointments: Appointment[]): Promise<void> {
+    // Calculate statistics from the provided appointments array (which should be filtered)
+    const totalAppointments = appointments.length
+    const completedAppointments = appointments.filter(a => a.status === 'completed').length
+    const cancelledAppointments = appointments.filter(a => a.status === 'cancelled').length
+    const noShowAppointments = appointments.filter(a => a.status === 'no-show').length
+    const scheduledAppointments = appointments.filter(a => a.status === 'scheduled').length
+
+    // Calculate rates
+    const attendanceRate = totalAppointments > 0 ? Math.round((completedAppointments / totalAppointments) * 100) : 0
+    const cancellationRate = totalAppointments > 0 ? Math.round((cancelledAppointments / totalAppointments) * 100) : 0
+
     const appointmentData: AppointmentReportData = {
-      totalAppointments: appointments.length,
-      completedAppointments: appointments.filter(a => a.status === 'completed').length,
-      cancelledAppointments: appointments.filter(a => a.status === 'cancelled').length,
-      noShowAppointments: appointments.filter(a => a.status === 'no-show').length,
-      scheduledAppointments: appointments.filter(a => a.status === 'scheduled').length,
-      attendanceRate: 0,
-      cancellationRate: 0,
-      appointmentsByStatus: [],
+      totalAppointments: totalAppointments,
+      completedAppointments: completedAppointments,
+      cancelledAppointments: cancelledAppointments,
+      noShowAppointments: noShowAppointments,
+      scheduledAppointments: scheduledAppointments,
+      attendanceRate: attendanceRate,
+      cancellationRate: cancellationRate,
+      appointmentsByStatus: [
+        { status: 'مكتمل', count: completedAppointments, percentage: attendanceRate },
+        { status: 'ملغي', count: cancelledAppointments, percentage: cancellationRate },
+        { status: 'لم يحضر', count: noShowAppointments, percentage: totalAppointments > 0 ? Math.round((noShowAppointments / totalAppointments) * 100) : 0 },
+        { status: 'مجدول', count: scheduledAppointments, percentage: totalAppointments > 0 ? Math.round((scheduledAppointments / totalAppointments) * 100) : 0 }
+      ],
       appointmentsByTreatment: [],
       appointmentsByDay: [],
       appointmentsByHour: [],
       peakHours: [],
-      appointmentTrend: []
+      appointmentTrend: [],
+      filterInfo: `البيانات المصدرة: ${totalAppointments} موعد`,
+      dataCount: totalAppointments
     }
 
     const options: ReportExportOptions = {
@@ -1517,8 +1686,26 @@ export class ExportService {
       const amount = p.amount_paid !== undefined ? Number(p.amount_paid) : Number(p.amount)
       return sum + amount
     }, 0)
-    const pendingPayments = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + Number(p.amount), 0)
-    const overduePayments = payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + Number(p.amount), 0)
+
+    // Calculate pending and overdue payments using the same logic as useTimeFilteredStats
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    const pendingPayments = payments
+      .filter(p => p.status === 'pending')
+      .filter(p => {
+        const paymentDate = new Date(p.payment_date || p.created_at)
+        return paymentDate >= thirtyDaysAgo
+      })
+      .reduce((sum, p) => sum + Number(p.amount), 0)
+
+    const overduePayments = payments
+      .filter(p => p.status === 'pending')
+      .filter(p => {
+        const paymentDate = new Date(p.payment_date || p.created_at)
+        return paymentDate < thirtyDaysAgo
+      })
+      .reduce((sum, p) => sum + Number(p.amount), 0)
 
     // Calculate payment method statistics
     const paymentMethods = payments
@@ -1543,6 +1730,17 @@ export class ExportService {
       amount: stats.amount
     }))
 
+    // حساب إجمالي المبالغ المتبقية من الدفعات الجزئية
+    const totalRemainingFromPartialPayments = payments
+      .filter(p => p.status === 'partial')
+      .reduce((sum, p) => {
+        // استخدم remaining_balance إذا كان متوفراً، وإلا احسب الفرق
+        const remaining = p.remaining_balance !== undefined
+          ? Number(p.remaining_balance)
+          : (Number(p.total_amount_due || p.amount) - Number(p.amount_paid || p.amount))
+        return sum + Math.max(0, remaining)
+      }, 0)
+
     const financialData: FinancialReportData = {
       totalRevenue: totalRevenue,
       completedPayments: completedPayments + partialPayments, // Include partial payments in completed
@@ -1552,8 +1750,8 @@ export class ExportService {
       monthlyRevenue: [],
       revenueTrend: [],
       topTreatments: [],
-      outstandingBalance: pendingPayments + overduePayments,
-      filterInfo: `البيانات المصدرة: ${payments.length} دفعة (مكتملة: ${payments.filter(p => p.status === 'completed').length}, جزئية: ${payments.filter(p => p.status === 'partial').length})`,
+      outstandingBalance: pendingPayments + overduePayments + totalRemainingFromPartialPayments,
+      filterInfo: `البيانات المصدرة: ${payments.length} دفعة (مكتملة: ${payments.filter(p => p.status === 'completed').length}, جزئية: ${payments.filter(p => p.status === 'partial').length}, معلقة: ${payments.filter(p => p.status === 'pending').length}, متأخرة: ${overduePayments > 0 ? payments.filter(p => p.status === 'pending' && new Date(p.payment_date || p.created_at) < thirtyDaysAgo).length : 0}, مبلغ متبقي من الجزئية: ${formatCurrency(totalRemainingFromPartialPayments)})`,
       dataCount: payments.length
     }
 
@@ -1565,5 +1763,103 @@ export class ExportService {
     }
 
     await this.exportToExcel('financial', financialData, options)
+  }
+
+  static async exportPaymentsToCSV(payments: Payment[]): Promise<void> {
+    // Calculate statistics from the provided payments array (which should be filtered)
+    // Handle partial payments correctly by using amount_paid when available
+    const totalRevenue = payments.reduce((sum, p) => {
+      if (p.status === 'partial' && p.amount_paid !== undefined) {
+        return sum + Number(p.amount_paid)
+      }
+      return sum + Number(p.amount)
+    }, 0)
+
+    const completedPayments = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0)
+    const partialPayments = payments.filter(p => p.status === 'partial').reduce((sum, p) => {
+      // For partial payments, use amount_paid if available, otherwise use amount
+      const amount = p.amount_paid !== undefined ? Number(p.amount_paid) : Number(p.amount)
+      return sum + amount
+    }, 0)
+
+    // Calculate pending and overdue payments using the same logic as useTimeFilteredStats
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    const pendingPayments = payments
+      .filter(p => p.status === 'pending')
+      .filter(p => {
+        const paymentDate = new Date(p.payment_date || p.created_at)
+        return paymentDate >= thirtyDaysAgo
+      })
+      .reduce((sum, p) => sum + Number(p.amount), 0)
+
+    const overduePayments = payments
+      .filter(p => p.status === 'pending')
+      .filter(p => {
+        const paymentDate = new Date(p.payment_date || p.created_at)
+        return paymentDate < thirtyDaysAgo
+      })
+      .reduce((sum, p) => sum + Number(p.amount), 0)
+
+    // Calculate payment method statistics
+    const paymentMethods = payments
+      .filter(p => p.status === 'completed' || p.status === 'partial')
+      .reduce((acc, payment) => {
+        const method = payment.payment_method || 'غير محدد'
+        if (!acc[method]) {
+          acc[method] = { count: 0, amount: 0 }
+        }
+        acc[method].count++
+        // For partial payments, use amount_paid if available, otherwise use amount
+        const amount = payment.status === 'partial' && payment.amount_paid !== undefined
+          ? Number(payment.amount_paid)
+          : Number(payment.amount)
+        acc[method].amount += amount
+        return acc
+      }, {} as Record<string, { count: number; amount: number }>)
+
+    const paymentMethodStats = Object.entries(paymentMethods).map(([method, stats]) => ({
+      method,
+      count: stats.count,
+      amount: stats.amount
+    }))
+
+    // حساب إجمالي المبالغ المتبقية من الدفعات الجزئية
+    const totalRemainingFromPartialPayments = payments
+      .filter(p => p.status === 'partial')
+      .reduce((sum, p) => {
+        // استخدم remaining_balance إذا كان متوفراً، وإلا احسب الفرق
+        const remaining = p.remaining_balance !== undefined
+          ? Number(p.remaining_balance)
+          : (Number(p.total_amount_due || p.amount) - Number(p.amount_paid || p.amount))
+        return sum + Math.max(0, remaining)
+      }, 0)
+
+    // Enhanced financial data with detailed payment information
+    const financialData: FinancialReportData = {
+      totalRevenue: totalRevenue,
+      completedPayments: completedPayments + partialPayments, // Include partial payments in completed
+      pendingPayments: pendingPayments,
+      overduePayments: overduePayments,
+      paymentMethodStats: paymentMethodStats,
+      monthlyRevenue: [],
+      revenueTrend: [],
+      topTreatments: [],
+      outstandingBalance: pendingPayments + overduePayments + totalRemainingFromPartialPayments,
+      filterInfo: `البيانات المصدرة: ${payments.length} دفعة (مكتملة: ${payments.filter(p => p.status === 'completed').length}, جزئية: ${payments.filter(p => p.status === 'partial').length}, معلقة: ${payments.filter(p => p.status === 'pending').length}, متأخرة: ${overduePayments > 0 ? payments.filter(p => p.status === 'pending' && new Date(p.payment_date || p.created_at) < thirtyDaysAgo).length : 0}, مبلغ متبقي من الجزئية: ${formatCurrency(totalRemainingFromPartialPayments)})`,
+      dataCount: payments.length,
+      // Add the actual payments data for detailed export
+      payments: payments
+    }
+
+    const options: ReportExportOptions = {
+      format: 'csv',
+      includeCharts: false,
+      includeDetails: true,
+      language: 'ar'
+    }
+
+    await this.exportToCSV('financial', financialData, options)
   }
 }

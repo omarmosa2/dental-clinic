@@ -15,6 +15,7 @@ import { validateNumericData, validateDateData, transformToChartData, groupDataB
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
 import { PdfService } from '@/services/pdfService'
+import { ExportService } from '@/services/exportService'
 import { notify } from '@/services/notificationService'
 import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
 import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
@@ -74,21 +75,8 @@ export default function AppointmentReports() {
     // Use filtered data from appointmentStats for accurate calculations
     const dataToUse = appointmentStats.filteredData.length > 0 ? appointmentStats.filteredData : appointments
 
-    if (appointmentReports && appointmentStats.timeFilter.preset === 'all' &&
-        (!appointmentStats.timeFilter.startDate || !appointmentStats.timeFilter.endDate)) {
-      // Only use reports service data when no filter is applied
-      return {
-        total: appointmentReports.totalAppointments || 0,
-        completed: appointmentReports.completedAppointments || 0,
-        cancelled: appointmentReports.cancelledAppointments || 0,
-        pending: appointmentReports.scheduledAppointments || 0,
-        noShow: appointmentReports.noShowAppointments || 0,
-        attendanceRate: appointmentReports.attendanceRate?.toFixed(1) || '0.0',
-        cancellationRate: appointmentReports.cancellationRate?.toFixed(1) || '0.0',
-        appointmentsByStatus: appointmentReports.appointmentsByStatus || [],
-        appointmentTrend: appointmentReports.appointmentTrend || []
-      }
-    }
+    // Always use filtered data from appointmentStore for accurate statistics
+    // This ensures consistency between what's displayed and what's exported
 
     // Calculate from filtered data for accurate statistics
     const total = dataToUse.length
@@ -99,6 +87,8 @@ export default function AppointmentReports() {
 
     const attendanceRate = total > 0 ? Math.round((completed / total) * 1000) / 10 : 0
     const cancellationRate = total > 0 ? Math.round((cancelled / total) * 1000) / 10 : 0
+
+
 
     return {
       total,
@@ -273,25 +263,47 @@ export default function AppointmentReports() {
                   ? `من ${appointmentStats.timeFilter.startDate} إلى ${appointmentStats.timeFilter.endDate}`
                   : 'جميع البيانات'
 
-                const reportData = {
-                  'نطاق البيانات': filterInfo,
-                  'إجمالي المواعيد': stats.total,
-                  'المواعيد المكتملة': stats.completed,
-                  'المواعيد الملغية': stats.cancelled,
-                  'المواعيد المجدولة': stats.pending,
-                  'عدم الحضور': stats.noShow,
-                  'معدل الحضور (%)': stats.attendanceRate,
-                  'معدل الإلغاء (%)': stats.cancellationRate,
-                  'تاريخ التقرير': formatDate(new Date())
+                // Calculate treatment distribution from filtered data
+                const treatmentCounts: { [key: string]: number } = {}
+                dataToExport.forEach(apt => {
+                  const treatmentName = apt.treatment_name || 'غير محدد'
+                  treatmentCounts[treatmentName] = (treatmentCounts[treatmentName] || 0) + 1
+                })
+
+                const appointmentsByTreatment = Object.entries(treatmentCounts)
+                  .map(([treatment, count]) => ({ treatment, count }))
+                  .sort((a, b) => b.count - a.count)
+
+                // Create appointment report data structure using filtered data
+                const appointmentReportData = {
+                  totalAppointments: stats.total,
+                  completedAppointments: stats.completed,
+                  cancelledAppointments: stats.cancelled,
+                  scheduledAppointments: stats.pending,
+                  noShowAppointments: stats.noShow,
+                  attendanceRate: parseFloat(stats.attendanceRate),
+                  cancellationRate: parseFloat(stats.cancellationRate),
+                  appointmentsByStatus: statusData.map(item => ({
+                    status: item.name,
+                    count: item.value,
+                    percentage: stats.total > 0 ? (item.value / stats.total) * 100 : 0
+                  })),
+                  appointmentsByTreatment: appointmentsByTreatment,
+                  appointmentsByDay: [],
+                  appointmentsByHour: [],
+                  peakHours: [],
+                  appointmentTrend: [],
+                  filterInfo: filterInfo,
+                  dataCount: dataToExport.length
                 }
 
-                // Create CSV with BOM for Arabic support
-                const csvContent = '\uFEFF' + [
-                  'المؤشر,القيمة',
-                  ...Object.entries(reportData).map(([key, value]) =>
-                    `"${key}","${value}"`
-                  )
-                ].join('\n')
+                // Use the enhanced CSV export function
+                const csvContent = '\uFEFF' + ExportService.generateAppointmentCSV(appointmentReportData, {
+                  format: 'csv',
+                  includeCharts: false,
+                  includeDetails: true,
+                  language: 'ar'
+                })
 
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
                 const link = document.createElement('a')
