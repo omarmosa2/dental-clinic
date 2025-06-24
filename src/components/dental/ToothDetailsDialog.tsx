@@ -80,7 +80,8 @@ export default function ToothDetailsDialog({
     createTreatment,
     updateTreatment,
     createImage,
-    deleteImage
+    deleteImage,
+    clearImages
   } = useDentalTreatmentStore()
 
   const [isLoading, setIsLoading] = useState(false)
@@ -109,6 +110,8 @@ export default function ToothDetailsDialog({
         loadImagesByTreatment(existingTreatment.id)
         setTreatmentData(existingTreatment)
       } else {
+        // Clear images from store when no treatment exists for this tooth
+        clearImages()
         // Initialize new treatment data
         setTreatmentData({
           patient_id: patientId,
@@ -121,7 +124,7 @@ export default function ToothDetailsDialog({
       // Reset selected images when dialog opens
       setSelectedImages([])
     }
-  }, [open, patientId, toothNumber, existingTreatment, loadImagesByTreatment, toothInfo])
+  }, [open, patientId, toothNumber, existingTreatment, loadImagesByTreatment, clearImages, toothInfo])
 
   const handleSave = async () => {
     if (!toothNumber || !patientId) return

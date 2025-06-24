@@ -24,6 +24,7 @@ interface DentalTreatmentState {
   createImage: (image: Omit<DentalTreatmentImage, 'id' | 'created_at' | 'updated_at'>) => Promise<DentalTreatmentImage>
   deleteImage: (id: string) => Promise<void>
   refreshAllImages: () => Promise<void>
+  clearImages: () => void
 
   // Prescription actions
   loadTreatmentPrescriptions: () => Promise<void>
@@ -231,6 +232,10 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
         isLoading: false
       })
     }
+  },
+
+  clearImages: () => {
+    set({ images: [] })
   },
 
   loadTreatmentPrescriptions: async () => {
