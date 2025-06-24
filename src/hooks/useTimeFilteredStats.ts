@@ -142,6 +142,11 @@ export function useTimeFilteredStats<T extends FilterableData>({
     const totalRevenue = filteredData
       .filter((item: any) => item.status === 'completed' || item.status === 'partial')
       .reduce((sum, item) => {
+        // For partial payments, use amount_paid if available, otherwise use amount
+        if (item.status === 'partial' && item.amount_paid !== undefined) {
+          return sum + (typeof item.amount_paid === 'number' ? item.amount_paid : parseFloat(item.amount_paid) || 0)
+        }
+
         const amount = (item as any).amount ||
                      (item as any).total_amount ||
                      (item as any).cost ||

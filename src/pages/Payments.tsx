@@ -181,14 +181,21 @@ export default function Payments() {
               // Use filtered data for export to ensure accuracy
               const dataToExport = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
 
-              const csvData = dataToExport.map(payment => ({
-                'رقم الإيصال': payment.receipt_number || `#${payment.id.slice(-6)}`,
-                'المريض': getPatientName(payment),
-                'المبلغ': `$${payment.amount.toFixed(2)}`,
-                'طريقة الدفع': getPaymentMethodLabel(payment.payment_method),
-                'الحالة': getStatusLabel(payment.status),
-                'تاريخ الدفع': formatDate(payment.payment_date)
-              }))
+              const csvData = dataToExport.map(payment => {
+                // For partial payments, show amount_paid if available, otherwise show amount
+                const displayAmount = payment.status === 'partial' && payment.amount_paid !== undefined
+                  ? payment.amount_paid
+                  : payment.amount
+
+                return {
+                  'رقم الإيصال': payment.receipt_number || `#${payment.id.slice(-6)}`,
+                  'المريض': getPatientName(payment),
+                  'المبلغ': `$${Number(displayAmount).toFixed(2)}`,
+                  'طريقة الدفع': getPaymentMethodLabel(payment.payment_method),
+                  'الحالة': getStatusLabel(payment.status),
+                  'تاريخ الدفع': formatDate(payment.payment_date)
+                }
+              })
 
               // Create CSV with BOM for Arabic support
               const headers = Object.keys(csvData[0]).join(',')

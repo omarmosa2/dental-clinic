@@ -17,6 +17,7 @@ import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { PdfService } from '@/services/pdfService'
+import { ExportService } from '@/services/exportService'
 import { notify } from '@/services/notificationService'
 import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
 import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
@@ -418,70 +419,28 @@ export default function FinancialReports() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              // Use filtered data for export
-              const dataToExport = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
-
-              if (dataToExport.length === 0) {
-                notify.noDataToExport('لا توجد بيانات مالية للتصدير')
-                return
-              }
-
+            onClick={async () => {
               try {
-                // Add filter information to report
-                const filterInfo = paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
-                  ? `من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
-                  : 'جميع البيانات'
+                // Use filtered data for export
+                const dataToExport = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
 
-                const exportReportData = {
-                  'نطاق البيانات': filterInfo,
-                  'إجمالي الإيرادات': reportData.totalRevenue,
-                  'المبالغ المعلقة': reportData.totalPending,
-                  'المبالغ المتأخرة': reportData.totalOverdue,
-                  'إجمالي المعاملات': stats.totalTransactions,
-                  'المعاملات المكتملة': stats.completedCount,
-                  'المعاملات المعلقة': stats.pendingCount,
-                  'المعاملات الفاشلة': stats.failedCount,
-                  'المعاملات المستردة': stats.refundedCount,
-                  'معدل النجاح (%)': stats.successRate,
-                  'متوسط قيمة المعاملة': stats.averageTransaction,
-                  'العملة': currency,
-                  'تاريخ التقرير': formatDate(new Date())
+                if (dataToExport.length === 0) {
+                  notify.noDataToExport('لا توجد بيانات مالية للتصدير')
+                  return
                 }
 
-                // Create CSV with BOM for Arabic support
-                const csvContent = '\uFEFF' + [
-                  'المؤشر,القيمة',
-                  ...Object.entries(exportReportData).map(([key, value]) =>
-                    `"${key}","${value}"`
-                  )
-                ].join('\n')
-
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-                const link = document.createElement('a')
-                link.href = URL.createObjectURL(blob)
-
-                // Generate descriptive filename with date and time
-                const now = new Date()
-                const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-                const fileName = `التقرير_المالي_الإحصائي_${dateStr}_${timeStr}.csv`
-
-                link.download = fileName
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-
+                // Use ExportService for consistent calculation and export
+                await ExportService.exportPaymentsToExcel(dataToExport)
                 notify.exportSuccess(`تم تصدير التقرير المالي بنجاح! (${dataToExport.length} معاملة)`)
               } catch (error) {
-                console.error('Error exporting CSV:', error)
+                console.error('Error exporting Excel:', error)
                 notify.exportError('فشل في تصدير التقرير المالي')
               }
             }}
             disabled={isExporting}
           >
             <Download className="w-4 h-4 ml-2" />
-            تصدير CSV
+            تصدير Excel
           </Button>
           <Button
             variant="default"
@@ -496,32 +455,8 @@ export default function FinancialReports() {
                   return
                 }
 
-                // Create financial report data structure using filtered data
-                const pdfReportData = {
-                  totalRevenue: reportData.totalRevenue,
-                  completedPayments: reportData.totalRevenue,
-                  pendingPayments: reportData.totalPending,
-                  overduePayments: reportData.totalOverdue,
-                  paymentMethodStats: paymentMethodData.map(item => ({
-                    method: item.method,
-                    amount: item.amount,
-                    count: item.count
-                  })),
-                  monthlyRevenue: monthlyRevenueData.map(item => ({
-                    period: item.month,
-                    amount: item.revenue
-                  })),
-                  revenueTrend: [],
-                  topTreatments: [],
-                  outstandingBalance: reportData.totalPending + reportData.totalOverdue,
-                  // Add filter information
-                  filterInfo: paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
-                    ? `البيانات من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
-                    : 'جميع البيانات',
-                  dataCount: dataToExport.length
-                }
-
-                await PdfService.exportFinancialReport(pdfReportData, settings)
+                // Use ExportService for consistent calculation and export
+                await ExportService.exportPaymentsToPDF(dataToExport, settings?.clinic_name || 'عيادة الأسنان الحديثة')
                 notify.exportSuccess(`تم تصدير التقرير المالي كملف PDF بنجاح (${dataToExport.length} معاملة)`)
               } catch (error) {
                 console.error('Error exporting PDF:', error)

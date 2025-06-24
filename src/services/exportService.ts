@@ -1342,10 +1342,22 @@ export class ExportService {
 
   static async exportPaymentsToPDF(payments: Payment[], clinicName: string = 'عيادة الأسنان الحديثة'): Promise<void> {
     // Calculate statistics from the provided payments array (which should be filtered)
-    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0)
-    const completedPayments = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
-    const pendingPayments = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0)
-    const overduePayments = payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0)
+    // Handle partial payments correctly by using amount_paid when available
+    const totalRevenue = payments.reduce((sum, p) => {
+      if (p.status === 'partial' && p.amount_paid !== undefined) {
+        return sum + Number(p.amount_paid)
+      }
+      return sum + Number(p.amount)
+    }, 0)
+
+    const completedPayments = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0)
+    const partialPayments = payments.filter(p => p.status === 'partial').reduce((sum, p) => {
+      // For partial payments, use amount_paid if available, otherwise use amount
+      const amount = p.amount_paid !== undefined ? Number(p.amount_paid) : Number(p.amount)
+      return sum + amount
+    }, 0)
+    const pendingPayments = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + Number(p.amount), 0)
+    const overduePayments = payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + Number(p.amount), 0)
 
     // Calculate payment method statistics
     const paymentMethods = payments.reduce((acc, payment) => {
@@ -1366,7 +1378,7 @@ export class ExportService {
 
     const financialData: FinancialReportData = {
       totalRevenue: totalRevenue,
-      completedPayments: completedPayments,
+      completedPayments: completedPayments + partialPayments, // Include partial payments in completed
       pendingPayments: pendingPayments,
       overduePayments: overduePayments,
       paymentMethodStats: paymentMethodStats,
@@ -1374,7 +1386,7 @@ export class ExportService {
       revenueTrend: [],
       topTreatments: [],
       outstandingBalance: pendingPayments + overduePayments,
-      filterInfo: `البيانات المصدرة: ${payments.length} دفعة`,
+      filterInfo: `البيانات المصدرة: ${payments.length} دفعة (مكتملة: ${payments.filter(p => p.status === 'completed').length}, جزئية: ${payments.filter(p => p.status === 'partial').length})`,
       dataCount: payments.length
     }
 
@@ -1485,10 +1497,22 @@ export class ExportService {
 
   static async exportPaymentsToExcel(payments: Payment[]): Promise<void> {
     // Calculate statistics from the provided payments array (which should be filtered)
-    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0)
-    const completedPayments = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
-    const pendingPayments = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0)
-    const overduePayments = payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0)
+    // Handle partial payments correctly by using amount_paid when available
+    const totalRevenue = payments.reduce((sum, p) => {
+      if (p.status === 'partial' && p.amount_paid !== undefined) {
+        return sum + Number(p.amount_paid)
+      }
+      return sum + Number(p.amount)
+    }, 0)
+
+    const completedPayments = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0)
+    const partialPayments = payments.filter(p => p.status === 'partial').reduce((sum, p) => {
+      // For partial payments, use amount_paid if available, otherwise use amount
+      const amount = p.amount_paid !== undefined ? Number(p.amount_paid) : Number(p.amount)
+      return sum + amount
+    }, 0)
+    const pendingPayments = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + Number(p.amount), 0)
+    const overduePayments = payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + Number(p.amount), 0)
 
     // Calculate payment method statistics
     const paymentMethods = payments.reduce((acc, payment) => {
@@ -1509,7 +1533,7 @@ export class ExportService {
 
     const financialData: FinancialReportData = {
       totalRevenue: totalRevenue,
-      completedPayments: completedPayments,
+      completedPayments: completedPayments + partialPayments, // Include partial payments in completed
       pendingPayments: pendingPayments,
       overduePayments: overduePayments,
       paymentMethodStats: paymentMethodStats,
@@ -1517,7 +1541,7 @@ export class ExportService {
       revenueTrend: [],
       topTreatments: [],
       outstandingBalance: pendingPayments + overduePayments,
-      filterInfo: `البيانات المصدرة: ${payments.length} دفعة`,
+      filterInfo: `البيانات المصدرة: ${payments.length} دفعة (مكتملة: ${payments.filter(p => p.status === 'completed').length}, جزئية: ${payments.filter(p => p.status === 'partial').length})`,
       dataCount: payments.length
     }
 
