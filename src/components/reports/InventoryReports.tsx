@@ -240,23 +240,36 @@ export default function InventoryReports() {
             variant="outline"
             size="sm"
             onClick={() => {
-              // Export inventory reports data
-              if (!inventoryReports || Object.keys(inventoryReports).length === 0) {
-                notify.noDataToExport('لا توجد بيانات تقارير مخزون للتصدير')
+              // Use filtered data for export
+              const dataToExport = inventoryStats.filteredData
+
+              if (dataToExport.length === 0) {
+                notify.noDataToExport('لا توجد بيانات مخزون للتصدير')
                 return
               }
 
               try {
+                // Calculate statistics from filtered data
+                const totalValue = dataToExport.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)
+                const lowStockItems = dataToExport.filter(item => item.quantity <= item.minimum_stock && item.quantity > 0).length
+                const expiredItems = dataToExport.filter(item => {
+                  if (!item.expiry_date) return false
+                  return new Date(item.expiry_date) < new Date()
+                }).length
+                const outOfStockItems = dataToExport.filter(item => item.quantity === 0).length
+
+                // Add filter information to report
+                const filterInfo = inventoryStats.timeFilter.startDate && inventoryStats.timeFilter.endDate
+                  ? `من ${inventoryStats.timeFilter.startDate} إلى ${inventoryStats.timeFilter.endDate}`
+                  : 'جميع البيانات'
+
                 const reportData = {
-                  'إجمالي العناصر': inventoryReports.totalItems || 0,
-                  'القيمة الإجمالية': inventoryReports.totalValue || 0,
-                  'عناصر منخفضة المخزون': inventoryReports.lowStockItems || 0,
-                  'عناصر منتهية الصلاحية': inventoryReports.expiredItems || 0,
-                  'عناصر قريبة الانتهاء': inventoryReports.expiringSoonItems || 0,
-                  'عناصر نفدت من المخزون': inventoryReports.outOfStockItems || 0,
-                  'أعلى الفئات استهلاكاً': inventoryReports.topCategories?.map(cat => `${cat.name}: ${cat.count}`).join('; ') || '',
-                  'أعلى الموردين': inventoryReports.topSuppliers?.map(sup => `${sup.name}: ${sup.count}`).join('; ') || '',
-                  'معدل دوران المخزون': inventoryReports.turnoverRate || 0,
+                  'نطاق البيانات': filterInfo,
+                  'إجمالي العناصر': dataToExport.length,
+                  'القيمة الإجمالية': totalValue,
+                  'عناصر منخفضة المخزون': lowStockItems,
+                  'عناصر منتهية الصلاحية': expiredItems,
+                  'عناصر نفدت من المخزون': outOfStockItems,
                   'تاريخ التقرير': formatDate(new Date())
                 }
 
@@ -283,7 +296,7 @@ export default function InventoryReports() {
                 link.click()
                 document.body.removeChild(link)
 
-                notify.exportSuccess('تم تصدير تقرير المخزون بنجاح!')
+                notify.exportSuccess(`تم تصدير تقرير المخزون بنجاح! (${dataToExport.length} عنصر)`)
               } catch (error) {
                 console.error('Error exporting CSV:', error)
                 notify.exportError('فشل في تصدير تقرير المخزون')
@@ -299,13 +312,34 @@ export default function InventoryReports() {
             size="sm"
             onClick={async () => {
               try {
-                if (!inventoryReports || Object.keys(inventoryReports).length === 0) {
-                  notify.noDataToExport('لا توجد بيانات تقارير مخزون للتصدير')
+                // Use filtered data for export
+                const dataToExport = inventoryStats.filteredData
+
+                if (dataToExport.length === 0) {
+                  notify.noDataToExport('لا توجد بيانات مخزون للتصدير')
                   return
                 }
 
-                await PdfService.exportInventoryReport(inventoryReports, settings)
-                notify.exportSuccess('تم تصدير تقرير المخزون كملف PDF بنجاح')
+                // Create inventory report data structure using filtered data
+                const pdfReportData = {
+                  ...inventoryReports,
+                  totalItems: dataToExport.length,
+                  totalValue: dataToExport.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
+                  lowStockItems: dataToExport.filter(item => item.quantity <= item.minimum_stock && item.quantity > 0).length,
+                  expiredItems: dataToExport.filter(item => {
+                    if (!item.expiry_date) return false
+                    return new Date(item.expiry_date) < new Date()
+                  }).length,
+                  outOfStockItems: dataToExport.filter(item => item.quantity === 0).length,
+                  // Add filter information
+                  filterInfo: inventoryStats.timeFilter.startDate && inventoryStats.timeFilter.endDate
+                    ? `البيانات من ${inventoryStats.timeFilter.startDate} إلى ${inventoryStats.timeFilter.endDate}`
+                    : 'جميع البيانات',
+                  dataCount: dataToExport.length
+                }
+
+                await PdfService.exportInventoryReport(pdfReportData, settings)
+                notify.exportSuccess(`تم تصدير تقرير المخزون كملف PDF بنجاح (${dataToExport.length} عنصر)`)
               } catch (error) {
                 console.error('Error exporting PDF:', error)
                 notify.exportError('فشل في تصدير التقرير كملف PDF')

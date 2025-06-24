@@ -95,12 +95,18 @@ export default function FinancialReports() {
 
 
   // Use data from reports service if available, otherwise fallback to store data
+  // Always use filtered data for accurate statistics
   const getReportData = () => {
+    // Use filtered data from paymentStats for accurate calculations
+    const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+
     // Validate payments first
-    const validation = validatePayments(payments)
+    const validation = validatePayments(dataToUse)
     const validPayments = validation.validPayments
 
-    if (financialReports) {
+    if (financialReports && paymentStats.timeFilter.preset === 'all' &&
+        (!paymentStats.timeFilter.startDate || !paymentStats.timeFilter.endDate)) {
+      // Only use reports service data when no filter is applied
       return {
         totalRevenue: sanitizeFinancialResult(financialReports.totalRevenue),
         totalPaid: sanitizeFinancialResult(financialReports.totalPaid),
@@ -113,16 +119,16 @@ export default function FinancialReports() {
       }
     }
 
-    // Fallback to calculating from store data with validation
+    // Calculate from filtered data for accurate statistics
     const completedPayments = validPayments.filter(p => p.status === 'completed')
     const pendingPayments = validPayments.filter(p => p.status === 'pending')
     const failedPayments = validPayments.filter(p => p.status === 'failed')
     const refundedPayments = validPayments.filter(p => p.status === 'refunded')
 
-    // Calculate totals with proper validation
-    const calculatedTotalRevenue = sanitizeFinancialResult(totalRevenue)
-    const calculatedPendingAmount = sanitizeFinancialResult(pendingAmount)
-    const calculatedOverdueAmount = sanitizeFinancialResult(overdueAmount)
+    // Calculate totals from filtered data
+    const calculatedTotalRevenue = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+    const calculatedPendingAmount = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+    const calculatedOverdueAmount = validPayments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + (p.amount || 0), 0)
 
     // Validate monthly revenue and payment method stats
     const validatedMonthlyRevenue = validateMonthlyRevenue(monthlyRevenue || {})
@@ -135,10 +141,10 @@ export default function FinancialReports() {
       Math.round((calculatedTotalRevenue / completedPayments.length) * 100) / 100 : 0
 
     return {
-      totalRevenue: calculatedTotalRevenue,
-      totalPaid: calculatedTotalRevenue,
-      totalPending: calculatedPendingAmount,
-      totalOverdue: calculatedOverdueAmount,
+      totalRevenue: sanitizeFinancialResult(calculatedTotalRevenue),
+      totalPaid: sanitizeFinancialResult(calculatedTotalRevenue),
+      totalPending: sanitizeFinancialResult(calculatedPendingAmount),
+      totalOverdue: sanitizeFinancialResult(calculatedOverdueAmount),
       revenueByPaymentMethod: validatedMethodStats.validStats,
       revenueTrend: [],
       recentTransactions: [],
@@ -413,17 +419,25 @@ export default function FinancialReports() {
             variant="outline"
             size="sm"
             onClick={() => {
-              // Export financial reports data
-              if (payments.length === 0) {
+              // Use filtered data for export
+              const dataToExport = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+
+              if (dataToExport.length === 0) {
                 notify.noDataToExport('لا توجد بيانات مالية للتصدير')
                 return
               }
 
               try {
-                const reportData = {
-                  'إجمالي الإيرادات': totalRevenue,
-                  'المبالغ المعلقة': pendingAmount,
-                  'المبالغ المتأخرة': overdueAmount,
+                // Add filter information to report
+                const filterInfo = paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
+                  ? `من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
+                  : 'جميع البيانات'
+
+                const exportReportData = {
+                  'نطاق البيانات': filterInfo,
+                  'إجمالي الإيرادات': reportData.totalRevenue,
+                  'المبالغ المعلقة': reportData.totalPending,
+                  'المبالغ المتأخرة': reportData.totalOverdue,
                   'إجمالي المعاملات': stats.totalTransactions,
                   'المعاملات المكتملة': stats.completedCount,
                   'المعاملات المعلقة': stats.pendingCount,
@@ -438,7 +452,7 @@ export default function FinancialReports() {
                 // Create CSV with BOM for Arabic support
                 const csvContent = '\uFEFF' + [
                   'المؤشر,القيمة',
-                  ...Object.entries(reportData).map(([key, value]) =>
+                  ...Object.entries(exportReportData).map(([key, value]) =>
                     `"${key}","${value}"`
                   )
                 ].join('\n')
@@ -458,7 +472,7 @@ export default function FinancialReports() {
                 link.click()
                 document.body.removeChild(link)
 
-                notify.exportSuccess('تم تصدير التقرير المالي بنجاح!')
+                notify.exportSuccess(`تم تصدير التقرير المالي بنجاح! (${dataToExport.length} معاملة)`)
               } catch (error) {
                 console.error('Error exporting CSV:', error)
                 notify.exportError('فشل في تصدير التقرير المالي')
@@ -474,33 +488,41 @@ export default function FinancialReports() {
             size="sm"
             onClick={async () => {
               try {
-                if (!financialReports || payments.length === 0) {
+                // Use filtered data for export
+                const dataToExport = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+
+                if (dataToExport.length === 0) {
                   notify.noDataToExport('لا توجد بيانات مالية للتصدير')
                   return
                 }
 
-                // Create financial report data structure
-                const reportData = {
-                  totalRevenue,
-                  completedPayments: totalRevenue,
-                  pendingPayments: pendingAmount,
-                  overduePayments: overdueAmount,
-                  paymentMethodStats: Object.entries(paymentMethodStats).map(([method, amount]) => ({
-                    method,
-                    amount,
-                    count: payments.filter(p => p.payment_method === method).length
+                // Create financial report data structure using filtered data
+                const pdfReportData = {
+                  totalRevenue: reportData.totalRevenue,
+                  completedPayments: reportData.totalRevenue,
+                  pendingPayments: reportData.totalPending,
+                  overduePayments: reportData.totalOverdue,
+                  paymentMethodStats: paymentMethodData.map(item => ({
+                    method: item.method,
+                    amount: item.amount,
+                    count: item.count
                   })),
-                  monthlyRevenue: Object.entries(monthlyRevenue).map(([period, amount]) => ({
-                    period,
-                    amount
+                  monthlyRevenue: monthlyRevenueData.map(item => ({
+                    period: item.month,
+                    amount: item.revenue
                   })),
                   revenueTrend: [],
                   topTreatments: [],
-                  outstandingBalance: pendingAmount + overdueAmount
+                  outstandingBalance: reportData.totalPending + reportData.totalOverdue,
+                  // Add filter information
+                  filterInfo: paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
+                    ? `البيانات من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
+                    : 'جميع البيانات',
+                  dataCount: dataToExport.length
                 }
 
-                await PdfService.exportFinancialReport(reportData, settings)
-                notify.exportSuccess('تم تصدير التقرير المالي كملف PDF بنجاح')
+                await PdfService.exportFinancialReport(pdfReportData, settings)
+                notify.exportSuccess(`تم تصدير التقرير المالي كملف PDF بنجاح (${dataToExport.length} معاملة)`)
               } catch (error) {
                 console.error('Error exporting PDF:', error)
                 notify.exportError('فشل في تصدير التقرير كملف PDF')

@@ -14,8 +14,7 @@ import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
 import { ensureGenderDistribution, ensureAgeDistribution, formatChartData } from '@/lib/chartDataHelpers'
 import { PdfService } from '@/services/pdfService'
-import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
-import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
+// Time filtering removed as requested
 import { usePatientStore } from '@/store/patientStore'
 import {
   Users,
@@ -61,12 +60,7 @@ export default function PatientReports() {
   const [ageFilter, setAgeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  // Time filtering for patients
-  const patientStats = useTimeFilteredStats({
-    data: patients,
-    dateField: 'created_at',
-    initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
-  })
+  // No time filtering for patients as requested
 
   useEffect(() => {
     generateReport('patients')
@@ -310,14 +304,7 @@ export default function PatientReports() {
         </div>
       </div>
 
-      {/* Time Filter Section */}
-      <TimeFilter
-        value={patientStats.timeFilter}
-        onChange={patientStats.handleFilterChange}
-        onClear={patientStats.resetFilter}
-        title="فلترة زمنية - المرضى"
-        defaultOpen={false}
-      />
+      {/* No time filter for patients as requested */}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
@@ -329,12 +316,11 @@ export default function PatientReports() {
           description="العدد الكلي للمرضى المسجلين"
         />
         <StatCard
-          title="المرضى المفلترين"
-          value={patientStats.filteredData.length}
+          title="المرضى الجدد"
+          value={patientReports?.newPatients || 0}
           icon={UserPlus}
           color="green"
-          trend={patientStats.trend}
-          description="المرضى في الفترة المحددة"
+          description="المرضى المسجلين حديثاً"
         />
         <StatCard
           title="المرضى النشطين"

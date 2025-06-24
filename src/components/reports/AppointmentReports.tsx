@@ -69,8 +69,14 @@ export default function AppointmentReports() {
 
 
   // Use data from reports service if available, otherwise fallback to store data
+  // Always use filtered data for accurate statistics
   const getReportData = () => {
-    if (appointmentReports) {
+    // Use filtered data from appointmentStats for accurate calculations
+    const dataToUse = appointmentStats.filteredData.length > 0 ? appointmentStats.filteredData : appointments
+
+    if (appointmentReports && appointmentStats.timeFilter.preset === 'all' &&
+        (!appointmentStats.timeFilter.startDate || !appointmentStats.timeFilter.endDate)) {
+      // Only use reports service data when no filter is applied
       return {
         total: appointmentReports.totalAppointments || 0,
         completed: appointmentReports.completedAppointments || 0,
@@ -84,12 +90,12 @@ export default function AppointmentReports() {
       }
     }
 
-    // Fallback to calculating from store data
-    const total = appointments.length
-    const completed = appointments.filter(apt => apt.status === 'completed').length
-    const cancelled = appointments.filter(apt => apt.status === 'cancelled').length
-    const pending = appointments.filter(apt => apt.status === 'scheduled').length
-    const noShow = appointments.filter(apt => apt.status === 'no_show').length
+    // Calculate from filtered data for accurate statistics
+    const total = dataToUse.length
+    const completed = dataToUse.filter(apt => apt.status === 'completed').length
+    const cancelled = dataToUse.filter(apt => apt.status === 'cancelled').length
+    const pending = dataToUse.filter(apt => apt.status === 'scheduled').length
+    const noShow = dataToUse.filter(apt => apt.status === 'no_show').length
 
     const attendanceRate = total > 0 ? Math.round((completed / total) * 1000) / 10 : 0
     const cancellationRate = total > 0 ? Math.round((cancelled / total) * 1000) / 10 : 0
@@ -253,14 +259,22 @@ export default function AppointmentReports() {
             variant="outline"
             size="sm"
             onClick={() => {
-              // Export appointment reports data
-              if (appointments.length === 0) {
+              // Use filtered data for export
+              const dataToExport = appointmentStats.filteredData.length > 0 ? appointmentStats.filteredData : appointments
+
+              if (dataToExport.length === 0) {
                 notify.noDataToExport('لا توجد بيانات مواعيد للتصدير')
                 return
               }
 
               try {
+                // Add filter information to report
+                const filterInfo = appointmentStats.timeFilter.startDate && appointmentStats.timeFilter.endDate
+                  ? `من ${appointmentStats.timeFilter.startDate} إلى ${appointmentStats.timeFilter.endDate}`
+                  : 'جميع البيانات'
+
                 const reportData = {
+                  'نطاق البيانات': filterInfo,
                   'إجمالي المواعيد': stats.total,
                   'المواعيد المكتملة': stats.completed,
                   'المواعيد الملغية': stats.cancelled,
@@ -294,7 +308,7 @@ export default function AppointmentReports() {
                 link.click()
                 document.body.removeChild(link)
 
-                notify.exportSuccess('تم تصدير تقرير المواعيد بنجاح!')
+                notify.exportSuccess(`تم تصدير تقرير المواعيد بنجاح! (${dataToExport.length} موعد)`)
               } catch (error) {
                 console.error('Error exporting CSV:', error)
                 notify.exportError('فشل في تصدير تقرير المواعيد')
@@ -310,12 +324,15 @@ export default function AppointmentReports() {
             size="sm"
             onClick={async () => {
               try {
-                if (appointments.length === 0) {
+                // Use filtered data for export
+                const dataToExport = appointmentStats.filteredData.length > 0 ? appointmentStats.filteredData : appointments
+
+                if (dataToExport.length === 0) {
                   notify.noDataToExport('لا توجد بيانات مواعيد للتصدير')
                   return
                 }
 
-                // Create appointment report data structure
+                // Create appointment report data structure using filtered data
                 const reportData = {
                   totalAppointments: stats.total,
                   completedAppointments: stats.completed,
@@ -326,14 +343,19 @@ export default function AppointmentReports() {
                   appointmentsByStatus: statusData.map(item => ({
                     status: item.name,
                     count: item.value,
-                    percentage: (item.value / stats.total) * 100
+                    percentage: stats.total > 0 ? (item.value / stats.total) * 100 : 0
                   })),
                   peakHours: [],
-                  monthlyTrend: monthlyChartData
+                  monthlyTrend: monthlyChartData,
+                  // Add filter information
+                  filterInfo: appointmentStats.timeFilter.startDate && appointmentStats.timeFilter.endDate
+                    ? `البيانات من ${appointmentStats.timeFilter.startDate} إلى ${appointmentStats.timeFilter.endDate}`
+                    : 'جميع البيانات',
+                  dataCount: dataToExport.length
                 }
 
                 await PdfService.exportAppointmentReport(reportData, settings)
-                notify.exportSuccess('تم تصدير تقرير المواعيد كملف PDF بنجاح')
+                notify.exportSuccess(`تم تصدير تقرير المواعيد كملف PDF بنجاح (${dataToExport.length} موعد)`)
               } catch (error) {
                 console.error('Error exporting PDF:', error)
                 notify.exportError('فشل في تصدير التقرير كملف PDF')

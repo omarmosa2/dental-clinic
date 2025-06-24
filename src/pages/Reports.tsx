@@ -7,7 +7,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useReportsStore } from '@/store/reportsStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { usePaymentStore } from '@/store/paymentStore'
+import { useAppointmentStore } from '@/store/appointmentStore'
+import { useInventoryStore } from '@/store/inventoryStore'
 import { useRealTimeReports } from '@/hooks/useRealTimeReports'
+import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import PatientReports from '@/components/reports/PatientReports'
@@ -17,6 +20,7 @@ import FinancialReports from '@/components/reports/FinancialReports'
 import CalculationValidator from '@/components/admin/CalculationValidator'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import RealTimeIndicator from '@/components/ui/real-time-indicator'
+import TimeFilter from '@/components/ui/time-filter'
 import {
   Table,
   TableBody,
@@ -45,7 +49,9 @@ import { notify } from '@/services/notificationService'
 
 export default function Reports() {
   const { currency } = useSettingsStore()
-  const { totalRevenue, pendingAmount } = usePaymentStore()
+  const { totalRevenue, pendingAmount, payments } = usePaymentStore()
+  const { appointments } = useAppointmentStore()
+  const { items: inventoryItems } = useInventoryStore()
   const {
     reportData,
     patientReports,
@@ -68,11 +74,39 @@ export default function Reports() {
 
   const [selectedTab, setSelectedTab] = useState('overview')
 
+  // Time filtering for different data types in overview (excluding patients)
+  const appointmentStats = useTimeFilteredStats({
+    data: appointments,
+    dateField: 'start_time',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' }
+  })
+
+  const paymentStats = useTimeFilteredStats({
+    data: payments,
+    dateField: 'payment_date',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' }
+  })
+
+  const inventoryStats = useTimeFilteredStats({
+    data: inventoryItems,
+    dateField: 'created_at',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' }
+  })
+
   useEffect(() => {
     // Load initial reports with fresh data
     console.log('🔄 Loading initial reports...')
     clearError()
     generateAllReports()
+
+    // Load data for filtering (excluding patients as they don't need filtering)
+    const { loadAppointments } = useAppointmentStore.getState()
+    const { loadPayments } = usePaymentStore.getState()
+    const { loadItems } = useInventoryStore.getState()
+
+    loadAppointments()
+    loadPayments()
+    loadItems()
   }, [generateAllReports, clearError])
 
   useEffect(() => {
@@ -271,7 +305,7 @@ export default function Reports() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  // Export comprehensive reports data
+                  // Export comprehensive reports data using filtered data
                   const { patientReports, inventoryReports, appointmentReports, financialReports } = useReportsStore.getState()
 
                   if (!patientReports && !inventoryReports && !appointmentReports && !financialReports) {
@@ -280,39 +314,54 @@ export default function Reports() {
                   }
 
                   try {
+                    // Add filter information
+                    const appointmentFilterInfo = appointmentStats.timeFilter.startDate && appointmentStats.timeFilter.endDate
+                      ? `المواعيد: من ${appointmentStats.timeFilter.startDate} إلى ${appointmentStats.timeFilter.endDate}`
+                      : 'المواعيد: جميع البيانات'
 
-                  const comprehensiveData = {
-                    // Patient Reports
-                    'إجمالي المرضى': patientReports?.totalPatients || 0,
-                    'المرضى الجدد هذا الشهر': patientReports?.newPatientsThisMonth || 0,
-                    'المرضى النشطون': patientReports?.activePatients || 0,
-                    'متوسط عمر المرضى': patientReports?.averageAge || 0,
+                    const paymentFilterInfo = paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
+                      ? `المدفوعات: من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
+                      : 'المدفوعات: جميع البيانات'
 
-                    // Inventory Reports
-                    'إجمالي عناصر المخزون': inventoryReports?.totalItems || 0,
-                    'القيمة الإجمالية للمخزون': inventoryReports?.totalValue || 0,
-                    'عناصر منخفضة المخزون': inventoryReports?.lowStockItems || 0,
-                    'عناصر منتهية الصلاحية': inventoryReports?.expiredItems || 0,
+                    const inventoryFilterInfo = inventoryStats.timeFilter.startDate && inventoryStats.timeFilter.endDate
+                      ? `المخزون: من ${inventoryStats.timeFilter.startDate} إلى ${inventoryStats.timeFilter.endDate}`
+                      : 'المخزون: جميع البيانات'
 
-                    // Appointment Reports
-                    'إجمالي المواعيد': appointmentReports?.totalAppointments || 0,
-                    'المواعيد المكتملة': appointmentReports?.completedAppointments || 0,
-                    'المواعيد الملغية': appointmentReports?.cancelledAppointments || 0,
-                    'معدل الحضور': appointmentReports?.attendanceRate || 0,
+                    const comprehensiveData = {
+                      // Filter Information
+                      'نطاق بيانات المواعيد': appointmentFilterInfo,
+                      'نطاق بيانات المدفوعات': paymentFilterInfo,
+                      'نطاق بيانات المخزون': inventoryFilterInfo,
 
-                    // Financial Reports - Use real data from payment store
-                    'إجمالي الإيرادات': totalRevenue || 0,
-                    'المدفوعات المعلقة': pendingAmount || 0,
-                    'المدفوعات المتأخرة': financialReports?.overduePayments || 0,
+                      // Patient Reports (no filtering as per requirements)
+                      'إجمالي المرضى': patientReports?.totalPatients || 0,
+                      'المرضى الجدد هذا الشهر': patientReports?.newPatientsThisMonth || 0,
+                      'المرضى النشطون': patientReports?.activePatients || 0,
+                      'متوسط عمر المرضى': patientReports?.averageAge || 0,
 
-                    'تاريخ التقرير الشامل': (() => {
-                      const date = new Date()
-                      const day = date.getDate().toString().padStart(2, '0')
-                      const month = (date.getMonth() + 1).toString().padStart(2, '0')
-                      const year = date.getFullYear()
-                      return `${day}/${month}/${year}`
-                    })()
-                  }
+                      // Filtered Appointment Reports
+                      'المواعيد المفلترة': appointmentStats.filteredData.length,
+                      'المواعيد المكتملة المفلترة': appointmentStats.filteredData.filter(apt => apt.status === 'completed').length,
+                      'المواعيد الملغية المفلترة': appointmentStats.filteredData.filter(apt => apt.status === 'cancelled').length,
+
+                      // Filtered Financial Reports
+                      'الإيرادات المفلترة': paymentStats.financialStats.totalRevenue || 0,
+                      'المدفوعات المعلقة المفلترة': paymentStats.financialStats.pendingAmount || 0,
+                      'المدفوعات المتأخرة المفلترة': paymentStats.financialStats.overdueAmount || 0,
+
+                      // Filtered Inventory Reports
+                      'عناصر المخزون المفلترة': inventoryStats.filteredData.length,
+                      'القيمة الإجمالية للمخزون المفلتر': inventoryStats.filteredData.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
+                      'عناصر منخفضة المخزون المفلترة': inventoryStats.filteredData.filter(item => item.quantity <= item.minimum_stock && item.quantity > 0).length,
+
+                      'تاريخ التقرير الشامل': (() => {
+                        const date = new Date()
+                        const day = date.getDate().toString().padStart(2, '0')
+                        const month = (date.getMonth() + 1).toString().padStart(2, '0')
+                        const year = date.getFullYear()
+                        return `${day}/${month}/${year}`
+                      })()
+                    }
 
                   // Create CSV with BOM for Arabic support
                   const csvContent = '\uFEFF' + [
@@ -337,7 +386,10 @@ export default function Reports() {
                     link.click()
                     document.body.removeChild(link)
 
-                    notify.exportSuccess('تم تصدير التقرير الشامل بنجاح!')
+                    const totalFilteredItems = appointmentStats.filteredData.length +
+                                             paymentStats.filteredData.length +
+                                             inventoryStats.filteredData.length
+                    notify.exportSuccess(`تم تصدير التقرير الشامل بنجاح! (${totalFilteredItems} عنصر مفلتر)`)
                   } catch (error) {
                     console.error('Error exporting comprehensive report:', error)
                     notify.exportError('فشل في تصدير التقرير الشامل')
@@ -418,6 +470,32 @@ export default function Reports() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6" dir="rtl">
+          {/* Time Filters Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4" dir="rtl">
+            <TimeFilter
+              value={appointmentStats.timeFilter}
+              onChange={appointmentStats.handleFilterChange}
+              onClear={appointmentStats.resetFilter}
+              title="فلترة المواعيد"
+              defaultOpen={false}
+            />
+            <TimeFilter
+              value={paymentStats.timeFilter}
+              onChange={paymentStats.handleFilterChange}
+              onClear={paymentStats.resetFilter}
+              title="فلترة المدفوعات"
+              defaultOpen={false}
+            />
+            <TimeFilter
+              value={inventoryStats.timeFilter}
+              onChange={inventoryStats.handleFilterChange}
+              onClear={inventoryStats.resetFilter}
+              title="فلترة المخزون"
+              defaultOpen={false}
+            />
+          </div>
+
+          {/* Stats Cards with Filtered Data */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
             <StatCard
               title="إجمالي المرضى"
@@ -427,25 +505,28 @@ export default function Reports() {
               description="العدد الكلي للمرضى المسجلين"
             />
             <StatCard
-              title="المواعيد هذا الشهر"
-              value={appointmentReports?.totalAppointments || 0}
+              title="المواعيد المفلترة"
+              value={appointmentStats.filteredData.length}
               icon={Calendar}
               color="purple"
-              description="مواعيد الشهر الحالي"
+              trend={appointmentStats.trend}
+              description={`من إجمالي ${appointmentReports?.totalAppointments || 0} موعد`}
             />
             <StatCard
-              title="إجمالي الإيرادات"
-              value={<CurrencyDisplay amount={totalRevenue || 0} currency={currency} />}
+              title="الإيرادات المفلترة"
+              value={<CurrencyDisplay amount={paymentStats.financialStats.totalRevenue || 0} currency={currency} />}
               icon={DollarSign}
               color="green"
-              description="الإيرادات المحققة"
+              trend={paymentStats.trend}
+              description={`من إجمالي ${formatCurrency(totalRevenue || 0, currency)}`}
             />
             <StatCard
-              title="عناصر المخزون"
-              value={inventoryReports?.totalItems || 0}
+              title="عناصر المخزون المفلترة"
+              value={inventoryStats.filteredData.length}
               icon={Package}
               color="orange"
-              description="إجمالي عناصر المخزون"
+              trend={inventoryStats.trend}
+              description={`من إجمالي ${inventoryReports?.totalItems || 0} عنصر`}
             />
           </div>
 
@@ -455,9 +536,9 @@ export default function Reports() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-primary" />
-                  ملخص سريع
+                  ملخص البيانات المفلترة
                 </CardTitle>
-                <CardDescription>أهم الإحصائيات لهذا الشهر</CardDescription>
+                <CardDescription>الإحصائيات المفلترة حسب الفترة الزمنية المحددة</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="border rounded-lg overflow-hidden" dir="rtl">
@@ -479,80 +560,92 @@ export default function Reports() {
                       <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
                           <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">المرضى الجدد</span>
+                            <span className="arabic-enhanced">إجمالي المرضى</span>
                             <Users className="h-4 w-4 text-blue-500" />
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-bold">
-                          {patientReports?.newPatients || 0}
+                          {patientReports?.totalPatients || 0}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge variant="secondary" className="arabic-enhanced">
-                            {(patientReports?.newPatients || 0) > 0 ? 'نشط' : 'منخفض'}
+                            {(patientReports?.totalPatients || 0) > 0 ? 'نشط' : 'منخفض'}
                           </Badge>
                         </TableCell>
                       </TableRow>
                       <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
                           <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">معدل الحضور</span>
+                            <span className="arabic-enhanced">المواعيد المفلترة</span>
                             <Calendar className="h-4 w-4 text-purple-500" />
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-bold">
-                          {appointmentReports?.attendanceRate?.toFixed(1) || 0}%
+                          {appointmentStats.filteredData.length}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge
-                            variant={(appointmentReports?.attendanceRate || 0) >= 80 ? "default" : "secondary"}
+                            variant={appointmentStats.filteredData.length > 0 ? "default" : "secondary"}
                             className="arabic-enhanced"
                           >
-                            {(appointmentReports?.attendanceRate || 0) >= 80 ? 'ممتاز' : 'يحتاج تحسين'}
+                            {appointmentStats.filteredData.length > 0 ? 'نشط' : 'لا توجد مواعيد'}
                           </Badge>
                         </TableCell>
                       </TableRow>
                       <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
                           <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">المدفوعات المعلقة</span>
+                            <span className="arabic-enhanced">الإيرادات المفلترة</span>
+                            <DollarSign className="h-4 w-4 text-green-500" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold table-cell-wrap-truncate-sm">
+                          <CurrencyDisplay amount={paymentStats.financialStats.totalRevenue || 0} currency={currency} />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={(paymentStats.financialStats.totalRevenue || 0) > 0 ? "default" : "secondary"}
+                            className="arabic-enhanced"
+                          >
+                            {(paymentStats.financialStats.totalRevenue || 0) > 0 ? 'إيرادات متاحة' : 'لا توجد إيرادات'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow className="hover:bg-muted/50">
+                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
+                          <div className="flex items-center gap-2 justify-end">
+                            <span className="arabic-enhanced">المدفوعات المعلقة المفلترة</span>
                             <DollarSign className="h-4 w-4 text-red-500" />
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-bold table-cell-wrap-truncate-sm">
-                          <CurrencyDisplay amount={pendingAmount || 0} currency={currency} />
+                          <CurrencyDisplay amount={paymentStats.financialStats.pendingAmount || 0} currency={currency} />
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge
-                            variant={(pendingAmount || 0) > 0 ? "destructive" : "default"}
+                            variant={(paymentStats.financialStats.pendingAmount || 0) > 0 ? "destructive" : "default"}
                             className="arabic-enhanced"
                           >
-                            {(pendingAmount || 0) > 0 ? 'يتطلب متابعة' : 'مكتمل'}
+                            {(paymentStats.financialStats.pendingAmount || 0) > 0 ? 'يتطلب متابعة' : 'مكتمل'}
                           </Badge>
                         </TableCell>
                       </TableRow>
                       <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
                           <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">تنبيهات المخزون</span>
-                            <AlertTriangle className="h-4 w-4 text-orange-500" />
+                            <span className="arabic-enhanced">عناصر المخزون المفلترة</span>
+                            <Package className="h-4 w-4 text-orange-500" />
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-bold">
-                          {(inventoryReports?.lowStockItems || 0) + (inventoryReports?.expiredItems || 0) + (inventoryReports?.expiringSoonItems || 0)}
+                          {inventoryStats.filteredData.length}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge
-                            variant={
-                              ((inventoryReports?.lowStockItems || 0) + (inventoryReports?.expiredItems || 0) + (inventoryReports?.expiringSoonItems || 0)) > 0
-                                ? "destructive"
-                                : "default"
-                            }
+                            variant={inventoryStats.filteredData.length > 0 ? "default" : "secondary"}
                             className="arabic-enhanced"
                           >
-                            {((inventoryReports?.lowStockItems || 0) + (inventoryReports?.expiredItems || 0) + (inventoryReports?.expiringSoonItems || 0)) > 0
-                              ? 'يحتاج انتباه'
-                              : 'طبيعي'
-                            }
+                            {inventoryStats.filteredData.length > 0 ? 'متوفر' : 'لا توجد عناصر'}
                           </Badge>
                         </TableCell>
                       </TableRow>
