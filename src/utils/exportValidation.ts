@@ -46,9 +46,17 @@ export class ExportValidation {
       .filter(p => p.status === 'pending')
       .reduce((sum, payment) => sum + validateAmount(payment.amount), 0)
 
-    // المدفوعات المتأخرة
+    // المدفوعات المتأخرة (المدفوعات المعلقة التي تجاوز تاريخ دفعها 30 يوماً)
     const overdueAmount = payments
-      .filter(p => p.status === 'overdue')
+      .filter(p => {
+        if (p.status !== 'pending') return false
+
+        const paymentDate = new Date(p.payment_date)
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+        return paymentDate < thirtyDaysAgo
+      })
       .reduce((sum, payment) => sum + validateAmount(payment.amount), 0)
 
     // التحقق من صحة المجموع

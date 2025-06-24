@@ -165,7 +165,16 @@ export function useTimeFilteredStats<T extends FilterableData>({
       }, 0)
 
     const overdueAmount = filteredData
-      .filter((item: any) => item.status === 'overdue')
+      .filter((item: any) => {
+        // المدفوعات المتأخرة هي المدفوعات المعلقة التي تجاوز تاريخ دفعها 30 يوماً
+        if (item.status !== 'pending') return false
+
+        const paymentDate = new Date(item.payment_date || item.date || item.created_at)
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+        return paymentDate < thirtyDaysAgo
+      })
       .reduce((sum, item) => {
         const amount = (item as any).amount ||
                      (item as any).total_amount ||
