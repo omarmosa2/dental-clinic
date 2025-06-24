@@ -67,7 +67,8 @@ export default function FinancialReports() {
   // Time filtering for payments
   const paymentStats = useTimeFilteredStats({
     data: payments,
-    dateField: 'payment_date'
+    dateField: 'payment_date',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
   })
 
   // Use real-time reports hook for automatic updates
@@ -518,7 +519,7 @@ export default function FinancialReports() {
         value={paymentStats.timeFilter}
         onChange={paymentStats.handleFilterChange}
         onClear={paymentStats.resetFilter}
-        title="فلترة المدفوعات حسب التاريخ"
+        title="فلترة زمنية - المدفوعات"
         defaultOpen={false}
       />
 

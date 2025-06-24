@@ -24,13 +24,10 @@ export function useTimeFilteredStats<T extends FilterableData>({
 }: UseTimeFilteredStatsOptions<T>) {
   // Initialize default filter
   const getDefaultFilter = (): TimeFilterOptions => {
-    const today = new Date()
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-
     return {
-      preset: 'month',
-      startDate: monthStart.toISOString().split('T')[0],
-      endDate: today.toISOString().split('T')[0]
+      preset: 'all',
+      startDate: '',
+      endDate: ''
     }
   }
 
@@ -45,7 +42,9 @@ export function useTimeFilteredStats<T extends FilterableData>({
       return []
     }
 
-    if (!timeFilter.startDate || !timeFilter.endDate) {
+    // If no filter dates are set, return all data (show total)
+    if (!timeFilter.startDate || !timeFilter.endDate ||
+        timeFilter.startDate === '' || timeFilter.endDate === '') {
       return data
     }
 
@@ -141,7 +140,7 @@ export function useTimeFilteredStats<T extends FilterableData>({
     }
 
     const totalRevenue = filteredData
-      .filter((item: any) => item.status === 'completed')
+      .filter((item: any) => item.status === 'completed' || item.status === 'partial')
       .reduce((sum, item) => {
         const amount = (item as any).amount ||
                      (item as any).total_amount ||

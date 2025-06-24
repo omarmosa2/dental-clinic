@@ -64,7 +64,8 @@ export default function PatientReports() {
   // Time filtering for patients
   const patientStats = useTimeFilteredStats({
     data: patients,
-    dateField: 'created_at'
+    dateField: 'created_at',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
   })
 
   useEffect(() => {
@@ -314,7 +315,7 @@ export default function PatientReports() {
         value={patientStats.timeFilter}
         onChange={patientStats.handleFilterChange}
         onClear={patientStats.resetFilter}
-        title="فلترة المرضى حسب التاريخ"
+        title="فلترة زمنية - المرضى"
         defaultOpen={false}
       />
 

@@ -8,8 +8,6 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
-import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
-import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import { notify } from '@/services/notificationService'
 import {
   Package,
@@ -89,12 +87,6 @@ export default function Inventory() {
   } = useInventoryStore()
 
   const { appointments, loadAppointments } = useAppointmentStore()
-
-  // Time filtering for inventory items
-  const inventoryStats = useTimeFilteredStats({
-    data: items,
-    dateField: 'created_at'
-  })
 
   useEffect(() => {
     loadItems()
@@ -310,23 +302,13 @@ export default function Inventory() {
         </TabsList>
 
         <TabsContent value="inventory" className="space-y-6">
-          {/* Time Filter Section */}
-          <TimeFilter
-            value={inventoryStats.timeFilter}
-            onChange={inventoryStats.handleFilterChange}
-            onClear={inventoryStats.resetFilter}
-            title="فلترة المخزون حسب تاريخ الإضافة"
-            defaultOpen={false}
-          />
-
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard
               title="إجمالي العناصر"
-              value={inventoryStats.filteredData.length}
+              value={items.length}
               icon={<Package />}
               color="blue"
-              trend={inventoryStats.trend ? (inventoryStats.trend.isPositive ? inventoryStats.trend.changePercent : -inventoryStats.trend.changePercent) : undefined}
             />
             <StatCard
               title="قيمة المخزون"

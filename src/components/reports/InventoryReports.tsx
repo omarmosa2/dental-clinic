@@ -67,7 +67,8 @@ export default function InventoryReports() {
   // Time filtering for inventory
   const inventoryStats = useTimeFilteredStats({
     data: items,
-    dateField: 'created_at'
+    dateField: 'created_at',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
   })
 
   // Use real-time reports hook for automatic updates
@@ -323,7 +324,7 @@ export default function InventoryReports() {
         value={inventoryStats.timeFilter}
         onChange={inventoryStats.handleFilterChange}
         onClear={inventoryStats.resetFilter}
-        title="فلترة المخزون حسب التاريخ"
+        title="فلترة زمنية - المخزون"
         defaultOpen={false}
       />
 

@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Calendar, Filter, X, ChevronDown, CalendarDays } from 'lucide-react'
 
 export interface TimeFilterOptions {
-  preset: 'today' | 'week' | 'month' | 'year' | 'custom'
+  preset: 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'
   startDate?: string
   endDate?: string
 }
@@ -38,6 +38,10 @@ export function TimeFilter({
     let endDate = today.toISOString().split('T')[0]
 
     switch (preset) {
+      case 'all':
+        startDate = ''
+        endDate = ''
+        break
       case 'today':
         startDate = today.toISOString().split('T')[0]
         break
@@ -77,13 +81,10 @@ export function TimeFilter({
   }
 
   const handleClear = () => {
-    const today = new Date()
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-
     const defaultFilter: TimeFilterOptions = {
-      preset: 'month',
-      startDate: monthStart.toISOString().split('T')[0],
-      endDate: today.toISOString().split('T')[0]
+      preset: 'all',
+      startDate: '',
+      endDate: ''
     }
 
     onChange(defaultFilter)
@@ -92,6 +93,8 @@ export function TimeFilter({
 
   const getPresetLabel = (preset: TimeFilterOptions['preset']) => {
     switch (preset) {
+      case 'all':
+        return 'جميع البيانات'
       case 'today':
         return 'اليوم'
       case 'week':
@@ -103,7 +106,7 @@ export function TimeFilter({
       case 'custom':
         return 'فترة مخصصة'
       default:
-        return 'هذا الشهر'
+        return 'جميع البيانات'
     }
   }
 
@@ -118,7 +121,7 @@ export function TimeFilter({
           >
             <div className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4" />
-              <span>فلترة زمنية</span>
+              <span>{title}</span>
             </div>
             <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
           </Button>
@@ -130,13 +133,14 @@ export function TimeFilter({
               {/* Preset Selection */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-right block text-muted-foreground">
-                  الفترة الزمنية
+                  اختر الفترة الزمنية للفلترة
                 </label>
                 <Select value={value.preset} onValueChange={handlePresetChange}>
                   <SelectTrigger className="text-right h-8 text-sm" dir="rtl">
                     <SelectValue placeholder="اختر الفترة الزمنية" />
                   </SelectTrigger>
                   <SelectContent dir="rtl">
+                    <SelectItem value="all">جميع البيانات</SelectItem>
                     <SelectItem value="today">اليوم</SelectItem>
                     <SelectItem value="week">هذا الأسبوع</SelectItem>
                     <SelectItem value="month">هذا الشهر</SelectItem>
@@ -151,7 +155,7 @@ export function TimeFilter({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-right block text-muted-foreground">
-                      من تاريخ
+                      من تاريخ (بداية الفترة)
                     </label>
                     <Input
                       type="date"
@@ -163,7 +167,7 @@ export function TimeFilter({
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-right block text-muted-foreground">
-                      إلى تاريخ
+                      إلى تاريخ (نهاية الفترة)
                     </label>
                     <Input
                       type="date"

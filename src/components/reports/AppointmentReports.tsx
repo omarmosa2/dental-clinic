@@ -54,7 +54,8 @@ export default function AppointmentReports() {
   // Time filtering for appointments
   const appointmentStats = useTimeFilteredStats({
     data: appointments,
-    dateField: 'appointment_date'
+    dateField: 'start_time',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
   })
 
   // Use real-time reports hook for automatic updates
@@ -351,7 +352,7 @@ export default function AppointmentReports() {
         value={appointmentStats.timeFilter}
         onChange={appointmentStats.handleFilterChange}
         onClear={appointmentStats.resetFilter}
-        title="فلترة المواعيد حسب التاريخ"
+        title="فلترة زمنية - المواعيد"
         defaultOpen={false}
       />
 
@@ -363,7 +364,7 @@ export default function AppointmentReports() {
             <Calendar className={`h-4 w-4 ${getIconStyles("purple")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground text-right">{stats.total}</div>
+            <div className="text-2xl font-bold text-foreground text-right">{appointments.length}</div>
             <p className="text-xs text-muted-foreground text-right">
               إجمالي المواعيد المسجلة
             </p>
@@ -372,13 +373,21 @@ export default function AppointmentReports() {
 
         <Card className={getCardStyles("blue")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المواعيد المفلترة</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">
+              {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate) ? 'المواعيد الحالية' : 'المواعيد المفلترة'}
+            </CardTitle>
             <Users className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground text-right">{appointmentStats.filteredData.length}</div>
+            <div className="text-2xl font-bold text-foreground text-right">
+              {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate)
+                ? appointments.length
+                : appointmentStats.filteredData.length}
+            </div>
             <p className="text-xs text-muted-foreground text-right">
-              المواعيد في الفترة المحددة
+              {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate)
+                ? 'جميع المواعيد'
+                : 'المواعيد في الفترة المحددة'}
             </p>
             {appointmentStats.trend && (
               <div className={`text-xs flex items-center justify-end mt-1 ${

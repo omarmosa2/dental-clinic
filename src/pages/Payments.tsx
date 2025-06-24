@@ -76,7 +76,8 @@ export default function Payments() {
   // Time filtering for payments
   const paymentStats = useTimeFilteredStats({
     data: payments,
-    dateField: 'payment_date'
+    dateField: 'payment_date',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
   })
 
   useEffect(() => {
@@ -232,7 +233,7 @@ export default function Payments() {
         value={paymentStats.timeFilter}
         onChange={paymentStats.handleFilterChange}
         onClear={paymentStats.resetFilter}
-        title="فلترة المدفوعات حسب التاريخ"
+        title="فلترة زمنية - المدفوعات"
         defaultOpen={false}
       />
 
@@ -240,15 +241,21 @@ export default function Payments() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className={getCardStyles("green")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي الإيرادات</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'إجمالي الإيرادات' : 'الإيرادات المفلترة'}
+            </CardTitle>
             <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {formatCurrency(totalRevenue)}
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? formatCurrency(totalRevenue)
+                : formatCurrency(paymentStats.financialStats.totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
-              من المدفوعات المكتملة
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? 'من المدفوعات المكتملة'
+                : 'من المدفوعات المكتملة في الفترة المحددة'}
             </p>
             {paymentStats.trend && (
               <div className={`text-xs flex items-center mt-1 ${
@@ -263,13 +270,21 @@ export default function Payments() {
 
         <Card className={getCardStyles("yellow")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المبالغ المعلقة</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'المبالغ المعلقة' : 'المبالغ المعلقة المفلترة'}
+            </CardTitle>
             <Clock className={`h-4 w-4 ${getIconStyles("yellow")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{formatCurrency(pendingAmount)}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? formatCurrency(pendingAmount)
+                : formatCurrency(paymentStats.financialStats.pendingAmount)}
+            </div>
             <p className="text-xs text-muted-foreground">
-              في انتظار الدفع
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? 'في انتظار الدفع'
+                : 'في انتظار الدفع في الفترة المحددة'}
             </p>
           </CardContent>
         </Card>
@@ -289,13 +304,21 @@ export default function Payments() {
 
         <Card className={getCardStyles("blue")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي المدفوعات</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'إجمالي المدفوعات' : 'المدفوعات المفلترة'}
+            </CardTitle>
             <TrendingUp className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{paymentStats.filteredData.length}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? payments.length
+                : paymentStats.filteredData.length}
+            </div>
             <p className="text-xs text-muted-foreground">
-              عملية دفع في الفترة المحددة
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? 'عملية دفع إجمالية'
+                : 'عملية دفع في الفترة المحددة'}
             </p>
             {paymentStats.trend && (
               <div className={`text-xs flex items-center mt-1 ${

@@ -70,17 +70,20 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
   // Time filtering for patients, appointments, and payments
   const patientStats = useTimeFilteredStats({
     data: patients,
-    dateField: 'created_at'
+    dateField: 'created_at',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
   })
 
   const appointmentStats = useTimeFilteredStats({
     data: appointments,
-    dateField: 'appointment_date'
+    dateField: 'start_time',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
   })
 
   const paymentStats = useTimeFilteredStats({
     data: payments,
-    dateField: 'payment_date'
+    dateField: 'payment_date',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
   })
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -261,20 +264,12 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
       </div>
 
       {/* Time Filter Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <TimeFilter
-          value={patientStats.timeFilter}
-          onChange={patientStats.handleFilterChange}
-          onClear={patientStats.resetFilter}
-          title="فلترة المرضى"
-          className="lg:col-span-1"
-          defaultOpen={false}
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <TimeFilter
           value={appointmentStats.timeFilter}
           onChange={appointmentStats.handleFilterChange}
           onClear={appointmentStats.resetFilter}
-          title="فلترة المواعيد"
+          title="فلترة زمنية - المواعيد"
           className="lg:col-span-1"
           defaultOpen={false}
         />
@@ -282,7 +277,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           value={paymentStats.timeFilter}
           onChange={paymentStats.handleFilterChange}
           onClear={paymentStats.resetFilter}
-          title="فلترة المدفوعات"
+          title="فلترة زمنية - المدفوعات"
           className="lg:col-span-1"
           defaultOpen={false}
         />
@@ -292,11 +287,15 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className={getCardStyles("blue")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي المرضى</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              إجمالي المرضى
+            </CardTitle>
             <Users className={`h-4 w-4 ${getIconStyles("blue")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{patients.length}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {patients.length}
+            </div>
             <p className="text-xs text-muted-foreground">
               إجمالي المرضى المسجلين
             </p>
@@ -305,44 +304,76 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
 
         <Card className={getCardStyles("purple")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي المواعيد</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate) ? 'إجمالي المواعيد' : 'المواعيد المفلترة'}
+            </CardTitle>
             <Calendar className={`h-4 w-4 ${getIconStyles("purple")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{appointments.length}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate)
+                ? appointments.length
+                : appointmentStats.filteredData.length}
+            </div>
             <p className="text-xs text-muted-foreground">
-              إجمالي المواعيد المسجلة
+              {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate)
+                ? 'إجمالي المواعيد المسجلة'
+                : `من إجمالي ${appointments.length} موعد`}
             </p>
+            {appointmentStats.trend && (
+              <div className={`text-xs mt-1 flex items-center ${appointmentStats.trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                <span>{appointmentStats.trend.isPositive ? '↗' : '↘'}</span>
+                <span className="mr-1">{Math.abs(appointmentStats.trend.changePercent)}%</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card className={getCardStyles("emerald")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المواعيد المكتملة</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate) ? 'المواعيد المكتملة' : 'المواعيد المكتملة المفلترة'}
+            </CardTitle>
             <TrendingUp className={`h-4 w-4 ${getIconStyles("emerald")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {appointments.filter(a => a.status === 'completed').length}
+              {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate)
+                ? appointments.filter(a => a.status === 'completed').length
+                : appointmentStats.filteredData.filter(a => a.status === 'completed').length}
             </div>
             <p className="text-xs text-muted-foreground">
-              إجمالي المواعيد المكتملة
+              {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate)
+                ? 'إجمالي المواعيد المكتملة'
+                : 'المواعيد المكتملة في الفترة المحددة'}
             </p>
           </CardContent>
         </Card>
 
         <Card className={getCardStyles("green")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">إيرادات الشهر</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'إيرادات الشهر' : 'الإيرادات المفلترة'}
+            </CardTitle>
             <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {formatCurrency(stats.thisMonthRevenue, currency)}
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? formatCurrency(stats.thisMonthRevenue, currency)
+                : formatCurrency(paymentStats.financialStats.totalRevenue, currency)}
             </div>
             <p className="text-xs text-muted-foreground">
-              أرباح هذا الشهر
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? 'أرباح هذا الشهر'
+                : 'الإيرادات في الفترة المحددة'}
             </p>
+            {paymentStats.trend && (
+              <div className={`text-xs mt-1 flex items-center ${paymentStats.trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                <span>{paymentStats.trend.isPositive ? '↗' : '↘'}</span>
+                <span className="mr-1">{Math.abs(paymentStats.trend.changePercent)}%</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -351,30 +382,42 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className={getCardStyles("green")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي الإيرادات</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'إجمالي الإيرادات' : 'إجمالي الإيرادات المفلترة'}
+            </CardTitle>
             <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {formatCurrency(stats.totalRevenue, currency)}
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? formatCurrency(stats.totalRevenue, currency)
+                : formatCurrency(paymentStats.financialStats.totalRevenue, currency)}
             </div>
             <p className="text-xs text-muted-foreground">
-              إجمالي الإيرادات المحققة
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? 'إجمالي الإيرادات المحققة'
+                : 'إجمالي الإيرادات في الفترة المحددة'}
             </p>
           </CardContent>
         </Card>
 
         <Card className={getCardStyles("yellow")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المدفوعات المعلقة</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'المدفوعات المعلقة' : 'المدفوعات المعلقة المفلترة'}
+            </CardTitle>
             <Clock className={`h-4 w-4 ${getIconStyles("yellow")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {formatCurrency(stats.pendingPayments, currency)}
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? formatCurrency(stats.pendingPayments, currency)
+                : formatCurrency(paymentStats.financialStats.pendingAmount, currency)}
             </div>
             <p className="text-xs text-muted-foreground">
-              مدفوعات في انتظار التحصيل
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                ? 'مدفوعات في انتظار التحصيل'
+                : 'مدفوعات معلقة في الفترة المحددة'}
             </p>
           </CardContent>
         </Card>

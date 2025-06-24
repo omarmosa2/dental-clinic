@@ -68,7 +68,8 @@ export default function Medications() {
   // Time filtering for prescriptions
   const prescriptionStats = useTimeFilteredStats({
     data: prescriptions,
-    dateField: 'prescription_date'
+    dateField: 'prescription_date',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
   })
 
   // UI State
@@ -217,7 +218,7 @@ export default function Medications() {
         value={prescriptionStats.timeFilter}
         onChange={prescriptionStats.handleFilterChange}
         onClear={prescriptionStats.resetFilter}
-        title="فلترة الوصفات الطبية حسب التاريخ"
+        title="فلترة زمنية - الوصفات الطبية"
         defaultOpen={false}
       />
 
@@ -238,13 +239,21 @@ export default function Medications() {
 
         <Card className={getCardStyles('green')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-right">إجمالي الوصفات</CardTitle>
+            <CardTitle className="text-sm font-medium text-right">
+              {prescriptionStats.timeFilter.preset === 'all' || (!prescriptionStats.timeFilter.startDate && !prescriptionStats.timeFilter.endDate) ? 'إجمالي الوصفات' : 'الوصفات المفلترة'}
+            </CardTitle>
             <FileText className={getIconStyles('green')} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-right">{prescriptionStats.filteredData.length}</div>
+            <div className="text-2xl font-bold text-right">
+              {prescriptionStats.timeFilter.preset === 'all' || (!prescriptionStats.timeFilter.startDate && !prescriptionStats.timeFilter.endDate)
+                ? prescriptions.length
+                : prescriptionStats.filteredData.length}
+            </div>
             <p className="text-xs text-muted-foreground text-right">
-              وصفات في الفترة المحددة
+              {prescriptionStats.timeFilter.preset === 'all' || (!prescriptionStats.timeFilter.startDate && !prescriptionStats.timeFilter.endDate)
+                ? 'وصفات إجمالية'
+                : 'وصفات في الفترة المحددة'}
             </p>
             {prescriptionStats.trend && (
               <div className={`text-xs flex items-center mt-1 ${
