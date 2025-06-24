@@ -2,9 +2,9 @@
 ; Icons and Images Configuration for Installer
 
 ; مسارات الأيقونات
-!define ICON_MAIN "assets\icon.ico"
-!define ICON_UNINSTALL "assets\icon.ico"
-!define ICON_INSTALLER "assets\icon.ico"
+!define ICON_MAIN "icon.ico"
+!define ICON_UNINSTALL "icon.ico"
+!define ICON_INSTALLER "icon.ico"
 
 ; صور المثبت
 !define IMAGE_HEADER "assets\header.bmp"
@@ -12,6 +12,14 @@
 !define IMAGE_BANNER "assets\banner.bmp"
 
 ; إعدادات الأيقونات
+; إذا لم تتوفر أيقونة صالحة، استخدم أيقونة افتراضية من NSIS
+!undef ICON_MAIN
+!undef ICON_UNINSTALL
+!undef ICON_INSTALLER
+!define ICON_MAIN "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
+!define ICON_UNINSTALL "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
+!define ICON_INSTALLER "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
+
 Icon "${ICON_INSTALLER}"
 UninstallIcon "${ICON_UNINSTALL}"
 

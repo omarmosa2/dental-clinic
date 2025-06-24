@@ -13,7 +13,6 @@ interface PaymentState {
   paymentMethodFilter: string
   totalRevenue: number
   pendingAmount: number
-  overdueAmount: number
   totalRemainingBalance: number
   partialPaymentsCount: number
   monthlyRevenue: { [key: string]: number }
@@ -39,7 +38,6 @@ interface PaymentActions {
   // Analytics
   calculateTotalRevenue: () => void
   calculatePendingAmount: () => void
-  calculateOverdueAmount: () => void
   calculateTotalRemainingBalance: () => void
   calculatePartialPaymentsCount: () => void
   calculateMonthlyRevenue: () => void
@@ -77,7 +75,6 @@ export const usePaymentStore = create<PaymentStore>()(
           // Recalculate all analytics immediately
           get().calculateTotalRevenue()
           get().calculatePendingAmount()
-          get().calculateOverdueAmount()
           get().calculateTotalRemainingBalance()
           get().calculatePartialPaymentsCount()
           get().calculateMonthlyRevenue()
@@ -100,7 +97,6 @@ export const usePaymentStore = create<PaymentStore>()(
         paymentMethodFilter: 'all',
         totalRevenue: 0,
         pendingAmount: 0,
-        overdueAmount: 0,
         totalRemainingBalance: 0,
         partialPaymentsCount: 0,
         monthlyRevenue: {},
@@ -120,7 +116,6 @@ export const usePaymentStore = create<PaymentStore>()(
           // Calculate analytics and filter
           get().calculateTotalRevenue()
           get().calculatePendingAmount()
-          get().calculateOverdueAmount()
           get().calculateTotalRemainingBalance()
           get().calculatePartialPaymentsCount()
           get().calculateMonthlyRevenue()
@@ -149,7 +144,6 @@ export const usePaymentStore = create<PaymentStore>()(
           // Recalculate analytics and filter
           get().calculateTotalRevenue()
           get().calculatePendingAmount()
-          get().calculateOverdueAmount()
           get().calculateTotalRemainingBalance()
           get().calculatePartialPaymentsCount()
           get().calculateMonthlyRevenue()
@@ -200,7 +194,6 @@ export const usePaymentStore = create<PaymentStore>()(
           // Recalculate analytics and filter
           get().calculateTotalRevenue()
           get().calculatePendingAmount()
-          get().calculateOverdueAmount()
           get().calculateTotalRemainingBalance()
           get().calculatePartialPaymentsCount()
           get().calculateMonthlyRevenue()
@@ -249,7 +242,6 @@ export const usePaymentStore = create<PaymentStore>()(
           // Recalculate analytics and filter
           get().calculateTotalRevenue()
           get().calculatePendingAmount()
-          get().calculateOverdueAmount()
           get().calculateTotalRemainingBalance()
           get().calculatePartialPaymentsCount()
           get().calculateMonthlyRevenue()
@@ -381,23 +373,7 @@ export const usePaymentStore = create<PaymentStore>()(
         set({ pendingAmount: validPending })
       },
 
-      calculateOverdueAmount: () => {
-        const { payments } = get()
-        const overdue = payments
-          .filter(p => p.status === 'overdue')
-          .reduce((sum, payment) => {
-            // Ensure amount is a valid number with proper validation
-            const amount = Number(payment.amount)
-            if (isNaN(amount) || !isFinite(amount)) {
-              console.warn('Invalid overdue payment amount:', payment.amount, 'for payment:', payment.id)
-              return sum
-            }
-            return sum + amount
-          }, 0)
 
-        const validOverdue = isNaN(overdue) || !isFinite(overdue) ? 0 : Math.round(overdue * 100) / 100
-        set({ overdueAmount: validOverdue })
-      },
 
       calculateTotalRemainingBalance: () => {
         const { payments } = get()

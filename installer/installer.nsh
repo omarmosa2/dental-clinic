@@ -4,6 +4,9 @@
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "WinMessages.nsh"
+!include "icons-config.nsh"
+!include "modern-ui.nsh"
+!include "theme-config.nsh"
 
 ; تعريف المتغيرات
 !define PRODUCT_NAME "نظام إدارة العيادة السنية"
@@ -36,6 +39,11 @@ ShowUnInstDetails show
 !define MUI_LICENSEPAGE_TEXT_BOTTOM "إذا كنت توافق على جميع شروط الاتفاقية، انقر أوافق للمتابعة. يجب أن توافق على الاتفاقية لتثبيت ${PRODUCT_NAME}."
 !define MUI_LICENSEPAGE_BUTTON "&أوافق"
 
+; صفحة اختيار المكونات
+!define MUI_COMPONENTSPAGE_TITLE "اختر مكونات التثبيت لـ ${PRODUCT_NAME}"
+!define MUI_COMPONENTSPAGE_TEXT "يرجى اختيار المكونات التي ترغب في تثبيتها. يمكنك اختيار تثبيت جميع المكونات أو تحديد مكونات معينة.$\r$\n$\r$\nانقر التالي للمتابعة."
+!define MUI_COMPONENTSPAGE_GROUP "مكونات ${PRODUCT_NAME}"
+
 ; صفحة اختيار المجلد
 !define MUI_DIRECTORYPAGE_TEXT_TOP "سيقوم المعالج بتثبيت ${PRODUCT_NAME} في المجلد التالي.$\r$\n$\r$\nللتثبيت في مجلد مختلف، انقر استعراض واختر مجلداً آخر. انقر التالي للمتابعة."
 !define MUI_DIRECTORYPAGE_TEXT_DESTINATION "مجلد الوجهة"
@@ -57,6 +65,7 @@ ShowUnInstDetails show
 ; صفحات المثبت
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "license-ar.txt"
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -83,31 +92,36 @@ VIAddVersionKey /LANG=${LANG_ARABIC} "FileDescription" "${PRODUCT_NAME}"
 VIAddVersionKey /LANG=${LANG_ARABIC} "FileVersion" "${PRODUCT_VERSION}"
 
 ; دالة التثبيت الرئيسية
-Section "MainSection" SEC01
+Section "البرنامج الأساسي" SEC_MAIN
   SetOutPath "$INSTDIR"
   SetOverwrite ifnewer
-  
-  ; نسخ الملفات
   File /r "${BUILD_RESOURCES_DIR}\*.*"
-  
-  ; إنشاء اختصارات
-  CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
-  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\dental-clinic.exe"
-  CreateShortCut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\dental-clinic.exe"
-  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\إلغاء تثبيت ${PRODUCT_NAME}.lnk" "$INSTDIR\uninst.exe"
-  
-  ; تسجيل في النظام
-  WriteRegStr HKLM "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\dental-clinic.exe"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayName" "$(^Name)"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninst.exe"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\dental-clinic.exe"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
+SectionEnd
+
+Section "ملفات المساعدة" SEC_HELP
+  SetOutPath "$INSTDIR"
+  File "README-ar.txt"
+  File "user-guide-ar.md"
+SectionEnd
+
+Section "اختصارات سطح المكتب" SEC_DESKTOP
+  Call CreateIcons
+SectionEnd
+
+; تسجيل أنواع الملفات
+Section -RegisterFileTypes
+  Call RegisterFileTypes
+SectionEnd
+
+; إنشاء ملف معلومات التطبيق
+Section -AppInfo
+  Call CreateAppInfo
 SectionEnd
 
 ; دالة إلغاء التثبيت
 Section Uninstall
+  Call un.RemoveIcons
+  Call un.UnregisterFileTypes
   ; حذف الاختصارات
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk"
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\إلغاء تثبيت ${PRODUCT_NAME}.lnk"
@@ -129,6 +143,8 @@ SectionEnd
 Function .onInit
   ; تحديد اللغة الافتراضية
   !insertmacro MUI_LANGDLL_DISPLAY
+  Call ApplyArabicTheme
+  Call ApplyModernTheme
 FunctionEnd
 
 Function un.onInit

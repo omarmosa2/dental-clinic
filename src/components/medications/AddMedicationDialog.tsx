@@ -81,7 +81,7 @@ export default function AddMedicationDialog({
         instructions: formData.instructions.trim() || undefined
       }
 
-      if (editingMedication) {
+      if (editingMedication && editingMedication.id) {
         await updateMedication(editingMedication.id, medicationData)
         notify.success('تم تحديث الدواء بنجاح')
       } else {
@@ -98,7 +98,7 @@ export default function AddMedicationDialog({
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-    
+
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }))
@@ -120,7 +120,7 @@ export default function AddMedicationDialog({
             {editingMedication ? 'تعديل الدواء' : 'إضافة دواء جديد'}
           </DialogTitle>
           <DialogDescription className="text-right">
-            {editingMedication 
+            {editingMedication
               ? 'قم بتعديل معلومات الدواء أدناه'
               : 'أدخل معلومات الدواء الجديد أدناه'
             }

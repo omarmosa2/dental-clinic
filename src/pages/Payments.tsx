@@ -60,7 +60,6 @@ export default function Payments() {
     paymentMethodFilter,
     totalRevenue,
     pendingAmount,
-    overdueAmount,
     totalRemainingBalance,
     partialPaymentsCount,
     paymentMethodStats,
@@ -238,7 +237,7 @@ export default function Payments() {
       />
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className={getCardStyles("green")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">إجمالي الإيرادات</CardTitle>
@@ -246,10 +245,10 @@ export default function Payments() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {formatCurrency(paymentStats.financialStats?.total || 0)}
+              {formatCurrency(totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
-              من المدفوعات في الفترة المحددة
+              من المدفوعات المكتملة
             </p>
             {paymentStats.trend && (
               <div className={`text-xs flex items-center mt-1 ${
@@ -271,19 +270,6 @@ export default function Payments() {
             <div className="text-2xl font-bold text-foreground">{formatCurrency(pendingAmount)}</div>
             <p className="text-xs text-muted-foreground">
               في انتظار الدفع
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={getCardStyles("red")}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المبالغ المتأخرة</CardTitle>
-            <AlertTriangle className={`h-4 w-4 ${getIconStyles("red")}`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">{formatCurrency(overdueAmount)}</div>
-            <p className="text-xs text-muted-foreground">
-              تحتاج متابعة
             </p>
           </CardContent>
         </Card>
