@@ -34,14 +34,14 @@ export class ComprehensiveExportService {
       .reduce((sum, payment) => sum + validateAmount(payment.amount), 0)
 
     // المدفوعات المتأخرة (المدفوعات المعلقة التي تجاوز تاريخ دفعها 30 يوماً)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
     const overdueAmount = payments
       .filter(p => {
         if (p.status !== 'pending') return false
 
-        const paymentDate = new Date(p.payment_date)
-        const thirtyDaysAgo = new Date()
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
+        const paymentDate = new Date(p.payment_date || p.created_at)
         return paymentDate < thirtyDaysAgo
       })
       .reduce((sum, payment) => sum + validateAmount(payment.amount), 0)
@@ -59,6 +59,17 @@ export class ComprehensiveExportService {
           ? validateAmount(payment.amount_paid)
           : validateAmount(payment.amount)
         return sum + amount
+      }, 0)
+
+    // حساب إجمالي المبالغ المتبقية من الدفعات الجزئية
+    const totalRemainingFromPartialPayments = payments
+      .filter(p => p.status === 'partial')
+      .reduce((sum, p) => {
+        // استخدم remaining_balance إذا كان متوفراً، وإلا احسب الفرق
+        const remaining = p.remaining_balance !== undefined
+          ? validateAmount(p.remaining_balance)
+          : (validateAmount(p.total_amount_due || p.amount) - validateAmount(p.amount_paid || p.amount))
+        return sum + Math.max(0, remaining)
       }, 0)
 
     // إحصائيات طرق الدفع
@@ -84,12 +95,14 @@ export class ComprehensiveExportService {
       partialAmount: Math.round(partialAmount * 100) / 100,
       pendingAmount: Math.round(pendingAmount * 100) / 100,
       overdueAmount: Math.round(overdueAmount * 100) / 100,
+      totalRemainingFromPartialPayments: Math.round(totalRemainingFromPartialPayments * 100) / 100,
+      outstandingBalance: Math.round((pendingAmount + overdueAmount + totalRemainingFromPartialPayments) * 100) / 100,
       paymentMethodStats,
       totalTransactions: payments.length,
       completedTransactions: payments.filter(p => p.status === 'completed').length,
       partialTransactions: payments.filter(p => p.status === 'partial').length,
       pendingTransactions: payments.filter(p => p.status === 'pending').length,
-      overdueTransactions: payments.filter(p => p.status === 'overdue').length
+      overdueTransactions: payments.filter(p => p.status === 'pending' && new Date(p.payment_date || p.created_at) < thirtyDaysAgo).length
     }
   }
 
@@ -202,6 +215,13 @@ export class ComprehensiveExportService {
     csv += `المدفوعات الجزئية,${formatCurrency(financialStats.partialAmount)}\n`
     csv += `المدفوعات المعلقة,${formatCurrency(financialStats.pendingAmount)}\n`
     csv += `المدفوعات المتأخرة,${formatCurrency(financialStats.overdueAmount)}\n`
+
+    // إضافة المبالغ المتبقية من الدفعات الجزئية
+    if (financialStats.totalRemainingFromPartialPayments > 0) {
+      csv += `المبالغ المتبقية من الدفعات الجزئية,${formatCurrency(financialStats.totalRemainingFromPartialPayments)}\n`
+    }
+
+    csv += `الرصيد المستحق الإجمالي,${formatCurrency(financialStats.outstandingBalance)}\n`
     csv += `إجمالي المعاملات,${financialStats.totalTransactions}\n\n`
 
     // توزيع طرق الدفع
@@ -251,15 +271,33 @@ export class ComprehensiveExportService {
         const paymentDate = formatDate(payment.payment_date)
         const patientName = payment.patient?.full_name || payment.patient?.name || 'غير محدد'
         const description = payment.description || 'غير محدد'
-        const amount = formatCurrency(payment.amount)
-        const amountPaid = payment.amount_paid ? formatCurrency(payment.amount_paid) : amount
-        const remainingBalance = payment.remaining_balance ? formatCurrency(payment.remaining_balance) : '0'
+
+        // حساب المبالغ بناءً على نوع الدفعة
+        let totalAmount, amountPaid, remainingBalance
+
+        if (payment.status === 'partial') {
+          // للدفعات الجزئية: استخدم المبالغ المحسوبة من النظام
+          totalAmount = formatCurrency(Number(payment.total_amount_due || payment.amount) || 0)
+          amountPaid = formatCurrency(Number(payment.amount_paid || payment.amount) || 0)
+          remainingBalance = formatCurrency(Number(payment.remaining_balance || 0))
+        } else if (payment.appointment_id && payment.appointment_total_cost) {
+          // للمدفوعات المرتبطة بمواعيد: استخدم بيانات الموعد
+          totalAmount = formatCurrency(Number(payment.appointment_total_cost) || 0)
+          amountPaid = formatCurrency(Number(payment.appointment_total_paid || payment.amount) || 0)
+          remainingBalance = formatCurrency(Number(payment.appointment_remaining_balance || 0))
+        } else {
+          // للمدفوعات العادية
+          totalAmount = formatCurrency(Number(payment.amount) || 0)
+          amountPaid = formatCurrency(Number(payment.amount) || 0)
+          remainingBalance = formatCurrency(0)
+        }
+
         const method = this.getPaymentMethodInArabic(payment.payment_method)
         const status = this.getPaymentStatusInArabic(payment.status)
         const receiptNumber = payment.receipt_number || ''
         const notes = payment.notes || ''
 
-        csv += `"${paymentDate}","${patientName}","${description}","${amount}","${amountPaid}","${remainingBalance}","${method}","${status}","${receiptNumber}","${notes}"\n`
+        csv += `"${paymentDate}","${patientName}","${description}","${totalAmount}","${amountPaid}","${remainingBalance}","${method}","${status}","${receiptNumber}","${notes}"\n`
       })
       csv += '\n'
     }
@@ -290,7 +328,7 @@ export class ComprehensiveExportService {
     // تفاصيل المرضى (عينة من أحدث المرضى)
     if (data.patients.length > 0) {
       csv += 'تفاصيل المرضى (أحدث 50 مريض)\n'
-      csv += 'الرقم التسلسلي,الاسم الكامل,رقم الهاتف,العمر,الجنس,الحالة الطبية,الحساسية,البريد الإلكتروني,العنوان,تاريخ التسجيل,آخر موعد,إجمالي المواعيد,إجمالي المدفوعات,ملاحظات\n'
+      csv += 'الرقم التسلسلي,الاسم الكامل,رقم الهاتف,العمر,الجنس,الحالة الطبية,الحساسية,البريد الإلكتروني,العنوان,تاريخ التسجيل,آخر موعد,إجمالي المواعيد,إجمالي المدفوعات,الرصيد المتبقي,ملاحظات\n'
 
       // ترتيب المرضى حسب تاريخ الإنشاء (الأحدث أولاً) وأخذ أول 50
       const recentPatients = [...data.patients]
@@ -319,14 +357,30 @@ export class ComprehensiveExportService {
           : 'لا يوجد'
 
         const totalAppointments = patientAppointments.length
-        const totalPayments = patientPayments.reduce((sum, payment) => {
-          const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-            ? Number(payment.amount_paid)
-            : Number(payment.amount)
-          return sum + amount
-        }, 0)
 
-        csv += `"${serialNumber}","${fullName}","${phone}","${age}","${gender}","${patientCondition}","${allergies}","${email}","${address}","${registrationDate}","${lastAppointment}","${totalAppointments}","${formatCurrency(totalPayments)}","${notes}"\n`
+        // حساب إجمالي المدفوعات والمبالغ المتبقية للمريض
+        let totalPayments = 0
+        let totalRemaining = 0
+
+        patientPayments.forEach(payment => {
+          if (payment.status === 'partial') {
+            // للدفعات الجزئية
+            const amountPaid = Number(payment.amount_paid || payment.amount)
+            const remaining = Number(payment.remaining_balance || 0) ||
+                            (Number(payment.total_amount_due || payment.amount) - amountPaid)
+            totalPayments += amountPaid
+            totalRemaining += Math.max(0, remaining)
+          } else if (payment.appointment_id && payment.appointment_remaining_balance) {
+            // للمدفوعات المرتبطة بمواعيد
+            totalPayments += Number(payment.appointment_total_paid || payment.amount)
+            totalRemaining += Number(payment.appointment_remaining_balance || 0)
+          } else {
+            // للمدفوعات العادية
+            totalPayments += Number(payment.amount)
+          }
+        })
+
+        csv += `"${serialNumber}","${fullName}","${phone}","${age}","${gender}","${patientCondition}","${allergies}","${email}","${address}","${registrationDate}","${lastAppointment}","${totalAppointments}","${formatCurrency(totalPayments)}","${formatCurrency(totalRemaining)}","${notes}"\n`
       })
       csv += '\n'
     }
