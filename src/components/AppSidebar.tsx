@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/sidebar"
 
 import { useSettingsStore } from "@/store/settingsStore"
+import { useStableClinicName, useStableDoctorName, useStableClinicLogo } from "@/hooks/useStableSettings"
 
 // Navigation items data
 const navigationItems = [
@@ -91,6 +92,9 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function AppSidebar({ activeTab, onTabChange, ...props }: AppSidebarProps) {
   const { settings } = useSettingsStore()
+  const clinicName = useStableClinicName()
+  const doctorName = useStableDoctorName()
+  const clinicLogo = useStableClinicLogo()
 
   return (
     <Sidebar collapsible="offcanvas" side="right" className="border-r border-border/40 shadow-lg" {...props}>
@@ -100,13 +104,13 @@ export function AppSidebar({ activeTab, onTabChange, ...props }: AppSidebarProps
             <SidebarMenuButton size="lg" asChild>
               <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/30 transition-colors duration-200">
                 <div className="flex aspect-square size-12 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-lg overflow-hidden">
-                  {settings?.clinic_logo && settings.clinic_logo.trim() !== '' ? (
+                  {clinicLogo && clinicLogo.trim() !== '' ? (
                     <img
-                      src={settings.clinic_logo}
+                      src={clinicLogo}
                       alt="شعار العيادة"
                       className="w-full h-full object-cover rounded-lg"
                       onError={(e) => {
-                        console.error('Sidebar header logo failed to load:', settings.clinic_logo)
+                        console.error('Sidebar header logo failed to load:', clinicLogo)
                         // Fallback to default icon
                         e.currentTarget.style.display = 'none'
                         const parent = e.currentTarget.parentElement
@@ -123,7 +127,7 @@ export function AppSidebar({ activeTab, onTabChange, ...props }: AppSidebarProps
                 </div>
                 <div className="grid flex-1 text-right leading-tight">
                   <span className="truncate font-bold text-xl text-foreground">
-                    {settings?.clinic_name || 'العيادة السنية'}
+                    {clinicName}
                   </span>
                   <span className="truncate text-sm text-muted-foreground font-medium">
                     نظام إدارة العيادة
@@ -164,13 +168,13 @@ export function AppSidebar({ activeTab, onTabChange, ...props }: AppSidebarProps
           <SidebarMenuItem>
             <div className="flex items-center gap-3 p-2 rounded-lg">
               <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-600 text-white overflow-hidden">
-                {settings?.clinic_logo && settings.clinic_logo.trim() !== '' ? (
+                {clinicLogo && clinicLogo.trim() !== '' ? (
                   <img
-                    src={settings.clinic_logo}
+                    src={clinicLogo}
                     alt="شعار العيادة"
                     className="w-full h-full object-cover rounded-full"
                     onError={(e) => {
-                      console.error('Sidebar footer logo failed to load:', settings.clinic_logo)
+                      console.error('Sidebar footer logo failed to load:', clinicLogo)
                       // Fallback to default icon
                       e.currentTarget.style.display = 'none'
                       const parent = e.currentTarget.parentElement
@@ -186,9 +190,9 @@ export function AppSidebar({ activeTab, onTabChange, ...props }: AppSidebarProps
                 )}
               </div>
               <div className="grid flex-1 text-right leading-tight">
-                <span className="truncate font-semibold text-sm">د. {settings?.doctor_name || 'طبيب الأسنان'}</span>
+                <span className="truncate font-semibold text-sm">د. {doctorName}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {settings?.clinic_name || 'العيادة السنية'}
+                  {clinicName}
                 </span>
               </div>
             </div>

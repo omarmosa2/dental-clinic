@@ -14,7 +14,7 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const { isDarkMode, toggleDarkMode: storeToggleDarkMode, initializeDarkMode } = useSettingsStore()
+  const { isDarkMode, toggleDarkMode: storeToggleDarkMode, initializeDarkMode, loadSettings, settings } = useSettingsStore()
 
   // Initialize theme immediately and on mount
   useEffect(() => {
@@ -38,7 +38,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     } else {
       document.documentElement.classList.remove('dark')
     }
-  }, [initializeDarkMode])
+
+    // Load settings only if not already loaded to prevent unnecessary reloads
+    // Use a flag to prevent multiple loads during theme changes
+    if (!settings) {
+      loadSettings()
+    }
+  }, [initializeDarkMode]) // Remove loadSettings and settings from dependencies to prevent reloads
 
   // Apply theme changes to document when state changes
   useEffect(() => {

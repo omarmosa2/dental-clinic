@@ -9,6 +9,7 @@ import { usePatientStore } from '@/store/patientStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
 import { usePaymentStore } from '@/store/paymentStore'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useStableClinicName } from '@/hooks/useStableSettings'
 import { useInventoryStore } from '@/store/inventoryStore'
 import { formatCurrency, formatDate, formatTime, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue, parseAndFormatGregorianMonth } from '@/lib/utils'
 import { validateNumericData, validateDateData, transformToChartData, groupDataByPeriod, processFinancialData } from '@/lib/chartDataHelpers'
@@ -52,6 +53,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
   const { appointments, getAppointmentsForDate, loadAppointments } = useAppointmentStore()
   const { payments, totalRevenue, pendingAmount, monthlyRevenue, loadPayments } = usePaymentStore()
   const { settings, currency } = useSettingsStore()
+  const clinicName = useStableClinicName()
   const {
     items: inventoryItems,
     lowStockCount,
@@ -239,7 +241,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
         <div>
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-3xl font-bold text-foreground">
-              مرحباً بك في {settings?.clinic_name || 'العيادة السنية'}
+              مرحباً بك في {clinicName}
             </h1>
             <RealTimeIndicator isActive={true} />
           </div>

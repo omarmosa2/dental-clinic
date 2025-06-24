@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useStableClinicName } from '@/hooks/useStableSettings'
 import {
   LayoutDashboard,
   Users,
@@ -39,6 +40,7 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const { settings, isDarkMode, toggleDarkMode } = useSettingsStore()
+  const clinicName = useStableClinicName()
 
   return (
     <div className="flex h-screen bg-background">
@@ -66,7 +68,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
-                  {settings?.clinic_name || 'Dental Clinic'}
+                  {clinicName}
                 </h1>
               </div>
             </div>
