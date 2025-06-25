@@ -532,7 +532,7 @@ export default function Appointments() {
         </div>
 
         {/* Bottom Cards - Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Appointment Details - Compact Card */}
           {selectedAppointment && (
             <Card>
@@ -685,6 +685,59 @@ export default function Appointments() {
                 }).length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-4 arabic-enhanced">
                     لا توجد مواعيد اليوم
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tomorrow's Appointments Summary - Compact */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg arabic-enhanced">جدول الغد</CardTitle>
+              <CardDescription className="text-sm arabic-enhanced">
+                {formatDate(new Date(Date.now() + 24 * 60 * 60 * 1000), 'long')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent dir="rtl">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {filteredAppointments
+                  .filter(apt => {
+                    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toDateString()
+                    const aptDate = new Date(apt.start_time).toDateString()
+                    return tomorrow === aptDate
+                  })
+                  .slice(0, 5)
+                  .map(appointment => (
+                    <div
+                      key={appointment.id}
+                      className="flex items-center justify-between p-2 rounded border cursor-pointer hover:bg-muted/50 gap-2"
+                      onClick={() => setSelectedAppointment(appointment)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium arabic-enhanced truncate" title={appointment.title}>
+                          {appointment.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatTime(appointment.start_time)}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`${getStatusColor(appointment.status)} whitespace-nowrap flex-shrink-0 text-xs`}
+                      >
+                        {getStatusInArabic(appointment.status)}
+                      </Badge>
+                    </div>
+                  ))}
+
+                {appointments.filter(apt => {
+                  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toDateString()
+                  const aptDate = new Date(apt.start_time).toDateString()
+                  return tomorrow === aptDate
+                }).length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4 arabic-enhanced">
+                    لا توجد مواعيد غداً
                   </p>
                 )}
               </div>
