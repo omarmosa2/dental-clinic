@@ -124,7 +124,7 @@ class NotificationService {
       description,
       type,
       action,
-      duration = 5000,
+      duration = 2000,
       showIcon = true,
       actionButton
     } = options
