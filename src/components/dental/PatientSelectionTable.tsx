@@ -36,7 +36,7 @@ interface PatientSelectionTableProps {
   isCompact?: boolean
 }
 
-type SortField = 'full_name' | 'gender' | 'age' | 'phone' | 'patient_condition' | 'serial_number'
+type SortField = 'full_name' | 'gender' | 'age' | 'phone' | 'patient_condition'
 type SortDirection = 'asc' | 'desc' | null
 
 export default function PatientSelectionTable({
@@ -147,7 +147,6 @@ export default function PatientSelectionTable({
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="text-center w-16">#</TableHead>
-              <TableHead className="text-center">الرقم التسلسلي</TableHead>
               <TableHead className="text-center">اسم المريض</TableHead>
               <TableHead className="text-center">الجنس</TableHead>
               <TableHead className="text-center">العمر</TableHead>
@@ -160,7 +159,7 @@ export default function PatientSelectionTable({
           <TableBody>
             {[...Array(5)].map((_, index) => (
               <TableRow key={index}>
-                {[...Array(9)].map((_, cellIndex) => (
+                {[...Array(8)].map((_, cellIndex) => (
                   <TableCell key={cellIndex}>
                     <div className="h-4 bg-muted animate-pulse rounded" />
                   </TableCell>
@@ -233,9 +232,6 @@ export default function PatientSelectionTable({
                 <TableHead className="text-center w-16 text-foreground">
                   <span className="font-medium">#</span>
                 </TableHead>
-                <SortableHeader field="serial_number">
-                  <span className="font-medium">الرقم التسلسلي</span>
-                </SortableHeader>
                 <SortableHeader field="full_name">
                   <span className="font-medium">اسم المريض</span>
                 </SortableHeader>
@@ -269,11 +265,6 @@ export default function PatientSelectionTable({
                 >
                   <TableCell className="font-medium text-muted-foreground">
                     {startIndex + index + 1}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className="bg-card dark:bg-card border border-border text-foreground">
-                      #{patient.serial_number}
-                    </Badge>
                   </TableCell>
                   <TableCell className="font-medium table-cell-wrap-truncate-md">
                     <div className="flex items-center justify-center space-x-2 space-x-reverse">
