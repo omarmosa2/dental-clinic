@@ -293,6 +293,7 @@ export default function AppointmentReports() {
                   appointmentsByHour: [],
                   peakHours: [],
                   appointmentTrend: [],
+                  appointmentsList: dataToExport, // Add filtered appointments list
                   filterInfo: filterInfo,
                   dataCount: dataToExport.length
                 }

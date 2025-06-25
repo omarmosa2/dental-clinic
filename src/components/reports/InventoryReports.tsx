@@ -250,7 +250,7 @@ export default function InventoryReports() {
 
               try {
                 // Calculate statistics from filtered data
-                const totalValue = dataToExport.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)
+                const totalValue = dataToExport.reduce((sum, item) => sum + ((item.unit_price || item.cost_per_unit || 0) * item.quantity), 0)
                 const lowStockItems = dataToExport.filter(item => item.quantity <= item.minimum_stock && item.quantity > 0).length
                 const expiredItems = dataToExport.filter(item => {
                   if (!item.expiry_date) return false
@@ -324,13 +324,15 @@ export default function InventoryReports() {
                 const pdfReportData = {
                   ...inventoryReports,
                   totalItems: dataToExport.length,
-                  totalValue: dataToExport.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
+                  totalValue: dataToExport.reduce((sum, item) => sum + ((item.unit_price || item.cost_per_unit || 0) * item.quantity), 0),
                   lowStockItems: dataToExport.filter(item => item.quantity <= item.minimum_stock && item.quantity > 0).length,
                   expiredItems: dataToExport.filter(item => {
                     if (!item.expiry_date) return false
                     return new Date(item.expiry_date) < new Date()
                   }).length,
                   outOfStockItems: dataToExport.filter(item => item.quantity === 0).length,
+                  // Add the actual inventory items for display in PDF
+                  inventoryItems: dataToExport,
                   // Add filter information
                   filterInfo: inventoryStats.timeFilter.startDate && inventoryStats.timeFilter.endDate
                     ? `البيانات من ${inventoryStats.timeFilter.startDate} إلى ${inventoryStats.timeFilter.endDate}`

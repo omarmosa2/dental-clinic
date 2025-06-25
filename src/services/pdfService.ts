@@ -515,6 +515,123 @@ export class PdfService {
           margin: 0;
         }
 
+        /* Appointment Cards Grid */
+        .appointments-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 20px;
+          margin: 20px 0;
+        }
+
+        .appointment-card {
+          background: ${this.COLORS.white};
+          border: 2px solid ${this.COLORS.border};
+          border-radius: 12px;
+          padding: 20px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          transition: all 0.3s ease;
+        }
+
+        .appointment-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+          border-color: ${this.COLORS.accent};
+        }
+
+        .appointment-header {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          margin-bottom: 15px;
+          padding-bottom: 15px;
+          border-bottom: 1px solid ${this.COLORS.border};
+        }
+
+        .appointment-avatar {
+          width: 50px;
+          height: 50px;
+          background: linear-gradient(135deg, ${this.COLORS.accent}, ${this.COLORS.warning});
+          color: ${this.COLORS.white};
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          font-weight: bold;
+          flex-shrink: 0;
+        }
+
+        .appointment-info {
+          flex: 1;
+        }
+
+        .appointment-patient {
+          font-size: 16px;
+          font-weight: bold;
+          color: ${this.COLORS.text.primary};
+          margin: 0 0 5px 0;
+        }
+
+        .appointment-serial {
+          font-size: 12px;
+          color: ${this.COLORS.text.muted};
+          background: ${this.COLORS.light};
+          padding: 2px 8px;
+          border-radius: 12px;
+          display: inline-block;
+        }
+
+        .appointment-details {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+
+        .status-completed {
+          color: ${this.COLORS.success};
+          background: rgba(6, 95, 70, 0.1);
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          display: inline-block;
+        }
+
+        .status-cancelled {
+          color: ${this.COLORS.warning};
+          background: rgba(146, 64, 14, 0.1);
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          display: inline-block;
+        }
+
+        .status-no-show {
+          color: ${this.COLORS.danger};
+          background: rgba(153, 27, 27, 0.1);
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          display: inline-block;
+        }
+
+        .status-scheduled {
+          color: ${this.COLORS.primary};
+          background: rgba(26, 54, 93, 0.1);
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          display: inline-block;
+        }
+
+        .status-unknown {
+          color: ${this.COLORS.text.muted};
+          background: rgba(75, 85, 99, 0.1);
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          display: inline-block;
+        }
+
         /* Enhanced Table Styles */
         table {
           width: 100%;
@@ -843,6 +960,169 @@ export class PdfService {
           color: ${this.COLORS.primary};
         }
 
+        /* Inventory Specific Styles */
+        .inventory-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+          gap: 20px;
+          margin: 20px 0;
+        }
+
+        .inventory-card {
+          background: ${this.COLORS.white};
+          border: 1px solid ${this.COLORS.border};
+          border-radius: ${this.LAYOUT.borderRadius};
+          padding: 20px;
+          box-shadow: ${this.LAYOUT.shadows.card};
+          transition: all 0.3s ease;
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        .inventory-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 25px rgba(0,0,0,0.12);
+        }
+
+        .inventory-header {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          margin-bottom: 15px;
+          padding-bottom: 15px;
+          border-bottom: 1px solid ${this.COLORS.border};
+        }
+
+        .inventory-avatar {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, ${this.COLORS.primary}, ${this.COLORS.secondary});
+          color: ${this.COLORS.white};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          text-transform: uppercase;
+          flex-shrink: 0;
+        }
+
+        .inventory-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .inventory-name {
+          font-size: ${this.TYPOGRAPHY.sizes.h5};
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          color: ${this.COLORS.text.primary};
+          margin: 0 0 5px 0;
+          line-height: 1.3;
+          word-wrap: break-word;
+        }
+
+        .inventory-category {
+          font-size: ${this.TYPOGRAPHY.sizes.small};
+          color: ${this.COLORS.text.muted};
+          background: ${this.COLORS.light};
+          padding: 4px 8px;
+          border-radius: 12px;
+          display: inline-block;
+        }
+
+        .inventory-details {
+          display: grid;
+          gap: 10px;
+        }
+
+        .status-warning {
+          color: #f59e0b !important;
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+        }
+
+        .status-success {
+          color: #10b981 !important;
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+        }
+
+        .status-danger {
+          color: #ef4444 !important;
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+        }
+
+        .status-info {
+          color: #3b82f6 !important;
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+        }
+
+        /* Alert Level Styles */
+        .alert-level {
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          text-align: center;
+        }
+
+        .status-badge {
+          padding: 4px 8px;
+          border-radius: 12px;
+          font-size: ${this.TYPOGRAPHY.sizes.small};
+          font-weight: ${this.TYPOGRAPHY.weights.medium};
+          text-align: center;
+          display: inline-block;
+        }
+
+        .status-badge.critical {
+          background: #fef2f2;
+          color: #dc2626;
+          border: 1px solid #fecaca;
+        }
+
+        .status-badge.warning {
+          background: #fffbeb;
+          color: #d97706;
+          border: 1px solid #fed7aa;
+        }
+
+        .status-badge.safe {
+          background: #f0fdf4;
+          color: #16a34a;
+          border: 1px solid #bbf7d0;
+        }
+
+        /* Expiry Status Styles */
+        .days-cell.expired {
+          color: #dc2626;
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+        }
+
+        .days-cell.expiring {
+          color: #d97706;
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+        }
+
+        .days-cell.safe {
+          color: #16a34a;
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+        }
+
+        .quantity-cell.critical {
+          color: #dc2626;
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+        }
+
+        .quantity-cell.warning {
+          color: #d97706;
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+        }
+
+        .progress-fill.critical {
+          background: linear-gradient(90deg, #dc2626, #ef4444);
+        }
+
+        .progress-fill.warning {
+          background: linear-gradient(90deg, #d97706, #f59e0b);
+        }
+
         /* Print Optimizations */
         @media print {
           body {
@@ -878,6 +1158,13 @@ export class PdfService {
             box-shadow: none !important;
           }
 
+          .inventory-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            border: 1px solid ${this.COLORS.border} !important;
+            box-shadow: none !important;
+          }
+
           .data-table {
             border: 2px solid ${this.COLORS.border} !important;
             box-shadow: none !important;
@@ -902,6 +1189,11 @@ export class PdfService {
           }
 
           .patient-card {
+            border: 2px solid ${this.COLORS.border} !important;
+            box-shadow: none !important;
+          }
+
+          .appointment-card {
             border: 2px solid ${this.COLORS.border} !important;
             box-shadow: none !important;
           }

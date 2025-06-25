@@ -75,7 +75,6 @@ export default function Patients() {
   const [showFilters, setShowFilters] = useState(false)
   const [genderFilter, setGenderFilter] = useState('all')
   const [ageRangeFilter, setAgeRangeFilter] = useState('all')
-  const [conditionFilter, setConditionFilter] = useState('all')
 
   // Load patients on component mount
   useEffect(() => {
@@ -157,20 +156,14 @@ export default function Patients() {
       })
     }
 
-    // Condition filter
-    if (conditionFilter !== 'all') {
-      filtered = filtered.filter(patient => patient.patient_condition === conditionFilter)
-    }
-
     return filtered
-  }, [filteredPatients, genderFilter, ageRangeFilter, conditionFilter])
+  }, [filteredPatients, genderFilter, ageRangeFilter])
 
   // Clear all filters
   const clearAllFilters = () => {
     setSearchQuery('')
     setGenderFilter('all')
     setAgeRangeFilter('all')
-    setConditionFilter('all')
     setShowFilters(false)
   }
 
@@ -277,13 +270,13 @@ export default function Patients() {
                   <Button variant="outline" size="sm">
                     <Filter className="w-4 h-4 mr-2" />
                     تصفية
-                    {(genderFilter !== 'all' || ageRangeFilter !== 'all' || conditionFilter !== 'all') && (
+                    {(genderFilter !== 'all' || ageRangeFilter !== 'all') && (
                       <span className="mr-2 w-2 h-2 bg-primary rounded-full"></span>
                     )}
                   </Button>
                 </CollapsibleTrigger>
               </Collapsible>
-              {(searchQuery || genderFilter !== 'all' || ageRangeFilter !== 'all' || conditionFilter !== 'all') && (
+              {(searchQuery || genderFilter !== 'all' || ageRangeFilter !== 'all') && (
                 <Button variant="ghost" size="sm" onClick={clearAllFilters}>
                   <X className="w-4 h-4 mr-2" />
                   مسح الكل
@@ -294,7 +287,7 @@ export default function Patients() {
             {/* Advanced Filters */}
             <Collapsible open={showFilters} onOpenChange={setShowFilters}>
               <CollapsibleContent className="space-y-4" dir="rtl">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg" dir="rtl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg" dir="rtl">
                   {/* Gender Filter */}
                   <div className="space-y-2 text-right">
                     <label className="text-sm font-medium">الجنس</label>
@@ -323,23 +316,6 @@ export default function Patients() {
                         <SelectItem value="adult">بالغين (18-59)</SelectItem>
                         <SelectItem value="senior">كبار السن (60+)</SelectItem>
                         <SelectItem value="unknown">غير محدد</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Condition Filter */}
-                  <div className="space-y-2 text-right">
-                    <label className="text-sm font-medium">حالة المريض</label>
-                    <Select value={conditionFilter} onValueChange={setConditionFilter} dir="rtl">
-                      <SelectTrigger className="text-right">
-                        <SelectValue placeholder="جميع الحالات" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">جميع الحالات</SelectItem>
-                        <SelectItem value="جديد">جديد</SelectItem>
-                        <SelectItem value="متابعة">متابعة</SelectItem>
-                        <SelectItem value="مكتمل">مكتمل</SelectItem>
-                        <SelectItem value="معلق">معلق</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -116,6 +116,7 @@ export interface InventoryItem {
   quantity: number
   unit?: string
   cost_per_unit?: number
+  unit_price?: number // Alias for cost_per_unit for compatibility
   supplier?: string
   expiry_date?: string
   minimum_stock: number
@@ -380,6 +381,7 @@ export interface AppointmentReportData {
   appointmentsByHour: { hour: string; count: number }[]
   peakHours: { hour: string; count: number }[]
   appointmentTrend: { period: string; count: number }[]
+  appointmentsList?: Appointment[]
 }
 
 export interface FinancialReportData {
@@ -400,6 +402,7 @@ export interface InventoryReportData {
   totalValue: number
   lowStockItems: number
   expiredItems: number
+  outOfStockItems?: number
   expiringSoonItems: number
   itemsByCategory: { category: string; count: number; value: number }[]
   itemsBySupplier: { supplier: string; count: number; value: number }[]
@@ -407,6 +410,9 @@ export interface InventoryReportData {
   topUsedItems: { item: string; usage: number }[]
   stockAlerts: InventoryItem[]
   expiryAlerts: InventoryItem[]
+  inventoryItems?: InventoryItem[]
+  filterInfo?: string
+  dataCount?: number
 }
 
 export interface AnalyticsReportData {

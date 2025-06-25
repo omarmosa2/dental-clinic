@@ -455,8 +455,88 @@ export default function FinancialReports() {
                   return
                 }
 
-                // Use ExportService for consistent calculation and export
-                await ExportService.exportPaymentsToPDF(dataToExport, settings?.clinic_name || 'عيادة الأسنان الحديثة')
+                // Calculate financial statistics from filtered data
+                const validateAmount = (amount: any): number => {
+                  const num = Number(amount)
+                  return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+                }
+
+                // Calculate totals from filtered payments
+                // For partial payments, use amount_paid; for completed payments, use full amount
+                const totalRevenue = dataToExport.reduce((sum, p) => {
+                  if (p.status === 'completed') {
+                    return sum + validateAmount(p.amount)
+                  } else if (p.status === 'partial' && p.amount_paid !== undefined) {
+                    return sum + validateAmount(p.amount_paid)
+                  }
+                  // Don't include pending or failed payments in revenue
+                  return sum
+                }, 0)
+
+                const completedPayments = dataToExport.filter(p => p.status === 'completed').length
+                const partialPayments = dataToExport.filter(p => p.status === 'partial').length
+                const pendingPayments = dataToExport.filter(p => p.status === 'pending').length
+                const failedPayments = dataToExport.filter(p => p.status === 'failed').length
+
+                // Calculate overdue payments (pending payments older than 30 days)
+                const thirtyDaysAgo = new Date()
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+                const overduePayments = dataToExport.filter(p =>
+                  p.status === 'pending' &&
+                  new Date(p.payment_date || p.created_at) < thirtyDaysAgo
+                ).length
+
+                // Calculate remaining amounts from partial payments
+                const totalRemainingFromPartialPayments = dataToExport
+                  .filter(p => p.status === 'partial')
+                  .reduce((sum, p) => {
+                    const totalAmount = validateAmount(p.amount)
+                    const paidAmount = validateAmount(p.amount_paid || 0)
+                    return sum + (totalAmount - paidAmount)
+                  }, 0)
+
+                // Calculate payment method statistics
+                const paymentMethodStats = {}
+                dataToExport.forEach(payment => {
+                  const method = payment.payment_method || 'unknown'
+                  let amount = 0
+
+                  if (payment.status === 'completed') {
+                    amount = validateAmount(payment.amount)
+                  } else if (payment.status === 'partial' && payment.amount_paid !== undefined) {
+                    amount = validateAmount(payment.amount_paid)
+                  }
+                  // Only include completed and partial payments in method stats
+
+                  if (amount > 0) {
+                    paymentMethodStats[method] = (paymentMethodStats[method] || 0) + amount
+                  }
+                })
+
+                // Prepare financial report data
+                const financialReportData = {
+                  totalRevenue: totalRevenue,
+                  totalPaid: totalRevenue,
+                  totalPending: dataToExport.filter(p => p.status === 'pending').reduce((sum, p) => sum + validateAmount(p.amount), 0),
+                  totalOverdue: totalRemainingFromPartialPayments,
+                  completedPayments: completedPayments,
+                  partialPayments: partialPayments,
+                  pendingPayments: pendingPayments,
+                  overduePayments: overduePayments,
+                  failedPayments: failedPayments,
+                  revenueByPaymentMethod: Object.entries(paymentMethodStats).map(([method, amount]) => ({
+                    method: method === 'cash' ? 'نقدي' : method === 'card' ? 'بطاقة' : method === 'bank_transfer' ? 'تحويل بنكي' : method,
+                    amount: validateAmount(amount),
+                    percentage: totalRevenue > 0 ? (validateAmount(amount) / totalRevenue) * 100 : 0
+                  })),
+                  filterInfo: paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
+                    ? `البيانات من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
+                    : 'جميع البيانات',
+                  dataCount: dataToExport.length
+                }
+
+                // Use PdfService for enhanced PDF export
+                await PdfService.exportFinancialReport(financialReportData, settings)
                 notify.exportSuccess(`تم تصدير التقرير المالي كملف PDF بنجاح (${dataToExport.length} معاملة)`)
               } catch (error) {
                 console.error('Error exporting PDF:', error)

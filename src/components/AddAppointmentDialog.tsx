@@ -73,7 +73,7 @@ export default function AddAppointmentDialog({
         gender: selectedPatient?.gender === 'male' ? 'ذكر' : selectedPatient?.gender === 'female' ? 'أنثى' : '',
         description: initialData.description || '',
         start_time: isNaN(startDate.getTime()) ? '' : startDate.toISOString().slice(0, 16),
-        end_time: isNaN(endDate.getTime()) ? '' : endDate.toISOString().slice(0, 16),
+        end_time: isNaN(endDate.getTime()) ? '' : endDate.toTimeString().slice(0, 5), // Only time HH:MM
         status: initialData.status || 'scheduled',
         cost: initialData.cost?.toString() || '',
         notes: initialData.notes || ''
@@ -89,7 +89,7 @@ export default function AddAppointmentDialog({
       setFormData(prev => ({
         ...prev,
         start_time: startDateTime.toISOString().slice(0, 16),
-        end_time: endDateTime.toISOString().slice(0, 16)
+        end_time: endDateTime.toTimeString().slice(0, 5) // Only time HH:MM
       }))
     } else {
       // Reset form when opening for new appointment
@@ -103,7 +103,7 @@ export default function AddAppointmentDialog({
         gender: '',
         description: '',
         start_time: defaultStart.toISOString().slice(0, 16),
-        end_time: defaultEnd.toISOString().slice(0, 16),
+        end_time: defaultEnd.toTimeString().slice(0, 5), // Only time HH:MM
         status: 'scheduled',
         cost: '',
         notes: ''
@@ -114,8 +114,8 @@ export default function AddAppointmentDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validate required fields
-    if (!formData.patient_id || !formData.start_time || !formData.end_time) {
+    // Validate required fields (end_time is now optional)
+    if (!formData.patient_id || !formData.start_time) {
       toast({
         title: "خطأ",
         description: "يرجى ملء جميع الحقول المطلوبة",
@@ -124,17 +124,32 @@ export default function AddAppointmentDialog({
       return
     }
 
-    // Validate dates
+    // Validate start date
     const startDate = new Date(formData.start_time)
-    const endDate = new Date(formData.end_time)
-
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    if (isNaN(startDate.getTime())) {
       toast({
         title: "خطأ",
-        description: "يرجى إدخال تواريخ صحيحة",
+        description: "يرجى إدخال تاريخ ووقت بداية صحيح",
         variant: "destructive",
       })
       return
+    }
+
+    // Calculate end date/time
+    let endDate: Date
+    if (formData.end_time) {
+      // If end time is provided, combine it with start date
+      const [hours, minutes] = formData.end_time.split(':')
+      endDate = new Date(startDate)
+      endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+
+      // If end time is earlier than start time, assume it's next day
+      if (endDate <= startDate) {
+        endDate.setDate(endDate.getDate() + 1)
+      }
+    } else {
+      // Default to 1 hour after start time
+      endDate = new Date(startDate.getTime() + 60 * 60 * 1000)
     }
 
     if (endDate <= startDate) {
@@ -205,10 +220,31 @@ export default function AddAppointmentDialog({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+
+    if (name === 'start_time') {
+      // When start time changes, automatically calculate end time (1 hour later)
+      const startDate = new Date(value)
+      if (!isNaN(startDate.getTime())) {
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000) // +1 hour
+        const endTimeString = endDate.toTimeString().slice(0, 5) // HH:MM format
+
+        setFormData(prev => ({
+          ...prev,
+          [name]: value,
+          end_time: endTimeString
+        }))
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          [name]: value
+        }))
+      }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
   }
 
   return (
@@ -294,15 +330,18 @@ export default function AddAppointmentDialog({
               <div className="space-y-2">
                 <Label className="flex items-center">
                   <Clock className="w-4 h-4 ml-1" />
-                  تاريخ ووقت النهاية *
+                  وقت النهاية
                 </Label>
                 <Input
-                  type="datetime-local"
+                  type="time"
                   name="end_time"
                   value={formData.end_time}
                   onChange={handleChange}
-                  required
+                  placeholder="سيتم حساب الوقت تلقائياً (ساعة واحدة)"
                 />
+                <p className="text-xs text-muted-foreground">
+                  اتركه فارغاً لحساب ساعة واحدة تلقائياً من وقت البداية
+                </p>
               </div>
             </div>
 

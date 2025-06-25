@@ -361,7 +361,8 @@ export class ReportsService {
       appointmentsByDay,
       appointmentsByHour,
       peakHours,
-      appointmentTrend
+      appointmentTrend,
+      appointmentsList: filteredAppointments
     }
   }
 
