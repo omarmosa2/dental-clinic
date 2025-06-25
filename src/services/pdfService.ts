@@ -10,22 +10,22 @@ import html2canvas from 'html2canvas'
 import { EnhancedPdfReports } from './enhancedPdfReports'
 
 export class PdfService {
-  // Enhanced color scheme for professional reports
+  // Enhanced color scheme optimized for print clarity
   private static readonly COLORS = {
-    primary: '#0ea5e9',      // Sky blue
-    secondary: '#1e293b',    // Dark slate
-    accent: '#f59e0b',       // Amber
-    success: '#10b981',      // Emerald
-    warning: '#f59e0b',      // Amber
-    danger: '#ef4444',       // Red
-    muted: '#64748b',        // Slate
-    light: '#f8fafc',        // Very light blue
+    primary: '#1a365d',      // Dark blue for better print contrast
+    secondary: '#2c5282',    // Medium blue
+    accent: '#92400e',       // Dark amber for print clarity
+    success: '#065f46',      // Dark green for better print visibility
+    warning: '#92400e',      // Dark amber
+    danger: '#991b1b',       // Dark red
+    muted: '#374151',        // Darker gray for better readability
+    light: '#f9fafb',        // Very light gray with better contrast
     white: '#ffffff',
-    border: '#e2e8f0',       // Light slate
+    border: '#d1d5db',       // Darker border for print visibility
     text: {
-      primary: '#1e293b',
-      secondary: '#64748b',
-      muted: '#94a3b8'
+      primary: '#111827',    // Almost black for maximum print contrast
+      secondary: '#374151',  // Dark gray
+      muted: '#4b5563'       // Medium gray for better readability
     }
   }
 
@@ -273,21 +273,70 @@ export class PdfService {
           border: 2px solid ${this.COLORS.border};
           border-radius: ${this.LAYOUT.borderRadius};
           padding: ${this.LAYOUT.spacing.card};
-          text-align: center;
           box-shadow: ${this.LAYOUT.shadows.card};
           transition: all 0.3s ease;
           position: relative;
           overflow: hidden;
+          display: flex;
+          align-items: center;
+          gap: 15px;
         }
 
-        .summary-card::before {
+        .summary-card.primary::before {
           content: '';
           position: absolute;
           top: 0;
           left: 0;
-          right: 0;
-          height: 4px;
-          background: linear-gradient(90deg, ${this.COLORS.primary}, ${this.COLORS.accent});
+          bottom: 0;
+          width: 6px;
+          background: ${this.COLORS.primary};
+        }
+
+        .summary-card.success::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 6px;
+          background: ${this.COLORS.success};
+        }
+
+        .summary-card.info::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 6px;
+          background: #1e40af;
+        }
+
+        .summary-card.warning::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 6px;
+          background: ${this.COLORS.warning};
+        }
+
+        .card-icon {
+          font-size: 32px;
+          min-width: 50px;
+          height: 50px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: ${this.COLORS.light};
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        .card-content {
+          flex: 1;
+          text-align: right;
         }
 
         .summary-card h3 {
@@ -334,6 +383,9 @@ export class PdfService {
           background: linear-gradient(90deg, ${this.COLORS.light} 0%, ${this.COLORS.white} 100%);
           border-bottom: 2px solid ${this.COLORS.border};
           position: relative;
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
 
         .section-title::before {
@@ -346,8 +398,121 @@ export class PdfService {
           background: ${this.COLORS.primary};
         }
 
+        .section-icon {
+          font-size: 20px;
+        }
+
         .section-content {
           padding: ${this.LAYOUT.spacing.card};
+        }
+
+        /* Patient Cards Grid */
+        .patients-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 20px;
+          margin: 20px 0;
+        }
+
+        .patient-card {
+          background: ${this.COLORS.white};
+          border: 2px solid ${this.COLORS.border};
+          border-radius: 12px;
+          padding: 20px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          transition: all 0.3s ease;
+        }
+
+        .patient-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+          border-color: ${this.COLORS.primary};
+        }
+
+        .patient-header {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          margin-bottom: 15px;
+          padding-bottom: 15px;
+          border-bottom: 1px solid ${this.COLORS.border};
+        }
+
+        .patient-avatar {
+          width: 50px;
+          height: 50px;
+          background: ${this.COLORS.primary};
+          color: ${this.COLORS.white};
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          font-weight: bold;
+          flex-shrink: 0;
+        }
+
+        .patient-info {
+          flex: 1;
+        }
+
+        .patient-name {
+          font-size: 16px;
+          font-weight: bold;
+          color: ${this.COLORS.text.primary};
+          margin: 0 0 5px 0;
+        }
+
+        .patient-serial {
+          font-size: 12px;
+          color: ${this.COLORS.text.muted};
+          background: ${this.COLORS.light};
+          padding: 2px 8px;
+          border-radius: 12px;
+          display: inline-block;
+        }
+
+        .patient-details {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+
+        .detail-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 0;
+        }
+
+        .detail-label {
+          font-size: 12px;
+          color: ${this.COLORS.text.muted};
+          font-weight: medium;
+        }
+
+        .detail-value {
+          font-size: 12px;
+          color: ${this.COLORS.text.primary};
+          font-weight: bold;
+        }
+
+        .status-active {
+          color: ${this.COLORS.success};
+        }
+
+        .pagination-info {
+          text-align: center;
+          padding: 20px;
+          background: ${this.COLORS.light};
+          border-radius: 8px;
+          margin-top: 20px;
+        }
+
+        .pagination-info p {
+          color: ${this.COLORS.text.muted};
+          font-size: 14px;
+          margin: 0;
         }
 
         /* Enhanced Table Styles */
@@ -410,6 +575,274 @@ export class PdfService {
           font-style: italic;
         }
 
+        /* Enhanced Data Table Styles */
+        .data-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: ${this.LAYOUT.spacing.element} 0;
+          background: ${this.COLORS.white};
+          border-radius: ${this.LAYOUT.borderRadius};
+          overflow: hidden;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .data-table th {
+          background: ${this.COLORS.primary};
+          color: ${this.COLORS.white};
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          padding: ${this.LAYOUT.spacing.element};
+          text-align: center;
+          font-size: ${this.TYPOGRAPHY.sizes.body};
+          border: 2px solid ${this.COLORS.border};
+          border-bottom: 3px solid ${this.COLORS.secondary};
+        }
+
+        .data-table td {
+          padding: ${this.LAYOUT.spacing.element};
+          text-align: center;
+          border: 1px solid ${this.COLORS.border};
+          font-size: ${this.TYPOGRAPHY.sizes.body};
+          color: ${this.COLORS.text.primary};
+          font-weight: ${this.TYPOGRAPHY.weights.medium};
+        }
+
+        .data-table tr:nth-child(even) {
+          background: ${this.COLORS.light};
+        }
+
+        .data-table tr:nth-child(odd) {
+          background: ${this.COLORS.white};
+        }
+
+        .data-table tr:hover {
+          background: #e2e8f0;
+        }
+
+        .category-cell {
+          text-align: right !important;
+          font-weight: ${this.TYPOGRAPHY.weights.medium};
+        }
+
+        .number-cell {
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          color: ${this.COLORS.primary};
+        }
+
+        .percentage-cell {
+          font-weight: ${this.TYPOGRAPHY.weights.medium};
+          color: ${this.COLORS.text.secondary};
+        }
+
+        .chart-cell {
+          width: 150px;
+          padding: 8px !important;
+        }
+
+        .progress-bar {
+          width: 100%;
+          height: 20px;
+          background: ${this.COLORS.light};
+          border: 1px solid ${this.COLORS.border};
+          border-radius: 10px;
+          overflow: hidden;
+          position: relative;
+        }
+
+        .progress-fill {
+          height: 100%;
+          background: ${this.COLORS.primary};
+          border-radius: 8px;
+          transition: width 0.3s ease;
+          position: relative;
+          border: 1px solid ${this.COLORS.secondary};
+        }
+
+        .progress-fill.gender-male {
+          background: #1e40af;
+          border-color: #1e3a8a;
+        }
+
+        .progress-fill.gender-female {
+          background: #be185d;
+          border-color: #9d174d;
+        }
+
+        .progress-fill.trend {
+          background: ${this.COLORS.success};
+          border-color: #047857;
+        }
+
+        .no-data {
+          text-align: center !important;
+          color: ${this.COLORS.text.muted};
+          font-style: italic;
+          padding: 30px !important;
+        }
+
+        .chart-container {
+          background: ${this.COLORS.white};
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        /* Enhanced Footer Styles */
+        .footer-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+        }
+
+        .footer-left {
+          flex: 1;
+          text-align: right;
+        }
+
+        .footer-right {
+          flex-shrink: 0;
+        }
+
+        .footer-title {
+          margin: 0 0 5px 0;
+          color: ${this.COLORS.text.primary};
+          font-size: ${this.TYPOGRAPHY.sizes.body};
+          font-weight: ${this.TYPOGRAPHY.weights.medium};
+        }
+
+        .footer-stats {
+          display: flex;
+          gap: 15px;
+          align-items: center;
+        }
+
+        .stat-item {
+          background: ${this.COLORS.white};
+          padding: 8px 12px;
+          border-radius: 20px;
+          font-size: ${this.TYPOGRAPHY.sizes.small};
+          font-weight: ${this.TYPOGRAPHY.weights.medium};
+          color: ${this.COLORS.text.primary};
+          border: 1px solid ${this.COLORS.border};
+        }
+
+        /* Page Break */
+        .page-break {
+          page-break-before: always;
+          break-before: page;
+          height: 0;
+          margin: 0;
+          padding: 0;
+        }
+
+        /* Page Header for New Pages */
+        .page-header {
+          text-align: center;
+          margin: 40px 0 30px 0;
+          padding: 30px 20px;
+          background: linear-gradient(135deg, ${this.COLORS.light} 0%, ${this.COLORS.white} 100%);
+          border-radius: ${this.LAYOUT.borderRadius};
+          border: 2px solid ${this.COLORS.border};
+          position: relative;
+        }
+
+        .page-header::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, ${this.COLORS.primary}, ${this.COLORS.secondary});
+          border-radius: ${this.LAYOUT.borderRadius} ${this.LAYOUT.borderRadius} 0 0;
+        }
+
+        .page-title {
+          font-size: ${this.TYPOGRAPHY.sizes.h2};
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          color: ${this.COLORS.primary};
+          margin: 0 0 10px 0;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .page-subtitle {
+          font-size: ${this.TYPOGRAPHY.sizes.body};
+          color: ${this.COLORS.text.secondary};
+          margin: 0;
+          font-style: italic;
+        }
+
+        /* Analysis Cards */
+        .analysis-cards {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 20px;
+          margin: 20px 0;
+        }
+
+        .analysis-card {
+          background: ${this.COLORS.white};
+          border: 1px solid ${this.COLORS.border};
+          border-left: 4px solid ${this.COLORS.primary};
+          border-radius: ${this.LAYOUT.borderRadius};
+          padding: 25px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          transition: all 0.3s ease;
+        }
+
+        .analysis-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        .analysis-icon {
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 28px;
+          flex-shrink: 0;
+        }
+
+        .analysis-content {
+          flex: 1;
+        }
+
+        .analysis-content h3 {
+          font-size: ${this.TYPOGRAPHY.sizes.h4};
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          color: ${this.COLORS.text.primary};
+          margin: 0 0 15px 0;
+        }
+
+        .analysis-stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+          gap: 10px;
+        }
+
+        .stat {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+
+        .stat-label {
+          font-size: ${this.TYPOGRAPHY.sizes.small};
+          color: ${this.COLORS.text.muted};
+          font-weight: ${this.TYPOGRAPHY.weights.medium};
+        }
+
+        .stat-value {
+          font-size: ${this.TYPOGRAPHY.sizes.h5};
+          font-weight: ${this.TYPOGRAPHY.weights.bold};
+          color: ${this.COLORS.primary};
+        }
+
         /* Print Optimizations */
         @media print {
           body {
@@ -421,7 +854,7 @@ export class PdfService {
           }
 
           .enhanced-header {
-            background: linear-gradient(135deg, ${this.COLORS.primary} 0%, ${this.COLORS.secondary} 100%) !important;
+            background: ${this.COLORS.primary} !important;
             -webkit-print-color-adjust: exact;
             color-adjust: exact;
           }
@@ -429,11 +862,53 @@ export class PdfService {
           .summary-card {
             break-inside: avoid;
             page-break-inside: avoid;
+            border: 2px solid ${this.COLORS.border} !important;
+            box-shadow: none !important;
+          }
+
+          .summary-card::before {
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
           }
 
           .section {
             break-inside: avoid;
             page-break-inside: avoid;
+            border: 1px solid ${this.COLORS.border} !important;
+            box-shadow: none !important;
+          }
+
+          .data-table {
+            border: 2px solid ${this.COLORS.border} !important;
+            box-shadow: none !important;
+          }
+
+          .data-table th {
+            background: ${this.COLORS.primary} !important;
+            color: white !important;
+            border: 2px solid ${this.COLORS.border} !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+          }
+
+          .data-table td {
+            border: 1px solid ${this.COLORS.border} !important;
+          }
+
+          .progress-fill {
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            border: 1px solid ${this.COLORS.text.primary} !important;
+          }
+
+          .patient-card {
+            border: 2px solid ${this.COLORS.border} !important;
+            box-shadow: none !important;
+          }
+
+          .analysis-card {
+            border: 2px solid ${this.COLORS.border} !important;
+            box-shadow: none !important;
           }
 
           table {
@@ -443,6 +918,11 @@ export class PdfService {
           tr {
             break-inside: avoid;
             break-after: auto;
+          }
+
+          .page-break {
+            page-break-before: always !important;
+            break-before: page !important;
           }
         }
       </style>
@@ -549,117 +1029,283 @@ export class PdfService {
       <body>
         ${header}
 
+        <!-- Summary Cards with Enhanced Design -->
         <div class="summary-cards">
-          <div class="summary-card">
-            <h3>إجمالي المرضى</h3>
-            <div class="number">${data.totalPatients.toLocaleString()}</div>
+          <div class="summary-card primary">
+            <div class="card-icon">👥</div>
+            <div class="card-content">
+              <h3>إجمالي المرضى</h3>
+              <div class="number">${data.totalPatients.toLocaleString()}</div>
+            </div>
           </div>
-          <div class="summary-card">
-            <h3>المرضى الجدد</h3>
-            <div class="number">${(data.newPatients || 0).toLocaleString()}</div>
+          <div class="summary-card success">
+            <div class="card-icon">✨</div>
+            <div class="card-content">
+              <h3>المرضى الجدد</h3>
+              <div class="number">${(data.newPatients || 0).toLocaleString()}</div>
+            </div>
           </div>
-          <div class="summary-card">
-            <h3>المرضى النشطون</h3>
-            <div class="number">${data.activePatients.toLocaleString()}</div>
+          <div class="summary-card info">
+            <div class="card-icon">💚</div>
+            <div class="card-content">
+              <h3>المرضى النشطون</h3>
+              <div class="number">${data.activePatients.toLocaleString()}</div>
+            </div>
           </div>
-          <div class="summary-card">
-            <h3>المرضى غير النشطين</h3>
-            <div class="number">${(data.totalPatients - data.activePatients).toLocaleString()}</div>
+          <div class="summary-card warning">
+            <div class="card-icon">⏸️</div>
+            <div class="card-content">
+              <h3>المرضى غير النشطين</h3>
+              <div class="number">${(data.totalPatients - data.activePatients).toLocaleString()}</div>
+            </div>
           </div>
         </div>
 
+        <!-- Patient List Section -->
+        ${data.patientsList && data.patientsList.length > 0 ? `
         <div class="section">
-          <div class="section-title">📊 توزيع الأعمار</div>
+          <div class="section-title">
+            <span class="section-icon">📋</span>
+            قائمة المرضى
+          </div>
           <div class="section-content">
-            <table>
-              <thead>
-                <tr>
-                  <th>الفئة العمرية</th>
-                  <th>العدد</th>
-                  <th>النسبة المئوية</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.ageDistribution?.map(item => {
-                  const percentage = data.totalPatients > 0 ? ((item.count / data.totalPatients) * 100).toFixed(1) : '0.0'
-                  return `
-                    <tr>
-                      <td>${item.ageGroup}</td>
-                      <td>${item.count.toLocaleString()}</td>
-                      <td>${percentage}%</td>
-                    </tr>
-                  `
-                }).join('') || '<tr><td colspan="3">لا توجد بيانات</td></tr>'}
-              </tbody>
-            </table>
+            <div class="patients-grid">
+              ${data.patientsList.slice(0, 50).map((patient: any, index: number) => `
+                <div class="patient-card">
+                  <div class="patient-header">
+                    <div class="patient-avatar">
+                      ${(patient.full_name || patient.first_name || 'م').charAt(0)}
+                    </div>
+                    <div class="patient-info">
+                      <h4 class="patient-name">${patient.full_name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim()}</h4>
+                      <span class="patient-serial">#${patient.serial_number || (index + 1).toString().padStart(3, '0')}</span>
+                    </div>
+                  </div>
+                  <div class="patient-details">
+                    <div class="detail-item">
+                      <span class="detail-label">الجنس:</span>
+                      <span class="detail-value">${patient.gender === 'male' ? 'ذكر' : patient.gender === 'female' ? 'أنثى' : 'غير محدد'}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">العمر:</span>
+                      <span class="detail-value">${patient.age || 'غير محدد'} سنة</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">الهاتف:</span>
+                      <span class="detail-value">${patient.phone || 'غير محدد'}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">الحالة:</span>
+                      <span class="detail-value status-active">${patient.patient_condition || 'نشط'}</span>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+            ${data.patientsList.length > 50 ? `
+            <div class="pagination-info">
+              <p>عرض أول 50 مريض من إجمالي ${data.patientsList.length.toLocaleString()} مريض</p>
+            </div>
+            ` : ''}
           </div>
         </div>
+        ` : ''}
 
+        <!-- Age Distribution -->
         <div class="section">
-          <div class="section-title">👥 توزيع الجنس</div>
+          <div class="section-title">
+            <span class="section-icon">📊</span>
+            توزيع الأعمار
+          </div>
           <div class="section-content">
-            <table>
-              <thead>
-                <tr>
-                  <th>الجنس</th>
-                  <th>العدد</th>
-                  <th>النسبة المئوية</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.genderDistribution?.map(item => {
-                  const percentage = data.totalPatients > 0 ? ((item.count / data.totalPatients) * 100).toFixed(1) : '0.0'
-                  return `
-                    <tr>
-                      <td>${item.gender}</td>
-                      <td>${item.count.toLocaleString()}</td>
-                      <td>${percentage}%</td>
-                    </tr>
-                  `
-                }).join('') || '<tr><td colspan="3">لا توجد بيانات</td></tr>'}
-              </tbody>
-            </table>
+            <div class="chart-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>الفئة العمرية</th>
+                    <th>العدد</th>
+                    <th>النسبة المئوية</th>
+                    <th>المؤشر البصري</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.ageDistribution?.map(item => {
+                    const percentage = data.totalPatients > 0 ? ((item.count / data.totalPatients) * 100).toFixed(1) : '0.0'
+                    const barWidth = Math.max(5, parseFloat(percentage))
+                    return `
+                      <tr>
+                        <td class="category-cell">${item.ageGroup}</td>
+                        <td class="number-cell">${item.count.toLocaleString()}</td>
+                        <td class="percentage-cell">${percentage}%</td>
+                        <td class="chart-cell">
+                          <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${barWidth}%"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                  }).join('') || '<tr><td colspan="4" class="no-data">لا توجد بيانات</td></tr>'}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
+        <!-- Page Break Before Gender Distribution -->
+        <div class="page-break"></div>
+
+        <!-- Gender Distribution Page Header -->
+        <div class="page-header">
+          <h2 class="page-title">📊 تحليل توزيع الجنس</h2>
+          <p class="page-subtitle">تقرير تفصيلي عن توزيع المرضى حسب الجنس</p>
+        </div>
+
+        <!-- Gender Distribution -->
+        <div class="section">
+          <div class="section-title">
+            <span class="section-icon">👥</span>
+            توزيع الجنس
+          </div>
+          <div class="section-content">
+            <div class="chart-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>الجنس</th>
+                    <th>العدد</th>
+                    <th>النسبة المئوية</th>
+                    <th>المؤشر البصري</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.genderDistribution?.map(item => {
+                    const percentage = data.totalPatients > 0 ? ((item.count / data.totalPatients) * 100).toFixed(1) : '0.0'
+                    const barWidth = Math.max(5, parseFloat(percentage))
+                    const genderIcon = item.gender === 'ذكر' ? '👨' : item.gender === 'أنثى' ? '👩' : '👤'
+                    return `
+                      <tr>
+                        <td class="category-cell">${genderIcon} ${item.gender}</td>
+                        <td class="number-cell">${item.count.toLocaleString()}</td>
+                        <td class="percentage-cell">${percentage}%</td>
+                        <td class="chart-cell">
+                          <div class="progress-bar">
+                            <div class="progress-fill gender-${item.gender === 'ذكر' ? 'male' : 'female'}" style="width: ${barWidth}%"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                  }).join('') || '<tr><td colspan="4" class="no-data">لا توجد بيانات</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gender Analysis Summary -->
+        <div class="section">
+          <div class="section-title">
+            <span class="section-icon">📈</span>
+            تحليل إحصائي لتوزيع الجنس
+          </div>
+          <div class="section-content">
+            <div class="analysis-cards">
+              ${data.genderDistribution?.map(item => {
+                const percentage = data.totalPatients > 0 ? ((item.count / data.totalPatients) * 100).toFixed(1) : '0.0'
+                const genderIcon = item.gender === 'ذكر' ? '👨' : item.gender === 'أنثى' ? '👩' : '👤'
+                const genderColor = item.gender === 'ذكر' ? '#1e40af' : item.gender === 'أنثى' ? '#be185d' : '#374151'
+                const genderBgColor = item.gender === 'ذكر' ? '#dbeafe' : item.gender === 'أنثى' ? '#fce7f3' : '#f3f4f6'
+                return `
+                  <div class="analysis-card" style="border-left-color: ${genderColor}; border-left-width: 6px;">
+                    <div class="analysis-icon" style="background: ${genderBgColor}; color: ${genderColor}; border: 2px solid ${genderColor};">
+                      ${genderIcon}
+                    </div>
+                    <div class="analysis-content">
+                      <h3 style="color: ${genderColor};">${item.gender}</h3>
+                      <div class="analysis-stats">
+                        <div class="stat">
+                          <span class="stat-label">العدد:</span>
+                          <span class="stat-value" style="color: ${genderColor};">${item.count.toLocaleString()}</span>
+                        </div>
+                        <div class="stat">
+                          <span class="stat-label">النسبة:</span>
+                          <span class="stat-value" style="color: ${genderColor};">${percentage}%</span>
+                        </div>
+                        <div class="stat">
+                          <span class="stat-label">من إجمالي:</span>
+                          <span class="stat-value">${data.totalPatients.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `
+              }).join('') || '<p class="no-data">لا توجد بيانات للتحليل</p>'}
+            </div>
+          </div>
+        </div>
+
+        <!-- Registration Trend -->
         ${data.registrationTrend && data.registrationTrend.length > 0 ? `
         <div class="section">
-          <div class="section-title">📈 اتجاه التسجيل الشهري</div>
+          <div class="section-title">
+            <span class="section-icon">📈</span>
+            اتجاه التسجيل الشهري
+          </div>
           <div class="section-content">
-            <table>
-              <thead>
-                <tr>
-                  <th>الشهر</th>
-                  <th>عدد المرضى الجدد</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.registrationTrend.map(item => `
+            <div class="chart-container">
+              <table class="data-table">
+                <thead>
                   <tr>
-                    <td>${item.period}</td>
-                    <td>${item.count.toLocaleString()}</td>
+                    <th>الشهر</th>
+                    <th>عدد المرضى الجدد</th>
+                    <th>المؤشر البصري</th>
                   </tr>
-                `).join('')}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  ${data.registrationTrend.map(item => {
+                    const maxCount = Math.max(...data.registrationTrend.map(t => t.count))
+                    const barWidth = maxCount > 0 ? Math.max(5, (item.count / maxCount) * 100) : 5
+                    return `
+                      <tr>
+                        <td class="category-cell">${item.period}</td>
+                        <td class="number-cell">${item.count.toLocaleString()}</td>
+                        <td class="chart-cell">
+                          <div class="progress-bar">
+                            <div class="progress-fill trend" style="width: ${barWidth}%"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
         ` : ''}
 
         <div class="report-footer">
-          <p>تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة</p>
-          <p class="generated-info">تاريخ الإنشاء: ${(() => {
-            // Format date as DD/MM/YYYY (Gregorian calendar)
-            const date = new Date()
-            const day = date.getDate().toString().padStart(2, '0')
-            const month = (date.getMonth() + 1).toString().padStart(2, '0')
-            const year = date.getFullYear()
-            const time = date.toLocaleTimeString('ar-SA', {
-              hour: '2-digit',
-              minute: '2-digit'
-            })
-            return `${day}/${month}/${year} - ${time}`
-          })()} | ${settings?.clinic_name || 'عيادة الأسنان'}</p>
+          <div class="footer-content">
+            <div class="footer-left">
+              <p class="footer-title">تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة</p>
+              <p class="generated-info">تاريخ الإنشاء: ${(() => {
+                const date = new Date()
+                const day = date.getDate().toString().padStart(2, '0')
+                const month = (date.getMonth() + 1).toString().padStart(2, '0')
+                const year = date.getFullYear()
+                const time = date.toLocaleTimeString('ar-SA', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+                return `${day}/${month}/${year} - ${time}`
+              })()} | ${settings?.clinic_name || 'عيادة الأسنان'}</p>
+            </div>
+            <div class="footer-right">
+              <div class="footer-stats">
+                <span class="stat-item">📊 ${data.totalPatients.toLocaleString()} مريض</span>
+                <span class="stat-item">✨ ${(data.newPatients || 0).toLocaleString()} جديد</span>
+              </div>
+            </div>
+          </div>
         </div>
       </body>
       </html>
@@ -931,7 +1577,7 @@ export class PdfService {
               ${data.paymentMethodStats?.map((item: any) => `
                 <tr>
                   <td>${this.translatePaymentMethod(item.method)}</td>
-                  <td>${item.amount?.toLocaleString() || 0} ريال</td>
+                  <td>${item.amount?.toLocaleString() || 0} $</td>
                   <td>${item.count || 0}</td>
                 </tr>
               `).join('') || '<tr><td colspan="3">لا توجد بيانات</td></tr>'}
@@ -992,7 +1638,7 @@ export class PdfService {
           </div>
           <div class="summary-card">
             <h3>القيمة الإجمالية</h3>
-            <div class="number">${data.totalValue?.toLocaleString() || 0} ريال</div>
+            <div class="number">${data.totalValue?.toLocaleString() || 0} $</div>
           </div>
           <div class="summary-card">
             <h3>أصناف منخفضة المخزون</h3>
@@ -1019,7 +1665,7 @@ export class PdfService {
                 <tr>
                   <td>${item.category}</td>
                   <td>${item.count}</td>
-                  <td>${item.value?.toLocaleString() || 0} ريال</td>
+                  <td>${item.value?.toLocaleString() || 0} $</td>
                 </tr>
               `).join('') || '<tr><td colspan="3">لا توجد بيانات</td></tr>'}
             </tbody>
@@ -1116,13 +1762,13 @@ export class PdfService {
           </div>
           <div class="summary-group">
             <h3>الإيرادات</h3>
-            <div class="summary-item">إجمالي: ${financialData.totalRevenue?.toLocaleString() || 0} ريال</div>
-            <div class="summary-item">مكتملة: ${financialData.totalRevenue?.toLocaleString() || 0} ريال</div>
+            <div class="summary-item">إجمالي: ${financialData.totalRevenue?.toLocaleString() || 0} $</div>
+            <div class="summary-item">مكتملة: ${financialData.totalRevenue?.toLocaleString() || 0} $</div>
           </div>
           <div class="summary-group">
             <h3>المخزون</h3>
             <div class="summary-item">إجمالي الأصناف: ${inventoryData.totalItems}</div>
-            <div class="summary-item">القيمة: ${inventoryData.totalValue?.toLocaleString() || 0} ريال</div>
+            <div class="summary-item">القيمة: ${inventoryData.totalValue?.toLocaleString() || 0} $</div>
             <div class="summary-item">تنبيهات: ${(inventoryData.lowStockItems || 0) + (inventoryData.expiredItems || 0)}</div>
           </div>
         </div>
@@ -1186,7 +1832,7 @@ export class PdfService {
 
       // Convert HTML to canvas
       const canvas = await html2canvas(tempDiv, {
-        scale: 2, // Higher quality
+        scale: 1.5, // Higher quality
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
@@ -1200,7 +1846,7 @@ export class PdfService {
       document.body.removeChild(tempDiv)
 
       // Create PDF
-      const imgData = canvas.toDataURL('image/png', 0.40)
+      const imgData = canvas.toDataURL('image/jpeg',2)
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
