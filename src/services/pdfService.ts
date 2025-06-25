@@ -1200,7 +1200,7 @@ export class PdfService {
       document.body.removeChild(tempDiv)
 
       // Create PDF
-      const imgData = canvas.toDataURL('image/png')
+      const imgData = canvas.toDataURL('image/png', 0.40)
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
