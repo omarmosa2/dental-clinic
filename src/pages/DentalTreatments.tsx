@@ -42,27 +42,7 @@ export default function DentalTreatments() {
   const { prescriptions, loadPrescriptions } = usePrescriptionStore()
   const { settings, currency } = useSettingsStore()
 
-  // Get pre-selected patient from localStorage
-  const getPreSelectedPatient = () => {
-    try {
-      const stored = localStorage.getItem('selectedPatientForTreatment')
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        // Clear it after reading to avoid persistence
-        localStorage.removeItem('selectedPatientForTreatment')
-        return parsed
-      }
-    } catch (error) {
-      console.error('Error reading pre-selected patient:', error)
-    }
-    return null
-  }
-
-  const preSelectedPatient = getPreSelectedPatient()
-  const preSelectedPatientId = preSelectedPatient?.selectedPatientId
-  const preSelectedPatientName = preSelectedPatient?.patientName
-
-  const [selectedPatientId, setSelectedPatientId] = useState<string>(preSelectedPatientId || '')
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('')
   const [selectedToothNumber, setSelectedToothNumber] = useState<number | null>(null)
   const [showToothDialog, setShowToothDialog] = useState(false)
   const [showPrescriptionDialog, setShowPrescriptionDialog] = useState(false)
@@ -81,28 +61,73 @@ export default function DentalTreatments() {
     loadImages() // تحميل جميع الصور
   }, [loadPatients, loadTreatments, loadPrescriptions, loadImages])
 
-  // Handle pre-selected patient
+  // Check for pre-selected patient from localStorage
   useEffect(() => {
-    if (preSelectedPatientId && patients.length > 0) {
-      // Set search query to patient name for easy identification
-      if (preSelectedPatientName) {
-        setSearchQuery(preSelectedPatientName)
-        // Show notification that patient was pre-selected
-        notify.success(`تم تحديد المريض: ${preSelectedPatientName}`)
-      }
-      // Load treatments for the pre-selected patient
-      loadTreatmentsByPatient(preSelectedPatientId)
-      loadImages()
+    const checkPreSelectedPatient = () => {
+      try {
+        const stored = localStorage.getItem('selectedPatientForTreatment')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          console.log('Found pre-selected patient for treatment:', parsed)
 
-      // Scroll to dental chart after a short delay
-      setTimeout(() => {
-        const dentalChartElement = document.getElementById('dental-chart-section')
-        if (dentalChartElement) {
-          dentalChartElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          const preSelectedPatientId = parsed.selectedPatientId
+          const preSelectedPatientName = parsed.patientName
+          const showAddTreatmentGuidance = parsed.showAddTreatmentGuidance
+
+          // Clear localStorage immediately to avoid re-processing
+          localStorage.removeItem('selectedPatientForTreatment')
+
+          // Wait for patients to load, then select the patient
+          const selectPatient = () => {
+            console.log('Attempting to select patient:', preSelectedPatientId)
+            console.log('Available patients:', patients.length)
+
+            // Set search query to patient name for easy identification
+            if (preSelectedPatientName) {
+              setSearchQuery(preSelectedPatientName)
+              // Show notification that patient was pre-selected
+              notify.success(`تم تحديد المريض: ${preSelectedPatientName}`)
+
+              // Check if we should show add treatment guidance
+              if (showAddTreatmentGuidance) {
+                setTimeout(() => {
+                  notify.info('اختر السن المراد علاجه من الرسم البياني أدناه لإضافة علاج جديد', undefined, { duration: 5000 })
+                }, 1000)
+              }
+            }
+
+            // Actually select the patient
+            setSelectedPatientId(preSelectedPatientId)
+            console.log('Patient selected:', preSelectedPatientId)
+
+            // Load treatments for the pre-selected patient
+            loadTreatmentsByPatient(preSelectedPatientId)
+            loadImages()
+
+            // Scroll to dental chart after a short delay
+            setTimeout(() => {
+              const dentalChartElement = document.getElementById('dental-chart-section')
+              if (dentalChartElement) {
+                dentalChartElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+            }, 500)
+          }
+
+          // If patients are already loaded, select immediately
+          if (patients.length > 0) {
+            selectPatient()
+          } else {
+            // Otherwise wait a bit for patients to load
+            setTimeout(selectPatient, 200)
+          }
         }
-      }, 500)
+      } catch (error) {
+        console.error('Error reading pre-selected patient for treatment:', error)
+      }
     }
-  }, [preSelectedPatientId, preSelectedPatientName, patients, loadTreatmentsByPatient, loadImages])
+
+    checkPreSelectedPatient()
+  }, [patients.length])
 
   // Filter patients based on search query
   const filteredPatients = patients.filter(patient =>

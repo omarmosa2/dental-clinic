@@ -174,7 +174,8 @@ export default function PatientDetailsModal({
       // Store patient info in localStorage for the treatments page to pick up
       localStorage.setItem('selectedPatientForTreatment', JSON.stringify({
         selectedPatientId: patient.id,
-        patientName: patient.full_name
+        patientName: patient.full_name,
+        showAddTreatmentGuidance: true
       }))
     }
   }
