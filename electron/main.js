@@ -2094,6 +2094,131 @@ ipcMain.handle('db:treatments:delete', async (_, id) => {
   }
 })
 
+// Clinic Needs IPC Handlers
+ipcMain.handle('db:clinicNeeds:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllClinicNeeds()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting all clinic needs:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicNeeds:create', async (_, need) => {
+  try {
+    if (databaseService) {
+      console.log('Creating clinic need:', need)
+      const result = await databaseService.createClinicNeed(need)
+      console.log('Clinic need created successfully:', result.id)
+      return result
+    } else {
+      const newNeed = { ...need, id: Date.now().toString() }
+      console.log('Creating clinic need (mock):', newNeed)
+      return newNeed
+    }
+  } catch (error) {
+    console.error('Error creating clinic need:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicNeeds:update', async (_, id, need) => {
+  try {
+    if (databaseService) {
+      console.log('Updating clinic need:', id, need)
+      const result = await databaseService.updateClinicNeed(id, need)
+      console.log('Clinic need updated successfully:', id)
+      return result
+    } else {
+      console.log('Updating clinic need (mock):', id, need)
+      return { ...need, id }
+    }
+  } catch (error) {
+    console.error('Error updating clinic need:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicNeeds:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting clinic need:', id)
+      const result = await databaseService.deleteClinicNeed(id)
+      console.log('Clinic need deleted successfully:', id)
+      return result
+    } else {
+      console.log('Deleting clinic need (mock):', id)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting clinic need:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicNeeds:search', async (_, query) => {
+  try {
+    if (databaseService) {
+      return await databaseService.searchClinicNeeds(query)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error searching clinic needs:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicNeeds:getByStatus', async (_, status) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getClinicNeedsByStatus(status)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting clinic needs by status:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicNeeds:getByPriority', async (_, priority) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getClinicNeedsByPriority(priority)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting clinic needs by priority:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicNeeds:getStatistics', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getClinicNeedsStatistics()
+    } else {
+      return {
+        total_needs: 0,
+        total_value: 0,
+        pending_count: 0,
+        ordered_count: 0,
+        received_count: 0,
+        urgent_count: 0
+      }
+    }
+  } catch (error) {
+    console.error('Error getting clinic needs statistics:', error)
+    throw error
+  }
+})
+
 // Reports IPC Handlers
 ipcMain.handle('reports:generatePatientReport', async (_, filter) => {
   try {

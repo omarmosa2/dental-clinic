@@ -342,6 +342,23 @@ CREATE TABLE IF NOT EXISTS dental_treatment_images (
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
 
+-- Clinic needs table for managing clinic requirements and needs
+CREATE TABLE IF NOT EXISTS clinic_needs (
+    id TEXT PRIMARY KEY,
+    serial_number TEXT UNIQUE NOT NULL,
+    need_name TEXT NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    description TEXT,
+    category TEXT,
+    priority TEXT DEFAULT 'medium', -- low, medium, high, urgent
+    status TEXT DEFAULT 'pending', -- pending, ordered, received, cancelled
+    supplier TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Dental treatment prescriptions junction table
 CREATE TABLE IF NOT EXISTS dental_treatment_prescriptions (
     id TEXT PRIMARY KEY,

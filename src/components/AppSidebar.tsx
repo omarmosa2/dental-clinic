@@ -12,6 +12,7 @@ import {
   Pill,
   Heart,
   Stethoscope,
+  ClipboardList,
 } from "lucide-react"
 
 import {
@@ -72,6 +73,11 @@ const navigationItems = [
     title: "العلاجات السنية",
     url: "dental-treatments",
     icon: Heart,
+  },
+  {
+    title: "احتياجات العيادة",
+    url: "clinic-needs",
+    icon: ClipboardList,
   },
   {
     title: "التقارير",

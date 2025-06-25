@@ -96,6 +96,16 @@ declare global {
         uploadDentalImage: (fileBuffer: ArrayBuffer, fileName: string, patientId: string, toothNumber: number) => Promise<string>
         saveDentalImage: (base64Data: string, fileName: string, patientId: string, toothNumber: number) => Promise<string>
       }
+      clinicNeeds: {
+        getAll: () => Promise<any[]>
+        create: (need: any) => Promise<any>
+        update: (id: string, need: any) => Promise<any>
+        delete: (id: string) => Promise<boolean>
+        search: (query: string) => Promise<any[]>
+        getByStatus: (status: string) => Promise<any[]>
+        getByPriority: (priority: string) => Promise<any[]>
+        getStatistics: () => Promise<any>
+      }
     }
   }
 }

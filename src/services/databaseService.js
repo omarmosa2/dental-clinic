@@ -99,6 +99,15 @@ class DatabaseService {
     // Check if lab tables exist and create them if they don't
     this.ensureLabTablesExist()
 
+    // Check if medication tables exist and create them if they don't
+    this.ensureMedicationTablesExist()
+
+    // Check if dental treatment tables exist and create them if they don't
+    this.ensureDentalTreatmentTablesExist()
+
+    // Check if clinic needs table exists and create it if it doesn't
+    this.ensureClinicNeedsTableExists()
+
     // Apply migrations
     const migrations = [
       {
@@ -2043,6 +2052,84 @@ class DatabaseService {
     }
   }
 
+  /**
+   * Ensure clinic needs table exists
+   */
+  ensureClinicNeedsTableExists() {
+    try {
+      console.log('🔍 [DEBUG] Checking clinic needs table existence...')
+
+      // Check if clinic_needs table exists
+      const clinicNeedsTableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='clinic_needs'
+      `).get()
+
+      console.log('🔍 [DEBUG] Clinic needs table status:')
+      console.log('  - clinic_needs:', !!clinicNeedsTableExists)
+
+      // Create clinic_needs table if it doesn't exist
+      if (!clinicNeedsTableExists) {
+        console.log('🏗️ [DEBUG] Creating clinic_needs table...')
+        this.db.exec(`
+          CREATE TABLE clinic_needs (
+            id TEXT PRIMARY KEY,
+            serial_number TEXT UNIQUE NOT NULL,
+            need_name TEXT NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            price DECIMAL(10,2) NOT NULL DEFAULT 0,
+            description TEXT,
+            category TEXT,
+            priority TEXT DEFAULT 'medium',
+            status TEXT DEFAULT 'pending',
+            supplier TEXT,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `)
+        console.log('✅ [DEBUG] Clinic needs table created successfully')
+      } else {
+        console.log('✅ [DEBUG] Clinic needs table already exists')
+      }
+
+      // Create indexes if they don't exist
+      this.createClinicNeedsIndexes()
+
+    } catch (error) {
+      console.error('❌ [DEBUG] Error in ensureClinicNeedsTableExists:', error)
+      console.error('❌ [DEBUG] Error stack:', error.stack)
+      throw error
+    }
+  }
+
+  createClinicNeedsIndexes() {
+    try {
+      console.log('🔍 Creating clinic needs indexes...')
+
+      const indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_clinic_needs_serial_number ON clinic_needs(serial_number)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_needs_name ON clinic_needs(need_name)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_needs_category ON clinic_needs(category)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_needs_priority ON clinic_needs(priority)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_needs_status ON clinic_needs(status)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_needs_supplier ON clinic_needs(supplier)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_needs_created_at ON clinic_needs(created_at)'
+      ]
+
+      indexes.forEach(indexSql => {
+        try {
+          this.db.exec(indexSql)
+        } catch (error) {
+          console.warn('Clinic needs index creation warning:', error.message)
+        }
+      })
+
+      console.log('✅ Clinic needs indexes created successfully')
+    } catch (error) {
+      console.error('❌ Error creating clinic needs indexes:', error)
+    }
+  }
+
   async getAllMedications() {
     this.ensureConnection()
     this.ensureMedicationTablesExist()
@@ -3046,6 +3133,178 @@ class DatabaseService {
   async runImageMigration() {
     console.log('🔄 Manually triggering image migration...')
     return await this.imageMigrationService.migrateImages()
+  }
+
+  // ==================== CLINIC NEEDS METHODS ====================
+
+  async getAllClinicNeeds() {
+    this.ensureConnection()
+    this.ensureClinicNeedsTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM clinic_needs
+      ORDER BY created_at DESC
+    `)
+
+    return stmt.all()
+  }
+
+  async getClinicNeedById(id) {
+    this.ensureConnection()
+    this.ensureClinicNeedsTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM clinic_needs WHERE id = ?
+    `)
+
+    return stmt.get(id)
+  }
+
+  async createClinicNeed(needData) {
+    this.ensureConnection()
+    this.ensureClinicNeedsTableExists()
+
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    const stmt = this.db.prepare(`
+      INSERT INTO clinic_needs (
+        id, serial_number, need_name, quantity, price, description,
+        category, priority, status, supplier, notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      id,
+      needData.serial_number,
+      needData.need_name,
+      needData.quantity,
+      needData.price,
+      needData.description || null,
+      needData.category || null,
+      needData.priority || 'medium',
+      needData.status || 'pending',
+      needData.supplier || null,
+      needData.notes || null,
+      now,
+      now
+    )
+
+    return this.getClinicNeedById(id)
+  }
+
+  async updateClinicNeed(id, needData) {
+    this.ensureConnection()
+    this.ensureClinicNeedsTableExists()
+
+    const now = new Date().toISOString()
+
+    const stmt = this.db.prepare(`
+      UPDATE clinic_needs SET
+        serial_number = ?,
+        need_name = ?,
+        quantity = ?,
+        price = ?,
+        description = ?,
+        category = ?,
+        priority = ?,
+        status = ?,
+        supplier = ?,
+        notes = ?,
+        updated_at = ?
+      WHERE id = ?
+    `)
+
+    stmt.run(
+      needData.serial_number,
+      needData.need_name,
+      needData.quantity,
+      needData.price,
+      needData.description || null,
+      needData.category || null,
+      needData.priority || 'medium',
+      needData.status || 'pending',
+      needData.supplier || null,
+      needData.notes || null,
+      now,
+      id
+    )
+
+    return this.getClinicNeedById(id)
+  }
+
+  async deleteClinicNeed(id) {
+    this.ensureConnection()
+    this.ensureClinicNeedsTableExists()
+
+    const stmt = this.db.prepare(`
+      DELETE FROM clinic_needs WHERE id = ?
+    `)
+
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  async searchClinicNeeds(searchQuery) {
+    this.ensureConnection()
+    this.ensureClinicNeedsTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM clinic_needs
+      WHERE need_name LIKE ?
+         OR serial_number LIKE ?
+         OR description LIKE ?
+         OR category LIKE ?
+         OR supplier LIKE ?
+      ORDER BY created_at DESC
+    `)
+
+    const query = `%${searchQuery}%`
+    return stmt.all(query, query, query, query, query)
+  }
+
+  async getClinicNeedsByStatus(status) {
+    this.ensureConnection()
+    this.ensureClinicNeedsTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM clinic_needs
+      WHERE status = ?
+      ORDER BY created_at DESC
+    `)
+
+    return stmt.all(status)
+  }
+
+  async getClinicNeedsByPriority(priority) {
+    this.ensureConnection()
+    this.ensureClinicNeedsTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM clinic_needs
+      WHERE priority = ?
+      ORDER BY created_at DESC
+    `)
+
+    return stmt.all(priority)
+  }
+
+  async getClinicNeedsStatistics() {
+    this.ensureConnection()
+    this.ensureClinicNeedsTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT
+        COUNT(*) as total_needs,
+        SUM(price * quantity) as total_value,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+        SUM(CASE WHEN status = 'ordered' THEN 1 ELSE 0 END) as ordered_count,
+        SUM(CASE WHEN status = 'received' THEN 1 ELSE 0 END) as received_count,
+        SUM(CASE WHEN priority = 'urgent' THEN 1 ELSE 0 END) as urgent_count
+      FROM clinic_needs
+    `)
+
+    return stmt.get()
   }
 }
 

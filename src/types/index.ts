@@ -321,6 +321,23 @@ export const TREATMENT_COLORS = {
 
 export type TreatmentColorKey = keyof typeof TREATMENT_COLORS
 
+// Clinic Need interface
+export interface ClinicNeed {
+  id: string
+  serial_number: string
+  need_name: string
+  quantity: number
+  price: number
+  description?: string
+  category?: string
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  status: 'pending' | 'ordered' | 'received' | 'cancelled'
+  supplier?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
 // Database schema for lowdb
 export interface DatabaseSchema {
   patients: Patient[]
@@ -340,6 +357,7 @@ export interface DatabaseSchema {
   dentalTreatments: DentalTreatment[]
   dentalTreatmentImages: DentalTreatmentImage[]
   dentalTreatmentPrescriptions: DentalTreatmentPrescription[]
+  clinicNeeds: ClinicNeed[]
 }
 
 // Reports and Analytics Types
