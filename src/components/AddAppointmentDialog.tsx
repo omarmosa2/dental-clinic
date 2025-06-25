@@ -32,6 +32,7 @@ interface AddAppointmentDialogProps {
   selectedDate?: Date
   selectedTime?: string
   initialData?: Appointment
+  preSelectedPatientId?: string
 }
 
 export default function AddAppointmentDialog({
@@ -42,7 +43,8 @@ export default function AddAppointmentDialog({
   treatments,
   selectedDate,
   selectedTime,
-  initialData
+  initialData,
+  preSelectedPatientId
 }: AddAppointmentDialogProps) {
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -109,7 +111,19 @@ export default function AddAppointmentDialog({
         notes: ''
       })
     }
-  }, [selectedDate, selectedTime, initialData, patients, isOpen])
+  }, [selectedDate, selectedTime, initialData, isOpen])
+
+  // Separate useEffect for pre-selected patient
+  useEffect(() => {
+    if (isOpen && preSelectedPatientId && patients.length > 0) {
+      const preSelectedPatient = patients.find(p => p.id === preSelectedPatientId)
+      setFormData(prev => ({
+        ...prev,
+        patient_id: preSelectedPatientId,
+        gender: preSelectedPatient?.gender === 'male' ? 'ذكر' : preSelectedPatient?.gender === 'female' ? 'أنثى' : ''
+      }))
+    }
+  }, [isOpen, preSelectedPatientId, patients.length])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -201,7 +215,7 @@ export default function AddAppointmentDialog({
       ...appointmentDataWithoutGender,
       // Add generated title
       title: generatedTitle,
-      cost: formData.cost ? parseFloat(formData.cost) : undefined,
+      cost: formData.cost ? parseFloat(formData.cost) : 0,
       start_time: startDate.toISOString(),
       end_time: endDate.toISOString()
     }

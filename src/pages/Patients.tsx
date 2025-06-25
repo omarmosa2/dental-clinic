@@ -41,7 +41,12 @@ import {
   X
 } from 'lucide-react'
 
-export default function Patients() {
+interface PatientsProps {
+  onNavigateToTreatments?: (tab: string) => void
+  onNavigateToPayments?: (tab: string) => void
+}
+
+export default function Patients({ onNavigateToTreatments, onNavigateToPayments }: PatientsProps) {
   // Enable real-time synchronization for automatic updates
   useRealTimeSync()
 
@@ -351,6 +356,8 @@ export default function Patients() {
         open={showDetailsModal}
         onOpenChange={setShowDetailsModal}
         onEdit={handleEditPatient}
+        onNavigateToTreatments={onNavigateToTreatments}
+        onNavigateToPayments={onNavigateToPayments}
       />
 
       {/* Edit Patient Dialog */}

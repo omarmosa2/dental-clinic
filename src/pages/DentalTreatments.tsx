@@ -42,7 +42,27 @@ export default function DentalTreatments() {
   const { prescriptions, loadPrescriptions } = usePrescriptionStore()
   const { settings, currency } = useSettingsStore()
 
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('')
+  // Get pre-selected patient from localStorage
+  const getPreSelectedPatient = () => {
+    try {
+      const stored = localStorage.getItem('selectedPatientForTreatment')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        // Clear it after reading to avoid persistence
+        localStorage.removeItem('selectedPatientForTreatment')
+        return parsed
+      }
+    } catch (error) {
+      console.error('Error reading pre-selected patient:', error)
+    }
+    return null
+  }
+
+  const preSelectedPatient = getPreSelectedPatient()
+  const preSelectedPatientId = preSelectedPatient?.selectedPatientId
+  const preSelectedPatientName = preSelectedPatient?.patientName
+
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(preSelectedPatientId || '')
   const [selectedToothNumber, setSelectedToothNumber] = useState<number | null>(null)
   const [showToothDialog, setShowToothDialog] = useState(false)
   const [showPrescriptionDialog, setShowPrescriptionDialog] = useState(false)
@@ -60,6 +80,29 @@ export default function DentalTreatments() {
     loadPrescriptions()
     loadImages() // تحميل جميع الصور
   }, [loadPatients, loadTreatments, loadPrescriptions, loadImages])
+
+  // Handle pre-selected patient
+  useEffect(() => {
+    if (preSelectedPatientId && patients.length > 0) {
+      // Set search query to patient name for easy identification
+      if (preSelectedPatientName) {
+        setSearchQuery(preSelectedPatientName)
+        // Show notification that patient was pre-selected
+        notify.success(`تم تحديد المريض: ${preSelectedPatientName}`)
+      }
+      // Load treatments for the pre-selected patient
+      loadTreatmentsByPatient(preSelectedPatientId)
+      loadImages()
+
+      // Scroll to dental chart after a short delay
+      setTimeout(() => {
+        const dentalChartElement = document.getElementById('dental-chart-section')
+        if (dentalChartElement) {
+          dentalChartElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 500)
+    }
+  }, [preSelectedPatientId, preSelectedPatientName, patients, loadTreatmentsByPatient, loadImages])
 
   // Filter patients based on search query
   const filteredPatients = patients.filter(patient =>

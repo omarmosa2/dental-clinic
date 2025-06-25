@@ -289,7 +289,7 @@ function AppContent() {
   const renderContent = () => {
     switch (activeTab) {
       case 'patients':
-        return <PatientsPage />;
+        return <PatientsPage onNavigateToTreatments={setActiveTab} onNavigateToPayments={setActiveTab} />;
       case 'appointments':
         return <AppointmentsPage />;
       case 'payments':

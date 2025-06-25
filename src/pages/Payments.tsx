@@ -47,6 +47,7 @@ export default function Payments() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showReceiptDialog, setShowReceiptDialog] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+  const [preSelectedPatientId, setPreSelectedPatientId] = useState<string | undefined>(undefined)
 
 
 
@@ -85,6 +86,34 @@ export default function Payments() {
     loadPatients()
   }, [loadPayments, loadPatients])
 
+  // Check for pre-selected patient from localStorage
+  useEffect(() => {
+    const checkPreSelectedPatient = () => {
+      try {
+        const stored = localStorage.getItem('selectedPatientForPayment')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          console.log('Found pre-selected patient for payment:', parsed)
+
+          // Set pre-selected patient
+          setPreSelectedPatientId(parsed.selectedPatientId)
+
+          // Open add dialog if requested
+          if (parsed.openAddDialog) {
+            setShowAddDialog(true)
+          }
+
+          // Clear localStorage after reading
+          localStorage.removeItem('selectedPatientForPayment')
+        }
+      } catch (error) {
+        console.error('Error reading pre-selected patient for payment:', error)
+      }
+    }
+
+    checkPreSelectedPatient()
+  }, [])
+
   useEffect(() => {
     if (error) {
       toast({
@@ -113,6 +142,7 @@ export default function Payments() {
 
   const handleAddPayment = () => {
     console.log('Add payment clicked')
+    setPreSelectedPatientId(undefined) // Clear any pre-selection for manual add
     setShowAddDialog(true)
   }
 
@@ -426,7 +456,14 @@ export default function Payments() {
       {/* Dialogs */}
       <AddPaymentDialog
         open={showAddDialog}
-        onOpenChange={setShowAddDialog}
+        onOpenChange={(open) => {
+          setShowAddDialog(open)
+          if (!open) {
+            // Clear pre-selected patient when dialog closes
+            setPreSelectedPatientId(undefined)
+          }
+        }}
+        preSelectedPatientId={preSelectedPatientId}
       />
 
       {selectedPayment && (

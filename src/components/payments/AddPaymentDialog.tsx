@@ -24,10 +24,10 @@ import type { Payment } from '@/types'
 interface AddPaymentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  preSelectedPatientId?: string
 }
 
-export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialogProps) {
-  console.log('AddPaymentDialog rendered, open:', open)
+export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatientId }: AddPaymentDialogProps) {
 
   const { toast } = useToast()
   const { createPayment, isLoading, getPaymentsByPatient, getPaymentsByAppointment } = usePaymentStore()
@@ -179,6 +179,16 @@ export default function AddPaymentDialog({ open, onOpenChange }: AddPaymentDialo
       })
     }
   }, [open])
+
+  // Separate useEffect for pre-selected patient (only when dialog opens)
+  useEffect(() => {
+    if (open && preSelectedPatientId) {
+      setFormData(prev => ({
+        ...prev,
+        patient_id: preSelectedPatientId
+      }))
+    }
+  }, [open, preSelectedPatientId])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
