@@ -1,35 +1,40 @@
 import { create } from 'zustand'
-import { DentalTreatment, DentalTreatmentImage, DentalTreatmentPrescription } from '@/types'
+import { DentalTreatmentImage, ToothTreatment } from '@/types'
 
 interface DentalTreatmentState {
-  treatments: DentalTreatment[]
+  toothTreatments: ToothTreatment[] // Multiple treatments per tooth
   images: DentalTreatmentImage[]
-  prescriptions: DentalTreatmentPrescription[]
+  toothTreatmentImages: any[] // Images for tooth treatments
   isLoading: boolean
   error: string | null
   selectedPatientId: string | null
   selectedToothNumber: number | null
 
-  // Actions
-  loadTreatments: () => Promise<void>
-  loadTreatmentsByPatient: (patientId: string) => Promise<void>
-  loadTreatmentsByTooth: (patientId: string, toothNumber: number) => Promise<void>
-  createTreatment: (treatment: Omit<DentalTreatment, 'id' | 'created_at' | 'updated_at'>) => Promise<DentalTreatment>
-  updateTreatment: (id: string, updates: Partial<DentalTreatment>) => Promise<void>
-  deleteTreatment: (id: string) => Promise<void>
+  // Multiple treatments actions
+  loadToothTreatments: () => Promise<void>
+  loadToothTreatmentsByPatient: (patientId: string) => Promise<void>
+  loadToothTreatmentsByTooth: (patientId: string, toothNumber: number) => Promise<void>
+  createToothTreatment: (treatment: Omit<ToothTreatment, 'id' | 'created_at' | 'updated_at'>) => Promise<ToothTreatment>
+  updateToothTreatment: (id: string, updates: Partial<ToothTreatment>) => Promise<void>
+  deleteToothTreatment: (id: string) => Promise<void>
+  reorderToothTreatments: (patientId: string, toothNumber: number, treatmentIds: string[]) => Promise<void>
 
-  // Image actions
+  // Tooth Treatment Images actions
+  loadAllToothTreatmentImages: () => Promise<void>
+  loadToothTreatmentImagesByTreatment: (treatmentId: string) => Promise<void>
+  loadToothTreatmentImagesByTooth: (patientId: string, toothNumber: number) => Promise<void>
+  loadAllToothTreatmentImagesByPatient: (patientId: string) => Promise<void>
+  createToothTreatmentImage: (image: any) => Promise<any>
+  deleteToothTreatmentImage: (id: string) => Promise<void>
+  clearToothTreatmentImages: () => void
+
+  // Legacy Image actions (for dental_treatment_images table)
   loadImages: () => Promise<void>
   loadImagesByTreatment: (treatmentId: string) => Promise<void>
   createImage: (image: Omit<DentalTreatmentImage, 'id' | 'created_at' | 'updated_at'>) => Promise<DentalTreatmentImage>
   deleteImage: (id: string) => Promise<void>
   refreshAllImages: () => Promise<void>
   clearImages: () => void
-
-  // Prescription actions
-  loadTreatmentPrescriptions: () => Promise<void>
-  linkPrescription: (treatmentId: string, prescriptionId: string) => Promise<void>
-  unlinkPrescription: (treatmentId: string, prescriptionId: string) => Promise<void>
 
   // Utility actions
   setSelectedPatient: (patientId: string | null) => void
@@ -38,47 +43,51 @@ interface DentalTreatmentState {
 }
 
 export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) => ({
-  treatments: [],
+  toothTreatments: [], // Multiple treatments per tooth
   images: [],
-  prescriptions: [],
+  toothTreatmentImages: [], // Images for tooth treatments
   isLoading: false,
   error: null,
   selectedPatientId: null,
   selectedToothNumber: null,
 
-  loadTreatments: async () => {
+  // Multiple treatments per tooth actions
+  loadToothTreatments: async () => {
     set({ isLoading: true, error: null })
     try {
-      const treatments = await window.electronAPI.dentalTreatments.getAll()
-      set({ treatments, isLoading: false })
+      const toothTreatments = await window.electronAPI.toothTreatments.getAll()
+      set({ toothTreatments, isLoading: false })
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Failed to load treatments',
+        error: error instanceof Error ? error.message : 'Failed to load tooth treatments',
         isLoading: false
       })
     }
   },
 
-  loadTreatmentsByPatient: async (patientId: string) => {
+  loadToothTreatmentsByPatient: async (patientId: string) => {
     set({ isLoading: true, error: null })
     try {
-      const treatments = await window.electronAPI.dentalTreatments.getByPatient(patientId)
-      set({ treatments, isLoading: false, selectedPatientId: patientId })
+      const toothTreatments = await window.electronAPI.toothTreatments.getByPatient(patientId)
+      set({
+        toothTreatments,
+        isLoading: false,
+        selectedPatientId: patientId
+      })
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Failed to load patient treatments',
+        error: error instanceof Error ? error.message : 'Failed to load patient tooth treatments',
         isLoading: false
       })
     }
   },
 
-  loadTreatmentsByTooth: async (patientId: string, toothNumber: number) => {
+  loadToothTreatmentsByTooth: async (patientId: string, toothNumber: number) => {
     set({ isLoading: true, error: null })
     try {
-      // Load all treatments for the patient, not just for one tooth
-      const treatments = await window.electronAPI.dentalTreatments.getByPatient(patientId)
+      const toothTreatments = await window.electronAPI.toothTreatments.getByTooth(patientId, toothNumber)
       set({
-        treatments,
+        toothTreatments,
         isLoading: false,
         selectedPatientId: patientId,
         selectedToothNumber: toothNumber
@@ -91,72 +100,103 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
     }
   },
 
-  createTreatment: async (treatmentData) => {
+  createToothTreatment: async (treatmentData) => {
     set({ isLoading: true, error: null })
     try {
-      const newTreatment = await window.electronAPI.dentalTreatments.create(treatmentData)
-      const { treatments, selectedPatientId } = get()
+      const newTreatment = await window.electronAPI.toothTreatments.create(treatmentData)
+      const { toothTreatments, selectedPatientId } = get()
 
       // Add the new treatment to the local state
       set({
-        treatments: [...treatments, newTreatment],
+        toothTreatments: [...toothTreatments, newTreatment],
         isLoading: false
       })
 
       // Reload all treatments for the patient to ensure consistency
       if (selectedPatientId) {
-        const refreshedTreatments = await window.electronAPI.dentalTreatments.getByPatient(selectedPatientId)
-        set({ treatments: refreshedTreatments })
+        const refreshedTreatments = await window.electronAPI.toothTreatments.getByPatient(selectedPatientId)
+        set({ toothTreatments: refreshedTreatments })
       }
 
       return newTreatment
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Failed to create treatment',
+        error: error instanceof Error ? error.message : 'Failed to create tooth treatment',
         isLoading: false
       })
       throw error
     }
   },
 
-  updateTreatment: async (id: string, updates: Partial<DentalTreatment>) => {
+  updateToothTreatment: async (id: string, updates: Partial<ToothTreatment>) => {
     set({ isLoading: true, error: null })
     try {
-      await window.electronAPI.dentalTreatments.update(id, updates)
-      const { treatments, selectedPatientId } = get()
+      await window.electronAPI.toothTreatments.update(id, updates)
+      const { toothTreatments, selectedPatientId } = get()
 
       // Update the treatment in the local state
-      const updatedTreatments = treatments.map(treatment =>
+      const updatedTreatments = toothTreatments.map(treatment =>
         treatment.id === id ? { ...treatment, ...updates, updated_at: new Date().toISOString() } : treatment
       )
-      set({ treatments: updatedTreatments, isLoading: false })
+      set({ toothTreatments: updatedTreatments, isLoading: false })
 
       // Optionally reload all treatments for the patient to ensure consistency
       if (selectedPatientId) {
-        const refreshedTreatments = await window.electronAPI.dentalTreatments.getByPatient(selectedPatientId)
-        set({ treatments: refreshedTreatments })
+        const refreshedTreatments = await window.electronAPI.toothTreatments.getByPatient(selectedPatientId)
+        set({ toothTreatments: refreshedTreatments })
       }
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Failed to update treatment',
+        error: error instanceof Error ? error.message : 'Failed to update tooth treatment',
         isLoading: false
       })
       throw error
     }
   },
 
-  deleteTreatment: async (id: string) => {
+  deleteToothTreatment: async (id: string) => {
     set({ isLoading: true, error: null })
     try {
-      await window.electronAPI.dentalTreatments.delete(id)
-      const { treatments } = get()
-      const filteredTreatments = treatments.filter(treatment => treatment.id !== id)
-      set({ treatments: filteredTreatments, isLoading: false })
-    } catch (error) {
+      await window.electronAPI.toothTreatments.delete(id)
+      const { toothTreatments } = get()
       set({
-        error: error instanceof Error ? error.message : 'Failed to delete treatment',
+        toothTreatments: toothTreatments.filter(treatment => treatment.id !== id),
         isLoading: false
       })
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to delete tooth treatment',
+        isLoading: false
+      })
+      throw error
+    }
+  },
+
+  reorderToothTreatments: async (patientId: string, toothNumber: number, treatmentIds: string[]) => {
+    set({ isLoading: true, error: null })
+    try {
+      await window.electronAPI.toothTreatments.reorder(patientId, toothNumber, treatmentIds)
+
+      // Reload treatments for this tooth to get updated priorities
+      const refreshedTreatments = await window.electronAPI.toothTreatments.getByTooth(patientId, toothNumber)
+      const { toothTreatments } = get()
+
+      // Update only the treatments for this specific tooth
+      const updatedTreatments = toothTreatments.map(treatment => {
+        if (treatment.patient_id === patientId && treatment.tooth_number === toothNumber) {
+          const refreshed = refreshedTreatments.find(rt => rt.id === treatment.id)
+          return refreshed || treatment
+        }
+        return treatment
+      })
+
+      set({ toothTreatments: updatedTreatments, isLoading: false })
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to reorder tooth treatments',
+        isLoading: false
+      })
+      throw error
     }
   },
 
@@ -238,55 +278,7 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
     set({ images: [] })
   },
 
-  loadTreatmentPrescriptions: async () => {
-    set({ isLoading: true, error: null })
-    try {
-      const prescriptions = await window.electronAPI.dentalTreatmentPrescriptions.getAll()
-      set({ prescriptions, isLoading: false })
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to load treatment prescriptions',
-        isLoading: false
-      })
-    }
-  },
 
-  linkPrescription: async (treatmentId: string, prescriptionId: string) => {
-    set({ isLoading: true, error: null })
-    try {
-      const link = await window.electronAPI.dentalTreatmentPrescriptions.create({
-        dental_treatment_id: treatmentId,
-        prescription_id: prescriptionId
-      })
-      const { prescriptions } = get()
-      set({
-        prescriptions: [...prescriptions, link],
-        isLoading: false
-      })
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to link prescription',
-        isLoading: false
-      })
-    }
-  },
-
-  unlinkPrescription: async (treatmentId: string, prescriptionId: string) => {
-    set({ isLoading: true, error: null })
-    try {
-      await window.electronAPI.dentalTreatmentPrescriptions.deleteByIds(treatmentId, prescriptionId)
-      const { prescriptions } = get()
-      const filteredPrescriptions = prescriptions.filter(
-        p => !(p.dental_treatment_id === treatmentId && p.prescription_id === prescriptionId)
-      )
-      set({ prescriptions: filteredPrescriptions, isLoading: false })
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to unlink prescription',
-        isLoading: false
-      })
-    }
-  },
 
   setSelectedPatient: (patientId: string | null) => {
     set({ selectedPatientId: patientId })
@@ -299,4 +291,114 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
   clearError: () => {
     set({ error: null })
   },
+
+  // NEW: Tooth Treatment Images actions
+  loadAllToothTreatmentImages: async () => {
+    set({ isLoading: true, error: null })
+    try {
+      const allImages = await window.electronAPI.toothTreatmentImages.getAll()
+      set({ toothTreatmentImages: allImages, isLoading: false })
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load all tooth treatment images',
+        isLoading: false
+      })
+    }
+  },
+
+  loadToothTreatmentImagesByTreatment: async (treatmentId: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const images = await window.electronAPI.toothTreatmentImages.getByTreatment(treatmentId)
+      set({ toothTreatmentImages: images, isLoading: false })
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load tooth treatment images',
+        isLoading: false
+      })
+    }
+  },
+
+  loadToothTreatmentImagesByTooth: async (patientId: string, toothNumber: number) => {
+    set({ isLoading: true, error: null })
+    try {
+      const newImages = await window.electronAPI.toothTreatmentImages.getByTooth(patientId, toothNumber)
+      const { toothTreatmentImages } = get()
+
+      // Remove existing images for this tooth and patient, then add new ones
+      const filteredImages = toothTreatmentImages.filter(img =>
+        !(img.tooth_number === toothNumber && img.patient_id === patientId)
+      )
+
+      set({
+        toothTreatmentImages: [...filteredImages, ...newImages],
+        isLoading: false
+      })
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load tooth treatment images',
+        isLoading: false
+      })
+    }
+  },
+
+  createToothTreatmentImage: async (imageData: any) => {
+    set({ isLoading: true, error: null })
+    try {
+      const newImage = await window.electronAPI.toothTreatmentImages.create(imageData)
+      const { toothTreatmentImages } = get()
+      set({
+        toothTreatmentImages: [...toothTreatmentImages, newImage],
+        isLoading: false
+      })
+      return newImage
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to create tooth treatment image',
+        isLoading: false
+      })
+      throw error
+    }
+  },
+
+  deleteToothTreatmentImage: async (id: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      await window.electronAPI.toothTreatmentImages.delete(id)
+      const { toothTreatmentImages } = get()
+      set({
+        toothTreatmentImages: toothTreatmentImages.filter(img => img.id !== id),
+        isLoading: false
+      })
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to delete tooth treatment image',
+        isLoading: false
+      })
+      throw error
+    }
+  },
+
+  clearToothTreatmentImages: () => {
+    set({ toothTreatmentImages: [] })
+  },
+
+  loadAllToothTreatmentImagesByPatient: async (patientId: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      // Get all images for this patient from all teeth
+      const allImages = await window.electronAPI.toothTreatmentImages.getAll()
+      const patientImages = allImages.filter(img => img.patient_id === patientId)
+
+      set({
+        toothTreatmentImages: patientImages,
+        isLoading: false
+      })
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load all tooth treatment images',
+        isLoading: false
+      })
+    }
+  }
 }))

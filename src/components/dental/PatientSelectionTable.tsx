@@ -22,7 +22,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Calendar,
-  Activity
+  Activity,
+  Camera
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
@@ -32,6 +33,7 @@ interface PatientSelectionTableProps {
   onPatientSelect: (patientId: string) => void
   getPatientTreatmentCount: (patientId: string) => number
   getLastTreatmentDate: (patientId: string) => string | null
+  getPatientImagesCount?: (patientId: string) => number
   isLoading?: boolean
   isCompact?: boolean
 }
@@ -45,6 +47,7 @@ export default function PatientSelectionTable({
   onPatientSelect,
   getPatientTreatmentCount,
   getLastTreatmentDate,
+  getPatientImagesCount,
   isLoading = false,
   isCompact = false
 }: PatientSelectionTableProps) {
@@ -301,10 +304,18 @@ export default function PatientSelectionTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-600">
-                      <Activity className="w-3 h-3 ml-1" />
-                      {getPatientTreatmentCount(patient.id)} علاج
-                    </Badge>
+                    <div className="flex items-center justify-center gap-2">
+                      <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-600">
+                        <Activity className="w-3 h-3 ml-1" />
+                        {getPatientTreatmentCount(patient.id)} علاج
+                      </Badge>
+                      {getPatientImagesCount && getPatientImagesCount(patient.id) > 0 && (
+                        <Badge variant="outline" className="bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-200 dark:border-green-600">
+                          <Camera className="w-3 h-3 ml-1" />
+                          {getPatientImagesCount(patient.id)} صورة
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {getLastTreatmentDate(patient.id) ? (

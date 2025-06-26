@@ -1604,103 +1604,287 @@ ipcMain.handle('db:prescriptions:search', async (_, query) => {
   }
 })
 
-// Dental Treatment IPC Handlers
-ipcMain.handle('db:dentalTreatments:getAll', async () => {
+
+
+// NEW: Multiple Tooth Treatments IPC Handlers
+ipcMain.handle('db:toothTreatments:getAll', async () => {
   try {
     if (databaseService) {
-      return await databaseService.getAllDentalTreatments()
+      return await databaseService.getAllToothTreatments()
     } else {
       return []
     }
   } catch (error) {
-    console.error('Error getting all dental treatments:', error)
+    console.error('Error getting all tooth treatments:', error)
     throw error
   }
 })
 
-ipcMain.handle('db:dentalTreatments:getByPatient', async (_, patientId) => {
+ipcMain.handle('db:toothTreatments:getByPatient', async (_, patientId) => {
   try {
     if (databaseService) {
-      return await databaseService.getDentalTreatmentsByPatient(patientId)
+      return await databaseService.getToothTreatmentsByPatient(patientId)
     } else {
       return []
     }
   } catch (error) {
-    console.error('Error getting dental treatments by patient:', error)
+    console.error('Error getting tooth treatments by patient:', error)
     throw error
   }
 })
 
-ipcMain.handle('db:dentalTreatments:getByTooth', async (_, patientId, toothNumber) => {
+ipcMain.handle('db:toothTreatments:getByTooth', async (_, patientId, toothNumber) => {
   try {
     if (databaseService) {
-      return await databaseService.getDentalTreatmentsByTooth(patientId, toothNumber)
+      return await databaseService.getToothTreatmentsByTooth(patientId, toothNumber)
     } else {
       return []
     }
   } catch (error) {
-    console.error('Error getting dental treatments by tooth:', error)
+    console.error('Error getting tooth treatments by tooth:', error)
     throw error
   }
 })
 
-ipcMain.handle('db:dentalTreatments:create', async (_, treatment) => {
+ipcMain.handle('db:toothTreatments:create', async (_, treatment) => {
   try {
     if (databaseService) {
-      console.log('Creating dental treatment:', treatment)
-      console.log('DatabaseService methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(databaseService)))
+      console.log('Creating tooth treatment:', treatment)
+      const result = await databaseService.createToothTreatment(treatment)
+      console.log('Tooth treatment created successfully:', result.id)
+      return result
+    } else {
+      console.log('Creating tooth treatment (mock):', treatment)
+      return { ...treatment, id: 'mock-id', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+    }
+  } catch (error) {
+    console.error('Error creating tooth treatment:', error)
+    throw error
+  }
+})
 
-      // Check if the method exists
-      if (typeof databaseService.createDentalTreatment === 'function') {
-        const result = await databaseService.createDentalTreatment(treatment)
-        console.log('Dental treatment created successfully:', result.id)
-        return result
+ipcMain.handle('db:toothTreatments:update', async (_, id, updates) => {
+  try {
+    if (databaseService) {
+      console.log('Updating tooth treatment:', id, updates)
+      await databaseService.updateToothTreatment(id, updates)
+      console.log('Tooth treatment updated successfully:', id)
+      return true
+    } else {
+      console.log('Updating tooth treatment (mock):', id, updates)
+      return true
+    }
+  } catch (error) {
+    console.error('Error updating tooth treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:toothTreatments:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting tooth treatment:', id)
+      await databaseService.deleteToothTreatment(id)
+      console.log('Tooth treatment deleted successfully:', id)
+      return true
+    } else {
+      console.log('Deleting tooth treatment (mock):', id)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting tooth treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:toothTreatments:reorder', async (_, patientId, toothNumber, treatmentIds) => {
+  try {
+    if (databaseService) {
+      console.log('Reordering tooth treatments:', patientId, toothNumber, treatmentIds)
+      await databaseService.reorderToothTreatments(patientId, toothNumber, treatmentIds)
+      console.log('Tooth treatments reordered successfully')
+      return true
+    } else {
+      console.log('Reordering tooth treatments (mock):', patientId, toothNumber, treatmentIds)
+      return true
+    }
+  } catch (error) {
+    console.error('Error reordering tooth treatments:', error)
+    throw error
+  }
+})
+
+// NEW: Tooth Treatment Images IPC Handlers
+ipcMain.handle('db:toothTreatmentImages:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllToothTreatmentImages()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting all tooth treatment images:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:toothTreatmentImages:getByTreatment', async (_, treatmentId) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getToothTreatmentImagesByTreatment(treatmentId)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting tooth treatment images by treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:toothTreatmentImages:getByTooth', async (_, patientId, toothNumber) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getToothTreatmentImagesByTooth(patientId, toothNumber)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting tooth treatment images by tooth:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:toothTreatmentImages:create', async (_, image) => {
+  try {
+    if (databaseService) {
+      console.log('Creating tooth treatment image:', image)
+      const result = await databaseService.createToothTreatmentImage(image)
+      console.log('Tooth treatment image created successfully:', result.id)
+      return result
+    } else {
+      console.log('Creating tooth treatment image (mock):', image)
+      return { ...image, id: 'mock-id', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+    }
+  } catch (error) {
+    console.error('Error creating tooth treatment image:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:toothTreatmentImages:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting tooth treatment image:', id)
+
+      // First get the image record to find the file path
+      const imageRecord = databaseService.db.prepare('SELECT * FROM tooth_treatment_images WHERE id = ?').get(id)
+      console.log('Tooth treatment image record to delete:', imageRecord)
+
+      if (imageRecord && imageRecord.image_path) {
+        // Try to delete the physical file
+        try {
+          const fs = require('fs')
+          const path = require('path')
+
+          console.log('Attempting to delete tooth treatment image file:', imageRecord.image_path)
+
+          let fileDeleted = false
+
+          // Check if image_path is a directory path (new format: dental_images/patient_id/tooth_number/image_type/)
+          if (imageRecord.image_path.endsWith('/')) {
+            console.log('Directory path detected, searching for images to delete in:', imageRecord.image_path)
+
+            // Search for images in the directory and delete them
+            const isDevelopment = process.env.NODE_ENV === 'development' ||
+                                 process.execPath.includes('node') ||
+                                 process.execPath.includes('electron') ||
+                                 process.cwd().includes('dental-clinic')
+
+            let baseDir
+            if (isDevelopment) {
+              baseDir = process.cwd()
+            } else {
+              baseDir = path.dirname(process.execPath)
+            }
+
+            const searchPaths = [
+              path.join(baseDir, imageRecord.image_path),
+              path.join(__dirname, '..', 'public', 'upload', imageRecord.image_path)
+            ]
+
+            for (const searchPath of searchPaths) {
+              if (fs.existsSync(searchPath)) {
+                try {
+                  const files = fs.readdirSync(searchPath)
+                  const imageFiles = files.filter(file => {
+                    const ext = path.extname(file).toLowerCase()
+                    return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)
+                  })
+
+                  console.log(`Found ${imageFiles.length} tooth treatment image(s) to delete in directory:`, searchPath)
+                  for (const imageFile of imageFiles) {
+                    const fullImagePath = path.join(searchPath, imageFile)
+                    fs.unlinkSync(fullImagePath)
+                    console.log('✅ Physical tooth treatment image file deleted:', fullImagePath)
+                    fileDeleted = true
+                  }
+                  console.log(`✅ Successfully deleted ${imageFiles.length} tooth treatment image(s) from directory`)
+                } catch (dirError) {
+                  console.warn('Error deleting tooth treatment images from directory:', searchPath, dirError.message)
+                }
+              }
+            }
+          } else {
+            // Direct file path (old format)
+            const isDevelopment = process.env.NODE_ENV === 'development' ||
+                                 process.execPath.includes('node') ||
+                                 process.execPath.includes('electron') ||
+                                 process.cwd().includes('dental-clinic')
+
+            let baseDir
+            if (isDevelopment) {
+              baseDir = process.cwd()
+            } else {
+              baseDir = path.dirname(process.execPath)
+            }
+
+            const searchPaths = [
+              path.join(baseDir, imageRecord.image_path),
+              path.join(__dirname, '..', 'public', 'upload', imageRecord.image_path)
+            ]
+
+            for (const searchPath of searchPaths) {
+              if (fs.existsSync(searchPath)) {
+                fs.unlinkSync(searchPath)
+                console.log('✅ Physical tooth treatment image file deleted:', searchPath)
+                fileDeleted = true
+                break
+              }
+            }
+          }
+
+          if (!fileDeleted) {
+            console.warn('⚠️ Physical tooth treatment image file not found or already deleted:', imageRecord.image_path)
+          }
+        } catch (fileError) {
+          console.error('❌ Error deleting physical tooth treatment image file:', fileError.message)
+          console.error('File path was:', imageRecord.image_path)
+          // Continue with database deletion even if file deletion fails
+        }
       } else {
-        console.error('createDentalTreatment method not found on databaseService')
-        throw new Error('createDentalTreatment method not available')
+        console.warn('⚠️ No tooth treatment image record found or no image_path for ID:', id)
       }
-    } else {
-      const newTreatment = { ...treatment, id: Date.now().toString() }
-      console.log('Creating dental treatment (mock):', newTreatment)
-      return newTreatment
-    }
-  } catch (error) {
-    console.error('Error creating dental treatment:', error)
-    throw error
-  }
-})
 
-ipcMain.handle('db:dentalTreatments:update', async (_, id, treatment) => {
-  try {
-    if (databaseService) {
-      console.log('Updating dental treatment:', id, treatment)
-      await databaseService.updateDentalTreatment(id, treatment)
-      console.log('Dental treatment updated successfully:', id)
-      return { ...treatment, id }
-    } else {
-      const updatedTreatment = { ...treatment, id }
-      console.log('Updating dental treatment (mock):', updatedTreatment)
-      return updatedTreatment
-    }
-  } catch (error) {
-    console.error('Error updating dental treatment:', error)
-    throw error
-  }
-})
-
-ipcMain.handle('db:dentalTreatments:delete', async (_, id) => {
-  try {
-    if (databaseService) {
-      console.log('Deleting dental treatment:', id)
-      await databaseService.deleteDentalTreatment(id)
-      console.log('Dental treatment deleted successfully:', id)
+      // Delete from database
+      await databaseService.deleteToothTreatmentImage(id)
+      console.log('Tooth treatment image deleted successfully:', id)
       return true
     } else {
-      console.log('Deleting dental treatment (mock):', id)
+      console.log('Deleting tooth treatment image (mock):', id)
       return true
     }
   } catch (error) {
-    console.error('Error deleting dental treatment:', error)
+    console.error('Error deleting tooth treatment image:', error)
     throw error
   }
 })
@@ -1856,54 +2040,7 @@ ipcMain.handle('db:dentalTreatmentImages:delete', async (_, id) => {
 
 
 
-// Dental Treatment Prescriptions IPC Handlers
-ipcMain.handle('db:dentalTreatmentPrescriptions:getAll', async () => {
-  try {
-    if (databaseService) {
-      return await databaseService.getAllDentalTreatmentPrescriptions()
-    } else {
-      return []
-    }
-  } catch (error) {
-    console.error('Error getting all dental treatment prescriptions:', error)
-    throw error
-  }
-})
 
-ipcMain.handle('db:dentalTreatmentPrescriptions:create', async (_, link) => {
-  try {
-    if (databaseService) {
-      console.log('Creating dental treatment prescription link:', link)
-      const result = await databaseService.createDentalTreatmentPrescription(link)
-      console.log('Dental treatment prescription link created successfully:', result.id)
-      return result
-    } else {
-      const newLink = { ...link, id: Date.now().toString() }
-      console.log('Creating dental treatment prescription link (mock):', newLink)
-      return newLink
-    }
-  } catch (error) {
-    console.error('Error creating dental treatment prescription link:', error)
-    throw error
-  }
-})
-
-ipcMain.handle('db:dentalTreatmentPrescriptions:deleteByIds', async (_, treatmentId, prescriptionId) => {
-  try {
-    if (databaseService) {
-      console.log('Deleting dental treatment prescription link:', treatmentId, prescriptionId)
-      await databaseService.deleteDentalTreatmentPrescriptionByIds(treatmentId, prescriptionId)
-      console.log('Dental treatment prescription link deleted successfully')
-      return true
-    } else {
-      console.log('Deleting dental treatment prescription link (mock):', treatmentId, prescriptionId)
-      return true
-    }
-  } catch (error) {
-    console.error('Error deleting dental treatment prescription link:', error)
-    throw error
-  }
-})
 
 // Settings IPC Handlers
 ipcMain.handle('settings:get', async () => {

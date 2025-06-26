@@ -250,20 +250,22 @@ export interface PrescriptionMedication {
   medication_instructions?: string
 }
 
-// Dental Treatment interfaces
-export interface DentalTreatment {
+// Multiple treatments per tooth interface
+export interface ToothTreatment {
   id: string
   patient_id: string
-  appointment_id?: string
   tooth_number: number
   tooth_name: string
-  current_treatment?: string
-  next_treatment?: string
-  treatment_details?: string
+  treatment_type: string
+  treatment_category: string
   treatment_status: 'planned' | 'in_progress' | 'completed' | 'cancelled'
   treatment_color: string
+  start_date?: string
+  completion_date?: string
   cost?: number
+  priority: number // For ordering treatments
   notes?: string
+  appointment_id?: string
   created_at: string
   updated_at: string
   // Populated fields
@@ -286,14 +288,7 @@ export interface DentalTreatmentImage {
   updated_at: string
 }
 
-export interface DentalTreatmentPrescription {
-  id: string
-  dental_treatment_id: string
-  prescription_id: string
-  created_at: string
-  // Populated fields
-  prescription?: Prescription
-}
+
 
 // Tooth information for dental chart
 export interface ToothInfo {
@@ -354,9 +349,8 @@ export interface DatabaseSchema {
   medications: Medication[]
   prescriptions: Prescription[]
   prescriptionMedications: PrescriptionMedication[]
-  dentalTreatments: DentalTreatment[]
   dentalTreatmentImages: DentalTreatmentImage[]
-  dentalTreatmentPrescriptions: DentalTreatmentPrescription[]
+  toothTreatments: ToothTreatment[] // Multiple treatments per tooth
   clinicNeeds: ClinicNeed[]
 }
 

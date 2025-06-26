@@ -79,13 +79,7 @@ declare global {
         delete: (id: string) => Promise<boolean>
         search: (query: string) => Promise<any[]>
       }
-      dentalTreatments: {
-        getAll: () => Promise<any[]>
-        getByPatient: (patientId: string) => Promise<any[]>
-        create: (treatment: any) => Promise<any>
-        update: (id: string, treatment: any) => Promise<any>
-        delete: (id: string) => Promise<boolean>
-      }
+
       dentalTreatmentImages: {
         getAll: () => Promise<any[]>
         getByTreatment: (treatmentId: string) => Promise<any[]>

@@ -14,8 +14,9 @@ import { usePatientStore } from '@/store/patientStore'
 import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
 import { usePrescriptionStore } from '@/store/prescriptionStore'
 import { useSettingsStore } from '@/store/settingsStore'
-import DentalChart from '@/components/dental/DentalChart'
-import ToothDetailsDialog from '@/components/dental/ToothDetailsDialog'
+import EnhancedDentalChart from '@/components/dental/EnhancedDentalChart'
+import EnhancedToothDetailsDialog from '@/components/dental/EnhancedToothDetailsDialog'
+
 import PrescriptionReceiptDialog from '@/components/medications/PrescriptionReceiptDialog'
 import PatientSelectionTable from '@/components/dental/PatientSelectionTable'
 import { formatDate, calculateAge } from '@/lib/utils'
@@ -38,7 +39,14 @@ import {
 export default function DentalTreatments() {
   const { toast } = useToast()
   const { patients, loadPatients } = usePatientStore()
-  const { treatments, images, loadTreatments, loadTreatmentsByPatient, loadImages } = useDentalTreatmentStore()
+  const {
+    toothTreatments,
+    toothTreatmentImages,
+    loadToothTreatments,
+    loadAllToothTreatmentImages,
+    loadToothTreatmentsByPatient,
+    loadAllToothTreatmentImagesByPatient
+  } = useDentalTreatmentStore()
   const { prescriptions, loadPrescriptions } = usePrescriptionStore()
   const { settings, currency } = useSettingsStore()
 
@@ -48,18 +56,21 @@ export default function DentalTreatments() {
   const [showPrescriptionDialog, setShowPrescriptionDialog] = useState(false)
   const [selectedPrescription, setSelectedPrescription] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+
   const [isPrimaryTeeth, setIsPrimaryTeeth] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [showTestMode, setShowTestMode] = useState(false)
+
 
   // Enable real-time synchronization
   useRealTimeSync()
 
   useEffect(() => {
     loadPatients()
-    loadTreatments()
     loadPrescriptions()
-    loadImages() // تحميل جميع الصور
-  }, [loadPatients, loadTreatments, loadPrescriptions, loadImages])
+    loadToothTreatments() // تحميل جميع العلاجات لحساب العدد لكل مريض
+    loadAllToothTreatmentImages() // تحميل جميع الصور لحساب العدد لكل مريض
+  }, [loadPatients, loadPrescriptions, loadToothTreatments, loadAllToothTreatmentImages])
 
   // Check for pre-selected patient from localStorage
   useEffect(() => {
@@ -101,7 +112,7 @@ export default function DentalTreatments() {
             console.log('Patient selected:', preSelectedPatientId)
 
             // Load treatments for the pre-selected patient
-            loadTreatmentsByPatient(preSelectedPatientId)
+            loadToothTreatmentsByPatient(preSelectedPatientId)
             loadImages()
 
             // Scroll to dental chart after a short delay
@@ -138,40 +149,50 @@ export default function DentalTreatments() {
 
   const selectedPatient = patients.find(p => p.id === selectedPatientId)
 
-  // Get patient treatments
-  const patientTreatments = treatments.filter(t => t.patient_id === selectedPatientId)
-
   // Get patient prescriptions
   const patientPrescriptions = prescriptions.filter(p => p.patient_id === selectedPatientId)
 
   // Calculate treatment counts for each patient
   const getPatientTreatmentCount = (patientId: string) => {
-    return treatments.filter(t => t.patient_id === patientId).length
+    const newSystemCount = toothTreatments.filter(t => t.patient_id === patientId).length
+    return newSystemCount
+  }
+
+  // Get detailed treatment stats for patient
+  const getPatientTreatmentStats = (patientId: string) => {
+    const patientTreatments = toothTreatments.filter(t => t.patient_id === patientId)
+    return {
+      total: patientTreatments.length,
+      completed: patientTreatments.filter(t => t.treatment_status === 'completed').length,
+      inProgress: patientTreatments.filter(t => t.treatment_status === 'in_progress').length,
+      planned: patientTreatments.filter(t => t.treatment_status === 'planned').length
+    }
   }
 
   // Get last treatment date for patient
   const getLastTreatmentDate = (patientId: string) => {
-    const patientTreatmentsList = treatments.filter(t => t.patient_id === patientId)
-    if (patientTreatmentsList.length === 0) return null
+    const newSystemTreatments = toothTreatments.filter(t => t.patient_id === patientId)
 
-    const sortedTreatments = patientTreatmentsList.sort((a, b) =>
+    if (newSystemTreatments.length === 0) return null
+
+    const sortedTreatments = newSystemTreatments.sort((a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
     return sortedTreatments[0].created_at
   }
 
-  // Calculate total images count for patient
+  // Calculate total images count for patient (using new system)
   const getPatientImagesCount = (patientId: string) => {
-    return images.filter(img => img.patient_id === patientId).length
+    return toothTreatmentImages.filter(img => img.patient_id === patientId).length
   }
 
   const handlePatientSelect = (patientId: string) => {
     setSelectedPatientId(patientId)
     setSelectedToothNumber(null)
-    // تحميل العلاجات للمريض المحدد
+    // تحميل العلاجات والصور للمريض المحدد
     if (patientId) {
-      loadTreatmentsByPatient(patientId)
-      loadImages() // تحميل الصور أيضاً
+      loadToothTreatmentsByPatient(patientId) // النظام الجديد
+      loadAllToothTreatmentImagesByPatient(patientId) // تحميل الصور بالنظام الجديد
       // Scroll to dental chart after selection
       setTimeout(() => {
         const dentalChartElement = document.getElementById('dental-chart-section')
@@ -195,8 +216,8 @@ export default function DentalTreatments() {
     setShowToothDialog(open)
     // إعادة تحميل البيانات عند إغلاق الحوار
     if (!open && selectedPatientId) {
-      loadTreatmentsByPatient(selectedPatientId)
-      loadImages() // إعادة تحميل الصور أيضاً
+      loadToothTreatmentsByPatient(selectedPatientId) // النظام الجديد
+      loadAllToothTreatmentImagesByPatient(selectedPatientId) // إعادة تحميل الصور بالنظام الجديد
     }
   }
 
@@ -210,10 +231,17 @@ export default function DentalTreatments() {
     try {
       await Promise.all([
         loadPatients(),
-        loadTreatments(),
         loadPrescriptions(),
-        loadImages() // تحديث الصور أيضاً
+        loadToothTreatments(), // تحديث جميع العلاجات
+        loadAllToothTreatmentImages() // تحديث جميع الصور بالنظام الجديد
       ])
+      // تحديث العلاجات والصور للمريض المحدد
+      if (selectedPatientId) {
+        await Promise.all([
+          loadToothTreatmentsByPatient(selectedPatientId),
+          loadAllToothTreatmentImagesByPatient(selectedPatientId)
+        ])
+      }
       notify.success('تم تحديث البيانات بنجاح')
     } catch (error) {
       notify.error('حدث خطأ أثناء تحديث البيانات')
@@ -239,6 +267,65 @@ export default function DentalTreatments() {
           <RefreshCw className={`w-4 h-4 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
           تحديث البيانات
         </Button>
+      </div>
+
+      {/* Quick Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">إجمالي المرضى</p>
+                <p className="text-2xl font-bold text-foreground">{patients.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                <Activity className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">إجمالي العلاجات</p>
+                <p className="text-2xl font-bold text-foreground">{toothTreatments.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                <Camera className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">إجمالي الصور</p>
+                <p className="text-2xl font-bold text-foreground">{toothTreatmentImages.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">الوصفات الطبية</p>
+                <p className="text-2xl font-bold text-foreground">{prescriptions.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Patient Selection */}
@@ -279,6 +366,7 @@ export default function DentalTreatments() {
             onPatientSelect={handlePatientSelect}
             getPatientTreatmentCount={getPatientTreatmentCount}
             getLastTreatmentDate={getLastTreatmentDate}
+            getPatientImagesCount={getPatientImagesCount}
             isLoading={isLoading}
             isCompact={!!selectedPatient}
           />
@@ -287,7 +375,7 @@ export default function DentalTreatments() {
           {selectedPatient && (
             <Card className="bg-muted/30 dark:bg-muted/20 border-border">
               <CardContent className="pt-4 bg-muted/30 dark:bg-muted/20">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     <span className="font-medium text-foreground">{selectedPatient.full_name}</span>
@@ -314,66 +402,76 @@ export default function DentalTreatments() {
                     </a>
                   </div>
                 </div>
+
+                {/* Treatment Statistics */}
+                {(() => {
+                  const stats = getPatientTreatmentStats(selectedPatientId)
+                  const imagesCount = getPatientImagesCount(selectedPatientId)
+
+                  return (
+                    <div className="border-t border-border pt-4">
+                      <h4 className="text-sm font-medium text-foreground mb-3">إحصائيات العلاجات</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                            <Activity className="w-3 h-3 ml-1" />
+                            {stats.total} إجمالي
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300">
+                            ✓ {stats.completed} مكتمل
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-orange-50 dark:bg-orange-900 text-orange-700 dark:text-orange-300">
+                            ⏳ {stats.inProgress} قيد التنفيذ
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
+                            📋 {stats.planned} مخطط
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
+                            <Camera className="w-3 h-3 ml-1" />
+                            {imagesCount} صورة
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
               </CardContent>
             </Card>
           )}
         </CardContent>
       </Card>
 
-      {/* Patient Treatments Summary */}
+
+
+      {/* Enhanced Mode Toggle */}
       {selectedPatient && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-card dark:bg-card border-border">
-            <CardHeader className="pb-2 bg-card dark:bg-card">
-              <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
-                <Activity className="w-4 h-4 text-green-600 dark:text-green-400" />
-                العلاجات
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="bg-card dark:bg-card">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {patientTreatments.length}
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold">نظام العلاجات المتعددة</h3>
+                <p className="text-sm text-muted-foreground">
+                  النظام المحسن: يدعم عدة علاجات للسن الواحد مع الألوان العالمية
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">إجمالي العلاجات</p>
-            </CardContent>
-          </Card>
 
-          <Card className="bg-card dark:bg-card border-border">
-            <CardHeader className="pb-2 bg-card dark:bg-card">
-              <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
-                <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                الصور
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="bg-card dark:bg-card">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {getPatientImagesCount(selectedPatientId)}
-              </div>
-              <p className="text-xs text-muted-foreground">صور العلاجات</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card dark:bg-card border-border">
-            <CardHeader className="pb-2 bg-card dark:bg-card">
-              <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
-                <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                الوصفات
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="bg-card dark:bg-card">
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {patientPrescriptions.length}
-              </div>
-              <p className="text-xs text-muted-foreground">الوصفات الطبية</p>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Dental Chart */}
       {selectedPatient && (
         <div id="dental-chart-section">
-          <DentalChart
+          <EnhancedDentalChart
             patientId={selectedPatientId}
             onToothClick={handleToothClick}
             selectedTooth={selectedToothNumber}
@@ -425,7 +523,7 @@ export default function DentalTreatments() {
       )}
 
       {/* Empty State */}
-      {!selectedPatient && (
+      {!selectedPatient && !showTestMode && (
         <Card>
           <CardContent className="text-center py-12">
             <Stethoscope className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -438,7 +536,7 @@ export default function DentalTreatments() {
       )}
 
       {/* Dialogs */}
-      <ToothDetailsDialog
+      <EnhancedToothDetailsDialog
         open={showToothDialog}
         onOpenChange={handleToothDialogClose}
         patientId={selectedPatientId}

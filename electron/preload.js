@@ -106,6 +106,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete: (id) => ipcRenderer.invoke('db:dentalTreatments:delete', id)
   },
 
+  // NEW: Multiple treatments per tooth operations
+  toothTreatments: {
+    getAll: () => ipcRenderer.invoke('db:toothTreatments:getAll'),
+    getByPatient: (patientId) => ipcRenderer.invoke('db:toothTreatments:getByPatient', patientId),
+    getByTooth: (patientId, toothNumber) => ipcRenderer.invoke('db:toothTreatments:getByTooth', patientId, toothNumber),
+    create: (treatment) => ipcRenderer.invoke('db:toothTreatments:create', treatment),
+    update: (id, treatment) => ipcRenderer.invoke('db:toothTreatments:update', id, treatment),
+    delete: (id) => ipcRenderer.invoke('db:toothTreatments:delete', id),
+    reorder: (patientId, toothNumber, treatmentIds) => ipcRenderer.invoke('db:toothTreatments:reorder', patientId, toothNumber, treatmentIds)
+  },
+
+  // NEW: Tooth Treatment Images operations
+  toothTreatmentImages: {
+    getAll: () => ipcRenderer.invoke('db:toothTreatmentImages:getAll'),
+    getByTreatment: (treatmentId) => ipcRenderer.invoke('db:toothTreatmentImages:getByTreatment', treatmentId),
+    getByTooth: (patientId, toothNumber) => ipcRenderer.invoke('db:toothTreatmentImages:getByTooth', patientId, toothNumber),
+    create: (image) => ipcRenderer.invoke('db:toothTreatmentImages:create', image),
+    delete: (id) => ipcRenderer.invoke('db:toothTreatmentImages:delete', id)
+  },
+
   // Dental Treatment Images operations
   dentalTreatmentImages: {
     getAll: () => ipcRenderer.invoke('db:dentalTreatmentImages:getAll'),

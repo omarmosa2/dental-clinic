@@ -297,11 +297,10 @@ CREATE TABLE IF NOT EXISTS prescription_medications (
     FOREIGN KEY (medication_id) REFERENCES medications(id) ON DELETE CASCADE
 );
 
--- Dental treatments table for managing dental treatment records
-CREATE TABLE IF NOT EXISTS dental_treatments (
+-- Multiple treatments per tooth table
+CREATE TABLE IF NOT EXISTS tooth_treatments (
     id TEXT PRIMARY KEY,
     patient_id TEXT NOT NULL,
-    appointment_id TEXT,
     tooth_number INTEGER NOT NULL CHECK (
         (tooth_number >= 11 AND tooth_number <= 18) OR
         (tooth_number >= 21 AND tooth_number <= 28) OR
@@ -313,23 +312,28 @@ CREATE TABLE IF NOT EXISTS dental_treatments (
         (tooth_number >= 81 AND tooth_number <= 85)
     ),
     tooth_name TEXT NOT NULL,
-    current_treatment TEXT,
-    next_treatment TEXT,
-    treatment_details TEXT,
+    treatment_type TEXT NOT NULL, -- From TREATMENT_TYPES
+    treatment_category TEXT NOT NULL, -- preventive, restorative, endodontic, etc.
     treatment_status TEXT DEFAULT 'planned', -- planned, in_progress, completed, cancelled
-    treatment_color TEXT DEFAULT '#22c55e', -- Color code for tooth status visualization
-    cost DECIMAL(10,2),
+    treatment_color TEXT NOT NULL,
+    start_date DATE,
+    completion_date DATE,
+    cost DECIMAL(10,2) DEFAULT 0,
+    priority INTEGER DEFAULT 1, -- For ordering treatments (1 = highest priority)
     notes TEXT,
+    appointment_id TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
-    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
+    -- Ensure unique priority per tooth per patient
+    UNIQUE(patient_id, tooth_number, priority)
 );
 
--- Dental treatment images table for storing before/after and x-ray images
+-- Legacy dental treatment images table (kept for backward compatibility)
 CREATE TABLE IF NOT EXISTS dental_treatment_images (
     id TEXT PRIMARY KEY,
-    dental_treatment_id TEXT NOT NULL,
+    dental_treatment_id TEXT,
     patient_id TEXT NOT NULL,
     tooth_number INTEGER NOT NULL,
     image_path TEXT NOT NULL,
@@ -338,7 +342,22 @@ CREATE TABLE IF NOT EXISTS dental_treatment_images (
     taken_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (dental_treatment_id) REFERENCES dental_treatments(id) ON DELETE CASCADE,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+
+-- New tooth treatment images table for multiple treatments system
+CREATE TABLE IF NOT EXISTS tooth_treatment_images (
+    id TEXT PRIMARY KEY,
+    tooth_treatment_id TEXT,
+    patient_id TEXT NOT NULL,
+    tooth_number INTEGER NOT NULL,
+    image_path TEXT NOT NULL,
+    image_type TEXT NOT NULL, -- before, after, xray, clinical, other
+    description TEXT,
+    taken_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tooth_treatment_id) REFERENCES tooth_treatments(id) ON DELETE CASCADE,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
 
@@ -359,15 +378,7 @@ CREATE TABLE IF NOT EXISTS clinic_needs (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Dental treatment prescriptions junction table
-CREATE TABLE IF NOT EXISTS dental_treatment_prescriptions (
-    id TEXT PRIMARY KEY,
-    dental_treatment_id TEXT NOT NULL,
-    prescription_id TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (dental_treatment_id) REFERENCES dental_treatments(id) ON DELETE CASCADE,
-    FOREIGN KEY (prescription_id) REFERENCES prescriptions(id) ON DELETE CASCADE
-);
+
 
 -- Medications indexes for search and performance optimization
 CREATE INDEX IF NOT EXISTS idx_medications_name ON medications(name);

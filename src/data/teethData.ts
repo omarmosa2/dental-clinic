@@ -114,21 +114,103 @@ export const getTeethByType = (type: ToothInfo['type'], isPrimary: boolean = fal
   return teethData.filter(tooth => tooth.type === type)
 }
 
-// Treatment type options with Arabic labels
+// Treatment type options with Arabic labels - International Dental Standards
 export const TREATMENT_TYPES = [
-  { value: 'healthy', label: 'سليم', color: '#22c55e' },
-  { value: 'filling', label: 'حشو', color: '#f97316' },
-  { value: 'root_canal', label: 'عصب', color: '#ef4444' },
-  { value: 'crown', label: 'تاج', color: '#8b5cf6' },
-  { value: 'extraction', label: 'خلع', color: '#6b7280' },
-  { value: 'cleaning', label: 'تنظيف', color: '#06b6d4' },
-  { value: 'implant', label: 'زراعة', color: '#10b981' },
-  { value: 'bridge', label: 'جسر', color: '#f59e0b' },
-  { value: 'veneer', label: 'قشرة', color: '#ec4899' },
-  { value: 'orthodontic', label: 'تقويم', color: '#6366f1' },
+  // ===== PREVENTIVE TREATMENTS (العلاجات الوقائية) =====
+  { value: 'healthy', label: 'سليم', color: '#22c55e', category: 'preventive' },
+  { value: 'cleaning', label: 'تنظيف', color: '#06b6d4', category: 'preventive' },
+  { value: 'fluoride', label: 'فلورايد', color: '#0ea5e9', category: 'preventive' },
+  { value: 'sealant', label: 'حشو وقائي', color: '#14b8a6', category: 'preventive' },
+  { value: 'scaling', label: 'تقليح', color: '#06b6d4', category: 'preventive' },
+
+  // ===== RESTORATIVE TREATMENTS (العلاجات الترميمية) =====
+  { value: 'filling_amalgam', label: 'حشو فضي', color: '#64748b', category: 'restorative' },
+  { value: 'filling_composite', label: 'حشو أبيض', color: '#f97316', category: 'restorative' },
+  { value: 'filling_glass_ionomer', label: 'حشو زجاجي', color: '#fb7185', category: 'restorative' },
+  { value: 'inlay', label: 'حشو داخلي', color: '#a855f7', category: 'restorative' },
+  { value: 'onlay', label: 'حشو خارجي', color: '#8b5cf6', category: 'restorative' },
+  { value: 'crown_metal', label: 'تاج معدني', color: '#6b7280', category: 'restorative' },
+  { value: 'crown_ceramic', label: 'تاج خزفي', color: '#8b5cf6', category: 'restorative' },
+  { value: 'crown_zirconia', label: 'تاج زيركونيا', color: '#a855f7', category: 'restorative' },
+  { value: 'bridge', label: 'جسر', color: '#f59e0b', category: 'restorative' },
+
+  // ===== ENDODONTIC TREATMENTS (علاجات العصب) =====
+  { value: 'root_canal', label: 'علاج عصب', color: '#ef4444', category: 'endodontic' },
+  { value: 'pulpotomy', label: 'بتر العصب', color: '#dc2626', category: 'endodontic' },
+  { value: 'pulp_cap', label: 'تغطية العصب', color: '#f87171', category: 'endodontic' },
+  { value: 'retreatment', label: 'إعادة علاج عصب', color: '#b91c1c', category: 'endodontic' },
+  { value: 'apexification', label: 'تكوين قمة الجذر', color: '#dc2626', category: 'endodontic' },
+
+  // ===== SURGICAL TREATMENTS (العلاجات الجراحية) =====
+  { value: 'extraction_simple', label: 'خلع بسيط', color: '#6b7280', category: 'surgical' },
+  { value: 'extraction_surgical', label: 'خلع جراحي', color: '#4b5563', category: 'surgical' },
+  { value: 'implant', label: 'زراعة', color: '#10b981', category: 'surgical' },
+  { value: 'bone_graft', label: 'ترقيع عظم', color: '#059669', category: 'surgical' },
+  { value: 'sinus_lift', label: 'رفع الجيب الفكي', color: '#047857', category: 'surgical' },
+  { value: 'gum_surgery', label: 'جراحة لثة', color: '#065f46', category: 'surgical' },
+  { value: 'apicoectomy', label: 'استئصال قمة الجذر', color: '#374151', category: 'surgical' },
+
+  // ===== COSMETIC TREATMENTS (العلاجات التجميلية) =====
+  { value: 'veneer_porcelain', label: 'قشرة خزفية', color: '#ec4899', category: 'cosmetic' },
+  { value: 'veneer_composite', label: 'قشرة مركبة', color: '#f472b6', category: 'cosmetic' },
+  { value: 'whitening', label: 'تبييض', color: '#fbbf24', category: 'cosmetic' },
+  { value: 'bonding', label: 'ربط تجميلي', color: '#f59e0b', category: 'cosmetic' },
+  { value: 'contouring', label: 'تشكيل تجميلي', color: '#d97706', category: 'cosmetic' },
+
+  // ===== ORTHODONTIC TREATMENTS (علاجات التقويم) =====
+  { value: 'orthodontic_metal', label: 'تقويم معدني', color: '#6366f1', category: 'orthodontic' },
+  { value: 'orthodontic_ceramic', label: 'تقويم خزفي', color: '#8b5cf6', category: 'orthodontic' },
+  { value: 'orthodontic_clear', label: 'تقويم شفاف', color: '#a855f7', category: 'orthodontic' },
+  { value: 'retainer', label: 'مثبت', color: '#7c3aed', category: 'orthodontic' },
+  { value: 'space_maintainer', label: 'حافظ مسافة', color: '#5b21b6', category: 'orthodontic' },
+
+  // ===== PERIODONTAL TREATMENTS (علاجات اللثة) =====
+  { value: 'deep_cleaning', label: 'تنظيف عميق', color: '#0891b2', category: 'periodontal' },
+  { value: 'root_planing', label: 'تسوية الجذور', color: '#0e7490', category: 'periodontal' },
+  { value: 'gum_graft', label: 'ترقيع لثة', color: '#155e75', category: 'periodontal' },
+  { value: 'pocket_reduction', label: 'تقليل الجيوب', color: '#164e63', category: 'periodontal' },
+
+  // ===== PEDIATRIC TREATMENTS (علاجات الأطفال) =====
+  { value: 'pulp_therapy', label: 'علاج عصب لبني', color: '#f472b6', category: 'pediatric' },
+  { value: 'stainless_crown', label: 'تاج ستانلس', color: '#9ca3af', category: 'pediatric' },
+  { value: 'space_maintainer_fixed', label: 'حافظ مسافة ثابت', color: '#6b7280', category: 'pediatric' },
+  { value: 'space_maintainer_removable', label: 'حافظ مسافة متحرك', color: '#4b5563', category: 'pediatric' },
 ] as const
 
 export type TreatmentType = typeof TREATMENT_TYPES[number]['value']
+
+// Treatment categories for organization
+export const TREATMENT_CATEGORIES = [
+  { value: 'preventive', label: 'العلاجات الوقائية', color: '#22c55e', icon: '🛡️' },
+  { value: 'restorative', label: 'العلاجات الترميمية', color: '#f97316', icon: '🔧' },
+  { value: 'endodontic', label: 'علاجات العصب', color: '#ef4444', icon: '🦷' },
+  { value: 'surgical', label: 'العلاجات الجراحية', color: '#6b7280', icon: '⚔️' },
+  { value: 'cosmetic', label: 'العلاجات التجميلية', color: '#ec4899', icon: '✨' },
+  { value: 'orthodontic', label: 'علاجات التقويم', color: '#6366f1', icon: '📐' },
+  { value: 'periodontal', label: 'علاجات اللثة', color: '#0891b2', icon: '🌿' },
+  { value: 'pediatric', label: 'علاجات الأطفال', color: '#f472b6', icon: '👶' },
+] as const
+
+export type TreatmentCategory = typeof TREATMENT_CATEGORIES[number]['value']
+
+// Helper functions for treatment management
+export const getTreatmentsByCategory = (category: TreatmentCategory) => {
+  return TREATMENT_TYPES.filter(treatment => treatment.category === category)
+}
+
+export const getTreatmentByValue = (value: string) => {
+  return TREATMENT_TYPES.find(treatment => treatment.value === value)
+}
+
+export const getCategoryInfo = (category: TreatmentCategory) => {
+  return TREATMENT_CATEGORIES.find(cat => cat.value === category)
+}
+
+// Get treatment color by value (for backward compatibility)
+export const getTreatmentColor = (treatmentValue: string): string => {
+  const treatment = getTreatmentByValue(treatmentValue)
+  return treatment?.color || '#22c55e' // Default to healthy color
+}
 
 // Treatment status options
 export const TREATMENT_STATUS_OPTIONS = [
