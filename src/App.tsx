@@ -6,17 +6,22 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import { useRealTimeSync } from './hooks/useRealTimeSync'
 import { useAuth } from './hooks/useAuth'
 import { useLicense } from './hooks/useLicense'
+import { useSystemShortcuts } from './hooks/useKeyboardShortcuts'
+import { enhanceKeyboardEvent } from '@/utils/arabicKeyboardMapping'
 import LoginScreen from './components/auth/LoginScreen'
 import LicenseEntryScreen from './components/auth/LicenseEntryScreen'
 import AddPatientDialog from './components/patients/AddPatientDialog'
 import ConfirmDeleteDialog from './components/ConfirmDeleteDialog'
 import AppointmentCard from './components/AppointmentCard'
 import AddAppointmentDialog from './components/AddAppointmentDialog'
+import AddPaymentDialog from './components/payments/AddPaymentDialog'
+import QuickShortcutHint from './components/help/QuickShortcutHint'
 import PaymentsPage from './pages/Payments'
 import SettingsPage from './pages/Settings'
 import InventoryPage from './pages/Inventory'
 import ReportsPage from './pages/Reports'
 import Dashboard from './pages/Dashboard'
+import EnhancedDashboard from './pages/EnhancedDashboard'
 import PatientsPage from './pages/Patients'
 import AppointmentsPage from './pages/Appointments'
 import Labs from './pages/Labs'
@@ -48,7 +53,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
-import { Plus, Filter, Search } from 'lucide-react'
+import { Plus, Filter, Search, Keyboard } from 'lucide-react'
 import { Appointment } from './types'
 import './App.css'
 import './styles/globals.css'
@@ -69,9 +74,136 @@ function AppContent() {
   // Enable real-time synchronization for the entire application
   useRealTimeSync()
 
+  // Setup keyboard shortcuts - تم تعطيلها لصالح الاختصارات المحلية في كل صفحة
+  // useSystemShortcuts({
+  //   onGlobalSearch: () => {
+  //     console.log('Global search shortcut triggered')
+  //   },
+  //   onNavigateToDashboard: () => setActiveTab('dashboard'),
+  //   onNavigateToPatients: () => setActiveTab('patients'),
+  //   onNavigateToAppointments: () => setActiveTab('appointments'),
+  //   onNavigateToPayments: () => setActiveTab('payments'),
+  //   onNavigateToTreatments: () => setActiveTab('dental-treatments'),
+  //   onNewPatient: () => setShowAddPatient(true),
+  //   onNewAppointment: () => setShowAddAppointment(true),
+  //   onNewPayment: () => setShowAddPayment(true),
+  //   onRefresh: () => {
+  //     window.location.reload()
+  //   },
+  //   onHelp: () => {
+  //     console.log('Help shortcut triggered')
+  //   },
+  //   enabled: isAuthenticated && isLicenseValid
+  // })
+
+  // Setup simple keyboard shortcuts for navigation
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // تجاهل الاختصارات إذا كان المستخدم يكتب في input أو textarea
+      // إلا إذا كان يستخدم Ctrl أو Alt
+      const target = event.target as HTMLElement
+      const isTyping = (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.contentEditable === 'true'
+      )
+
+      // السماح بالاختصارات المهمة حتى أثناء الكتابة
+      const isImportantShortcut = event.ctrlKey || event.altKey
+
+      if (isTyping && !isImportantShortcut) {
+        return
+      }
+
+      // استخدام الدالة المحسنة لمعالجة أحداث لوحة المفاتيح
+      const enhanced = enhanceKeyboardEvent(event)
+
+      // Navigation shortcuts (0-9) with Arabic numeral support
+      if (enhanced.mappedKey === '0') {
+        enhanced.preventDefault()
+        setActiveTab('dashboard')
+      } else if (enhanced.mappedKey === '1') {
+        enhanced.preventDefault()
+        setActiveTab('patients')
+      } else if (enhanced.mappedKey === '2') {
+        enhanced.preventDefault()
+        setActiveTab('appointments')
+      } else if (enhanced.mappedKey === '3') {
+        enhanced.preventDefault()
+        setActiveTab('payments')
+      } else if (enhanced.mappedKey === '4') {
+        enhanced.preventDefault()
+        setActiveTab('inventory')
+      } else if (enhanced.mappedKey === '5') {
+        enhanced.preventDefault()
+        setActiveTab('labs')
+      } else if (enhanced.mappedKey === '6') {
+        enhanced.preventDefault()
+        setActiveTab('medications')
+      } else if (enhanced.mappedKey === '7') {
+        enhanced.preventDefault()
+        setActiveTab('dental-treatments')
+      } else if (enhanced.mappedKey === '8') {
+        enhanced.preventDefault()
+        setActiveTab('clinic-needs')
+      } else if (enhanced.mappedKey === '9') {
+        enhanced.preventDefault()
+        setActiveTab('reports')
+      }
+
+      // Quick actions - اختصارات متجاورة ASD (دعم محسن للعربية والإنجليزية)
+      if (enhanced.mappedKey.toLowerCase() === 'a') {
+        enhanced.preventDefault()
+        console.log('🎯 Shortcut A/ش pressed - Opening Add Patient dialog')
+        setShowAddPatient(true)
+      } else if (enhanced.mappedKey.toLowerCase() === 's') {
+        enhanced.preventDefault()
+        console.log('🎯 Shortcut S/س pressed - Opening Add Appointment dialog')
+        setShowAddAppointment(true)
+      } else if (enhanced.mappedKey.toLowerCase() === 'd') {
+        enhanced.preventDefault()
+        console.log('🎯 Shortcut D/ي pressed - Opening Add Payment dialog')
+        setShowAddPayment(true)
+      }
+
+      // Refresh (دعم الحرف العربي ق)
+      if (enhanced.mappedKey.toLowerCase() === 'r') {
+        enhanced.preventDefault()
+        console.log('🎯 Shortcut R/ق pressed - Refreshing page')
+        window.location.reload()
+      }
+
+      // Search (دعم الحرف العربي ب)
+      if (enhanced.mappedKey.toLowerCase() === 'f') {
+        enhanced.preventDefault()
+        console.log('🎯 Shortcut F/ب pressed - Opening search')
+        // يمكن إضافة منطق البحث هنا حسب الصفحة الحالية
+      }
+
+
+
+      // Open Settings (F1)
+      if (event.key === 'F1') {
+        event.preventDefault()
+        console.log('🎯 Opening Settings')
+        setActiveTab('settings')
+      }
+
+
+    }
+
+    if (isAuthenticated && isLicenseValid) {
+      window.addEventListener('keydown', handleKeyDown)
+      return () => window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isAuthenticated, isLicenseValid])
+
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showAddPatient, setShowAddPatient] = useState(false)
+  const [showAddPayment, setShowAddPayment] = useState(false)
   const [loginLoading, setLoginLoading] = useState(false)
+
+
 
 
 
@@ -310,9 +442,14 @@ function AppContent() {
       case 'settings':
         return <SettingsPage />;
       default:
-        return <Dashboard
+        return <EnhancedDashboard
+          onNavigateToPatients={() => setActiveTab('patients')}
+          onNavigateToAppointments={() => setActiveTab('appointments')}
+          onNavigateToPayments={() => setActiveTab('payments')}
+          onNavigateToTreatments={() => setActiveTab('dental-treatments')}
           onAddPatient={() => setShowAddPatient(true)}
           onAddAppointment={() => setShowAddAppointment(true)}
+          onAddPayment={() => setShowAddPayment(true)}
         />;
     }
   };
@@ -358,16 +495,20 @@ function AppContent() {
             <div className="mr-auto flex items-center gap-3 px-4">
               <SidebarTrigger />
               <Separator orientation="vertical" className="mx-2 h-4" />
+
+              <QuickShortcutHint />
               <ThemeToggle />
               <div className="text-sm text-muted-foreground bg-accent/30 px-3 py-1 rounded-full">
                 <LiveDateTime />
               </div>
             </div>
           </header>
-          <div className="flex flex-1 flex-col gap-4 p-10 pt-4 max-w-full overflow-hidden">
+          <div className="flex flex-1 flex-col gap-4 p-10 pt-4 max-w-full overflow-hidden relative">
             <div className="w-full max-w-none content-wrapper">
               {renderContent()}
             </div>
+
+
           </div>
         </SidebarInset>
 
@@ -436,6 +577,14 @@ function AppContent() {
           isLoading={appointmentsLoading}
         />
       )}
+
+      {/* Add Payment Dialog */}
+      <AddPaymentDialog
+        open={showAddPayment}
+        onOpenChange={setShowAddPayment}
+      />
+
+
 
         <Toaster />
       </SidebarProvider>

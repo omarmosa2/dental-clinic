@@ -3474,3 +3474,118 @@ ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientI
   }
 })
 
+// Smart Alerts IPC Handlers
+ipcMain.handle('db:smartAlerts:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllSmartAlerts()
+    } else {
+      console.log('Getting smart alerts (mock)')
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting all smart alerts:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:smartAlerts:create', async (_, alert) => {
+  try {
+    if (databaseService) {
+      console.log('Creating smart alert:', alert.title)
+      const result = await databaseService.createSmartAlert(alert)
+      console.log('Smart alert created successfully:', result.id)
+      return result
+    } else {
+      const newAlert = { ...alert, id: Date.now().toString() }
+      console.log('Creating smart alert (mock):', newAlert)
+      return newAlert
+    }
+  } catch (error) {
+    console.error('Error creating smart alert:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:smartAlerts:update', async (_, id, updates) => {
+  try {
+    if (databaseService) {
+      console.log('Updating smart alert:', id, updates)
+      const result = await databaseService.updateSmartAlert(id, updates)
+      console.log('Smart alert updated successfully:', id)
+      return result
+    } else {
+      console.log('Updating smart alert (mock):', id, updates)
+      return true
+    }
+  } catch (error) {
+    console.error('Error updating smart alert:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:smartAlerts:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting smart alert:', id)
+      const result = await databaseService.deleteSmartAlert(id)
+      console.log('Smart alert deleted successfully:', id)
+      return result
+    } else {
+      console.log('Deleting smart alert (mock):', id)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting smart alert:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:smartAlerts:getById', async (_, id) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getSmartAlertById(id)
+    } else {
+      console.log('Getting smart alert by id (mock):', id)
+      return null
+    }
+  } catch (error) {
+    console.error('Error getting smart alert by id:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:smartAlerts:clearDismissed', async () => {
+  try {
+    if (databaseService) {
+      console.log('Clearing dismissed smart alerts')
+      const result = await databaseService.clearDismissedAlerts()
+      console.log('Dismissed smart alerts cleared:', result)
+      return result
+    } else {
+      console.log('Clearing dismissed smart alerts (mock)')
+      return 0
+    }
+  } catch (error) {
+    console.error('Error clearing dismissed smart alerts:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:smartAlerts:clearExpiredSnoozed', async () => {
+  try {
+    if (databaseService) {
+      console.log('Clearing expired snoozed smart alerts')
+      const result = await databaseService.clearExpiredSnoozedAlerts()
+      console.log('Expired snoozed smart alerts cleared:', result)
+      return result
+    } else {
+      console.log('Clearing expired snoozed smart alerts (mock)')
+      return 0
+    }
+  } catch (error) {
+    console.error('Error clearing expired snoozed smart alerts:', error)
+    throw error
+  }
+})
+

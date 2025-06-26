@@ -237,5 +237,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     generateAnalyticsReport: (filter) => ipcRenderer.invoke('reports:generateAnalyticsReport', filter),
     generateOverviewReport: (filter) => ipcRenderer.invoke('reports:generateOverviewReport', filter),
     exportReport: (type, filter, options) => ipcRenderer.invoke('reports:exportReport', type, filter, options)
+  },
+
+  // Smart Alerts operations
+  smartAlerts: {
+    getAll: () => ipcRenderer.invoke('db:smartAlerts:getAll'),
+    create: (alert) => ipcRenderer.invoke('db:smartAlerts:create', alert),
+    update: (id, updates) => ipcRenderer.invoke('db:smartAlerts:update', id, updates),
+    delete: (id) => ipcRenderer.invoke('db:smartAlerts:delete', id),
+    getById: (id) => ipcRenderer.invoke('db:smartAlerts:getById', id),
+    clearDismissed: () => ipcRenderer.invoke('db:smartAlerts:clearDismissed'),
+    clearExpiredSnoozed: () => ipcRenderer.invoke('db:smartAlerts:clearExpiredSnoozed')
   }
 })

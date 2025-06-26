@@ -3496,6 +3496,258 @@ class DatabaseService {
     const result = stmt.run(id)
     return result.changes > 0
   }
+
+  // Smart Alerts Methods
+  ensureSmartAlertsTableExists() {
+    try {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS smart_alerts (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL CHECK (type IN ('appointment', 'payment', 'treatment', 'follow_up', 'prescription', 'lab_order')),
+          priority TEXT NOT NULL CHECK (priority IN ('high', 'medium', 'low')),
+          title TEXT NOT NULL,
+          description TEXT NOT NULL,
+          patient_id TEXT,
+          patient_name TEXT,
+          related_data TEXT,
+          action_required BOOLEAN DEFAULT FALSE,
+          due_date DATETIME,
+          is_read BOOLEAN DEFAULT FALSE,
+          is_dismissed BOOLEAN DEFAULT FALSE,
+          snooze_until DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+        )
+      `)
+      console.log('✅ Smart alerts table ensured')
+    } catch (error) {
+      console.error('❌ Error ensuring smart alerts table:', error)
+    }
+  }
+
+  async getAllSmartAlerts() {
+    this.ensureConnection()
+    this.ensureSmartAlertsTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM smart_alerts
+      ORDER BY
+        CASE priority
+          WHEN 'high' THEN 1
+          WHEN 'medium' THEN 2
+          WHEN 'low' THEN 3
+        END,
+        created_at DESC
+    `)
+
+    const alerts = stmt.all()
+
+    // Parse related_data JSON for each alert
+    return alerts.map(alert => ({
+      ...alert,
+      relatedData: alert.related_data ? JSON.parse(alert.related_data) : {},
+      actionRequired: Boolean(alert.action_required),
+      isRead: Boolean(alert.is_read),
+      isDismissed: Boolean(alert.is_dismissed)
+    }))
+  }
+
+  async createSmartAlert(alert) {
+    this.ensureConnection()
+    this.ensureSmartAlertsTableExists()
+
+    const { v4: uuidv4 } = require('uuid')
+    const id = alert.id || uuidv4()
+    const now = new Date().toISOString()
+
+    // Check if alert already exists
+    const existingAlert = this.db.prepare('SELECT id FROM smart_alerts WHERE id = ?').get(id)
+    if (existingAlert) {
+      console.log('⚠️ Smart alert already exists, skipping:', id)
+      return {
+        ...alert,
+        id,
+        createdAt: alert.createdAt || now,
+        updatedAt: now
+      }
+    }
+
+    const stmt = this.db.prepare(`
+      INSERT INTO smart_alerts (
+        id, type, priority, title, description, patient_id, patient_name,
+        related_data, action_required, due_date, is_read, is_dismissed,
+        snooze_until, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    const relatedDataJson = alert.relatedData ? JSON.stringify(alert.relatedData) : null
+
+    try {
+      stmt.run(
+        id, alert.type, alert.priority, alert.title, alert.description,
+        alert.patientId || null, alert.patientName || null,
+        relatedDataJson, alert.actionRequired ? 1 : 0, alert.dueDate || null,
+        alert.isRead ? 1 : 0, alert.isDismissed ? 1 : 0, alert.snoozeUntil || null,
+        alert.createdAt || now, now
+      )
+
+      console.log('✅ Smart alert created:', id)
+
+      // Force WAL checkpoint
+      const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+      console.log('💾 Checkpoint result:', checkpoint)
+
+      return {
+        ...alert,
+        id,
+        createdAt: alert.createdAt || now,
+        updatedAt: now
+      }
+    } catch (error) {
+      if (error.code === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
+        console.log('⚠️ Smart alert already exists (constraint error), skipping:', id)
+        return {
+          ...alert,
+          id,
+          createdAt: alert.createdAt || now,
+          updatedAt: now
+        }
+      }
+      throw error
+    }
+  }
+
+  async updateSmartAlert(id, updates) {
+    this.ensureConnection()
+    this.ensureSmartAlertsTableExists()
+
+    const now = new Date().toISOString()
+
+    // Convert camelCase to snake_case for database fields
+    const dbUpdates = {}
+    if (updates.isRead !== undefined) dbUpdates.is_read = updates.isRead ? 1 : 0
+    if (updates.isDismissed !== undefined) dbUpdates.is_dismissed = updates.isDismissed ? 1 : 0
+    if (updates.snoozeUntil !== undefined) dbUpdates.snooze_until = updates.snoozeUntil
+    if (updates.patientId !== undefined) dbUpdates.patient_id = updates.patientId
+    if (updates.patientName !== undefined) dbUpdates.patient_name = updates.patientName
+    if (updates.actionRequired !== undefined) dbUpdates.action_required = updates.actionRequired ? 1 : 0
+    if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate
+    if (updates.relatedData !== undefined) dbUpdates.related_data = JSON.stringify(updates.relatedData)
+
+    // Add other direct fields
+    const directFields = ['type', 'priority', 'title', 'description']
+    directFields.forEach(field => {
+      if (updates[field] !== undefined) {
+        dbUpdates[field] = updates[field]
+      }
+    })
+
+    if (Object.keys(dbUpdates).length === 0) {
+      console.log('⚠️ No valid updates provided for smart alert:', id)
+      return
+    }
+
+    const fields = Object.keys(dbUpdates)
+    const setClause = fields.map(field => `${field} = ?`).join(', ')
+    const values = fields.map(field => dbUpdates[field])
+
+    const stmt = this.db.prepare(`
+      UPDATE smart_alerts
+      SET ${setClause}, updated_at = ?
+      WHERE id = ?
+    `)
+
+    const result = stmt.run(...values, now, id)
+
+    if (result.changes > 0) {
+      console.log('✅ Smart alert updated:', id)
+
+      // Force WAL checkpoint
+      const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+      console.log('💾 Checkpoint result:', checkpoint)
+    } else {
+      console.log('⚠️ No smart alert found with id:', id)
+    }
+
+    return result.changes > 0
+  }
+
+  async deleteSmartAlert(id) {
+    this.ensureConnection()
+    this.ensureSmartAlertsTableExists()
+
+    const stmt = this.db.prepare('DELETE FROM smart_alerts WHERE id = ?')
+    const result = stmt.run(id)
+
+    if (result.changes > 0) {
+      console.log('✅ Smart alert deleted:', id)
+
+      // Force WAL checkpoint
+      const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+      console.log('💾 Checkpoint result:', checkpoint)
+    }
+
+    return result.changes > 0
+  }
+
+  async getSmartAlertById(id) {
+    this.ensureConnection()
+    this.ensureSmartAlertsTableExists()
+
+    const stmt = this.db.prepare('SELECT * FROM smart_alerts WHERE id = ?')
+    const alert = stmt.get(id)
+
+    if (!alert) return null
+
+    return {
+      ...alert,
+      relatedData: alert.related_data ? JSON.parse(alert.related_data) : {},
+      actionRequired: Boolean(alert.action_required),
+      isRead: Boolean(alert.is_read),
+      isDismissed: Boolean(alert.is_dismissed)
+    }
+  }
+
+  async clearDismissedAlerts() {
+    this.ensureConnection()
+    this.ensureSmartAlertsTableExists()
+
+    const stmt = this.db.prepare('DELETE FROM smart_alerts WHERE is_dismissed = 1')
+    const result = stmt.run()
+
+    console.log(`✅ Cleared ${result.changes} dismissed alerts`)
+
+    // Force WAL checkpoint
+    const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+    console.log('💾 Checkpoint result:', checkpoint)
+
+    return result.changes
+  }
+
+  async clearExpiredSnoozedAlerts() {
+    this.ensureConnection()
+    this.ensureSmartAlertsTableExists()
+
+    const now = new Date().toISOString()
+    const stmt = this.db.prepare(`
+      UPDATE smart_alerts
+      SET snooze_until = NULL, updated_at = ?
+      WHERE snooze_until IS NOT NULL AND snooze_until <= ?
+    `)
+
+    const result = stmt.run(now, now)
+
+    if (result.changes > 0) {
+      console.log(`✅ Cleared ${result.changes} expired snoozed alerts`)
+
+      // Force WAL checkpoint
+      const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+      console.log('💾 Checkpoint result:', checkpoint)
+    }
+
+    return result.changes
+  }
 }
 
 module.exports = { DatabaseService }

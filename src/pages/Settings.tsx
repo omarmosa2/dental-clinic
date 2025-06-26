@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useStableClinicLogo } from '@/hooks/useStableSettings'
 import { formatDate } from '@/lib/utils'
 import SecuritySettings from '@/components/settings/SecuritySettings'
+import ElegantShortcutsDisplay from '@/components/help/ElegantShortcutsDisplay'
 import {
   Download,
   Upload,
@@ -25,7 +26,8 @@ import {
   Phone,
   Mail,
   Info,
-  Image
+  Image,
+  Keyboard
 } from 'lucide-react'
 
 
@@ -270,6 +272,7 @@ export default function Settings() {
           {[
             { id: 'backup', name: 'النسخ الاحتياطية', icon: Database },
             { id: 'appearance', name: 'المظهر', icon: Palette },
+            { id: 'shortcuts', name: 'اختصارات لوحة المفاتيح', icon: Keyboard },
             { id: 'security', name: 'الأمان', icon: Key },
             { id: 'clinic', name: 'إعدادات العيادة', icon: SettingsIcon },
             { id: 'development', name: 'فريق التطوير', icon: Users }
@@ -619,6 +622,58 @@ export default function Settings() {
               </div>
 
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyboard Shortcuts Tab */}
+      {activeTab === 'shortcuts' && (
+        <div className="space-y-6">
+          <div className="bg-card rounded-lg shadow border border-border">
+            <div className="p-6 border-b border-border">
+              <h3 className="text-lg font-medium text-foreground">اختصارات لوحة المفاتيح</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                تعرف على جميع اختصارات لوحة المفاتيح المتاحة لتسريع عملك
+              </p>
+            </div>
+            <div className="p-6">
+              <ElegantShortcutsDisplay />
+            </div>
+          </div>
+
+          {/* Tips Section */}
+          <div className="bg-card rounded-lg shadow border border-border">
+            <div className="p-6 border-b border-border">
+              <h3 className="text-lg font-medium text-foreground">نصائح للاستخدام</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">الأحرف العربية</h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    يمكنك استخدام الأحرف العربية أو الإنجليزية للاختصارات. مثلاً: A أو ش لإضافة مريض جديد.
+                  </p>
+                </div>
+                <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                  <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">التنقل السريع</h4>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    استخدم الأرقام 0-9 أو ٠-٩ للتنقل السريع بين الصفحات المختلفة.
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+                  <h4 className="font-medium text-purple-800 dark:text-purple-200 mb-2">الإجراءات السريعة</h4>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    استخدم A/S/D أو ش/س/ي لإضافة مريض أو موعد أو دفعة بسرعة.
+                  </p>
+                </div>
+                <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg">
+                  <h4 className="font-medium text-orange-800 dark:text-orange-200 mb-2">العمليات العامة</h4>
+                  <p className="text-sm text-orange-700 dark:text-orange-300">
+                    F1 للإعدادات، R/ق للتحديث، F/ب للبحث، ESC للإغلاق.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

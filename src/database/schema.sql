@@ -158,6 +158,26 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Smart alerts table for managing intelligent notifications
+CREATE TABLE IF NOT EXISTS smart_alerts (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL CHECK (type IN ('appointment', 'payment', 'treatment', 'follow_up', 'prescription', 'lab_order')),
+    priority TEXT NOT NULL CHECK (priority IN ('high', 'medium', 'low')),
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    patient_id TEXT,
+    patient_name TEXT,
+    related_data TEXT, -- JSON string containing related IDs
+    action_required BOOLEAN DEFAULT FALSE,
+    due_date DATETIME,
+    is_read BOOLEAN DEFAULT FALSE,
+    is_dismissed BOOLEAN DEFAULT FALSE,
+    snooze_until DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+
 -- Insert default settings
 INSERT OR IGNORE INTO settings (id) VALUES ('clinic_settings');
 

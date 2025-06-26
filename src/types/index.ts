@@ -622,5 +622,156 @@ export interface PatientIntegratedData {
   }
 }
 
+// Global Search Types
+export interface SearchResult {
+  id: string
+  type: 'patient' | 'appointment' | 'payment' | 'treatment' | 'prescription'
+  title: string
+  subtitle: string
+  description?: string
+  relevanceScore: number
+  data: any
+  relatedData?: {
+    patientId?: string
+    appointmentId?: string
+    paymentId?: string
+    treatmentId?: string
+  }
+}
+
+export interface SearchResults {
+  patients: SearchResult[]
+  appointments: SearchResult[]
+  payments: SearchResult[]
+  treatments: SearchResult[]
+  prescriptions: SearchResult[]
+  totalCount: number
+  searchTime: number
+  query: string
+}
+
+export interface SearchCriteria {
+  query: string
+  types?: ('patient' | 'appointment' | 'payment' | 'treatment' | 'prescription')[]
+  dateRange?: {
+    start: string
+    end: string
+  }
+  filters?: {
+    status?: string
+    category?: string
+    priority?: string
+  }
+  sortBy?: 'relevance' | 'date' | 'name'
+  sortOrder?: 'asc' | 'desc'
+  limit?: number
+}
+
+// Smart Alerts Types
+export interface SmartAlert {
+  id: string
+  type: 'appointment' | 'payment' | 'treatment' | 'follow_up' | 'prescription' | 'lab_order'
+  priority: 'high' | 'medium' | 'low'
+  title: string
+  description: string
+  patientId?: string
+  patientName?: string
+  relatedData: {
+    appointmentId?: string
+    paymentId?: string
+    treatmentId?: string
+    prescriptionId?: string
+    labOrderId?: string
+  }
+  actionRequired: boolean
+  dueDate?: string
+  createdAt: string
+  isRead: boolean
+  isDismissed: boolean
+  snoozeUntil?: string
+}
+
+export interface CrossReferencedAlert extends SmartAlert {
+  crossReferences: {
+    relatedAppointments?: Appointment[]
+    relatedPayments?: Payment[]
+    relatedTreatments?: ToothTreatment[]
+    relatedPrescriptions?: Prescription[]
+  }
+}
+
+// Quick Access Types
+export interface QuickAction {
+  id: string
+  title: string
+  description: string
+  icon: string
+  action: () => void
+  shortcut?: string
+  category: 'patient' | 'appointment' | 'payment' | 'treatment' | 'report'
+  priority: number
+}
+
+export interface QuickAccessData {
+  recentPatients: Patient[]
+  todayAppointments: Appointment[]
+  pendingPayments: Payment[]
+  urgentTreatments: ToothTreatment[]
+  recentActivities: ActivityLog[]
+  quickStats: {
+    totalPatients: number
+    todayAppointments: number
+    pendingPayments: number
+    urgentAlerts: number
+  }
+}
+
+export interface ActivityLog {
+  id: string
+  type: 'patient_added' | 'appointment_created' | 'payment_received' | 'treatment_completed'
+  title: string
+  description: string
+  patientId?: string
+  patientName?: string
+  timestamp: string
+  icon: string
+}
+
+// Quick Links Types
+export interface QuickLink {
+  id: string
+  title: string
+  description: string
+  icon: string
+  url: string
+  action?: () => void
+  category: string
+  priority: number
+  contextual: boolean
+}
+
+// Cross-Referenced Stats
+export interface CrossReferencedStats {
+  patientId: string
+  overview: {
+    totalAppointments: number
+    completedAppointments: number
+    upcomingAppointments: number
+    totalPayments: number
+    totalPaid: number
+    remainingBalance: number
+    activeTreatments: number
+    completedTreatments: number
+    activePrescriptions: number
+  }
+  trends: {
+    appointmentFrequency: 'increasing' | 'decreasing' | 'stable'
+    paymentPattern: 'regular' | 'irregular' | 'delayed'
+    treatmentProgress: 'on_track' | 'delayed' | 'ahead'
+  }
+  alerts: SmartAlert[]
+  recommendations: string[]
+}
+
 
 
