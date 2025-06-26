@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Patient, Appointment, Payment, DentalTreatment } from '@/types'
+import { Patient, Appointment, Payment, ToothTreatment, Prescription, LabOrder, PatientTreatmentTimeline } from '@/types'
 import {
   Dialog,
   DialogContent,
@@ -62,10 +62,15 @@ export default function PatientDetailsModal({
   const [activeTab, setActiveTab] = useState('info')
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([])
   const [patientPayments, setPatientPayments] = useState<Payment[]>([])
-  const [patientTreatments, setPatientTreatments] = useState<DentalTreatment[]>([])
+  const [patientTreatments, setPatientTreatments] = useState<ToothTreatment[]>([])
+  const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([])
+  const [patientLabOrders, setPatientLabOrders] = useState<LabOrder[]>([])
+  const [patientTimeline, setPatientTimeline] = useState<PatientTreatmentTimeline[]>([])
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false)
   const [isLoadingPayments, setIsLoadingPayments] = useState(false)
   const [isLoadingTreatments, setIsLoadingTreatments] = useState(false)
+  const [isLoadingPrescriptions, setIsLoadingPrescriptions] = useState(false)
+  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false)
 
   // Dialog states
   const [showAddAppointmentDialog, setShowAddAppointmentDialog] = useState(false)
@@ -73,7 +78,7 @@ export default function PatientDetailsModal({
 
   const { appointments } = useAppointmentStore()
   const { payments } = usePaymentStore()
-  const { treatments, loadTreatmentsByPatient } = useDentalTreatmentStore()
+  const { toothTreatments, loadToothTreatmentsByPatient } = useDentalTreatmentStore()
   const { toast } = useToast()
 
   useEffect(() => {
@@ -92,15 +97,40 @@ export default function PatientDetailsModal({
 
       // Load treatments for this patient
       setIsLoadingTreatments(true)
-      loadTreatmentsByPatient(patient.id).then(() => {
-        const filteredTreatments = treatments.filter(treatment => treatment.patient_id === patient.id)
+      loadToothTreatmentsByPatient(patient.id).then(() => {
+        const filteredTreatments = toothTreatments.filter(treatment => treatment.patient_id === patient.id)
         setPatientTreatments(filteredTreatments)
         setIsLoadingTreatments(false)
       }).catch(() => {
         setIsLoadingTreatments(false)
       })
+
+      // Load prescriptions for this patient
+      setIsLoadingPrescriptions(true)
+      window.electronAPI?.prescriptions?.getByPatient?.(patient.id).then((prescriptions) => {
+        setPatientPrescriptions(prescriptions || [])
+        setIsLoadingPrescriptions(false)
+      }).catch(() => {
+        setIsLoadingPrescriptions(false)
+      })
+
+      // Load lab orders for this patient
+      window.electronAPI?.labOrders?.getByPatient?.(patient.id).then((labOrders) => {
+        setPatientLabOrders(labOrders || [])
+      }).catch(() => {
+        console.error('خطأ في تحميل طلبات المختبر')
+      })
+
+      // Load timeline for this patient
+      setIsLoadingTimeline(true)
+      window.electronAPI?.patientTimeline?.getByPatient?.(patient.id).then((timeline) => {
+        setPatientTimeline(timeline || [])
+        setIsLoadingTimeline(false)
+      }).catch(() => {
+        setIsLoadingTimeline(false)
+      })
     }
-  }, [patient, open, appointments, payments, treatments, loadTreatmentsByPatient])
+  }, [patient, open, appointments, payments, toothTreatments, loadToothTreatmentsByPatient])
 
   if (!patient) return null
 
@@ -210,7 +240,7 @@ export default function PatientDetailsModal({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden" dir="rtl">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="info" className="arabic-enhanced flex items-center justify-center gap-2">
               <User className="w-4 h-4" />
               معلومات المريض
@@ -226,6 +256,14 @@ export default function PatientDetailsModal({
             <TabsTrigger value="payments" className="arabic-enhanced flex items-center justify-center gap-2">
               <DollarSign className="w-4 h-4" />
               المدفوعات ({patientPayments.length})
+            </TabsTrigger>
+            <TabsTrigger value="prescriptions" className="arabic-enhanced flex items-center justify-center gap-2">
+              <FileText className="w-4 h-4" />
+              الوصفات
+            </TabsTrigger>
+            <TabsTrigger value="timeline" className="arabic-enhanced flex items-center justify-center gap-2">
+              <Clock className="w-4 h-4" />
+              الجدول الزمني
             </TabsTrigger>
           </TabsList>
 
@@ -450,7 +488,7 @@ export default function PatientDetailsModal({
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-foreground">
-                                  {treatment.current_treatment || '-'}
+                                  {treatment.treatment_type || '-'}
                                 </td>
                                 <td className="px-4 py-3 text-sm font-medium text-foreground">
                                   {treatment.tooth_name}
@@ -469,11 +507,11 @@ export default function PatientDetailsModal({
                     </div>
 
                     {/* تفاصيل إضافية للعلاجات */}
-                    {patientTreatments.some(t => t.treatment_details || t.notes) && (
+                    {patientTreatments.some(t => t.notes) && (
                       <div className="mt-4 space-y-2">
                         <h4 className="text-sm font-medium text-foreground">تفاصيل إضافية:</h4>
                         {patientTreatments.map((treatment) => (
-                          (treatment.treatment_details || treatment.notes) && (
+                          treatment.notes && (
                             <div key={`details-${treatment.id}`} className="p-3 bg-muted/30 rounded border border-border">
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs font-medium text-foreground">
@@ -483,12 +521,6 @@ export default function PatientDetailsModal({
                                   {formatDate(treatment.created_at)}
                                 </span>
                               </div>
-                              {treatment.treatment_details && (
-                                <div className="mb-1">
-                                  <span className="text-xs text-muted-foreground">تفاصيل العلاج: </span>
-                                  <span className="text-xs text-foreground">{treatment.treatment_details}</span>
-                                </div>
-                              )}
                               {treatment.notes && (
                                 <div>
                                   <span className="text-xs text-muted-foreground">ملاحظات: </span>
@@ -839,6 +871,147 @@ export default function PatientDetailsModal({
                       )}
                     </CardContent>
                   </Card>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* تبويب الوصفات الطبية */}
+            <TabsContent value="prescriptions" className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">الوصفات الطبية</h3>
+                <Button
+                  onClick={() => {
+                    // Navigate to prescriptions page
+                    onOpenChange(false)
+                  }}
+                  className="flex items-center gap-2"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  إضافة وصفة
+                </Button>
+              </div>
+              {isLoadingPrescriptions ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="loading-spinner"></div>
+                </div>
+              ) : patientPrescriptions.length === 0 ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center py-8">
+                      <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <h3 className="text-lg font-medium mb-2">لا توجد وصفات طبية</h3>
+                      <p className="text-muted-foreground mb-4">لم يتم إنشاء أي وصفات طبية لهذا المريض بعد</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {patientPrescriptions.map((prescription) => (
+                    <Card key={prescription.id}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-blue-500" />
+                            <span className="font-medium">وصفة طبية</span>
+                          </div>
+                          <Badge variant="outline">
+                            {formatDate(prescription.prescription_date)}
+                          </Badge>
+                        </div>
+
+                        {prescription.tooth_treatment && (
+                          <div className="mb-2">
+                            <span className="text-sm text-muted-foreground">مرتبطة بعلاج: </span>
+                            <span className="text-sm font-medium">
+                              السن رقم {prescription.tooth_treatment.tooth_number} - {prescription.tooth_treatment.treatment_type}
+                            </span>
+                          </div>
+                        )}
+
+                        {prescription.notes && (
+                          <p className="text-sm text-muted-foreground mb-3">{prescription.notes}</p>
+                        )}
+
+                        {prescription.medications && prescription.medications.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium">الأدوية:</h4>
+                            {prescription.medications.map((med, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                                <span className="text-sm">{med.medication_name}</span>
+                                {med.dose && <span className="text-sm text-muted-foreground">{med.dose}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* تبويب الجدول الزمني */}
+            <TabsContent value="timeline" className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">الجدول الزمني للعلاج</h3>
+              </div>
+              {isLoadingTimeline ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="loading-spinner"></div>
+                </div>
+              ) : patientTimeline.length === 0 ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center py-8">
+                      <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <h3 className="text-lg font-medium mb-2">لا توجد أحداث في الجدول الزمني</h3>
+                      <p className="text-muted-foreground mb-4">سيتم إنشاء الجدول الزمني تلقائياً مع تقدم العلاج</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {patientTimeline
+                    .sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())
+                    .map((event) => (
+                    <Card key={event.id}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-3 h-3 rounded-full mt-2 ${
+                            event.status === 'completed' ? 'bg-green-500' :
+                            event.status === 'active' ? 'bg-blue-500' : 'bg-gray-400'
+                          }`} />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium">{event.title}</h4>
+                              <div className="flex items-center gap-2">
+                                <Badge variant={
+                                  event.priority === 1 ? 'destructive' :
+                                  event.priority === 2 ? 'default' : 'secondary'
+                                }>
+                                  {event.priority === 1 ? 'عالي' : event.priority === 2 ? 'متوسط' : 'منخفض'}
+                                </Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  {formatDate(event.event_date)}
+                                </span>
+                              </div>
+                            </div>
+                            {event.description && (
+                              <p className="text-sm text-muted-foreground mb-2">{event.description}</p>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {event.timeline_type === 'appointment' ? 'موعد' :
+                               event.timeline_type === 'treatment' ? 'علاج' :
+                               event.timeline_type === 'prescription' ? 'وصفة' :
+                               event.timeline_type === 'lab_order' ? 'مختبر' :
+                               event.timeline_type === 'payment' ? 'دفعة' : 'ملاحظة'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </TabsContent>

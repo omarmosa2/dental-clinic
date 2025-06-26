@@ -147,9 +147,13 @@ export interface LabOrder {
   id: string
   lab_id: string
   patient_id?: string
+  appointment_id?: string // ربط طلب المختبر بموعد محدد
+  tooth_treatment_id?: string // ربط طلب المختبر بعلاج سن محدد
   service_name: string
   cost: number
   order_date: string
+  expected_delivery_date?: string // تاريخ التسليم المتوقع
+  actual_delivery_date?: string // تاريخ التسليم الفعلي
   status: 'معلق' | 'مكتمل' | 'ملغي'
   notes?: string
   paid_amount?: number
@@ -159,6 +163,12 @@ export interface LabOrder {
   // Populated fields
   lab?: Lab
   patient?: Patient
+  appointment?: Appointment
+  tooth_treatment?: {
+    id: string
+    tooth_number: number
+    treatment_type: string
+  }
 }
 
 export interface ClinicSettings {
@@ -223,6 +233,7 @@ export interface Prescription {
   id: string
   patient_id: string
   appointment_id?: string
+  tooth_treatment_id?: string // ربط الوصفة بعلاج سن محدد
   prescription_date: string
   notes?: string
   created_at: string
@@ -235,6 +246,11 @@ export interface Prescription {
   appointment?: {
     id: string
     title: string
+  }
+  tooth_treatment?: {
+    id: string
+    tooth_number: number
+    treatment_type: string
   }
   medications?: PrescriptionMedication[]
 }
@@ -393,6 +409,10 @@ export interface DatabaseSchema {
   dentalTreatmentImages: DentalTreatmentImage[]
   toothTreatments: ToothTreatment[] // Multiple treatments per tooth
   clinicNeeds: ClinicNeed[]
+  // New integrated tables
+  patientTreatmentTimeline: PatientTreatmentTimeline[]
+  treatmentPlans: TreatmentPlan[]
+  treatmentPlanItems: TreatmentPlanItem[]
 }
 
 // Reports and Analytics Types
@@ -511,6 +531,95 @@ export interface ReportExportOptions {
   language: 'ar' | 'en'
   orientation?: 'portrait' | 'landscape'
   pageSize?: 'A4' | 'A3' | 'Letter'
+}
+
+// New interfaces for enhanced integration
+
+// Patient treatment timeline for comprehensive tracking
+export interface PatientTreatmentTimeline {
+  id: string
+  patient_id: string
+  appointment_id?: string
+  tooth_treatment_id?: string
+  prescription_id?: string
+  lab_order_id?: string
+  timeline_type: 'appointment' | 'treatment' | 'prescription' | 'lab_order' | 'payment' | 'note'
+  title: string
+  description?: string
+  event_date: string
+  status: 'active' | 'completed' | 'cancelled'
+  priority: 1 | 2 | 3 // 1 = high, 2 = medium, 3 = low
+  created_at: string
+  updated_at: string
+  // Populated fields
+  patient?: Patient
+  appointment?: Appointment
+  tooth_treatment?: ToothTreatment
+  prescription?: Prescription
+  lab_order?: LabOrder
+}
+
+// Treatment plan for comprehensive treatment planning
+export interface TreatmentPlan {
+  id: string
+  patient_id: string
+  plan_name: string
+  description?: string
+  total_estimated_cost: number
+  estimated_duration_weeks?: number
+  status: 'draft' | 'active' | 'completed' | 'cancelled'
+  start_date?: string
+  target_completion_date?: string
+  actual_completion_date?: string
+  created_by?: string // Doctor/user who created the plan
+  notes?: string
+  created_at: string
+  updated_at: string
+  // Populated fields
+  patient?: Patient
+  items?: TreatmentPlanItem[]
+}
+
+// Treatment plan items for detailed treatment steps
+export interface TreatmentPlanItem {
+  id: string
+  treatment_plan_id: string
+  tooth_treatment_id?: string
+  sequence_order: number
+  title: string
+  description?: string
+  estimated_cost: number
+  estimated_duration_minutes?: number
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped'
+  dependencies?: string // JSON array of treatment_plan_item IDs that must be completed first
+  notes?: string
+  created_at: string
+  updated_at: string
+  // Populated fields
+  treatment_plan?: TreatmentPlan
+  tooth_treatment?: ToothTreatment
+}
+
+// Enhanced patient data with integrated information
+export interface PatientIntegratedData {
+  patient: Patient
+  appointments: Appointment[]
+  treatments: ToothTreatment[]
+  payments: Payment[]
+  prescriptions: Prescription[]
+  labOrders: LabOrder[]
+  timeline: PatientTreatmentTimeline[]
+  treatmentPlans: TreatmentPlan[]
+  // Statistics
+  stats: {
+    totalAppointments: number
+    completedTreatments: number
+    pendingTreatments: number
+    totalPaid: number
+    remainingBalance: number
+    lastVisit?: string
+    nextAppointment?: string
+  }
 }
 
 

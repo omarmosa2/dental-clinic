@@ -239,9 +239,13 @@ CREATE TABLE IF NOT EXISTS lab_orders (
     id TEXT PRIMARY KEY,
     lab_id TEXT NOT NULL,
     patient_id TEXT,
+    appointment_id TEXT, -- ربط طلب المختبر بموعد محدد
+    tooth_treatment_id TEXT, -- ربط طلب المختبر بعلاج سن محدد
     service_name TEXT NOT NULL,
     cost REAL NOT NULL,
     order_date TEXT NOT NULL,
+    expected_delivery_date TEXT, -- تاريخ التسليم المتوقع
+    actual_delivery_date TEXT, -- تاريخ التسليم الفعلي
     status TEXT NOT NULL CHECK (status IN ('معلق', 'مكتمل', 'ملغي')),
     notes TEXT,
     paid_amount REAL DEFAULT 0,
@@ -249,7 +253,8 @@ CREATE TABLE IF NOT EXISTS lab_orders (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (lab_id) REFERENCES labs(id) ON DELETE CASCADE,
-    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL,
+    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
 );
 
 -- Laboratory indexes for search and performance optimization
@@ -278,6 +283,7 @@ CREATE TABLE IF NOT EXISTS prescriptions (
     id TEXT PRIMARY KEY,
     patient_id TEXT NOT NULL,
     appointment_id TEXT,
+    tooth_treatment_id TEXT, -- ربط الوصفة بعلاج سن محدد
     prescription_date TEXT NOT NULL,
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -386,8 +392,82 @@ CREATE INDEX IF NOT EXISTS idx_medications_name ON medications(name);
 -- Prescriptions indexes for search and performance optimization
 CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions(patient_id);
 CREATE INDEX IF NOT EXISTS idx_prescriptions_appointment ON prescriptions(appointment_id);
+CREATE INDEX IF NOT EXISTS idx_prescriptions_tooth_treatment ON prescriptions(tooth_treatment_id);
 CREATE INDEX IF NOT EXISTS idx_prescriptions_date ON prescriptions(prescription_date);
 CREATE INDEX IF NOT EXISTS idx_prescriptions_patient_date ON prescriptions(patient_id, prescription_date);
+
+-- Patient treatment timeline table for comprehensive treatment tracking
+CREATE TABLE IF NOT EXISTS patient_treatment_timeline (
+    id TEXT PRIMARY KEY,
+    patient_id TEXT NOT NULL,
+    appointment_id TEXT,
+    tooth_treatment_id TEXT,
+    prescription_id TEXT,
+    lab_order_id TEXT,
+    timeline_type TEXT NOT NULL CHECK (timeline_type IN ('appointment', 'treatment', 'prescription', 'lab_order', 'payment', 'note')),
+    title TEXT NOT NULL,
+    description TEXT,
+    event_date DATETIME NOT NULL,
+    status TEXT DEFAULT 'active', -- active, completed, cancelled
+    priority INTEGER DEFAULT 1, -- 1 = high, 2 = medium, 3 = low
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
+    FOREIGN KEY (prescription_id) REFERENCES prescriptions(id) ON DELETE SET NULL,
+    FOREIGN KEY (lab_order_id) REFERENCES lab_orders(id) ON DELETE SET NULL
+);
+
+-- Treatment plan table for comprehensive treatment planning
+CREATE TABLE IF NOT EXISTS treatment_plans (
+    id TEXT PRIMARY KEY,
+    patient_id TEXT NOT NULL,
+    plan_name TEXT NOT NULL,
+    description TEXT,
+    total_estimated_cost DECIMAL(10,2) DEFAULT 0,
+    estimated_duration_weeks INTEGER,
+    status TEXT DEFAULT 'draft', -- draft, active, completed, cancelled
+    start_date DATE,
+    target_completion_date DATE,
+    actual_completion_date DATE,
+    created_by TEXT, -- Doctor/user who created the plan
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+
+-- Treatment plan items table for detailed treatment steps
+CREATE TABLE IF NOT EXISTS treatment_plan_items (
+    id TEXT PRIMARY KEY,
+    treatment_plan_id TEXT NOT NULL,
+    tooth_treatment_id TEXT,
+    sequence_order INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    estimated_cost DECIMAL(10,2) DEFAULT 0,
+    estimated_duration_minutes INTEGER,
+    status TEXT DEFAULT 'pending', -- pending, in_progress, completed, skipped
+    dependencies TEXT, -- JSON array of treatment_plan_item IDs that must be completed first
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (treatment_plan_id) REFERENCES treatment_plans(id) ON DELETE CASCADE
+);
+
+-- Indexes for new tables
+CREATE INDEX IF NOT EXISTS idx_patient_timeline_patient ON patient_treatment_timeline(patient_id);
+CREATE INDEX IF NOT EXISTS idx_patient_timeline_date ON patient_treatment_timeline(event_date);
+CREATE INDEX IF NOT EXISTS idx_patient_timeline_type ON patient_treatment_timeline(timeline_type);
+CREATE INDEX IF NOT EXISTS idx_patient_timeline_status ON patient_treatment_timeline(status);
+
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_patient ON treatment_plans(patient_id);
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_status ON treatment_plans(status);
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_dates ON treatment_plans(start_date, target_completion_date);
+
+CREATE INDEX IF NOT EXISTS idx_treatment_plan_items_plan ON treatment_plan_items(treatment_plan_id);
+CREATE INDEX IF NOT EXISTS idx_treatment_plan_items_sequence ON treatment_plan_items(treatment_plan_id, sequence_order);
+CREATE INDEX IF NOT EXISTS idx_treatment_plan_items_status ON treatment_plan_items(status);
 
 -- Prescription medications indexes for relationship queries
 CREATE INDEX IF NOT EXISTS idx_prescription_medications_prescription ON prescription_medications(prescription_id);

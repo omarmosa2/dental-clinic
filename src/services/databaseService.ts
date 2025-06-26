@@ -15,6 +15,7 @@ import type {
   LabOrder
 } from '../types'
 import { MigrationService } from './migrationService'
+import { IntegrationMigrationService } from './integrationMigrationService'
 
 export class DatabaseService {
   private db: Database.Database
@@ -36,6 +37,10 @@ export class DatabaseService {
       // Run patient schema migration
       this.runPatientSchemaMigration()
       console.log('✅ Patient schema migration completed')
+
+      // Run integration migration
+      this.runIntegrationMigration()
+      console.log('✅ Integration migration completed')
 
       // Test database connection
       const testQuery = this.db.prepare('SELECT COUNT(*) as count FROM patients')
@@ -3071,6 +3076,46 @@ export class DatabaseService {
   async deleteDentalTreatmentImage(id: string): Promise<void> {
     const stmt = this.db.prepare('DELETE FROM dental_treatment_images WHERE id = ?')
     stmt.run(id)
+  }
+
+  /**
+   * تطبيق migration التكامل
+   */
+  private async runIntegrationMigration(): Promise<void> {
+    try {
+      const migrationService = new IntegrationMigrationService(this.db)
+      await migrationService.applyIntegrationMigration()
+
+      // التحقق من حالة قاعدة البيانات
+      const status = migrationService.checkDatabaseStatus()
+      console.log('📊 حالة قاعدة البيانات بعد migration:', status)
+
+      // إنشاء بيانات تجريبية إذا لزم الأمر
+      if (status.tables.patient_treatment_timeline && status.appliedMigrations > 0) {
+        await migrationService.createSampleTimelineData()
+      }
+    } catch (error) {
+      console.error('❌ خطأ في تطبيق integration migration:', error)
+      // لا نرمي الخطأ لتجنب توقف التطبيق
+    }
+  }
+
+  /**
+   * الحصول على حالة التكامل
+   */
+  getIntegrationStatus(): any {
+    try {
+      const migrationService = new IntegrationMigrationService(this.db)
+      return migrationService.checkDatabaseStatus()
+    } catch (error) {
+      console.error('خطأ في الحصول على حالة التكامل:', error)
+      return {
+        appliedMigrations: 0,
+        migrations: [],
+        tables: {},
+        columns: {}
+      }
+    }
   }
 
 

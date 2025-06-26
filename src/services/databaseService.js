@@ -42,10 +42,26 @@ class DatabaseService {
     // Run patient schema migration BEFORE executing schema.sql
     this.runPatientSchemaMigration()
 
-    // Read and execute schema
-    const schemaPath = join(__dirname, '../database/schema.sql')
-    const schema = readFileSync(schemaPath, 'utf-8')
-    this.db.exec(schema)
+    // Read and execute schema with error handling
+    try {
+      const schemaPath = join(__dirname, '../database/schema.sql')
+      const schema = readFileSync(schemaPath, 'utf-8')
+
+      // Split schema into individual statements and execute safely
+      const statements = schema.split(';').filter(stmt => stmt.trim().length > 0)
+
+      for (const statement of statements) {
+        try {
+          this.db.exec(statement.trim())
+        } catch (error) {
+          // Log warning for failed statements but continue
+          console.warn('⚠️ Schema statement failed (continuing):', error.message)
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Schema file execution failed, using fallback initialization')
+      this.initializeFallbackSchema()
+    }
 
     // Enable foreign keys and other optimizations
     this.db.pragma('foreign_keys = ON')
@@ -56,6 +72,91 @@ class DatabaseService {
 
     // Create performance indexes
     this.createIndexes()
+  }
+
+  initializeFallbackSchema() {
+    console.log('🔄 Initializing fallback schema...')
+
+    // Create basic tables without foreign key constraints first
+    const basicTables = [
+      `CREATE TABLE IF NOT EXISTS patients (
+        id TEXT PRIMARY KEY,
+        serial_number TEXT UNIQUE NOT NULL,
+        full_name TEXT NOT NULL,
+        gender TEXT NOT NULL CHECK (gender IN ('male', 'female')),
+        age INTEGER NOT NULL CHECK (age > 0),
+        patient_condition TEXT NOT NULL,
+        allergies TEXT,
+        medical_conditions TEXT,
+        email TEXT,
+        address TEXT,
+        notes TEXT,
+        phone TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        profile_image TEXT
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS treatments (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        default_cost DECIMAL(10,2),
+        duration_minutes INTEGER,
+        category TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS appointments (
+        id TEXT PRIMARY KEY,
+        patient_id TEXT NOT NULL,
+        treatment_id TEXT,
+        title TEXT NOT NULL,
+        description TEXT,
+        start_time DATETIME NOT NULL,
+        end_time DATETIME NOT NULL,
+        status TEXT DEFAULT 'scheduled',
+        cost DECIMAL(10,2),
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS payments (
+        id TEXT PRIMARY KEY,
+        patient_id TEXT NOT NULL,
+        appointment_id TEXT,
+        amount DECIMAL(10,2) NOT NULL,
+        payment_method TEXT NOT NULL,
+        payment_date DATETIME NOT NULL,
+        description TEXT,
+        receipt_number TEXT,
+        status TEXT DEFAULT 'completed',
+        notes TEXT,
+        discount_amount DECIMAL(10,2) DEFAULT 0,
+        tax_amount DECIMAL(10,2) DEFAULT 0,
+        total_amount DECIMAL(10,2),
+        appointment_total_cost DECIMAL(10,2),
+        appointment_total_paid DECIMAL(10,2),
+        appointment_remaining_balance DECIMAL(10,2),
+        total_amount_due DECIMAL(10,2),
+        amount_paid DECIMAL(10,2),
+        remaining_balance DECIMAL(10,2),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`
+    ]
+
+    basicTables.forEach(tableSQL => {
+      try {
+        this.db.exec(tableSQL)
+      } catch (error) {
+        console.warn('⚠️ Fallback table creation warning:', error.message)
+      }
+    })
+
+    console.log('✅ Fallback schema initialized')
   }
 
   createIndexes() {
