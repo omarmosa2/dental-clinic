@@ -2417,6 +2417,22 @@ ipcMain.handle('reports:generateInventoryReport', async (_, filter) => {
   }
 })
 
+ipcMain.handle('reports:generateTreatmentReport', async (_, filter) => {
+  try {
+    if (databaseService && reportsService) {
+      const toothTreatments = await databaseService.getAllToothTreatments()
+      const treatments = await databaseService.getAllTreatments()
+      const patients = await databaseService.getAllPatients()
+      return await reportsService.generateTreatmentReport(toothTreatments, treatments, filter, patients)
+    } else {
+      throw new Error('Database or Reports service not initialized')
+    }
+  } catch (error) {
+    console.error('Error generating treatment report:', error)
+    throw error
+  }
+})
+
 ipcMain.handle('reports:generateAnalyticsReport', async (_, filter) => {
   try {
     // TODO: Implement analytics report generation
@@ -2526,6 +2542,16 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
           throw new Error('Database or Reports service not initialized')
         }
         break
+      case 'treatments':
+        if (databaseService && reportsService) {
+          const toothTreatments = await databaseService.getAllToothTreatments()
+          const treatments = await databaseService.getAllTreatments()
+          const patients = await databaseService.getAllPatients()
+          reportData = await reportsService.generateTreatmentReport(toothTreatments, treatments, filter, patients)
+        } else {
+          throw new Error('Database or Reports service not initialized')
+        }
+        break
       case 'overview':
         if (databaseService && reportsService) {
           const [patients, appointments, payments, treatments, inventory] = await Promise.all([
@@ -2575,6 +2601,7 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
         'appointments': 'تقرير_المواعيد',
         'financial': 'التقرير_المالي',
         'inventory': 'تقرير_المخزون',
+        'treatments': 'تقرير_العلاجات',
         'analytics': 'تقرير_التحليلات',
         'overview': 'التقرير_الشامل'
       }
@@ -2658,6 +2685,13 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
           content += `"Total Value","$${reportData.totalValue || 0}"\n`
           content += `"Low Stock Items","${reportData.lowStockItems || 0}"\n`
           content += `"Expired Items","${reportData.expiredItems || 0}"\n`
+        } else if (type === 'treatments') {
+          // Use the specialized CSV export function for treatments
+          const csvData = reportsService.exportTreatmentReportToCSV(reportData)
+          content = '\uFEFF' // BOM for Arabic support
+          content += csvData.map(row =>
+            row.map(cell => `"${cell}"`).join(',')
+          ).join('\n')
         }
       }
     } else if (options.format === 'excel') {
@@ -2793,6 +2827,22 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
               `Total Value: $${reportData.totalValue || 0}`,
               `Low Stock Items: ${reportData.lowStockItems || 0}`,
               `Expired Items: ${reportData.expiredItems || 0}`
+            ]
+
+            stats.forEach(stat => {
+              doc.text(`• ${stat}`)
+              doc.moveDown(0.5)
+            })
+          } else if (type === 'treatments') {
+            const stats = [
+              `إجمالي العلاجات: ${reportData.totalTreatments || 0}`,
+              `العلاجات المكتملة: ${reportData.completedTreatments || 0}`,
+              `العلاجات المخططة: ${reportData.plannedTreatments || 0}`,
+              `العلاجات قيد التنفيذ: ${reportData.inProgressTreatments || 0}`,
+              `إجمالي الإيرادات: $${reportData.totalRevenue || 0}`,
+              `معدل الإنجاز: ${reportData.completionRate || 0}%`,
+              `العلاجات المعلقة: ${reportData.pendingTreatments?.length || 0}`,
+              `العلاجات المتأخرة: ${reportData.overdueTreatments?.length || 0}`
             ]
 
             stats.forEach(stat => {

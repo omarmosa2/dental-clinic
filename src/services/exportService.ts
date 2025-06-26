@@ -1670,6 +1670,97 @@ export class ExportService {
     await this.exportToExcel('appointments', appointmentData, options)
   }
 
+  static async exportTreatmentsToCSV(treatments: any[]): Promise<void> {
+    const csvData = []
+
+    // Add header
+    csvData.push([
+      'نوع العلاج',
+      'فئة العلاج',
+      'حالة العلاج',
+      'التكلفة',
+      'تاريخ البداية',
+      'تاريخ الإنجاز',
+      'اسم المريض',
+      'رقم السن',
+      'تاريخ الإنشاء'
+    ])
+
+    // Add treatment data
+    treatments.forEach(treatment => {
+      const getStatusLabel = (status: string): string => {
+        const statusLabels: { [key: string]: string } = {
+          'planned': 'مخطط',
+          'in_progress': 'قيد التنفيذ',
+          'completed': 'مكتمل',
+          'cancelled': 'ملغي'
+        }
+        return statusLabels[status] || status
+      }
+
+      csvData.push([
+        treatment.treatment_type || '',
+        treatment.treatment_category || '',
+        getStatusLabel(treatment.treatment_status || 'planned'),
+        treatment.cost || 0,
+        treatment.start_date || '',
+        treatment.completion_date || '',
+        treatment.patient_name || `مريض ${treatment.patient_id}`,
+        treatment.tooth_number || '',
+        treatment.created_at || ''
+      ])
+    })
+
+    // Add summary statistics
+    const totalTreatments = treatments.length
+    const completedTreatments = treatments.filter(t => t.treatment_status === 'completed').length
+    const plannedTreatments = treatments.filter(t => t.treatment_status === 'planned').length
+    const inProgressTreatments = treatments.filter(t => t.treatment_status === 'in_progress').length
+    const cancelledTreatments = treatments.filter(t => t.treatment_status === 'cancelled').length
+
+    const validateAmount = (amount: any): number => {
+      const num = Number(amount)
+      return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+    }
+
+    const totalRevenue = treatments
+      .filter(t => t.treatment_status === 'completed')
+      .reduce((sum, t) => sum + validateAmount(t.cost), 0)
+
+    const completionRate = totalTreatments > 0
+      ? Math.round((completedTreatments / totalTreatments) * 100)
+      : 0
+
+    csvData.push([]) // Empty row
+    csvData.push(['ملخص الإحصائيات'])
+    csvData.push(['إجمالي العلاجات', totalTreatments])
+    csvData.push(['العلاجات المكتملة', completedTreatments])
+    csvData.push(['العلاجات المخططة', plannedTreatments])
+    csvData.push(['العلاجات قيد التنفيذ', inProgressTreatments])
+    csvData.push(['العلاجات الملغية', cancelledTreatments])
+    csvData.push(['إجمالي الإيرادات', totalRevenue])
+    csvData.push(['معدل الإنجاز (%)', completionRate])
+
+    // Convert to CSV string
+    const csvContent = csvData.map(row =>
+      row.map(cell => `"${cell}"`).join(',')
+    ).join('\n')
+
+    // Add BOM for Arabic support
+    const csvWithBOM = '\uFEFF' + csvContent
+
+    // Create and download file
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `تقرير_العلاجات_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   static async exportPaymentsToExcel(payments: Payment[]): Promise<void> {
     // Calculate statistics from the provided payments array (which should be filtered)
     // Handle partial payments correctly by using amount_paid when available

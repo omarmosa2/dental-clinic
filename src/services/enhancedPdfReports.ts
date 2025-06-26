@@ -3,6 +3,7 @@ import {
   AppointmentReportData,
   FinancialReportData,
   InventoryReportData,
+  TreatmentReportData,
   ClinicSettings
 } from '../types'
 import { PdfService } from './pdfService'
@@ -911,6 +912,265 @@ export class EnhancedPdfReports {
             </div>
           </div>
         </div>
+      </body>
+      </html>
+    `
+  }
+
+  // Create enhanced HTML report for treatments
+  static createEnhancedTreatmentReportHTML(data: TreatmentReportData, settings?: ClinicSettings | null): string {
+    const header = PdfService.getEnhancedHeader('تقرير العلاجات السنية', settings, 'تقرير شامل عن إحصائيات العلاجات والإيرادات')
+    const styles = PdfService.getEnhancedStyles()
+
+    return `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>تقرير العلاجات - ${settings?.clinic_name || 'عيادة الأسنان'}</title>
+        ${styles}
+      </head>
+      <body>
+        ${header}
+
+        <!-- Summary Statistics -->
+        <div class="section">
+          <div class="section-title">
+            <span class="section-icon">📊</span>
+            ملخص الإحصائيات
+          </div>
+          <div class="section-content">
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">${data.totalTreatments?.toLocaleString() || '0'}</div>
+                <div class="stat-label">إجمالي العلاجات</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${data.completedTreatments?.toLocaleString() || '0'}</div>
+                <div class="stat-label">العلاجات المكتملة</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${data.plannedTreatments?.toLocaleString() || '0'}</div>
+                <div class="stat-label">العلاجات المخططة</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${data.inProgressTreatments?.toLocaleString() || '0'}</div>
+                <div class="stat-label">قيد التنفيذ</div>
+              </div>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">${data.totalRevenue?.toLocaleString() || '0'} ${settings?.currency || 'ريال'}</div>
+                <div class="stat-label">إجمالي الإيرادات</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${data.averageTreatmentCost?.toLocaleString() || '0'} ${settings?.currency || 'ريال'}</div>
+                <div class="stat-label">متوسط تكلفة العلاج</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${data.completionRate || '0'}%</div>
+                <div class="stat-label">معدل الإنجاز</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${data.cancelledTreatments?.toLocaleString() || '0'}</div>
+                <div class="stat-label">العلاجات الملغية</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Treatment Status Distribution -->
+        ${data.treatmentsByStatus && data.treatmentsByStatus.length > 0 ? `
+        <div class="section">
+          <div class="section-title">
+            <span class="section-icon">📈</span>
+            توزيع العلاجات حسب الحالة
+          </div>
+          <div class="section-content">
+            <div class="chart-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>الحالة</th>
+                    <th>العدد</th>
+                    <th>النسبة المئوية</th>
+                    <th>المؤشر البصري</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.treatmentsByStatus.map(item => {
+                    const barWidth = Math.max(5, item.percentage || 0)
+                    return `
+                      <tr>
+                        <td class="category-cell">${item.status}</td>
+                        <td class="number-cell">${item.count?.toLocaleString() || '0'}</td>
+                        <td class="percentage-cell">${item.percentage?.toFixed(1) || '0'}%</td>
+                        <td class="progress-cell">
+                          <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${barWidth}%"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Treatment Types Distribution -->
+        ${data.treatmentsByType && data.treatmentsByType.length > 0 ? `
+        <div class="section">
+          <div class="section-title">
+            <span class="section-icon">🦷</span>
+            توزيع العلاجات حسب النوع
+          </div>
+          <div class="section-content">
+            <div class="chart-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>نوع العلاج</th>
+                    <th>العدد</th>
+                    <th>النسبة المئوية</th>
+                    <th>المؤشر البصري</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.treatmentsByType.slice(0, 15).map(item => {
+                    const barWidth = Math.max(5, item.percentage || 0)
+                    return `
+                      <tr>
+                        <td class="category-cell">${item.type}</td>
+                        <td class="number-cell">${item.count?.toLocaleString() || '0'}</td>
+                        <td class="percentage-cell">${item.percentage?.toFixed(1) || '0'}%</td>
+                        <td class="progress-cell">
+                          <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${barWidth}%"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+            ${data.treatmentsByType.length > 15 ? `
+            <div class="pagination-info">
+              <p>عرض أول 15 نوع من إجمالي ${data.treatmentsByType.length.toLocaleString()} نوع</p>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Revenue by Category -->
+        ${data.revenueByCategory && data.revenueByCategory.length > 0 ? `
+        <div class="section">
+          <div class="section-title">
+            <span class="section-icon">💰</span>
+            الإيرادات حسب فئة العلاج
+          </div>
+          <div class="section-content">
+            <div class="chart-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>فئة العلاج</th>
+                    <th>إجمالي الإيرادات</th>
+                    <th>عدد العلاجات</th>
+                    <th>متوسط التكلفة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.revenueByCategory.slice(0, 10).map(item => {
+                    const avgCost = item.count > 0 ? (item.revenue / item.count) : 0
+                    return `
+                      <tr>
+                        <td class="category-cell">${item.category}</td>
+                        <td class="number-cell">${item.revenue?.toLocaleString() || '0'} ${settings?.currency || 'ريال'}</td>
+                        <td class="number-cell">${item.count?.toLocaleString() || '0'}</td>
+                        <td class="number-cell">${avgCost.toLocaleString()} ${settings?.currency || 'ريال'}</td>
+                      </tr>
+                    `
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Pending Treatments -->
+        ${data.pendingTreatments && data.pendingTreatments.length > 0 ? `
+        <div class="section">
+          <div class="section-title">
+            <span class="section-icon">⏳</span>
+            العلاجات المعلقة (${data.pendingTreatments.length})
+          </div>
+          <div class="section-content">
+            <div class="chart-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>نوع العلاج</th>
+                    <th>اسم المريض</th>
+                    <th>الحالة</th>
+                    <th>التاريخ</th>
+                    <th>التكلفة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.pendingTreatments.slice(0, 20).map(treatment => `
+                    <tr>
+                      <td class="category-cell">${treatment.treatment_type || 'غير محدد'}</td>
+                      <td class="patient-cell">${treatment.patient_name || 'غير محدد'}</td>
+                      <td class="status-cell">
+                        <span class="status-badge warning">${treatment.status || 'معلق'}</span>
+                      </td>
+                      <td class="date-cell">${treatment.created_at ? new Date(treatment.created_at).toLocaleDateString('ar-SA') : 'غير محدد'}</td>
+                      <td class="number-cell">${treatment.cost?.toLocaleString() || '0'} ${settings?.currency || 'ريال'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+            ${data.pendingTreatments.length > 20 ? `
+            <div class="pagination-info">
+              <p>عرض أول 20 علاج من إجمالي ${data.pendingTreatments.length.toLocaleString()} علاج معلق</p>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Enhanced Footer -->
+        <div class="report-footer">
+          <div class="footer-content">
+            <div class="footer-left">
+              <p class="footer-title">تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة</p>
+              <p class="generated-info">تاريخ الإنشاء: ${(() => {
+                const date = new Date()
+                const day = date.getDate().toString().padStart(2, '0')
+                const month = (date.getMonth() + 1).toString().padStart(2, '0')
+                const year = date.getFullYear()
+                const time = date.toLocaleTimeString('ar-SA', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+                return `${day}/${month}/${year} - ${time}`
+              })()}</p>
+            </div>
+            <div class="footer-right">
+              <p class="clinic-name">${settings?.clinic_name || 'عيادة الأسنان الحديثة'}</p>
+              ${settings?.clinic_address ? `<p class="clinic-address">${settings.clinic_address}</p>` : ''}
+              ${settings?.clinic_phone ? `<p class="clinic-phone">📞 ${settings.clinic_phone}</p>` : ''}
+            </div>
+          </div>
+        </div>
+
       </body>
       </html>
     `

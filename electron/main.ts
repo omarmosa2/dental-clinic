@@ -646,6 +646,18 @@ ipcMain.handle('reports:generateInventoryReport', async (_, filter) => {
   }
 })
 
+ipcMain.handle('reports:generateTreatmentReport', async (_, filter) => {
+  try {
+    const toothTreatments = await databaseService.getAllToothTreatments()
+    const treatments = await databaseService.getAllTreatments()
+
+    return await reportsService.generateTreatmentReport(toothTreatments, treatments, filter)
+  } catch (error) {
+    console.error('Error generating treatment report:', error)
+    throw error
+  }
+})
+
 ipcMain.handle('reports:generateAnalyticsReport', async (_, filter) => {
   try {
     // TODO: Implement analytics report generation

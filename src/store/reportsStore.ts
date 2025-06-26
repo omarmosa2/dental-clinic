@@ -8,6 +8,7 @@ import type {
   FinancialReportData,
   InventoryReportData,
   AnalyticsReportData,
+  TreatmentReportData,
   ReportExportOptions
 } from '../types'
 
@@ -19,12 +20,13 @@ interface ReportsState {
   financialReports: FinancialReportData | null
   inventoryReports: InventoryReportData | null
   analyticsReports: AnalyticsReportData | null
+  treatmentReports: TreatmentReportData | null
 
   // UI State
   isLoading: boolean
   isExporting: boolean
   error: string | null
-  activeReportType: 'overview' | 'patients' | 'appointments' | 'financial' | 'inventory' | 'analytics'
+  activeReportType: 'overview' | 'patients' | 'appointments' | 'financial' | 'inventory' | 'analytics' | 'treatments'
 
   // Filters
   currentFilter: ReportFilter
@@ -168,6 +170,7 @@ export const useReportsStore = create<ReportsStore>()(
         financialReports: null,
         inventoryReports: null,
         analyticsReports: null,
+        treatmentReports: null,
         isLoading: false,
         isExporting: false,
         error: null,
@@ -221,6 +224,11 @@ export const useReportsStore = create<ReportsStore>()(
               console.log(`✅ Analytics report generated:`, reportData)
               set({ analyticsReports: reportData })
               break
+            case 'treatments':
+              reportData = await window.electronAPI?.reports?.generateTreatmentReport(filter)
+              console.log(`✅ Treatment report generated:`, reportData)
+              set({ treatmentReports: reportData })
+              break
             case 'overview':
               reportData = await window.electronAPI?.reports?.generateOverviewReport(filter)
               console.log(`✅ Overview report generated:`, reportData)
@@ -247,7 +255,7 @@ export const useReportsStore = create<ReportsStore>()(
       generateAllReports: async (filterOverride) => {
         const { generateReport } = get()
         const reportTypes: ReportsState['activeReportType'][] = [
-          'patients', 'appointments', 'financial', 'inventory', 'analytics'
+          'patients', 'appointments', 'financial', 'inventory', 'analytics', 'treatments'
         ]
 
         set({ isLoading: true, error: null })

@@ -18,6 +18,7 @@ import PatientReports from '@/components/reports/PatientReports'
 import InventoryReports from '@/components/reports/InventoryReports'
 import AppointmentReports from '@/components/reports/AppointmentReports'
 import FinancialReports from '@/components/reports/FinancialReports'
+import TreatmentReports from '@/components/reports/TreatmentReports'
 import CalculationValidator from '@/components/admin/CalculationValidator'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import RealTimeIndicator from '@/components/ui/real-time-indicator'
@@ -43,6 +44,7 @@ import {
   FileText,
   PieChart,
   AlertTriangle,
+  Stethoscope,
 
 } from 'lucide-react'
 import { notify } from '@/services/notificationService'
@@ -366,7 +368,7 @@ onClick={async () => {
 
       {/* Reports Tabs */}
       <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="flex items-center space-x-2 space-x-reverse">
             <BarChart3 className="w-4 h-4" />
             <span>نظرة عامة</span>
@@ -382,6 +384,10 @@ onClick={async () => {
           <TabsTrigger value="financial" className="flex items-center space-x-2 space-x-reverse">
             <DollarSign className="w-4 h-4" />
             <span>المالية</span>
+          </TabsTrigger>
+          <TabsTrigger value="treatments" className="flex items-center space-x-2 space-x-reverse">
+            <Stethoscope className="w-4 h-4" />
+            <span>العلاجات</span>
           </TabsTrigger>
           <TabsTrigger value="inventory" className="flex items-center space-x-2 space-x-reverse">
             <Package className="w-4 h-4" />
@@ -596,11 +602,13 @@ onClick={async () => {
           <FinancialReports />
         </TabsContent>
 
+        <TabsContent value="treatments" dir="rtl">
+          <TreatmentReports />
+        </TabsContent>
+
         <TabsContent value="inventory" dir="rtl">
           <InventoryReports />
         </TabsContent>
-
-
 
         <TabsContent value="validation" dir="rtl">
           <CalculationValidator />

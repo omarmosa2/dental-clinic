@@ -233,6 +233,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     generateAppointmentReport: (filter) => ipcRenderer.invoke('reports:generateAppointmentReport', filter),
     generateFinancialReport: (filter) => ipcRenderer.invoke('reports:generateFinancialReport', filter),
     generateInventoryReport: (filter) => ipcRenderer.invoke('reports:generateInventoryReport', filter),
+    generateTreatmentReport: (filter) => ipcRenderer.invoke('reports:generateTreatmentReport', filter),
     generateAnalyticsReport: (filter) => ipcRenderer.invoke('reports:generateAnalyticsReport', filter),
     generateOverviewReport: (filter) => ipcRenderer.invoke('reports:generateOverviewReport', filter),
     exportReport: (type, filter, options) => ipcRenderer.invoke('reports:exportReport', type, filter, options)

@@ -334,6 +334,47 @@ export interface ClinicNeed {
 }
 
 // Database schema for lowdb
+// Treatment Reports Data Interface
+export interface TreatmentReportData {
+  // Basic Statistics
+  totalTreatments: number
+  completedTreatments: number
+  plannedTreatments: number
+  inProgressTreatments: number
+  cancelledTreatments: number
+
+  // Financial Statistics
+  totalRevenue: number
+  averageTreatmentCost: number
+  revenueByCategory: { category: string; revenue: number; count: number }[]
+
+  // Treatment Analysis
+  treatmentsByType: { type: string; count: number; percentage: number }[]
+  treatmentsByCategory: { category: string; count: number; percentage: number }[]
+  treatmentsByStatus: { status: string; count: number; percentage: number }[]
+
+  // Performance Metrics
+  completionRate: number
+  averageCompletionTime: number // in days
+  treatmentTrend: { period: string; completed: number; planned: number }[]
+
+  // Popular Treatments
+  mostPopularTreatments: { name: string; count: number; revenue: number }[]
+
+  // Patient Analysis
+  patientsWithMultipleTreatments: number
+  averageTreatmentsPerPatient: number
+
+  // Time Analysis
+  treatmentsByMonth: { month: string; count: number }[]
+  peakTreatmentDays: { day: string; count: number }[]
+
+  // Detailed Lists
+  treatmentsList: ToothTreatment[]
+  pendingTreatments: ToothTreatment[]
+  overdueTreatments: ToothTreatment[]
+}
+
 export interface DatabaseSchema {
   patients: Patient[]
   appointments: Appointment[]

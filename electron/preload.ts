@@ -201,6 +201,7 @@ export interface ElectronAPI {
     generateAppointmentReport: (filter: any) => Promise<any>
     generateFinancialReport: (filter: any) => Promise<any>
     generateInventoryReport: (filter: any) => Promise<any>
+    generateTreatmentReport: (filter: any) => Promise<any>
     generateAnalyticsReport: (filter: any) => Promise<any>
     generateOverviewReport: (filter: any) => Promise<any>
     exportReport: (type: string, filter: any, options: any) => Promise<any>
@@ -375,6 +376,7 @@ const electronAPI: ElectronAPI = {
     generateAppointmentReport: (filter) => ipcRenderer.invoke('reports:generateAppointmentReport', filter),
     generateFinancialReport: (filter) => ipcRenderer.invoke('reports:generateFinancialReport', filter),
     generateInventoryReport: (filter) => ipcRenderer.invoke('reports:generateInventoryReport', filter),
+    generateTreatmentReport: (filter) => ipcRenderer.invoke('reports:generateTreatmentReport', filter),
     generateAnalyticsReport: (filter) => ipcRenderer.invoke('reports:generateAnalyticsReport', filter),
     generateOverviewReport: (filter) => ipcRenderer.invoke('reports:generateOverviewReport', filter),
     exportReport: (type, filter, options) => ipcRenderer.invoke('reports:exportReport', type, filter, options)

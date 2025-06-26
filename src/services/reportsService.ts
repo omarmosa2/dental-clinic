@@ -4,12 +4,14 @@ import type {
   Payment,
   InventoryItem,
   Treatment,
+  ToothTreatment,
   ReportFilter,
   PatientReportData,
   AppointmentReportData,
   FinancialReportData,
   InventoryReportData,
   AnalyticsReportData,
+  TreatmentReportData,
   ReportData
 } from '../types'
 
@@ -627,5 +629,185 @@ export class ReportsService {
       stockAlerts,
       expiryAlerts
     }
+  }
+
+  // Generate Treatment Reports
+  async generateTreatmentReport(
+    toothTreatments: ToothTreatment[],
+    treatments: Treatment[],
+    filter: ReportFilter
+  ): Promise<TreatmentReportData> {
+    console.log('🚀 Starting treatment report generation...')
+    console.log('📊 Total tooth treatments received:', toothTreatments.length)
+    console.log('📅 Filter:', filter)
+
+    const filteredTreatments = this.filterByDateRange(toothTreatments, filter.dateRange, 'created_at')
+    console.log('📊 Filtered treatments:', filteredTreatments.length)
+
+    // Basic Statistics
+    const totalTreatments = filteredTreatments.length
+    const completedTreatments = filteredTreatments.filter(t => t.treatment_status === 'completed').length
+    const plannedTreatments = filteredTreatments.filter(t => t.treatment_status === 'planned').length
+    const inProgressTreatments = filteredTreatments.filter(t => t.treatment_status === 'in_progress').length
+    const cancelledTreatments = filteredTreatments.filter(t => t.treatment_status === 'cancelled').length
+
+    // Financial Statistics
+    const validateAmount = (amount: any): number => {
+      const num = Number(amount)
+      return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+    }
+
+    const totalRevenue = filteredTreatments
+      .filter(t => t.treatment_status === 'completed')
+      .reduce((sum, t) => sum + validateAmount(t.cost), 0)
+
+    const averageTreatmentCost = totalTreatments > 0
+      ? totalRevenue / completedTreatments || 0
+      : 0
+
+    // Revenue by Category
+    const revenueByCategory = this.groupBy(
+      filteredTreatments.filter(t => t.treatment_status === 'completed'),
+      'treatment_category'
+    ).map(group => ({
+      category: group.key || 'غير محدد',
+      revenue: group.items.reduce((sum, t) => sum + validateAmount(t.cost), 0),
+      count: group.items.length
+    }))
+
+    // Treatment Analysis
+    const treatmentsByType = this.groupBy(filteredTreatments, 'treatment_type')
+      .map(group => ({
+        type: group.key || 'غير محدد',
+        count: group.items.length,
+        percentage: totalTreatments > 0 ? Math.round((group.items.length / totalTreatments) * 100) : 0
+      }))
+
+    const treatmentsByCategory = this.groupBy(filteredTreatments, 'treatment_category')
+      .map(group => ({
+        category: group.key || 'غير محدد',
+        count: group.items.length,
+        percentage: totalTreatments > 0 ? Math.round((group.items.length / totalTreatments) * 100) : 0
+      }))
+
+    const treatmentsByStatus = this.groupBy(filteredTreatments, 'treatment_status')
+      .map(group => ({
+        status: this.getStatusLabel(group.key || 'planned'),
+        count: group.items.length,
+        percentage: totalTreatments > 0 ? Math.round((group.items.length / totalTreatments) * 100) : 0
+      }))
+
+    // Performance Metrics
+    const completionRate = totalTreatments > 0
+      ? Math.round((completedTreatments / totalTreatments) * 100)
+      : 0
+
+    // Calculate average completion time
+    const completedWithDates = filteredTreatments.filter(t =>
+      t.treatment_status === 'completed' && t.start_date && t.completion_date
+    )
+
+    const averageCompletionTime = completedWithDates.length > 0
+      ? completedWithDates.reduce((sum, t) => {
+          const start = new Date(t.start_date!)
+          const end = new Date(t.completion_date!)
+          const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+          return sum + days
+        }, 0) / completedWithDates.length
+      : 0
+
+    // Treatment Trend
+    const treatmentTrend = this.groupByPeriod(filteredTreatments, 'month', 'created_at')
+      .map(group => ({
+        period: group.period,
+        completed: group.items.filter(t => t.treatment_status === 'completed').length,
+        planned: group.items.filter(t => t.treatment_status === 'planned').length
+      }))
+
+    // Most Popular Treatments
+    const mostPopularTreatments = this.groupBy(filteredTreatments, 'treatment_type')
+      .map(group => ({
+        name: group.key || 'غير محدد',
+        count: group.items.length,
+        revenue: group.items
+          .filter(t => t.treatment_status === 'completed')
+          .reduce((sum, t) => sum + validateAmount(t.cost), 0)
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+
+    // Patient Analysis
+    const patientTreatmentCounts = this.groupBy(filteredTreatments, 'patient_id')
+    const patientsWithMultipleTreatments = patientTreatmentCounts
+      .filter(group => group.items.length > 1).length
+
+    const averageTreatmentsPerPatient = patientTreatmentCounts.length > 0
+      ? totalTreatments / patientTreatmentCounts.length
+      : 0
+
+    // Time Analysis
+    const treatmentsByMonth = this.groupByPeriod(filteredTreatments, 'month', 'created_at')
+      .map(group => ({
+        month: group.period,
+        count: group.items.length
+      }))
+
+    // Peak treatment days (simplified - by day of week)
+    const peakTreatmentDays = this.groupBy(
+      filteredTreatments.filter(t => t.created_at),
+      (t) => new Date(t.created_at).toLocaleDateString('ar', { weekday: 'long' })
+    ).map(group => ({
+      day: group.key || 'غير محدد',
+      count: group.items.length
+    })).sort((a, b) => b.count - a.count)
+
+    // Detailed Lists
+    const pendingTreatments = filteredTreatments.filter(t =>
+      t.treatment_status === 'planned' || t.treatment_status === 'in_progress'
+    )
+
+    // Overdue treatments (planned treatments with start_date in the past)
+    const today = new Date()
+    const overdueTreatments = filteredTreatments.filter(t =>
+      t.treatment_status === 'planned' &&
+      t.start_date &&
+      new Date(t.start_date) < today
+    )
+
+    return {
+      totalTreatments,
+      completedTreatments,
+      plannedTreatments,
+      inProgressTreatments,
+      cancelledTreatments,
+      totalRevenue,
+      averageTreatmentCost,
+      revenueByCategory,
+      treatmentsByType,
+      treatmentsByCategory,
+      treatmentsByStatus,
+      completionRate,
+      averageCompletionTime,
+      treatmentTrend,
+      mostPopularTreatments,
+      patientsWithMultipleTreatments,
+      averageTreatmentsPerPatient,
+      treatmentsByMonth,
+      peakTreatmentDays,
+      treatmentsList: filteredTreatments,
+      pendingTreatments,
+      overdueTreatments
+    }
+  }
+
+  // Helper method to get status label in Arabic
+  private getStatusLabel(status: string): string {
+    const statusLabels: { [key: string]: string } = {
+      'planned': 'مخطط',
+      'in_progress': 'قيد التنفيذ',
+      'completed': 'مكتمل',
+      'cancelled': 'ملغي'
+    }
+    return statusLabels[status] || status
   }
 }

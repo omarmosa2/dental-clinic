@@ -1237,6 +1237,7 @@ export class PdfService {
       'appointments': 'تقرير_المواعيد',
       'financial': 'التقرير_المالي',
       'inventory': 'تقرير_المخزون',
+      'treatments': 'تقرير_العلاجات',
       'comprehensive': 'التقرير_الشامل'
     }
 
@@ -2172,6 +2173,17 @@ export class PdfService {
     } catch (error) {
       console.error('Error converting HTML to PDF:', error)
       throw new Error('فشل في تحويل التقرير إلى PDF')
+    }
+  }
+
+  static async exportTreatmentReport(reportData: any, settings: any): Promise<void> {
+    try {
+      const htmlContent = EnhancedPdfReports.createEnhancedTreatmentReportHTML(reportData, settings)
+      const fileName = this.generatePDFFileName('treatments')
+      await this.convertHTMLToPDF(htmlContent, fileName)
+    } catch (error) {
+      console.error('Error exporting treatment report:', error)
+      throw new Error('فشل في تصدير تقرير العلاجات')
     }
   }
 

@@ -141,6 +141,31 @@ class ReportsService {
     return result
   }
 
+  // Helper function to group data by a field or function
+  groupBy(data, keyOrFunction) {
+    const groups = {}
+
+    data.forEach(item => {
+      let key
+      if (typeof keyOrFunction === 'function') {
+        key = keyOrFunction(item)
+      } else {
+        key = item[keyOrFunction]
+      }
+
+      if (!groups[key]) {
+        groups[key] = []
+      }
+      groups[key].push(item)
+    })
+
+    return Object.entries(groups).map(([key, items]) => ({
+      key,
+      items,
+      count: items.length
+    }))
+  }
+
   // Generate Patient Reports
   async generatePatientReport(patients, appointments, filter) {
     const filteredPatients = this.filterByDateRange(patients, filter.dateRange)
@@ -498,6 +523,244 @@ class ReportsService {
       stockAlerts,
       expiryAlerts
     }
+  }
+
+  // Generate Treatment Reports
+  async generateTreatmentReport(toothTreatments, treatments, filter, patients = []) {
+    console.log('🚀 Starting treatment report generation...')
+    console.log('📊 Total tooth treatments received:', toothTreatments.length)
+    console.log('📅 Filter:', filter)
+
+    // Create patient lookup map for faster access
+    const patientMap = {}
+    if (patients && patients.length > 0) {
+      patients.forEach(patient => {
+        patientMap[patient.id] = patient.full_name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim()
+      })
+    }
+
+    const filteredTreatments = this.filterByDateRange(toothTreatments, filter.dateRange, 'created_at')
+    console.log('📊 Filtered treatments:', filteredTreatments.length)
+
+    // Basic Statistics
+    const totalTreatments = filteredTreatments.length
+    const completedTreatments = filteredTreatments.filter(t => t.treatment_status === 'completed').length
+    const plannedTreatments = filteredTreatments.filter(t => t.treatment_status === 'planned').length
+    const inProgressTreatments = filteredTreatments.filter(t => t.treatment_status === 'in_progress').length
+    const cancelledTreatments = filteredTreatments.filter(t => t.treatment_status === 'cancelled').length
+
+    // Financial Statistics
+    const validateAmount = (amount) => {
+      const num = Number(amount)
+      return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+    }
+
+    const totalRevenue = filteredTreatments
+      .filter(t => t.treatment_status === 'completed')
+      .reduce((sum, t) => sum + validateAmount(t.cost), 0)
+
+    const averageTreatmentCost = totalTreatments > 0
+      ? totalRevenue / (completedTreatments || 1)
+      : 0
+
+    // Revenue by Category
+    const revenueByCategory = this.groupBy(
+      filteredTreatments.filter(t => t.treatment_status === 'completed'),
+      'treatment_category'
+    ).map(group => ({
+      category: group.key || 'غير محدد',
+      revenue: group.items.reduce((sum, t) => sum + validateAmount(t.cost), 0),
+      count: group.items.length
+    }))
+
+    // Treatment Analysis
+    const treatmentsByType = this.groupBy(filteredTreatments, 'treatment_type')
+      .map(group => ({
+        type: group.key || 'غير محدد',
+        count: group.items.length,
+        percentage: totalTreatments > 0 ? Math.round((group.items.length / totalTreatments) * 100) : 0
+      }))
+
+    const treatmentsByCategory = this.groupBy(filteredTreatments, 'treatment_category')
+      .map(group => ({
+        category: group.key || 'غير محدد',
+        count: group.items.length,
+        percentage: totalTreatments > 0 ? Math.round((group.items.length / totalTreatments) * 100) : 0
+      }))
+
+    const treatmentsByStatus = this.groupBy(filteredTreatments, 'treatment_status')
+      .map(group => ({
+        status: this.getStatusLabel(group.key || 'planned'),
+        count: group.items.length,
+        percentage: totalTreatments > 0 ? Math.round((group.items.length / totalTreatments) * 100) : 0
+      }))
+
+    // Performance Metrics
+    const completionRate = totalTreatments > 0
+      ? Math.round((completedTreatments / totalTreatments) * 100)
+      : 0
+
+    // Calculate average completion time
+    const completedWithDates = filteredTreatments.filter(t =>
+      t.treatment_status === 'completed' && t.start_date && t.completion_date
+    )
+
+    const averageCompletionTime = completedWithDates.length > 0
+      ? completedWithDates.reduce((sum, t) => {
+          const start = new Date(t.start_date)
+          const end = new Date(t.completion_date)
+          const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+          return sum + days
+        }, 0) / completedWithDates.length
+      : 0
+
+    // Treatment Trend
+    const treatmentTrend = this.groupByPeriod(filteredTreatments, 'month', 'created_at')
+      .map(group => ({
+        period: group.period,
+        completed: group.data.filter(t => t.treatment_status === 'completed').length,
+        planned: group.data.filter(t => t.treatment_status === 'planned').length
+      }))
+
+    // Most Popular Treatments
+    const mostPopularTreatments = this.groupBy(filteredTreatments, 'treatment_type')
+      .map(group => ({
+        name: group.key || 'غير محدد',
+        count: group.items.length,
+        revenue: group.items
+          .filter(t => t.treatment_status === 'completed')
+          .reduce((sum, t) => sum + validateAmount(t.cost), 0)
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+
+    // Patient Analysis
+    const patientTreatmentCounts = this.groupBy(filteredTreatments, 'patient_id')
+    const patientsWithMultipleTreatments = patientTreatmentCounts
+      .filter(group => group.items.length > 1).length
+
+    const averageTreatmentsPerPatient = patientTreatmentCounts.length > 0
+      ? totalTreatments / patientTreatmentCounts.length
+      : 0
+
+    // Time Analysis
+    const treatmentsByMonth = this.groupByPeriod(filteredTreatments, 'month', 'created_at')
+      .map(group => ({
+        month: group.period,
+        count: group.data.length
+      }))
+
+    // Peak treatment days (simplified - by day of week)
+    const peakTreatmentDays = this.groupBy(
+      filteredTreatments.filter(t => t.created_at),
+      (t) => new Date(t.created_at).toLocaleDateString('ar', { weekday: 'long' })
+    ).map(group => ({
+      day: group.key || 'غير محدد',
+      count: group.items.length
+    })).sort((a, b) => b.count - a.count)
+
+    // Detailed Lists with patient names
+    const addPatientNames = (treatmentsList) => {
+      return treatmentsList.map(treatment => ({
+        ...treatment,
+        patient_name: patientMap[treatment.patient_id] || `مريض ${treatment.patient_id}`
+      }))
+    }
+
+    const pendingTreatments = addPatientNames(filteredTreatments.filter(t =>
+      t.treatment_status === 'planned' || t.treatment_status === 'in_progress'
+    ))
+
+    // Overdue treatments (planned treatments with start_date in the past)
+    const today = new Date()
+    const overdueTreatments = addPatientNames(filteredTreatments.filter(t =>
+      t.treatment_status === 'planned' &&
+      t.start_date &&
+      new Date(t.start_date) < today
+    ))
+
+    return {
+      totalTreatments,
+      completedTreatments,
+      plannedTreatments,
+      inProgressTreatments,
+      cancelledTreatments,
+      totalRevenue,
+      averageTreatmentCost,
+      revenueByCategory,
+      treatmentsByType,
+      treatmentsByCategory,
+      treatmentsByStatus,
+      completionRate,
+      averageCompletionTime,
+      treatmentTrend,
+      mostPopularTreatments,
+      patientsWithMultipleTreatments,
+      averageTreatmentsPerPatient,
+      treatmentsByMonth,
+      peakTreatmentDays,
+      treatmentsList: addPatientNames(filteredTreatments),
+      pendingTreatments,
+      overdueTreatments
+    }
+  }
+
+  // Helper method to get status label in Arabic
+  getStatusLabel(status) {
+    const statusLabels = {
+      'planned': 'مخطط',
+      'in_progress': 'قيد التنفيذ',
+      'completed': 'مكتمل',
+      'cancelled': 'ملغي'
+    }
+    return statusLabels[status] || status
+  }
+
+  // Export treatment report to CSV
+  exportTreatmentReportToCSV(reportData) {
+    const csvData = []
+
+    // Add header
+    csvData.push([
+      'نوع العلاج',
+      'فئة العلاج',
+      'حالة العلاج',
+      'التكلفة',
+      'تاريخ البداية',
+      'تاريخ الإنجاز',
+      'اسم المريض',
+      'رقم السن',
+      'تاريخ الإنشاء'
+    ])
+
+    // Add treatment data
+    reportData.treatmentsList.forEach(treatment => {
+      csvData.push([
+        treatment.treatment_type || '',
+        treatment.treatment_category || '',
+        this.getStatusLabel(treatment.treatment_status || 'planned'),
+        treatment.cost || 0,
+        treatment.start_date || '',
+        treatment.completion_date || '',
+        treatment.patient_name || `مريض ${treatment.patient_id}`,
+        treatment.tooth_number || '',
+        treatment.created_at || ''
+      ])
+    })
+
+    // Add summary statistics
+    csvData.push([]) // Empty row
+    csvData.push(['ملخص الإحصائيات'])
+    csvData.push(['إجمالي العلاجات', reportData.totalTreatments])
+    csvData.push(['العلاجات المكتملة', reportData.completedTreatments])
+    csvData.push(['العلاجات المخططة', reportData.plannedTreatments])
+    csvData.push(['العلاجات قيد التنفيذ', reportData.inProgressTreatments])
+    csvData.push(['العلاجات الملغية', reportData.cancelledTreatments])
+    csvData.push(['إجمالي الإيرادات', reportData.totalRevenue])
+    csvData.push(['متوسط تكلفة العلاج', reportData.averageTreatmentCost])
+    csvData.push(['معدل الإنجاز (%)', reportData.completionRate])
+
+    return csvData
   }
 }
 
