@@ -2200,12 +2200,18 @@ export class PdfService {
 
   static createClinicNeedsReportHTML(data: any, options: { title: string; currency: string; isDarkMode: boolean }): string {
     const { title, currency, isDarkMode } = options
+
+    // Helper functions
     const formatCurrency = (amount: number) => {
-      return new Intl.NumberFormat('ar-SA', {
-        style: 'currency',
-        currency: currency || 'SAR',
-        minimumFractionDigits: 2
-      }).format(amount)
+      try {
+        return new Intl.NumberFormat('ar-SA', {
+          style: 'currency',
+          currency: currency || 'SAR',
+          minimumFractionDigits: 2
+        }).format(amount || 0)
+      } catch (error) {
+        return `${(amount || 0).toFixed(2)} ${currency || 'SAR'}`
+      }
     }
 
     const formatDate = (dateString: string) => {
@@ -2245,6 +2251,28 @@ export class PdfService {
       }
       return labels[priority] || priority
     }
+
+    const getStatusColor = (status: string) => {
+      const colors = {
+        pending: '#f59e0b',
+        ordered: '#3b82f6',
+        received: '#10b981',
+        cancelled: '#ef4444'
+      }
+      return colors[status] || '#6b7280'
+    }
+
+    const getPriorityColor = (priority: string) => {
+      const colors = {
+        urgent: '#dc2626',
+        high: '#f59e0b',
+        medium: '#3b82f6',
+        low: '#10b981'
+      }
+      return colors[priority] || '#6b7280'
+    }
+
+
 
     return `
       <!DOCTYPE html>
@@ -2500,6 +2528,58 @@ export class PdfService {
         </div>
         ` : ''}
 
+        ${data.needsByCategory && data.needsByCategory.length > 0 ? `
+        <div class="section">
+          <h2>توزيع الاحتياجات حسب الفئة</h2>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>الفئة</th>
+                <th>العدد</th>
+                <th>القيمة الإجمالية</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.needsByCategory.map(item => `
+                <tr>
+                  <td>${item.category || 'غير محدد'}</td>
+                  <td>${item.count}</td>
+                  <td>${formatCurrency(item.value)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        ${data.urgentNeeds && data.urgentNeeds.length > 0 ? `
+        <div class="section">
+          <h2>الاحتياجات العاجلة</h2>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>اسم الاحتياج</th>
+                <th>الحالة</th>
+                <th>الفئة</th>
+                <th>القيمة</th>
+                <th>تاريخ الإنشاء</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.urgentNeeds.slice(0, 10).map(need => `
+                <tr>
+                  <td>${need.need_name}</td>
+                  <td><span class="badge badge-${need.status}">${getStatusLabel(need.status)}</span></td>
+                  <td>${need.category || 'غير محدد'}</td>
+                  <td>${formatCurrency(need.price * need.quantity)}</td>
+                  <td>${formatDate(need.created_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
         ${data.pendingNeeds && data.pendingNeeds.length > 0 ? `
         <div class="section">
           <h2>الاحتياجات المعلقة</h2>
@@ -2519,6 +2599,34 @@ export class PdfService {
                   <td>${need.need_name}</td>
                   <td>${need.category || 'غير محدد'}</td>
                   <td><span class="badge badge-${need.priority}">${getPriorityLabel(need.priority)}</span></td>
+                  <td>${formatCurrency(need.price * need.quantity)}</td>
+                  <td>${formatDate(need.created_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        ${data.recentlyReceived && data.recentlyReceived.length > 0 ? `
+        <div class="section">
+          <h2>الاحتياجات المستلمة حديثاً</h2>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>اسم الاحتياج</th>
+                <th>الفئة</th>
+                <th>المورد</th>
+                <th>القيمة</th>
+                <th>تاريخ الإنشاء</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.recentlyReceived.slice(0, 10).map(need => `
+                <tr>
+                  <td>${need.need_name}</td>
+                  <td>${need.category || 'غير محدد'}</td>
+                  <td>${need.supplier || 'غير محدد'}</td>
                   <td>${formatCurrency(need.price * need.quantity)}</td>
                   <td>${formatDate(need.created_at)}</td>
                 </tr>

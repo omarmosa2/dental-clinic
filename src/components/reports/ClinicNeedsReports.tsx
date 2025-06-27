@@ -212,12 +212,22 @@ export default function ClinicNeedsReports() {
 
   const handleExportPDF = async () => {
     try {
-      if (!clinicNeedsReports) {
+      if (!needsStats.filteredData || needsStats.filteredData.length === 0) {
         notificationService.error('لا توجد بيانات للتصدير')
         return
       }
 
-      await PdfService.exportClinicNeedsReport(clinicNeedsReports, {
+      // Create comprehensive report data using filtered data and calculated stats
+      const reportData = {
+        ...stats,
+        needsList: needsStats.filteredData,
+        filterInfo: needsStats.filter.preset !== 'all'
+          ? `الفترة: ${needsStats.filter.preset} (${needsStats.filter.startDate || ''} - ${needsStats.filter.endDate || ''})`
+          : 'جميع البيانات',
+        dataCount: needsStats.filteredData.length
+      }
+
+      await PdfService.exportClinicNeedsReport(reportData, {
         title: 'تقرير احتياجات العيادة',
         currency,
         isDarkMode
@@ -231,13 +241,23 @@ export default function ClinicNeedsReports() {
 
   const handleExportCSV = async () => {
     try {
-      if (!clinicNeedsReports?.needsList) {
+      // Use filtered data from the time filter instead of static report data
+      const dataToExport = needsStats.filteredData
+
+      if (!dataToExport || dataToExport.length === 0) {
         notificationService.error('لا توجد بيانات للتصدير')
         return
       }
 
-      await ExportService.exportClinicNeedsToCSV(clinicNeedsReports.needsList, 'clinic-needs-report')
-      notificationService.success('تم تصدير البيانات بنجاح')
+      // Generate filename with filter info
+      const filterInfo = needsStats.filter.preset !== 'all'
+        ? `_${needsStats.filter.preset}_${needsStats.filter.startDate || ''}_${needsStats.filter.endDate || ''}`
+        : ''
+
+      const filename = `clinic-needs-report${filterInfo}`
+
+      await ExportService.exportClinicNeedsToCSV(dataToExport, filename)
+      notificationService.success(`تم تصدير ${dataToExport.length} احتياج بنجاح`)
     } catch (error) {
       console.error('Error exporting CSV:', error)
       notificationService.error('فشل في تصدير البيانات')

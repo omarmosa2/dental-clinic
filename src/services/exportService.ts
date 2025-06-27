@@ -1396,6 +1396,25 @@ export class ExportService {
         'تاريخ التحديث'
       ]
 
+      // Helper function for Gregorian date formatting
+      const formatGregorianDate = (dateString: string) => {
+        try {
+          const date = new Date(dateString)
+          if (isNaN(date.getTime())) {
+            return '--'
+          }
+
+          // Format as DD/MM/YYYY (Gregorian format)
+          const day = date.getDate().toString().padStart(2, '0')
+          const month = (date.getMonth() + 1).toString().padStart(2, '0')
+          const year = date.getFullYear()
+
+          return `${day}/${month}/${year}`
+        } catch (error) {
+          return '--'
+        }
+      }
+
       // Convert data to CSV format
       const csvData = clinicNeeds.map(need => [
         need.serial_number || '',
@@ -1409,8 +1428,8 @@ export class ExportService {
         this.getStatusLabel(need.status || ''),
         need.supplier || '',
         need.notes || '',
-        need.created_at ? new Date(need.created_at).toLocaleDateString('ar-SA') : '',
-        need.updated_at ? new Date(need.updated_at).toLocaleDateString('ar-SA') : ''
+        need.created_at ? formatGregorianDate(need.created_at) : '',
+        need.updated_at ? formatGregorianDate(need.updated_at) : ''
       ])
 
       // Combine headers and data

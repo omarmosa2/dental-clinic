@@ -45,6 +45,25 @@ const ExportClinicNeedsButton: React.FC<ExportClinicNeedsButtonProps> = ({
         'تاريخ الإنشاء'
       ]
 
+      // Helper function for Gregorian date formatting
+      const formatGregorianDate = (dateString: string) => {
+        try {
+          const date = new Date(dateString)
+          if (isNaN(date.getTime())) {
+            return '--'
+          }
+
+          // Format as DD/MM/YYYY (Gregorian format)
+          const day = date.getDate().toString().padStart(2, '0')
+          const month = (date.getMonth() + 1).toString().padStart(2, '0')
+          const year = date.getFullYear()
+
+          return `${day}/${month}/${year}`
+        } catch (error) {
+          return '--'
+        }
+      }
+
       // Convert data to CSV format
       const csvData = data.map(need => [
         need.serial_number,
@@ -58,7 +77,7 @@ const ExportClinicNeedsButton: React.FC<ExportClinicNeedsButtonProps> = ({
         getStatusLabel(need.status),
         need.supplier || '',
         need.notes || '',
-        new Date(need.created_at).toLocaleDateString('ar-SA')
+        formatGregorianDate(need.created_at)
       ])
 
       // Combine headers and data
