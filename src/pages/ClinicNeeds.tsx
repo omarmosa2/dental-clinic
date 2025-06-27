@@ -37,6 +37,8 @@ const ClinicNeeds: React.FC = () => {
     receivedCount,
     urgentCount,
     loadNeeds,
+    deleteNeed,
+    updateNeed,
     setSearchQuery,
     setFilters,
     clearError
@@ -78,12 +80,26 @@ const ClinicNeeds: React.FC = () => {
     setShowDeleteDialog(true)
   }
 
-  const handleReceiveAndDelete = async (need: ClinicNeed) => {
+  const handleMarkAsReceived = async (need: ClinicNeed) => {
     try {
-      await deleteNeed(need.id)
+      // تحديث حالة الاحتياج إلى "مستلم" مع الاحتفاظ بجميع البيانات الأخرى
+      const updatedData = {
+        serial_number: need.serial_number,
+        need_name: need.need_name,
+        quantity: need.quantity,
+        price: need.price,
+        description: need.description,
+        category: need.category,
+        priority: need.priority,
+        status: 'received',
+        supplier: need.supplier,
+        notes: need.notes
+      }
+
+      await updateNeed(need.id, updatedData)
       toast({
         title: "تم تأكيد الاستلام",
-        description: `تم تأكيد استلام "${need.need_name}" وحذفه من النظام`,
+        description: `تم تأكيد استلام "${need.need_name}" وتحديث حالته إلى مستلم`,
       })
     } catch (error) {
       toast({
@@ -221,7 +237,7 @@ const ClinicNeeds: React.FC = () => {
             needs={filteredNeeds}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            onReceiveAndDelete={handleReceiveAndDelete}
+            onReceiveAndDelete={handleMarkAsReceived}
             isLoading={isLoading}
           />
         </CardContent>

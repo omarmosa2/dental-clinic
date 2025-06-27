@@ -173,16 +173,18 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
 
               <TableCell>
                 <div className="flex items-center gap-2">
-                  {/* زر تأكيد الاستلام والحذف */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onReceiveAndDelete(need)}
-                    className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                    title="تأكيد الاستلام وحذف الاحتياج"
-                  >
-                    <Check className="h-4 w-4" />
-                  </Button>
+                  {/* زر تأكيد الاستلام - يظهر فقط إذا لم يكن مستلماً بعد */}
+                  {need.status !== 'received' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onReceiveAndDelete(need)}
+                      className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                      title="تأكيد الاستلام وتحديث الحالة إلى مستلم"
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  )}
 
                   <Button
                     variant="ghost"
