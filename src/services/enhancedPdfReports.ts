@@ -592,7 +592,7 @@ export class EnhancedPdfReports {
             </div>
             <div class="footer-right">
               <div class="footer-stats">
-                <span class="stat-item">💰 $${data.totalRevenue?.toLocaleString() || '0'} إجمالي</span>
+                <span class="stat-item">💰 ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(data.totalRevenue || 0)} إجمالي</span>
                 <span class="stat-item">✅ ${data.completedPayments?.toLocaleString() || '0'} مكتمل</span>
                 <span class="stat-item">🔄 ${data.partialPayments?.toLocaleString() || '0'} جزئي</span>
                 <span class="stat-item">📊 ${data.dataCount?.toLocaleString() || '0'} معاملة</span>
@@ -960,11 +960,11 @@ export class EnhancedPdfReports {
             </div>
             <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-value">${data.totalRevenue?.toLocaleString() || '0'} ${settings?.currency || '$'}</div>
+                <div class="stat-value">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(data.totalRevenue || 0)}</div>
                 <div class="stat-label">إجمالي الإيرادات</div>
               </div>
               <div class="stat-card">
-                <div class="stat-value">${data.averageTreatmentCost?.toLocaleString() || '0'} ${settings?.currency || '$'}</div>
+                <div class="stat-value">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(data.averageTreatmentCost || 0)}</div>
                 <div class="stat-label">متوسط تكلفة العلاج</div>
               </div>
               <div class="stat-card">
@@ -1130,8 +1130,14 @@ export class EnhancedPdfReports {
                       <td class="status-cell">
                         <span class="status-badge warning">${treatment.status || 'معلق'}</span>
                       </td>
-                      <td class="date-cell">${treatment.created_at ? new Date(treatment.created_at).toLocaleDateString('ar-SA') : 'غير محدد'}</td>
-                      <td class="number-cell">${treatment.cost?.toLocaleString() || '0'} ${settings?.currency || '$'}</td>
+                      <td class="date-cell">${treatment.created_at ? (() => {
+                        const date = new Date(treatment.created_at)
+                        const day = date.getDate().toString().padStart(2, '0')
+                        const month = (date.getMonth() + 1).toString().padStart(2, '0')
+                        const year = date.getFullYear()
+                        return `${day}/${month}/${year}`
+                      })() : 'غير محدد'}</td>
+                      <td class="number-cell">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(treatment.cost || 0)}</td>
                     </tr>
                   `).join('')}
                 </tbody>

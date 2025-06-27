@@ -7,8 +7,10 @@ export function cn(...inputs: ClassValue[]) {
 
 // Currency mapping for Arabic currency names to ISO codes
 const currencyMapping: { [key: string]: string } = {
-  '$': 'SAR',
-  '$ سعودي': 'SAR',
+  '$': 'USD',
+  '$ أمريكي': 'USD',
+  'ريال': 'SAR',
+  'ريال سعودي': 'SAR',
   'درهم': 'AED',
   'درهم إماراتي': 'AED',
   'دينار': 'KWD',

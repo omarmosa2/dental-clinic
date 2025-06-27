@@ -57,7 +57,7 @@ export default function QuickAccessDashboard({
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ar-EG', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
     }).format(amount)

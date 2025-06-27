@@ -2204,13 +2204,13 @@ export class PdfService {
     // Helper functions
     const formatCurrency = (amount: number) => {
       try {
-        return new Intl.NumberFormat('ar-SA', {
+        return new Intl.NumberFormat('en-US', {
           style: 'currency',
-          currency: currency || 'SAR',
+          currency: currency || 'USD',
           minimumFractionDigits: 2
         }).format(amount || 0)
       } catch (error) {
-        return `${(amount || 0).toFixed(2)} ${currency || 'SAR'}`
+        return `$${(amount || 0).toFixed(2)}`
       }
     }
 
