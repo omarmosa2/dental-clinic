@@ -318,7 +318,21 @@ export class GlobalSearchService {
 
   // Helper methods
   private static formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString('ar-EG')
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        return '--'
+      }
+
+      // Format as DD/MM/YYYY (Gregorian format)
+      const day = date.getDate().toString().padStart(2, '0')
+      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+      const year = date.getFullYear()
+
+      return `${day}/${month}/${year}`
+    } catch (error) {
+      return '--'
+    }
   }
 
   private static formatTime(dateString: string): string {

@@ -2209,7 +2209,21 @@ export class PdfService {
     }
 
     const formatDate = (dateString: string) => {
-      return new Date(dateString).toLocaleDateString('ar-SA')
+      try {
+        const date = new Date(dateString)
+        if (isNaN(date.getTime())) {
+          return '--'
+        }
+
+        // Format as DD/MM/YYYY (Gregorian format)
+        const day = date.getDate().toString().padStart(2, '0')
+        const month = (date.getMonth() + 1).toString().padStart(2, '0')
+        const year = date.getFullYear()
+
+        return `${day}/${month}/${year}`
+      } catch (error) {
+        return '--'
+      }
     }
 
     const getStatusLabel = (status: string) => {
@@ -2374,7 +2388,13 @@ export class PdfService {
       <body>
         <div class="header">
           <h1>${title}</h1>
-          <p>تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')} | ${data.filterInfo || 'جميع البيانات'}</p>
+          <p>تاريخ التقرير: ${(() => {
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          })()} | ${data.filterInfo || 'جميع البيانات'}</p>
         </div>
 
         <div class="stats-grid">
@@ -2509,7 +2529,17 @@ export class PdfService {
         ` : ''}
 
         <div class="footer">
-          <p>تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة | ${new Date().toLocaleString('ar-SA')}</p>
+          <p>تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة | ${(() => {
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            const time = date.toLocaleTimeString('ar-SA', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+            return `${day}/${month}/${year} - ${time}`
+          })()}</p>
         </div>
       </body>
       </html>

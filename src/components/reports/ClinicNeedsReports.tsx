@@ -22,7 +22,7 @@ import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
 import { PdfService } from '@/services/pdfService'
 import { ExportService } from '@/services/exportService'
-import { notify } from '@/services/notificationService'
+import { notificationService } from '@/services/notificationService'
 import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import {
@@ -213,7 +213,7 @@ export default function ClinicNeedsReports() {
   const handleExportPDF = async () => {
     try {
       if (!clinicNeedsReports) {
-        notify.error('لا توجد بيانات للتصدير')
+        notificationService.error('لا توجد بيانات للتصدير')
         return
       }
 
@@ -222,25 +222,25 @@ export default function ClinicNeedsReports() {
         currency,
         isDarkMode
       })
-      notify.success('تم تصدير التقرير بنجاح')
+      notificationService.success('تم تصدير التقرير بنجاح')
     } catch (error) {
       console.error('Error exporting PDF:', error)
-      notify.error('فشل في تصدير التقرير')
+      notificationService.error('فشل في تصدير التقرير')
     }
   }
 
   const handleExportCSV = async () => {
     try {
       if (!clinicNeedsReports?.needsList) {
-        notify.error('لا توجد بيانات للتصدير')
+        notificationService.error('لا توجد بيانات للتصدير')
         return
       }
 
       await ExportService.exportClinicNeedsToCSV(clinicNeedsReports.needsList, 'clinic-needs-report')
-      notify.success('تم تصدير البيانات بنجاح')
+      notificationService.success('تم تصدير البيانات بنجاح')
     } catch (error) {
       console.error('Error exporting CSV:', error)
-      notify.error('فشل في تصدير البيانات')
+      notificationService.error('فشل في تصدير البيانات')
     }
   }
 
@@ -248,7 +248,7 @@ export default function ClinicNeedsReports() {
     clearCache()
     await generateReport('clinicNeeds')
     await loadNeeds()
-    notify.success('تم تحديث التقرير')
+    notificationService.success('تم تحديث التقرير')
   }
 
   if (isLoading) {
