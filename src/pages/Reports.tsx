@@ -451,7 +451,7 @@ onClick={async () => {
               description="العدد الكلي للمرضى المسجلين"
             />
             <StatCard
-              title="المواعيد المفلترة"
+              title="المواعيد"
               value={appointmentStats.filteredData.length}
               icon={Calendar}
               color="purple"
@@ -459,7 +459,7 @@ onClick={async () => {
               description={`من إجمالي ${appointmentReports?.totalAppointments || 0} موعد`}
             />
             <StatCard
-              title="الإيرادات المفلترة"
+              title="الإيرادات"
               value={<CurrencyDisplay amount={paymentStats.financialStats.totalRevenue || 0} currency={currency} />}
               icon={DollarSign}
               color="green"
@@ -467,7 +467,7 @@ onClick={async () => {
               description={`من إجمالي ${formatCurrency(totalRevenue || 0, currency)}`}
             />
             <StatCard
-              title="عناصر المخزون المفلترة"
+              title="عناصر المخزون"
               value={inventoryStats.filteredData.length}
               icon={Package}
               color="orange"
@@ -475,7 +475,7 @@ onClick={async () => {
               description={`من إجمالي ${inventoryReports?.totalItems || 0} عنصر`}
             />
             <StatCard
-              title="احتياجات العيادة المفلترة"
+              title="احتياجات العيادة"
               value={clinicNeedsStats.filteredData.length}
               icon={ClipboardList}
               color="indigo"
@@ -530,7 +530,7 @@ onClick={async () => {
                       <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
                           <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">المواعيد المفلترة</span>
+                            <span className="arabic-enhanced">المواعيد</span>
                             <Calendar className="h-4 w-4 text-purple-500" />
                           </div>
                         </TableCell>
@@ -587,7 +587,7 @@ onClick={async () => {
                       <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
                           <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">عناصر المخزون المفلترة</span>
+                            <span className="arabic-enhanced">عناصر المخزون</span>
                             <Package className="h-4 w-4 text-orange-500" />
                           </div>
                         </TableCell>

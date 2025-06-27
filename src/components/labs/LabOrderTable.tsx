@@ -24,7 +24,8 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Eye
+  Eye,
+  CreditCard
 } from 'lucide-react'
 import type { LabOrder } from '@/types'
 
@@ -86,24 +87,34 @@ export default function LabOrderTable({ labOrders, onEdit, onDelete, onView }: L
 
   const getPaymentStatusBadge = (cost: number, paidAmount: number = 0) => {
     const remaining = cost - paidAmount
+    const paymentPercentage = cost > 0 ? Math.round((paidAmount / cost) * 100) : 0
 
     if (remaining <= 0) {
       return (
-        <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-          مدفوع بالكامل
-        </Badge>
+        <div className="flex flex-col items-center gap-1">
+          <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            مدفوع بالكامل
+          </Badge>
+          <span className="text-xs text-green-600">100%</span>
+        </div>
       )
     } else if (paidAmount > 0) {
       return (
-        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-          مدفوع جزئياً
-        </Badge>
+        <div className="flex flex-col items-center gap-1">
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+            مدفوع جزئياً
+          </Badge>
+          <span className="text-xs text-yellow-600">{paymentPercentage}%</span>
+        </div>
       )
     } else {
       return (
-        <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-          غير مدفوع
-        </Badge>
+        <div className="flex flex-col items-center gap-1">
+          <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+            غير مدفوع
+          </Badge>
+          <span className="text-xs text-red-600">0%</span>
+        </div>
       )
     }
   }
@@ -142,6 +153,7 @@ export default function LabOrderTable({ labOrders, onEdit, onDelete, onView }: L
             <TableHead className="text-center">اسم المختبر</TableHead>
             <TableHead className="text-center">اسم الخدمة</TableHead>
             <TableHead className="text-center">التكلفة</TableHead>
+            <TableHead className="text-center">المدفوع</TableHead>
             <TableHead className="text-center">تاريخ الطلب</TableHead>
             <TableHead className="text-center">الحالة</TableHead>
             <TableHead className="text-center">حالة الدفع</TableHead>
@@ -177,6 +189,19 @@ export default function LabOrderTable({ labOrders, onEdit, onDelete, onView }: L
                   <span className="font-semibold">{formatCurrency(order.cost)}</span>
                   <DollarSign className="h-4 w-4 text-green-600" />
                 </div>
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="flex items-center gap-2 justify-center">
+                  <span className="font-semibold text-blue-600">
+                    {formatCurrency(order.paid_amount || 0)}
+                  </span>
+                  <CreditCard className="h-4 w-4 text-blue-600" />
+                </div>
+                {order.remaining_balance && order.remaining_balance > 0 && (
+                  <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                    متبقي: {formatCurrency(order.remaining_balance)}
+                  </div>
+                )}
               </TableCell>
               <TableCell className="text-center">
                 <div className="flex items-center gap-2 justify-center">

@@ -351,7 +351,7 @@ export default function Labs() {
       />
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" dir="rtl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4" dir="rtl">
         {/* Total Orders */}
         <Card className={getCardStyles('blue')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2" dir="rtl">
@@ -432,6 +432,33 @@ export default function Labs() {
               {labOrderStats.timeFilter.preset === 'all' || (!labOrderStats.timeFilter.startDate && !labOrderStats.timeFilter.endDate)
                 ? 'جميع الدفعات المسجلة'
                 : 'دفعات في الفترة المحددة'}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Remaining Payments */}
+        <Card className={getCardStyles('orange')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2" dir="rtl">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">
+              {labOrderStats.timeFilter.preset === 'all' || (!labOrderStats.timeFilter.startDate && !labOrderStats.timeFilter.endDate) ? 'الدفعات المتبقية' : 'المتبقية المفلترة'}
+            </CardTitle>
+            <AlertTriangle className={`h-4 w-4 ${getIconStyles('orange')}`} />
+          </CardHeader>
+          <CardContent className="text-right">
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(
+                labOrderStats.timeFilter.preset === 'all' || (!labOrderStats.timeFilter.startDate && !labOrderStats.timeFilter.endDate)
+                  ? totalRemaining
+                  : labOrderStats.filteredData.reduce((sum, order) => sum + (order.remaining_balance || 0), 0)
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {(() => {
+                const remainingCount = labOrderStats.timeFilter.preset === 'all' || (!labOrderStats.timeFilter.startDate && !labOrderStats.timeFilter.endDate)
+                  ? labOrders.filter(order => (order.remaining_balance || 0) > 0).length
+                  : labOrderStats.filteredData.filter(order => (order.remaining_balance || 0) > 0).length;
+                return `${remainingCount} طلب غير مكتمل الدفع`;
+              })()}
             </p>
           </CardContent>
         </Card>

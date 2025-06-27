@@ -103,7 +103,7 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="text-right">الرقم التسلسلي</TableHead>
+            <TableHead className="text-center">الرقم التسلسلي</TableHead>
             <TableHead className="text-right">اسم الاحتياج</TableHead>
             <TableHead className="text-right">الكمية</TableHead>
             <TableHead className="text-right">السعر</TableHead>
@@ -118,9 +118,9 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
         <TableBody>
           {needs.map((need, index) => (
             <TableRow key={need.id} className="hover:bg-muted/50">
-              <TableCell className="font-medium">
+              <TableCell className="font-medium text-center">
                 <span className="text-sm text-muted-foreground">
-                  #{index + 1}
+                  {index + 1}
                 </span>
               </TableCell>
 
