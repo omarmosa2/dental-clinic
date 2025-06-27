@@ -13,7 +13,7 @@ export interface TimeFilterOptions {
 }
 
 interface TimeFilterProps {
-  value: TimeFilterOptions
+  value?: TimeFilterOptions
   onChange: (filter: TimeFilterOptions) => void
   onClear?: () => void
   className?: string
@@ -32,6 +32,13 @@ export function TimeFilter({
   defaultOpen = false
 }: TimeFilterProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  // Provide default value if value is undefined
+  const safeValue: TimeFilterOptions = value || {
+    preset: 'all',
+    startDate: '',
+    endDate: ''
+  }
   const handlePresetChange = (preset: TimeFilterOptions['preset']) => {
     const today = new Date()
     let startDate = ''
@@ -60,8 +67,8 @@ export function TimeFilter({
         break
       case 'custom':
         // Keep existing dates for custom
-        startDate = value.startDate || ''
-        endDate = value.endDate || ''
+        startDate = safeValue.startDate || ''
+        endDate = safeValue.endDate || ''
         break
     }
 
@@ -74,7 +81,7 @@ export function TimeFilter({
 
   const handleDateChange = (field: 'startDate' | 'endDate', date: string) => {
     onChange({
-      ...value,
+      ...safeValue,
       [field]: date,
       preset: 'custom'
     })
@@ -135,7 +142,7 @@ export function TimeFilter({
                 <label className="text-xs font-medium text-right block text-muted-foreground">
                   اختر الفترة الزمنية للفلترة
                 </label>
-                <Select value={value.preset} onValueChange={handlePresetChange}>
+                <Select value={safeValue.preset} onValueChange={handlePresetChange}>
                   <SelectTrigger className="text-right h-8 text-sm" dir="rtl">
                     <SelectValue placeholder="اختر الفترة الزمنية" />
                   </SelectTrigger>
@@ -151,7 +158,7 @@ export function TimeFilter({
               </div>
 
               {/* Custom Date Range */}
-              {value.preset === 'custom' && (
+              {safeValue.preset === 'custom' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-right block text-muted-foreground">
@@ -159,7 +166,7 @@ export function TimeFilter({
                     </label>
                     <Input
                       type="date"
-                      value={value.startDate || ''}
+                      value={safeValue.startDate || ''}
                       onChange={(e) => handleDateChange('startDate', e.target.value)}
                       className="text-right h-8 text-sm"
                       dir="rtl"
@@ -171,7 +178,7 @@ export function TimeFilter({
                     </label>
                     <Input
                       type="date"
-                      value={value.endDate || ''}
+                      value={safeValue.endDate || ''}
                       onChange={(e) => handleDateChange('endDate', e.target.value)}
                       className="text-right h-8 text-sm"
                       dir="rtl"
@@ -184,11 +191,11 @@ export function TimeFilter({
               <div className="bg-muted/30 p-2 rounded text-right">
                 <div className="text-xs text-muted-foreground mb-1">الفترة المحددة:</div>
                 <div className="text-sm font-medium">
-                  {getPresetLabel(value.preset)}
-                  {value.startDate && value.endDate && (
+                  {getPresetLabel(safeValue.preset)}
+                  {safeValue.startDate && safeValue.endDate && (
                     <div className="text-xs text-muted-foreground mt-1">
-                      من {new Date(value.startDate).toLocaleDateString('en-GB')}
-                      إلى {new Date(value.endDate).toLocaleDateString('en-GB')}
+                      من {new Date(safeValue.startDate).toLocaleDateString('en-GB')}
+                      إلى {new Date(safeValue.endDate).toLocaleDateString('en-GB')}
                     </div>
                   )}
                 </div>

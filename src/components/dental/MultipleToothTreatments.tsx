@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 import {
   Plus,
   Edit,
@@ -56,6 +58,7 @@ export default function MultipleToothTreatments({
   onDeleteTreatment,
   onReorderTreatments
 }: MultipleToothTreatmentsProps) {
+  const { isDarkMode } = useTheme()
   const [isAddingTreatment, setIsAddingTreatment] = useState(false)
   const [editingTreatment, setEditingTreatment] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
@@ -310,9 +313,20 @@ export default function MultipleToothTreatments({
 
       {/* Edit Treatment Form */}
       {editingTreatment && (
-        <Card className="border-orange-200 bg-orange-50/50">
-          <CardHeader>
-            <CardTitle className="text-lg">تعديل العلاج</CardTitle>
+        <Card className={cn(
+          "border-2 shadow-lg",
+          isDarkMode
+            ? "border-orange-800/50 bg-orange-950/20 shadow-orange-900/20"
+            : "border-orange-200 bg-orange-50/50 shadow-orange-100/50"
+        )}>
+          <CardHeader className={cn(
+            "border-b",
+            isDarkMode ? "border-orange-800/30" : "border-orange-200/50"
+          )}>
+            <CardTitle className={cn(
+              "text-lg",
+              isDarkMode ? "text-orange-200" : "text-orange-900"
+            )}>تعديل العلاج</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {(() => {
@@ -333,14 +347,31 @@ export default function MultipleToothTreatments({
 
       {/* Add Treatment Form */}
       {isAddingTreatment && (
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardHeader>
-            <CardTitle className="text-lg">إضافة علاج جديد</CardTitle>
+        <Card className={cn(
+          "border-2 shadow-lg",
+          isDarkMode
+            ? "border-blue-800/50 bg-blue-950/20 shadow-blue-900/20"
+            : "border-blue-200 bg-blue-50/50 shadow-blue-100/50"
+        )}>
+          <CardHeader className={cn(
+            "border-b",
+            isDarkMode ? "border-blue-800/30" : "border-blue-200/50"
+          )}>
+            <CardTitle className={cn(
+              "text-lg",
+              isDarkMode ? "text-blue-200" : "text-blue-900"
+            )}>إضافة علاج جديد</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className={cn(
+            "space-y-4 p-6",
+            isDarkMode ? "bg-blue-950/10" : "bg-blue-50/30"
+          )}>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>تصنيف العلاج</Label>
+                <Label className={cn(
+                  "font-medium",
+                  isDarkMode ? "text-blue-200" : "text-blue-800"
+                )}>تصنيف العلاج</Label>
                 <Select
                   value={selectedCategory}
                   onValueChange={(value) => {
@@ -348,7 +379,12 @@ export default function MultipleToothTreatments({
                     setNewTreatment(prev => ({ ...prev, treatment_category: value }))
                   }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={cn(
+                    "border-2 transition-colors",
+                    isDarkMode
+                      ? "border-blue-800/50 bg-blue-950/30 hover:border-blue-700 focus:border-blue-600"
+                      : "border-blue-200 bg-white hover:border-blue-300 focus:border-blue-500"
+                  )}>
                     <SelectValue placeholder="اختر التصنيف" />
                   </SelectTrigger>
                   <SelectContent>
@@ -365,13 +401,22 @@ export default function MultipleToothTreatments({
               </div>
 
               <div className="space-y-2">
-                <Label>نوع العلاج</Label>
+                <Label className={cn(
+                  "font-medium",
+                  isDarkMode ? "text-blue-200" : "text-blue-800"
+                )}>نوع العلاج</Label>
                 <Select
                   value={newTreatment.treatment_type || ''}
                   onValueChange={(value) => setNewTreatment(prev => ({ ...prev, treatment_type: value }))}
                   disabled={!selectedCategory}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={cn(
+                    "border-2 transition-colors",
+                    !selectedCategory && "opacity-50 cursor-not-allowed",
+                    isDarkMode
+                      ? "border-blue-800/50 bg-blue-950/30 hover:border-blue-700 focus:border-blue-600"
+                      : "border-blue-200 bg-white hover:border-blue-300 focus:border-blue-500"
+                  )}>
                     <SelectValue placeholder="اختر نوع العلاج" />
                   </SelectTrigger>
                   <SelectContent>
@@ -393,12 +438,20 @@ export default function MultipleToothTreatments({
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>حالة العلاج</Label>
+                <Label className={cn(
+                  "font-medium",
+                  isDarkMode ? "text-blue-200" : "text-blue-800"
+                )}>حالة العلاج</Label>
                 <Select
                   value={newTreatment.treatment_status || 'planned'}
                   onValueChange={(value) => setNewTreatment(prev => ({ ...prev, treatment_status: value as any }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={cn(
+                    "border-2 transition-colors",
+                    isDarkMode
+                      ? "border-blue-800/50 bg-blue-950/30 hover:border-blue-700 focus:border-blue-600"
+                      : "border-blue-200 bg-white hover:border-blue-300 focus:border-blue-500"
+                  )}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -412,36 +465,63 @@ export default function MultipleToothTreatments({
               </div>
 
               <div className="space-y-2">
-                <Label>التكلفة ($)</Label>
+                <Label className={cn(
+                  "font-medium",
+                  isDarkMode ? "text-blue-200" : "text-blue-800"
+                )}>التكلفة ($)</Label>
                 <Input
                   type="number"
                   value={newTreatment.cost || ''}
                   onChange={(e) => setNewTreatment(prev => ({ ...prev, cost: parseFloat(e.target.value) || 0 }))}
                   placeholder="0"
+                  className={cn(
+                    "border-2 transition-colors",
+                    isDarkMode
+                      ? "border-blue-800/50 bg-blue-950/30 hover:border-blue-700 focus:border-blue-600"
+                      : "border-blue-200 bg-white hover:border-blue-300 focus:border-blue-500"
+                  )}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>تاريخ البدء</Label>
+                <Label className={cn(
+                  "font-medium",
+                  isDarkMode ? "text-blue-200" : "text-blue-800"
+                )}>تاريخ البدء</Label>
                 <Input
                   type="date"
                   value={newTreatment.start_date || ''}
                   onChange={(e) => setNewTreatment(prev => ({ ...prev, start_date: e.target.value }))}
+                  className={cn(
+                    "border-2 transition-colors",
+                    isDarkMode
+                      ? "border-blue-800/50 bg-blue-950/30 hover:border-blue-700 focus:border-blue-600"
+                      : "border-blue-200 bg-white hover:border-blue-300 focus:border-blue-500"
+                  )}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>ملاحظات</Label>
+              <Label className={cn(
+                "font-medium",
+                isDarkMode ? "text-blue-200" : "text-blue-800"
+              )}>ملاحظات</Label>
               <Textarea
                 value={newTreatment.notes || ''}
                 onChange={(e) => setNewTreatment(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="أدخل أي ملاحظات إضافية..."
                 rows={3}
+                className={cn(
+                  "border-2 transition-colors resize-none",
+                  isDarkMode
+                    ? "border-blue-800/50 bg-blue-950/30 hover:border-blue-700 focus:border-blue-600"
+                    : "border-blue-200 bg-white hover:border-blue-300 focus:border-blue-500"
+                )}
               />
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3 pt-4 border-t border-blue-200/50 dark:border-blue-800/30">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -456,11 +536,25 @@ export default function MultipleToothTreatments({
                     priority: treatments.length + 1
                   })
                 }}
+                className={cn(
+                  "border-2 transition-all duration-200",
+                  isDarkMode
+                    ? "border-gray-600 text-gray-300 hover:border-gray-500 hover:bg-gray-800"
+                    : "border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+                )}
               >
                 <X className="w-4 h-4 ml-2" />
                 إلغاء
               </Button>
-              <Button onClick={handleAddTreatment} className="bg-blue-600 hover:bg-blue-700">
+              <Button
+                onClick={handleAddTreatment}
+                className={cn(
+                  "transition-all duration-200 shadow-lg",
+                  isDarkMode
+                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/30"
+                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30"
+                )}
+              >
                 <Save className="w-4 h-4 ml-2" />
                 حفظ العلاج
               </Button>
@@ -480,6 +574,7 @@ interface EditTreatmentFormProps {
 }
 
 function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatmentFormProps) {
+  const { isDarkMode } = useTheme()
   const [editData, setEditData] = useState<Partial<ToothTreatment>>({
     treatment_type: treatment.treatment_type,
     treatment_category: treatment.treatment_category,

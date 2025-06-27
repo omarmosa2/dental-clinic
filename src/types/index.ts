@@ -508,12 +508,42 @@ export interface AnalyticsReportData {
   }
 }
 
+export interface ClinicNeedsReportData {
+  totalNeeds: number
+  totalValue: number
+  pendingCount: number
+  orderedCount: number
+  receivedCount: number
+  cancelledCount: number
+  urgentCount: number
+  highPriorityCount: number
+  mediumPriorityCount: number
+  lowPriorityCount: number
+  averageNeedValue: number
+  completionRate: number
+  urgencyRate: number
+  needsByStatus: { status: string; count: number; percentage: number; value: number }[]
+  needsByPriority: { priority: string; count: number; percentage: number; value: number }[]
+  needsByCategory: { category: string; count: number; value: number }[]
+  needsBySupplier: { supplier: string; count: number; value: number }[]
+  needsTrend: { period: string; count: number; value: number }[]
+  topExpensiveNeeds: { need_name: string; value: number; quantity: number }[]
+  pendingNeeds: ClinicNeed[]
+  urgentNeeds: ClinicNeed[]
+  overdueNeeds: ClinicNeed[]
+  recentlyReceived: ClinicNeed[]
+  needsList?: ClinicNeed[]
+  filterInfo?: string
+  dataCount?: number
+}
+
 export interface ReportData {
   patients?: PatientReportData
   appointments?: AppointmentReportData
   financial?: FinancialReportData
   inventory?: InventoryReportData
   analytics?: AnalyticsReportData
+  clinicNeeds?: ClinicNeedsReportData
   generatedAt: string
   filter: ReportFilter
 }

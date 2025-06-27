@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Keyboard, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface QuickShortcutHintProps {
   className?: string
@@ -19,6 +20,7 @@ const hints = [
 ]
 
 export default function QuickShortcutHint({ className }: QuickShortcutHintProps) {
+  const { isDarkMode } = useTheme()
   const [currentHint, setCurrentHint] = useState(0)
   const [isVisible, setIsVisible] = useState(true)
   const [isPaused, setIsPaused] = useState(false)
@@ -38,32 +40,45 @@ export default function QuickShortcutHint({ className }: QuickShortcutHintProps)
   const hint = hints[currentHint]
 
   return (
-    <div 
+    <div
       className={cn(
-        "flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 rounded-lg border border-blue-200 dark:border-blue-800 transition-all duration-300",
+        "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-300",
+        isDarkMode
+          ? "bg-gradient-to-r from-blue-950/30 to-indigo-950/30 border-blue-800/50 shadow-lg shadow-blue-900/20"
+          : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 shadow-sm",
         className
       )}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <Keyboard className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-      <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+      <Keyboard className={`w-3 h-3 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+      <span className={`text-xs font-medium ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
         نصيحة:
       </span>
-      <Badge 
-        variant="secondary" 
-        className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-300 dark:border-blue-700"
+      <Badge
+        variant="secondary"
+        className={cn(
+          "text-xs px-1.5 py-0.5 font-mono",
+          isDarkMode
+            ? "bg-blue-900/50 text-blue-200 border-blue-700/50"
+            : "bg-blue-100 text-blue-800 border-blue-300"
+        )}
       >
         {hint.key}
       </Badge>
-      <span className="text-xs text-blue-700 dark:text-blue-300">
+      <span className={`text-xs ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
         {hint.description}
       </span>
       <Button
         variant="ghost"
         size="sm"
         onClick={() => setIsVisible(false)}
-        className="h-4 w-4 p-0 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 ml-1"
+        className={cn(
+          "h-4 w-4 p-0 ml-1 transition-colors",
+          isDarkMode
+            ? "text-blue-400 hover:text-blue-200 hover:bg-blue-900/30"
+            : "text-blue-500 hover:text-blue-700 hover:bg-blue-100"
+        )}
       >
         <X className="w-3 h-3" />
       </Button>

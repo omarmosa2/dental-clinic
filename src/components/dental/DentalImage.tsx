@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { ImageIcon } from 'lucide-react'
+import { useTheme } from '@/contexts/ThemeContext'
+import { cn } from '@/lib/utils'
 
 interface DentalImageProps {
   imagePath: string
@@ -16,6 +18,7 @@ export const DentalImage: React.FC<DentalImageProps> = ({
   onLoad,
   onError
 }) => {
+  const { isDarkMode } = useTheme()
   const [imageData, setImageData] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -38,7 +41,7 @@ export const DentalImage: React.FC<DentalImageProps> = ({
         if (window.electronAPI && window.electronAPI.files && window.electronAPI.files.getDentalImage) {
           console.log('Loading dental image:', imagePath)
           const dataUrl = await window.electronAPI.files.getDentalImage(imagePath)
-          
+
           if (isMounted) {
             setImageData(dataUrl)
             setIsLoading(false)
@@ -71,9 +74,16 @@ export const DentalImage: React.FC<DentalImageProps> = ({
 
   if (isLoading) {
     return (
-      <div className={`flex items-center justify-center bg-gray-100 ${className}`}>
+      <div className={cn(
+        "flex items-center justify-center",
+        isDarkMode ? "bg-gray-800" : "bg-gray-100",
+        className
+      )}>
         <div className="animate-pulse">
-          <ImageIcon className="w-6 h-6 text-gray-400" />
+          <ImageIcon className={cn(
+            "w-6 h-6",
+            isDarkMode ? "text-gray-500" : "text-gray-400"
+          )} />
         </div>
       </div>
     )
@@ -81,8 +91,15 @@ export const DentalImage: React.FC<DentalImageProps> = ({
 
   if (hasError || !imageData) {
     return (
-      <div className={`flex items-center justify-center bg-gray-100 ${className}`}>
-        <div className="text-center text-gray-400">
+      <div className={cn(
+        "flex items-center justify-center",
+        isDarkMode ? "bg-gray-800" : "bg-gray-100",
+        className
+      )}>
+        <div className={cn(
+          "text-center",
+          isDarkMode ? "text-gray-500" : "text-gray-400"
+        )}>
           <ImageIcon className="w-6 h-6 mx-auto mb-1" />
           <div className="text-xs">فشل في تحميل الصورة</div>
         </div>

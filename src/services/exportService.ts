@@ -1376,6 +1376,89 @@ export class ExportService {
     return csv
   }
 
+  // Clinic Needs Export Functions
+  static async exportClinicNeedsToCSV(clinicNeeds: any[], filename: string = 'clinic-needs-report'): Promise<void> {
+    try {
+      // CSV Headers in Arabic
+      const headers = [
+        'الرقم التسلسلي',
+        'اسم الاحتياج',
+        'الكمية',
+        'السعر',
+        'الإجمالي',
+        'الوصف',
+        'الفئة',
+        'الأولوية',
+        'الحالة',
+        'المورد',
+        'الملاحظات',
+        'تاريخ الإنشاء',
+        'تاريخ التحديث'
+      ]
+
+      // Convert data to CSV format
+      const csvData = clinicNeeds.map(need => [
+        need.serial_number || '',
+        need.need_name || '',
+        need.quantity?.toString() || '0',
+        need.price?.toString() || '0',
+        ((need.price || 0) * (need.quantity || 0)).toString(),
+        need.description || '',
+        need.category || '',
+        this.getPriorityLabel(need.priority || ''),
+        this.getStatusLabel(need.status || ''),
+        need.supplier || '',
+        need.notes || '',
+        need.created_at ? new Date(need.created_at).toLocaleDateString('ar-SA') : '',
+        need.updated_at ? new Date(need.updated_at).toLocaleDateString('ar-SA') : ''
+      ])
+
+      // Combine headers and data
+      const csvContent = [headers, ...csvData]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n')
+
+      // Add BOM for proper Arabic display in Excel
+      const BOM = '\uFEFF'
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+
+      // Create download link
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `${filename}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      console.log(`✅ Clinic needs exported to CSV: ${filename}.csv`)
+    } catch (error) {
+      console.error('Error exporting clinic needs to CSV:', error)
+      throw new Error('فشل في تصدير احتياجات العيادة إلى CSV')
+    }
+  }
+
+  private static getPriorityLabel(priority: string): string {
+    const labels = {
+      urgent: 'عاجل',
+      high: 'عالي',
+      medium: 'متوسط',
+      low: 'منخفض'
+    }
+    return labels[priority] || priority
+  }
+
+  private static getStatusLabel(status: string): string {
+    const labels = {
+      pending: 'معلق',
+      ordered: 'مطلوب',
+      received: 'مستلم',
+      cancelled: 'ملغي'
+    }
+    return labels[status] || status
+  }
+
   // Legacy export functions for backward compatibility
   // NOTE: These functions now support filtered data - pass filtered arrays instead of full datasets
   static async exportPatientsToPDF(patients: Patient[], clinicName: string = 'عيادة الأسنان الحديثة'): Promise<void> {

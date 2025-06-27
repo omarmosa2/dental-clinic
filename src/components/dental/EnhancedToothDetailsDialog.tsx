@@ -21,6 +21,7 @@ import { ToothTreatment } from '@/types'
 import { notify } from '@/services/notificationService'
 import MultipleToothTreatments from './MultipleToothTreatments'
 import DentalImage from './DentalImage'
+import './dental-images.css'
 import {
   Layers,
   Camera,
@@ -425,7 +426,7 @@ export default function EnhancedToothDetailsDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" dir="rtl">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="treatments" className="flex items-center gap-2">
               <Sparkles className="w-4 h-4" />
               العلاجات المتعددة
@@ -433,10 +434,6 @@ export default function EnhancedToothDetailsDialog({
             <TabsTrigger value="images" className="flex items-center gap-2">
               <Camera className="w-4 h-4" />
               الصور ({(toothTreatmentImages || []).filter(img => img.tooth_number === toothNumber && img.patient_id === patientId).length})
-            </TabsTrigger>
-            <TabsTrigger value="prescriptions" className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              الوصفات
             </TabsTrigger>
           </TabsList>
 
@@ -495,12 +492,12 @@ export default function EnhancedToothDetailsDialog({
                       <Button
                         key={type.value}
                         variant="outline"
-                        className="image-type-button h-auto p-3 flex flex-col items-center gap-2"
+                        className="image-type-button h-auto p-4 flex flex-col items-center gap-2 min-h-[80px] border-2 border-dashed hover:border-solid transition-all duration-200"
                         asChild
                       >
-                        <label htmlFor={`image-upload-${type.value}`} className="cursor-pointer">
-                          <span className="text-lg">{type.icon}</span>
-                          <span className="text-xs">{type.label}</span>
+                        <label htmlFor={`image-upload-${type.value}`} className="cursor-pointer w-full h-full flex flex-col items-center justify-center gap-2">
+                          <span className="text-2xl">{type.icon}</span>
+                          <span className="text-xs font-medium text-center leading-tight">{type.label}</span>
                           <input
                             id={`image-upload-${type.value}`}
                             type="file"
@@ -693,14 +690,7 @@ export default function EnhancedToothDetailsDialog({
             </Card>
           </TabsContent>
 
-          {/* Prescriptions Tab */}
-          <TabsContent value="prescriptions" className="space-y-4" dir="rtl">
-            <div className="text-center p-8 text-muted-foreground">
-              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>إدارة الوصفات قيد التطوير...</p>
-              <p className="text-sm">سيتم ربط الوصفات بالعلاجات المحددة</p>
-            </div>
-          </TabsContent>
+
         </Tabs>
       </DialogContent>
     </Dialog>

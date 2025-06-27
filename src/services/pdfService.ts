@@ -2187,6 +2187,335 @@ export class PdfService {
     }
   }
 
+  static async exportClinicNeedsReport(reportData: any, options: { title: string; currency: string; isDarkMode: boolean }): Promise<void> {
+    try {
+      const htmlContent = this.createClinicNeedsReportHTML(reportData, options)
+      const fileName = this.generatePDFFileName('clinic-needs')
+      await this.convertHTMLToPDF(htmlContent, fileName)
+    } catch (error) {
+      console.error('Error exporting clinic needs report:', error)
+      throw new Error('فشل في تصدير تقرير احتياجات العيادة')
+    }
+  }
+
+  static createClinicNeedsReportHTML(data: any, options: { title: string; currency: string; isDarkMode: boolean }): string {
+    const { title, currency, isDarkMode } = options
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat('ar-SA', {
+        style: 'currency',
+        currency: currency || 'SAR',
+        minimumFractionDigits: 2
+      }).format(amount)
+    }
+
+    const formatDate = (dateString: string) => {
+      return new Date(dateString).toLocaleDateString('ar-SA')
+    }
+
+    const getStatusLabel = (status: string) => {
+      const labels = {
+        pending: 'معلق',
+        ordered: 'مطلوب',
+        received: 'مستلم',
+        cancelled: 'ملغي'
+      }
+      return labels[status] || status
+    }
+
+    const getPriorityLabel = (priority: string) => {
+      const labels = {
+        urgent: 'عاجل',
+        high: 'عالي',
+        medium: 'متوسط',
+        low: 'منخفض'
+      }
+      return labels[priority] || priority
+    }
+
+    return `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${title}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
+
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+
+          body {
+            font-family: 'Noto Sans Arabic', Arial, sans-serif;
+            line-height: 1.6;
+            color: ${isDarkMode ? '#e5e7eb' : '#1f2937'};
+            background-color: ${isDarkMode ? '#1f2937' : '#ffffff'};
+            direction: rtl;
+            padding: 20px;
+          }
+
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 20px;
+          }
+
+          .header h1 {
+            color: #3b82f6;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+          }
+
+          .header p {
+            color: ${isDarkMode ? '#9ca3af' : '#6b7280'};
+            font-size: 14px;
+          }
+
+          .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+          }
+
+          .stat-card {
+            background: ${isDarkMode ? '#374151' : '#f8fafc'};
+            border: 1px solid ${isDarkMode ? '#4b5563' : '#e2e8f0'};
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+          }
+
+          .stat-card h3 {
+            color: #3b82f6;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+          }
+
+          .stat-card .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: ${isDarkMode ? '#e5e7eb' : '#1f2937'};
+          }
+
+          .section {
+            margin-bottom: 30px;
+          }
+
+          .section h2 {
+            color: #3b82f6;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+          }
+
+          .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: ${isDarkMode ? '#374151' : '#ffffff'};
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          }
+
+          .table th,
+          .table td {
+            padding: 12px;
+            text-align: right;
+            border-bottom: 1px solid ${isDarkMode ? '#4b5563' : '#e2e8f0'};
+          }
+
+          .table th {
+            background: ${isDarkMode ? '#4b5563' : '#f1f5f9'};
+            font-weight: 600;
+            color: ${isDarkMode ? '#e5e7eb' : '#374151'};
+          }
+
+          .table tr:hover {
+            background: ${isDarkMode ? '#4b5563' : '#f8fafc'};
+          }
+
+          .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+          }
+
+          .badge-pending { background: #fef3c7; color: #92400e; }
+          .badge-ordered { background: #dbeafe; color: #1e40af; }
+          .badge-received { background: #d1fae5; color: #065f46; }
+          .badge-cancelled { background: #fee2e2; color: #991b1b; }
+          .badge-urgent { background: #fee2e2; color: #991b1b; }
+          .badge-high { background: #fef3c7; color: #92400e; }
+          .badge-medium { background: #dbeafe; color: #1e40af; }
+          .badge-low { background: #d1fae5; color: #065f46; }
+
+          .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: ${isDarkMode ? '#9ca3af' : '#6b7280'};
+            font-size: 12px;
+            border-top: 1px solid ${isDarkMode ? '#4b5563' : '#e2e8f0'};
+            padding-top: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${title}</h1>
+          <p>تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')} | ${data.filterInfo || 'جميع البيانات'}</p>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h3>إجمالي الاحتياجات</h3>
+            <div class="value">${data.totalNeeds || 0}</div>
+          </div>
+          <div class="stat-card">
+            <h3>القيمة الإجمالية</h3>
+            <div class="value">${formatCurrency(data.totalValue || 0)}</div>
+          </div>
+          <div class="stat-card">
+            <h3>الاحتياجات المعلقة</h3>
+            <div class="value">${data.pendingCount || 0}</div>
+          </div>
+          <div class="stat-card">
+            <h3>الاحتياجات العاجلة</h3>
+            <div class="value">${data.urgentCount || 0}</div>
+          </div>
+          <div class="stat-card">
+            <h3>معدل الإنجاز</h3>
+            <div class="value">${(data.completionRate || 0).toFixed(1)}%</div>
+          </div>
+          <div class="stat-card">
+            <h3>متوسط قيمة الاحتياج</h3>
+            <div class="value">${formatCurrency(data.averageNeedValue || 0)}</div>
+          </div>
+        </div>
+
+        ${data.needsByStatus && data.needsByStatus.length > 0 ? `
+        <div class="section">
+          <h2>توزيع الاحتياجات حسب الحالة</h2>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>الحالة</th>
+                <th>العدد</th>
+                <th>النسبة المئوية</th>
+                <th>القيمة الإجمالية</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.needsByStatus.map(item => `
+                <tr>
+                  <td><span class="badge badge-${item.status}">${getStatusLabel(item.status)}</span></td>
+                  <td>${item.count}</td>
+                  <td>${item.percentage.toFixed(1)}%</td>
+                  <td>${formatCurrency(item.value)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        ${data.needsByPriority && data.needsByPriority.length > 0 ? `
+        <div class="section">
+          <h2>توزيع الاحتياجات حسب الأولوية</h2>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>الأولوية</th>
+                <th>العدد</th>
+                <th>النسبة المئوية</th>
+                <th>القيمة الإجمالية</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.needsByPriority.map(item => `
+                <tr>
+                  <td><span class="badge badge-${item.priority}">${getPriorityLabel(item.priority)}</span></td>
+                  <td>${item.count}</td>
+                  <td>${item.percentage.toFixed(1)}%</td>
+                  <td>${formatCurrency(item.value)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        ${data.topExpensiveNeeds && data.topExpensiveNeeds.length > 0 ? `
+        <div class="section">
+          <h2>الاحتياجات الأغلى سعراً (أعلى 10)</h2>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>اسم الاحتياج</th>
+                <th>الكمية</th>
+                <th>القيمة الإجمالية</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.topExpensiveNeeds.map(need => `
+                <tr>
+                  <td>${need.need_name}</td>
+                  <td>${need.quantity}</td>
+                  <td>${formatCurrency(need.value)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        ${data.pendingNeeds && data.pendingNeeds.length > 0 ? `
+        <div class="section">
+          <h2>الاحتياجات المعلقة</h2>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>اسم الاحتياج</th>
+                <th>الفئة</th>
+                <th>الأولوية</th>
+                <th>القيمة</th>
+                <th>تاريخ الإنشاء</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.pendingNeeds.slice(0, 10).map(need => `
+                <tr>
+                  <td>${need.need_name}</td>
+                  <td>${need.category || 'غير محدد'}</td>
+                  <td><span class="badge badge-${need.priority}">${getPriorityLabel(need.priority)}</span></td>
+                  <td>${formatCurrency(need.price * need.quantity)}</td>
+                  <td>${formatDate(need.created_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <div class="footer">
+          <p>تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة | ${new Date().toLocaleString('ar-SA')}</p>
+        </div>
+      </body>
+      </html>
+    `
+  }
+
   // Helper methods for translations
   private static translateStatus(status: string): string {
     const statusMap: { [key: string]: string } = {

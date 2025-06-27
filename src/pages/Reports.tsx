@@ -10,6 +10,7 @@ import { usePaymentStore } from '@/store/paymentStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
 import { useInventoryStore } from '@/store/inventoryStore'
 import { usePatientStore } from '@/store/patientStore'
+import { useClinicNeedsStore } from '@/store/clinicNeedsStore'
 import { useRealTimeReports } from '@/hooks/useRealTimeReports'
 import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -19,6 +20,7 @@ import InventoryReports from '@/components/reports/InventoryReports'
 import AppointmentReports from '@/components/reports/AppointmentReports'
 import FinancialReports from '@/components/reports/FinancialReports'
 import TreatmentReports from '@/components/reports/TreatmentReports'
+import ClinicNeedsReports from '@/components/reports/ClinicNeedsReports'
 import CalculationValidator from '@/components/admin/CalculationValidator'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import RealTimeIndicator from '@/components/ui/real-time-indicator'
@@ -45,6 +47,7 @@ import {
   PieChart,
   AlertTriangle,
   Stethoscope,
+  ClipboardList
 
 } from 'lucide-react'
 import { notify } from '@/services/notificationService'
@@ -56,13 +59,14 @@ export default function Reports() {
   const { appointments } = useAppointmentStore()
   const { items: inventoryItems } = useInventoryStore()
   const { patients } = usePatientStore()
+  const { needs: clinicNeeds, totalValue: clinicNeedsTotalValue } = useClinicNeedsStore()
   const {
     reportData,
     patientReports,
     appointmentReports,
     financialReports,
     inventoryReports,
-
+    clinicNeedsReports,
     isLoading,
     isExporting,
     error,
@@ -93,6 +97,13 @@ export default function Reports() {
 
   const inventoryStats = useTimeFilteredStats({
     data: inventoryItems,
+    dateField: 'created_at',
+    initialFilter: { preset: 'all', startDate: '', endDate: '' }
+  })
+
+  // Time filtering for clinic needs
+  const clinicNeedsStats = useTimeFilteredStats({
+    data: clinicNeeds,
     dateField: 'created_at',
     initialFilter: { preset: 'all', startDate: '', endDate: '' }
   })
@@ -368,7 +379,7 @@ onClick={async () => {
 
       {/* Reports Tabs */}
       <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview" className="flex items-center space-x-2 space-x-reverse">
             <BarChart3 className="w-4 h-4" />
             <span>نظرة عامة</span>
@@ -392,6 +403,10 @@ onClick={async () => {
           <TabsTrigger value="inventory" className="flex items-center space-x-2 space-x-reverse">
             <Package className="w-4 h-4" />
             <span>المخزون</span>
+          </TabsTrigger>
+          <TabsTrigger value="clinicNeeds" className="flex items-center space-x-2 space-x-reverse">
+            <ClipboardList className="w-4 h-4" />
+            <span>احتياجات العيادة</span>
           </TabsTrigger>
           <TabsTrigger value="validation" className="flex items-center space-x-2 space-x-reverse">
             <FileText className="w-4 h-4" />
@@ -427,7 +442,7 @@ onClick={async () => {
           </div>
 
           {/* Stats Cards with Filtered Data */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6" dir="rtl">
             <StatCard
               title="إجمالي المرضى"
               value={patientReports?.totalPatients || 0}
@@ -458,6 +473,14 @@ onClick={async () => {
               color="orange"
               trend={inventoryStats.trend}
               description={`من إجمالي ${inventoryReports?.totalItems || 0} عنصر`}
+            />
+            <StatCard
+              title="احتياجات العيادة المفلترة"
+              value={clinicNeedsStats.filteredData.length}
+              icon={ClipboardList}
+              color="indigo"
+              trend={clinicNeedsStats.trend}
+              description={`من إجمالي ${clinicNeedsReports?.totalNeeds || 0} احتياج`}
             />
           </div>
 
@@ -608,6 +631,10 @@ onClick={async () => {
 
         <TabsContent value="inventory" dir="rtl">
           <InventoryReports />
+        </TabsContent>
+
+        <TabsContent value="clinicNeeds" dir="rtl">
+          <ClinicNeedsReports />
         </TabsContent>
 
         <TabsContent value="validation" dir="rtl">

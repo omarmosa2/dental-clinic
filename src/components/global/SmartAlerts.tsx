@@ -29,6 +29,7 @@ import {
 import { useGlobalStore } from '@/store/globalStore'
 import { SmartAlertsService } from '@/services/smartAlertsService'
 import { useRealTimeAlerts } from '@/hooks/useRealTimeAlerts'
+import { useTheme } from '@/contexts/ThemeContext'
 import { SimpleRealTimeIndicator } from './RealTimeIndicator'
 import type { SmartAlert } from '@/types'
 
@@ -127,6 +128,9 @@ export default function SmartAlerts({
   // إعداد التحديثات في الوقت الفعلي
   const { refreshAlerts } = useRealTimeAlerts()
 
+  // إعداد الثيم
+  const { isDarkMode } = useTheme()
+
   const [expandedAlerts, setExpandedAlerts] = useState<Set<string>>(new Set())
   const [showRead, setShowRead] = useState(showReadAlerts)
 
@@ -217,17 +221,25 @@ export default function SmartAlerts({
     }
   }
 
-  // Get priority color
+  // Get priority color with dark mode support
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'text-red-500 bg-red-50 border-red-200'
+        return isDarkMode
+          ? 'text-red-400 bg-red-900/20 border-red-800/50'
+          : 'text-red-500 bg-red-50 border-red-200'
       case 'medium':
-        return 'text-yellow-500 bg-yellow-50 border-yellow-200'
+        return isDarkMode
+          ? 'text-yellow-400 bg-yellow-900/20 border-yellow-800/50'
+          : 'text-yellow-500 bg-yellow-50 border-yellow-200'
       case 'low':
-        return 'text-blue-500 bg-blue-50 border-blue-200'
+        return isDarkMode
+          ? 'text-blue-400 bg-blue-900/20 border-blue-800/50'
+          : 'text-blue-500 bg-blue-50 border-blue-200'
       default:
-        return 'text-gray-500 bg-gray-50 border-gray-200'
+        return isDarkMode
+          ? 'text-gray-400 bg-gray-900/20 border-gray-800/50'
+          : 'text-gray-500 bg-gray-50 border-gray-200'
     }
   }
 
@@ -449,7 +461,9 @@ export default function SmartAlerts({
                 <div
                   className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                     alert.isRead
-                      ? 'bg-muted/30 border-muted'
+                      ? isDarkMode
+                        ? 'bg-muted/20 border-muted/50 hover:bg-muted/30'
+                        : 'bg-muted/30 border-muted hover:bg-muted/40'
                       : `${getPriorityColor(alert.priority)} hover:opacity-80`
                   }`}
                   onClick={() => handleAlertClick(alert)}
@@ -494,7 +508,7 @@ export default function SmartAlerts({
 
                       {/* Expanded content */}
                       {expandedAlerts.has(alert.id) && alert.actionRequired && (
-                        <div className="mt-3 pt-3 border-t border-muted">
+                        <div className={`mt-3 pt-3 border-t ${isDarkMode ? 'border-muted/50' : 'border-muted'}`}>
                           <div className="flex flex-wrap gap-2">
                             {renderAlertActions(alert)}
                           </div>
@@ -529,7 +543,9 @@ export default function SmartAlerts({
                   </div>
                 </div>
 
-                {index < visibleAlerts.length - 1 && <Separator className="my-2" />}
+                {index < visibleAlerts.length - 1 && (
+                  <Separator className={`my-2 ${isDarkMode ? 'bg-muted/30' : ''}`} />
+                )}
               </div>
             ))}
 

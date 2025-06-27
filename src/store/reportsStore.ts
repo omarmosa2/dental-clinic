@@ -9,6 +9,7 @@ import type {
   InventoryReportData,
   AnalyticsReportData,
   TreatmentReportData,
+  ClinicNeedsReportData,
   ReportExportOptions
 } from '../types'
 
@@ -21,12 +22,13 @@ interface ReportsState {
   inventoryReports: InventoryReportData | null
   analyticsReports: AnalyticsReportData | null
   treatmentReports: TreatmentReportData | null
+  clinicNeedsReports: ClinicNeedsReportData | null
 
   // UI State
   isLoading: boolean
   isExporting: boolean
   error: string | null
-  activeReportType: 'overview' | 'patients' | 'appointments' | 'financial' | 'inventory' | 'analytics' | 'treatments'
+  activeReportType: 'overview' | 'patients' | 'appointments' | 'financial' | 'inventory' | 'analytics' | 'treatments' | 'clinicNeeds'
 
   // Filters
   currentFilter: ReportFilter
@@ -160,6 +162,17 @@ export const useReportsStore = create<ReportsStore>()(
             console.error('Error refreshing inventory reports:', error)
           }
         })
+
+        // Auto-refresh when clinic needs are added/updated/deleted
+        window.addEventListener('clinic-needs-changed', async (event: any) => {
+          const { clearCache, generateReport } = get()
+          clearCache()
+          try {
+            await generateReport('clinicNeeds')
+          } catch (error) {
+            console.error('Error refreshing clinic needs reports:', error)
+          }
+        })
       }
 
       return {
@@ -171,6 +184,7 @@ export const useReportsStore = create<ReportsStore>()(
         inventoryReports: null,
         analyticsReports: null,
         treatmentReports: null,
+        clinicNeedsReports: null,
         isLoading: false,
         isExporting: false,
         error: null,
@@ -229,6 +243,11 @@ export const useReportsStore = create<ReportsStore>()(
               console.log(`✅ Treatment report generated:`, reportData)
               set({ treatmentReports: reportData })
               break
+            case 'clinicNeeds':
+              reportData = await get().generateClinicNeedsReport(filter)
+              console.log(`✅ Clinic needs report generated:`, reportData)
+              set({ clinicNeedsReports: reportData })
+              break
             case 'overview':
               reportData = await window.electronAPI?.reports?.generateOverviewReport(filter)
               console.log(`✅ Overview report generated:`, reportData)
@@ -255,7 +274,7 @@ export const useReportsStore = create<ReportsStore>()(
       generateAllReports: async (filterOverride) => {
         const { generateReport } = get()
         const reportTypes: ReportsState['activeReportType'][] = [
-          'patients', 'appointments', 'financial', 'inventory', 'analytics', 'treatments'
+          'patients', 'appointments', 'financial', 'inventory', 'analytics', 'treatments', 'clinicNeeds'
         ]
 
         set({ isLoading: true, error: null })
@@ -455,6 +474,169 @@ export const useReportsStore = create<ReportsStore>()(
         const newCache = new Map(cachedReports)
         newCache.set(key, { data, timestamp: Date.now() })
         set({ cachedReports: newCache })
+      },
+
+      // Generate clinic needs report locally
+      generateClinicNeedsReport: async (filter?: ReportFilter): Promise<ClinicNeedsReportData> => {
+        try {
+          // Get clinic needs data
+          const clinicNeeds = await window.electronAPI?.clinicNeeds?.getAll() || []
+
+          // Apply date filtering if specified
+          let filteredNeeds = clinicNeeds
+          if (filter?.startDate && filter?.endDate) {
+            const startDate = new Date(filter.startDate)
+            const endDate = new Date(filter.endDate)
+            filteredNeeds = clinicNeeds.filter(need => {
+              const needDate = new Date(need.created_at)
+              return needDate >= startDate && needDate <= endDate
+            })
+          }
+
+          // Calculate basic statistics
+          const totalNeeds = filteredNeeds.length
+          const totalValue = filteredNeeds.reduce((sum, need) => sum + (need.price * need.quantity), 0)
+          const averageNeedValue = totalNeeds > 0 ? totalValue / totalNeeds : 0
+
+          // Count by status
+          const pendingCount = filteredNeeds.filter(need => need.status === 'pending').length
+          const orderedCount = filteredNeeds.filter(need => need.status === 'ordered').length
+          const receivedCount = filteredNeeds.filter(need => need.status === 'received').length
+          const cancelledCount = filteredNeeds.filter(need => need.status === 'cancelled').length
+
+          // Count by priority
+          const urgentCount = filteredNeeds.filter(need => need.priority === 'urgent').length
+          const highPriorityCount = filteredNeeds.filter(need => need.priority === 'high').length
+          const mediumPriorityCount = filteredNeeds.filter(need => need.priority === 'medium').length
+          const lowPriorityCount = filteredNeeds.filter(need => need.priority === 'low').length
+
+          // Calculate rates
+          const completionRate = totalNeeds > 0 ? (receivedCount / totalNeeds) * 100 : 0
+          const urgencyRate = totalNeeds > 0 ? (urgentCount / totalNeeds) * 100 : 0
+
+          // Group by status with percentages and values
+          const needsByStatus = [
+            { status: 'pending', count: pendingCount, percentage: totalNeeds > 0 ? (pendingCount / totalNeeds) * 100 : 0, value: filteredNeeds.filter(n => n.status === 'pending').reduce((sum, n) => sum + (n.price * n.quantity), 0) },
+            { status: 'ordered', count: orderedCount, percentage: totalNeeds > 0 ? (orderedCount / totalNeeds) * 100 : 0, value: filteredNeeds.filter(n => n.status === 'ordered').reduce((sum, n) => sum + (n.price * n.quantity), 0) },
+            { status: 'received', count: receivedCount, percentage: totalNeeds > 0 ? (receivedCount / totalNeeds) * 100 : 0, value: filteredNeeds.filter(n => n.status === 'received').reduce((sum, n) => sum + (n.price * n.quantity), 0) },
+            { status: 'cancelled', count: cancelledCount, percentage: totalNeeds > 0 ? (cancelledCount / totalNeeds) * 100 : 0, value: filteredNeeds.filter(n => n.status === 'cancelled').reduce((sum, n) => sum + (n.price * n.quantity), 0) }
+          ]
+
+          // Group by priority with percentages and values
+          const needsByPriority = [
+            { priority: 'urgent', count: urgentCount, percentage: totalNeeds > 0 ? (urgentCount / totalNeeds) * 100 : 0, value: filteredNeeds.filter(n => n.priority === 'urgent').reduce((sum, n) => sum + (n.price * n.quantity), 0) },
+            { priority: 'high', count: highPriorityCount, percentage: totalNeeds > 0 ? (highPriorityCount / totalNeeds) * 100 : 0, value: filteredNeeds.filter(n => n.priority === 'high').reduce((sum, n) => sum + (n.price * n.quantity), 0) },
+            { priority: 'medium', count: mediumPriorityCount, percentage: totalNeeds > 0 ? (mediumPriorityCount / totalNeeds) * 100 : 0, value: filteredNeeds.filter(n => n.priority === 'medium').reduce((sum, n) => sum + (n.price * n.quantity), 0) },
+            { priority: 'low', count: lowPriorityCount, percentage: totalNeeds > 0 ? (lowPriorityCount / totalNeeds) * 100 : 0, value: filteredNeeds.filter(n => n.priority === 'low').reduce((sum, n) => sum + (n.price * n.quantity), 0) }
+          ]
+
+          // Group by category
+          const categoryMap = new Map<string, { count: number; value: number }>()
+          filteredNeeds.forEach(need => {
+            const category = need.category || 'غير محدد'
+            const existing = categoryMap.get(category) || { count: 0, value: 0 }
+            categoryMap.set(category, {
+              count: existing.count + 1,
+              value: existing.value + (need.price * need.quantity)
+            })
+          })
+          const needsByCategory = Array.from(categoryMap.entries()).map(([category, data]) => ({
+            category,
+            count: data.count,
+            value: data.value
+          }))
+
+          // Group by supplier
+          const supplierMap = new Map<string, { count: number; value: number }>()
+          filteredNeeds.forEach(need => {
+            const supplier = need.supplier || 'غير محدد'
+            const existing = supplierMap.get(supplier) || { count: 0, value: 0 }
+            supplierMap.set(supplier, {
+              count: existing.count + 1,
+              value: existing.value + (need.price * need.quantity)
+            })
+          })
+          const needsBySupplier = Array.from(supplierMap.entries()).map(([supplier, data]) => ({
+            supplier,
+            count: data.count,
+            value: data.value
+          }))
+
+          // Generate trend data (last 6 months)
+          const needsTrend = []
+          for (let i = 5; i >= 0; i--) {
+            const date = new Date()
+            date.setMonth(date.getMonth() - i)
+            const monthStart = new Date(date.getFullYear(), date.getMonth(), 1)
+            const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+
+            const monthNeeds = clinicNeeds.filter(need => {
+              const needDate = new Date(need.created_at)
+              return needDate >= monthStart && needDate <= monthEnd
+            })
+
+            needsTrend.push({
+              period: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+              count: monthNeeds.length,
+              value: monthNeeds.reduce((sum, need) => sum + (need.price * need.quantity), 0)
+            })
+          }
+
+          // Top expensive needs
+          const topExpensiveNeeds = filteredNeeds
+            .map(need => ({
+              need_name: need.need_name,
+              value: need.price * need.quantity,
+              quantity: need.quantity
+            }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10)
+
+          // Special lists
+          const pendingNeeds = filteredNeeds.filter(need => need.status === 'pending').slice(0, 10)
+          const urgentNeeds = filteredNeeds.filter(need => need.priority === 'urgent').slice(0, 10)
+          const overdueNeeds = filteredNeeds.filter(need => {
+            const createdDate = new Date(need.created_at)
+            const daysDiff = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
+            return need.status === 'pending' && daysDiff > 30
+          }).slice(0, 10)
+          const recentlyReceived = filteredNeeds
+            .filter(need => need.status === 'received')
+            .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+            .slice(0, 10)
+
+          return {
+            totalNeeds,
+            totalValue,
+            pendingCount,
+            orderedCount,
+            receivedCount,
+            cancelledCount,
+            urgentCount,
+            highPriorityCount,
+            mediumPriorityCount,
+            lowPriorityCount,
+            averageNeedValue,
+            completionRate,
+            urgencyRate,
+            needsByStatus,
+            needsByPriority,
+            needsByCategory,
+            needsBySupplier,
+            needsTrend,
+            topExpensiveNeeds,
+            pendingNeeds,
+            urgentNeeds,
+            overdueNeeds,
+            recentlyReceived,
+            needsList: filteredNeeds,
+            filterInfo: filter ? `${filter.startDate} - ${filter.endDate}` : 'جميع البيانات',
+            dataCount: filteredNeeds.length
+          }
+        } catch (error) {
+          console.error('Error generating clinic needs report:', error)
+          throw error
+        }
       }
       }
     }),

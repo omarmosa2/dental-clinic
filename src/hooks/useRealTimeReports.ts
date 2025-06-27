@@ -11,10 +11,10 @@ export const useRealTimeReports = (reportTypes: string[] = ['overview']) => {
   useEffect(() => {
     const handleDataChange = async (eventType: string) => {
       console.log(`🔄 Real-time Reports: ${eventType} detected, refreshing reports...`)
-      
+
       // Clear cache to ensure fresh data
       clearCache()
-      
+
       try {
         if (reportTypes.includes('overview') || reportTypes.length === 0) {
           // Refresh all reports for overview
@@ -25,7 +25,7 @@ export const useRealTimeReports = (reportTypes: string[] = ['overview']) => {
             reportTypes.map(type => generateReport(type as any))
           )
         }
-        
+
         console.log('✅ Real-time Reports: Refresh completed successfully')
       } catch (error) {
         console.error('❌ Real-time Reports: Refresh failed:', error)
@@ -35,12 +35,12 @@ export const useRealTimeReports = (reportTypes: string[] = ['overview']) => {
     // Define all possible data change events
     const dataChangeEvents = [
       'patient-added',
-      'patient-updated', 
+      'patient-updated',
       'patient-deleted',
       'patient-changed',
       'appointment-added',
       'appointment-updated',
-      'appointment-deleted', 
+      'appointment-deleted',
       'appointment-changed',
       'payment-added',
       'payment-updated',
@@ -49,7 +49,11 @@ export const useRealTimeReports = (reportTypes: string[] = ['overview']) => {
       'inventory-added',
       'inventory-updated',
       'inventory-deleted',
-      'inventory-changed'
+      'inventory-changed',
+      'clinic-needs-added',
+      'clinic-needs-updated',
+      'clinic-needs-deleted',
+      'clinic-needs-changed'
     ]
 
     // Create event handlers for each event type
@@ -83,7 +87,7 @@ export const useRealTimeReports = (reportTypes: string[] = ['overview']) => {
         )
       }
     },
-    
+
     refreshSpecificReport: async (reportType: string) => {
       clearCache()
       await generateReport(reportType as any)
@@ -94,14 +98,14 @@ export const useRealTimeReports = (reportTypes: string[] = ['overview']) => {
 /**
  * Hook for specific report types with optimized event filtering
  */
-export const useRealTimeReportsByType = (reportType: 'patients' | 'appointments' | 'financial' | 'inventory') => {
+export const useRealTimeReportsByType = (reportType: 'patients' | 'appointments' | 'financial' | 'inventory' | 'clinicNeeds') => {
   const { generateReport, clearCache } = useReportsStore()
 
   useEffect(() => {
     const handleDataChange = async () => {
       console.log(`🔄 Real-time ${reportType} Reports: Data changed, refreshing...`)
       clearCache()
-      
+
       try {
         await generateReport(reportType)
         console.log(`✅ Real-time ${reportType} Reports: Refresh completed`)
@@ -115,7 +119,8 @@ export const useRealTimeReportsByType = (reportType: 'patients' | 'appointments'
       patients: ['patient-added', 'patient-updated', 'patient-deleted', 'patient-changed'],
       appointments: ['appointment-added', 'appointment-updated', 'appointment-deleted', 'appointment-changed'],
       financial: ['payment-added', 'payment-updated', 'payment-deleted', 'payment-changed'],
-      inventory: ['inventory-added', 'inventory-updated', 'inventory-deleted', 'inventory-changed']
+      inventory: ['inventory-added', 'inventory-updated', 'inventory-deleted', 'inventory-changed'],
+      clinicNeeds: ['clinic-needs-added', 'clinic-needs-updated', 'clinic-needs-deleted', 'clinic-needs-changed']
     }
 
     const relevantEvents = eventMap[reportType] || []
@@ -151,7 +156,7 @@ export const useRealTimeDashboard = () => {
     const handleDataChange = async () => {
       console.log('🔄 Real-time Dashboard: Data changed, refreshing...')
       clearCache()
-      
+
       try {
         await generateAllReports()
         console.log('✅ Real-time Dashboard: Refresh completed')
@@ -165,7 +170,8 @@ export const useRealTimeDashboard = () => {
       'patient-added', 'patient-updated', 'patient-deleted', 'patient-changed',
       'appointment-added', 'appointment-updated', 'appointment-deleted', 'appointment-changed',
       'payment-added', 'payment-updated', 'payment-deleted', 'payment-changed',
-      'inventory-added', 'inventory-updated', 'inventory-deleted', 'inventory-changed'
+      'inventory-added', 'inventory-updated', 'inventory-deleted', 'inventory-changed',
+      'clinic-needs-added', 'clinic-needs-updated', 'clinic-needs-deleted', 'clinic-needs-changed'
     ]
 
     allEvents.forEach(event => {

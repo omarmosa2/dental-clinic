@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface ShortcutItem {
   key: string
@@ -55,6 +56,7 @@ interface ElegantShortcutsDisplayProps {
 }
 
 export default function ElegantShortcutsDisplay({ className, compact = false }: ElegantShortcutsDisplayProps) {
+  const { isDarkMode } = useTheme()
   const [isExpanded, setIsExpanded] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
@@ -66,11 +68,19 @@ export default function ElegantShortcutsDisplay({ className, compact = false }: 
   if (compact) {
     return (
       <div className={cn("fixed bottom-4 right-4 z-50", className)}>
-        <Card className="shadow-xl border border-border/50 bg-gradient-to-br from-background/95 to-muted/95 backdrop-blur-sm dark:shadow-2xl dark:shadow-black/20">
+        <Card className={cn(
+          "shadow-xl border backdrop-blur-sm",
+          isDarkMode
+            ? "border-border/30 bg-gradient-to-br from-background/90 to-muted/90 shadow-2xl shadow-black/30"
+            : "border-border/50 bg-gradient-to-br from-background/95 to-muted/95 shadow-lg"
+        )}>
           <CardContent className="p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-primary/10 dark:bg-primary/20">
+                <div className={cn(
+                  "p-1.5 rounded-md",
+                  isDarkMode ? "bg-primary/20" : "bg-primary/10"
+                )}>
                   <Keyboard className="w-4 h-4 text-primary" />
                 </div>
                 <span className="text-sm font-semibold text-foreground">
@@ -81,7 +91,12 @@ export default function ElegantShortcutsDisplay({ className, compact = false }: 
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-all duration-200"
+                className={cn(
+                  "h-7 w-7 p-0 rounded-md transition-all duration-200",
+                  isDarkMode
+                    ? "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
               >
                 {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </Button>
