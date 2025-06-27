@@ -204,14 +204,80 @@
 
   /* Sidebar specific RTL adjustments */
   [data-sidebar="sidebar"] {
-    border-right: 1px solid hsl(var(--border));
-    border-left: none;
+    border-left: 1px solid hsl(var(--border));
+    border-right: none;
   }
 
   /* Sidebar menu button RTL adjustments */
   [data-sidebar="menu-button"] {
     justify-content: flex-start;
     text-align: right;
+  }
+
+  /* RTL Layout Enhancements */
+  .rtl-layout {
+    direction: rtl;
+  }
+
+  /* RTL Flexbox utilities */
+  .flex-rtl {
+    direction: rtl;
+    display: flex;
+  }
+
+  .flex-rtl-reverse {
+    direction: rtl;
+    display: flex;
+    flex-direction: row-reverse;
+  }
+
+  /* RTL Grid utilities */
+  .grid-rtl {
+    direction: rtl;
+    display: grid;
+  }
+
+  /* RTL spacing utilities */
+  .space-x-rtl > * + * {
+    margin-right: 0.5rem;
+    margin-left: 0;
+  }
+
+  .space-x-2-rtl > * + * {
+    margin-right: 0.5rem;
+    margin-left: 0;
+  }
+
+  .space-x-3-rtl > * + * {
+    margin-right: 0.75rem;
+    margin-left: 0;
+  }
+
+  .space-x-4-rtl > * + * {
+    margin-right: 1rem;
+    margin-left: 0;
+  }
+
+  /* RTL margin utilities */
+  .mr-auto-rtl {
+    margin-left: auto;
+    margin-right: 0;
+  }
+
+  .ml-auto-rtl {
+    margin-right: auto;
+    margin-left: 0;
+  }
+
+  /* RTL padding utilities */
+  .pr-rtl {
+    padding-left: 1rem;
+    padding-right: 0;
+  }
+
+  .pl-rtl {
+    padding-right: 1rem;
+    padding-left: 0;
   }
 
   /* Sidebar trigger adjustments for RTL */
@@ -250,10 +316,75 @@
   /* Enhanced sidebar styling */
   [data-sidebar="sidebar"] {
     background: hsl(var(--card));
-    border-right: 1px solid hsl(var(--border));
-    box-shadow: -4px 0 6px -1px rgb(0 0 0 / 0.1), -2px 0 4px -2px rgb(0 0 0 / 0.1);
+    border-left: 1px solid hsl(var(--border));
+    border-right: none;
+    box-shadow: 4px 0 6px -1px rgb(0 0 0 / 0.1), 2px 0 4px -2px rgb(0 0 0 / 0.1);
     width: 240px;
     min-width: 240px;
+  }
+
+  /* RTL Card layouts */
+  .card-rtl {
+    direction: rtl;
+  }
+
+  .card-rtl .card-header {
+    text-align: right;
+  }
+
+  .card-rtl .card-content {
+    text-align: right;
+  }
+
+  /* RTL Button layouts */
+  .btn-rtl {
+    direction: rtl;
+  }
+
+  .btn-rtl .icon-left {
+    margin-right: 0.5rem;
+    margin-left: 0;
+  }
+
+  .btn-rtl .icon-right {
+    margin-left: 0.5rem;
+    margin-right: 0;
+  }
+
+  /* RTL Dashboard grid */
+  .dashboard-grid-rtl {
+    direction: rtl;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+  }
+
+  /* RTL Stats cards */
+  .stats-card-rtl {
+    direction: rtl;
+  }
+
+  .stats-card-rtl .stats-icon {
+    margin-left: 0.75rem;
+    margin-right: 0;
+  }
+
+  .stats-card-rtl .stats-content {
+    text-align: right;
+  }
+
+  /* RTL Navigation */
+  .nav-rtl {
+    direction: rtl;
+  }
+
+  .nav-rtl .nav-item {
+    text-align: right;
+  }
+
+  .nav-rtl .nav-icon {
+    margin-left: 0.75rem;
+    margin-right: 0;
   }
 
   /* Desktop: sidebar always visible */
@@ -826,6 +957,110 @@
   [dir="rtl"] .table-enhanced-alignment th,
   [dir="rtl"] .table-enhanced-alignment td {
     text-align: center;
+  }
+
+  /* RTL Header and breadcrumb improvements */
+  .breadcrumb-rtl {
+    direction: rtl;
+  }
+
+  .breadcrumb-rtl .breadcrumb-separator {
+    transform: scaleX(-1);
+  }
+
+  /* RTL Form layouts */
+  .form-rtl {
+    direction: rtl;
+  }
+
+  .form-rtl .form-label {
+    text-align: right;
+  }
+
+  .form-rtl .form-input {
+    text-align: right;
+  }
+
+  /* RTL Dialog and modal layouts */
+  .dialog-rtl {
+    direction: rtl;
+  }
+
+  .dialog-rtl .dialog-header {
+    text-align: right;
+  }
+
+  .dialog-rtl .dialog-content {
+    text-align: right;
+  }
+
+  /* RTL Tabs styling */
+  .rtl-tabs {
+    direction: rtl;
+  }
+
+  .rtl-tabs [role="tab"] {
+    direction: rtl;
+    text-align: center;
+  }
+
+  .rtl-tabs [role="tab"] .flex-row-reverse {
+    flex-direction: row-reverse;
+  }
+
+  /* Ensure proper spacing for RTL tabs */
+  [dir="rtl"] .rtl-tabs [role="tab"] {
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  /* RTL tab content alignment */
+  [dir="rtl"] .rtl-tabs [role="tabpanel"] {
+    direction: rtl;
+    text-align: right;
+  }
+
+  /* RTL Chart containers */
+  .chart-container-rtl {
+    direction: rtl;
+  }
+
+  /* RTL Responsive adjustments */
+  @media (max-width: 768px) {
+    .dashboard-grid-rtl {
+      grid-template-columns: 1fr;
+    }
+
+    .flex-rtl {
+      flex-direction: column;
+    }
+
+    .space-x-3-rtl > * + * {
+      margin-right: 0;
+      margin-top: 0.75rem;
+    }
+  }
+
+  /* RTL Animation improvements */
+  .slide-in-rtl {
+    animation: slideInFromRight 0.3s ease-out;
+  }
+
+  @keyframes slideInFromRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  /* RTL Hover effects */
+  .hover-rtl:hover {
+    transform: translateX(-2px);
+    box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.1);
   }
 
   [dir="rtl"] .table-enhanced-alignment th:last-child,

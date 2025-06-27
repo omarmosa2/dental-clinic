@@ -65,11 +65,10 @@ export default function GlobalSearch({
       }
     }
 
-    if (showResults) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showResults])
+    // إضافة مستمع الحدث دائماً عندما يكون المكون مفتوحاً
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, []) // إزالة التبعية على showResults لتعمل دائماً
 
   // Handle search
   const handleSearch = async (query: string) => {
@@ -151,7 +150,7 @@ export default function GlobalSearch({
           id: 'demo_pay_1',
           type: 'payment' as const,
           title: 'دفعة معلقة - فاطمة أحمد',
-          description: 'مبلغ 500 ريال - معلق منذ 5 أيام',
+          description: 'مبلغ 500 $ - معلق منذ 5 أيام',
           relevanceScore: 0.7,
           metadata: {
             amount: 500,

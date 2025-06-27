@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Patient, Appointment, Payment, ToothTreatment, Prescription, LabOrder, PatientTreatmentTimeline } from '@/types'
+import { Patient, Appointment, Payment, ToothTreatment, Prescription, LabOrder } from '@/types'
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,7 @@ import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
 import { useToast } from '@/hooks/use-toast'
 import AddAppointmentDialog from '@/components/AddAppointmentDialog'
 import AddPaymentDialog from '@/components/payments/AddPaymentDialog'
+import AddPrescriptionDialog from '@/components/medications/AddPrescriptionDialog'
 import { TREATMENT_STATUS_OPTIONS } from '@/data/teethData'
 
 interface PatientDetailsModalProps {
@@ -65,16 +66,15 @@ export default function PatientDetailsModal({
   const [patientTreatments, setPatientTreatments] = useState<ToothTreatment[]>([])
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([])
   const [patientLabOrders, setPatientLabOrders] = useState<LabOrder[]>([])
-  const [patientTimeline, setPatientTimeline] = useState<PatientTreatmentTimeline[]>([])
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false)
   const [isLoadingPayments, setIsLoadingPayments] = useState(false)
   const [isLoadingTreatments, setIsLoadingTreatments] = useState(false)
   const [isLoadingPrescriptions, setIsLoadingPrescriptions] = useState(false)
-  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false)
 
   // Dialog states
   const [showAddAppointmentDialog, setShowAddAppointmentDialog] = useState(false)
   const [showAddPaymentDialog, setShowAddPaymentDialog] = useState(false)
+  const [showAddPrescriptionDialog, setShowAddPrescriptionDialog] = useState(false)
 
   const { appointments } = useAppointmentStore()
   const { payments } = usePaymentStore()
@@ -110,7 +110,8 @@ export default function PatientDetailsModal({
       window.electronAPI?.prescriptions?.getByPatient?.(patient.id).then((prescriptions) => {
         setPatientPrescriptions(prescriptions || [])
         setIsLoadingPrescriptions(false)
-      }).catch(() => {
+      }).catch((error) => {
+        console.error('Error loading prescriptions:', error)
         setIsLoadingPrescriptions(false)
       })
 
@@ -119,15 +120,6 @@ export default function PatientDetailsModal({
         setPatientLabOrders(labOrders || [])
       }).catch(() => {
         console.error('خطأ في تحميل طلبات المختبر')
-      })
-
-      // Load timeline for this patient
-      setIsLoadingTimeline(true)
-      window.electronAPI?.patientTimeline?.getByPatient?.(patient.id).then((timeline) => {
-        setPatientTimeline(timeline || [])
-        setIsLoadingTimeline(false)
-      }).catch(() => {
-        setIsLoadingTimeline(false)
       })
     }
   }, [patient, open, appointments, payments, toothTreatments, loadToothTreatmentsByPatient])
@@ -210,6 +202,10 @@ export default function PatientDetailsModal({
     }
   }
 
+  const handleAddPrescription = () => {
+    setShowAddPrescriptionDialog(true)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden" dir="rtl">
@@ -240,35 +236,31 @@ export default function PatientDetailsModal({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden" dir="rtl">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="info" className="arabic-enhanced flex items-center justify-center gap-2">
-              <User className="w-4 h-4" />
-              معلومات المريض
+          <TabsList className="grid w-full grid-cols-5 rtl-tabs">
+            <TabsTrigger value="prescriptions" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
+              <FileText className="w-4 h-4" />
+              الوصفات ({patientPrescriptions.length})
             </TabsTrigger>
-            <TabsTrigger value="treatments" className="arabic-enhanced flex items-center justify-center gap-2">
-              <Activity className="w-4 h-4" />
-              العلاجات ({patientTreatments.length})
-            </TabsTrigger>
-            <TabsTrigger value="appointments" className="arabic-enhanced flex items-center justify-center gap-2">
-              <Calendar className="w-4 h-4" />
-              المواعيد ({patientAppointments.length})
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="arabic-enhanced flex items-center justify-center gap-2">
+            <TabsTrigger value="payments" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
               <DollarSign className="w-4 h-4" />
               المدفوعات ({patientPayments.length})
             </TabsTrigger>
-            <TabsTrigger value="prescriptions" className="arabic-enhanced flex items-center justify-center gap-2">
-              <FileText className="w-4 h-4" />
-              الوصفات
+            <TabsTrigger value="appointments" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
+              <Calendar className="w-4 h-4" />
+              المواعيد ({patientAppointments.length})
             </TabsTrigger>
-            <TabsTrigger value="timeline" className="arabic-enhanced flex items-center justify-center gap-2">
-              <Clock className="w-4 h-4" />
-              الجدول الزمني
+            <TabsTrigger value="treatments" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
+              <Activity className="w-4 h-4" />
+              العلاجات ({patientTreatments.length})
+            </TabsTrigger>
+            <TabsTrigger value="info" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
+              <User className="w-4 h-4" />
+              معلومات المريض
             </TabsTrigger>
           </TabsList>
 
-          <div className="mt-4 overflow-y-auto max-h-[calc(90vh-200px)]">
-            <TabsContent value="info" className="space-y-4">
+          <div className="mt-4 overflow-y-auto max-h-[calc(90vh-200px)] dialog-rtl">
+            <TabsContent value="info" className="space-y-4 dialog-rtl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Basic Information */}
                 <Card>
@@ -402,7 +394,7 @@ export default function PatientDetailsModal({
               </div>
             </TabsContent>
 
-            <TabsContent value="treatments" className="space-y-4">
+            <TabsContent value="treatments" className="space-y-4 dialog-rtl">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium">العلاجات السنية</h3>
                 <Button
@@ -537,7 +529,7 @@ export default function PatientDetailsModal({
               )}
             </TabsContent>
 
-            <TabsContent value="appointments" className="space-y-4">
+            <TabsContent value="appointments" className="space-y-4 dialog-rtl">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium">المواعيد</h3>
                 <Button
@@ -667,7 +659,7 @@ export default function PatientDetailsModal({
               )}
             </TabsContent>
 
-            <TabsContent value="payments" className="space-y-4">
+            <TabsContent value="payments" className="space-y-4 dialog-rtl">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium">المدفوعات</h3>
                 <Button
@@ -697,13 +689,13 @@ export default function PatientDetailsModal({
                 <div className="space-y-4">
                   {/* Payment Summary */}
                   {(() => {
-                    // حساب الملخص المالي
-                    const totalAmountDue = patientPayments.reduce((sum, payment) =>
-                      sum + (payment.total_amount_due || 0), 0)
-                    const totalAmountPaid = patientPayments.reduce((sum, payment) =>
-                      sum + (payment.amount_paid || payment.amount || 0), 0)
-                    const totalRemainingBalance = patientPayments.reduce((sum, payment) =>
-                      sum + (payment.remaining_balance || 0), 0)
+                    // حساب الملخص المالي باستخدام الدالة الجديدة
+                    const { calculatePatientPaymentSummary } = require('@/utils/paymentCalculations')
+                    const summary = calculatePatientPaymentSummary(patient.id, payments, appointments)
+
+                    const totalAmountDue = summary.totalDue
+                    const totalAmountPaid = summary.totalPaid
+                    const totalRemainingBalance = summary.totalRemaining
 
                     return (
                       <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-border">
@@ -876,14 +868,11 @@ export default function PatientDetailsModal({
             </TabsContent>
 
             {/* تبويب الوصفات الطبية */}
-            <TabsContent value="prescriptions" className="space-y-4">
+            <TabsContent value="prescriptions" className="space-y-4 dialog-rtl">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium">الوصفات الطبية</h3>
                 <Button
-                  onClick={() => {
-                    // Navigate to prescriptions page
-                    onOpenChange(false)
-                  }}
+                  onClick={handleAddPrescription}
                   className="flex items-center gap-2"
                   size="sm"
                 >
@@ -951,70 +940,7 @@ export default function PatientDetailsModal({
               )}
             </TabsContent>
 
-            {/* تبويب الجدول الزمني */}
-            <TabsContent value="timeline" className="space-y-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">الجدول الزمني للعلاج</h3>
-              </div>
-              {isLoadingTimeline ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="loading-spinner"></div>
-                </div>
-              ) : patientTimeline.length === 0 ? (
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center py-8">
-                      <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <h3 className="text-lg font-medium mb-2">لا توجد أحداث في الجدول الزمني</h3>
-                      <p className="text-muted-foreground mb-4">سيتم إنشاء الجدول الزمني تلقائياً مع تقدم العلاج</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-4">
-                  {patientTimeline
-                    .sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())
-                    .map((event) => (
-                    <Card key={event.id}>
-                      <CardContent className="pt-4">
-                        <div className="flex items-start gap-3">
-                          <div className={`w-3 h-3 rounded-full mt-2 ${
-                            event.status === 'completed' ? 'bg-green-500' :
-                            event.status === 'active' ? 'bg-blue-500' : 'bg-gray-400'
-                          }`} />
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium">{event.title}</h4>
-                              <div className="flex items-center gap-2">
-                                <Badge variant={
-                                  event.priority === 1 ? 'destructive' :
-                                  event.priority === 2 ? 'default' : 'secondary'
-                                }>
-                                  {event.priority === 1 ? 'عالي' : event.priority === 2 ? 'متوسط' : 'منخفض'}
-                                </Badge>
-                                <span className="text-sm text-muted-foreground">
-                                  {formatDate(event.event_date)}
-                                </span>
-                              </div>
-                            </div>
-                            {event.description && (
-                              <p className="text-sm text-muted-foreground mb-2">{event.description}</p>
-                            )}
-                            <Badge variant="outline" className="text-xs">
-                              {event.timeline_type === 'appointment' ? 'موعد' :
-                               event.timeline_type === 'treatment' ? 'علاج' :
-                               event.timeline_type === 'prescription' ? 'وصفة' :
-                               event.timeline_type === 'lab_order' ? 'مختبر' :
-                               event.timeline_type === 'payment' ? 'دفعة' : 'ملاحظة'}
-                            </Badge>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
+
           </div>
         </Tabs>
       </DialogContent>
@@ -1060,6 +986,26 @@ export default function PatientDetailsModal({
       <AddPaymentDialog
         open={showAddPaymentDialog}
         onOpenChange={setShowAddPaymentDialog}
+        preSelectedPatientId={patient.id}
+      />
+
+      {/* Add Prescription Dialog */}
+      <AddPrescriptionDialog
+        open={showAddPrescriptionDialog}
+        onOpenChange={(open) => {
+          setShowAddPrescriptionDialog(open)
+          if (!open) {
+            // Reload prescriptions when dialog closes
+            setIsLoadingPrescriptions(true)
+            window.electronAPI?.prescriptions?.getByPatient?.(patient.id).then((prescriptions) => {
+              setPatientPrescriptions(prescriptions || [])
+              setIsLoadingPrescriptions(false)
+            }).catch((error) => {
+              console.error('Error reloading prescriptions:', error)
+              setIsLoadingPrescriptions(false)
+            })
+          }
+        }}
         preSelectedPatientId={patient.id}
       />
     </Dialog>

@@ -17,7 +17,6 @@ import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import { useRealTimeDashboard } from '@/hooks/useRealTimeReports'
-import RealTimeIndicator from '@/components/ui/real-time-indicator'
 import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
 import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import {
@@ -237,7 +236,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
   const todayAppointments = getAppointmentsForDate(new Date())
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 rtl-layout">
       {/* Welcome Section */}
       <div className="flex items-center justify-between">
         <div>
@@ -245,19 +244,18 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
             <h1 className="text-3xl font-bold text-foreground">
               مرحباً بك في {clinicName}
             </h1>
-            <RealTimeIndicator isActive={true} />
           </div>
           <p className="text-muted-foreground">
             إليك ما يحدث في عيادتك - تحديث تلقائي في الوقت الفعلي
           </p>
         </div>
-        <div className="flex space-x-2 space-x-reverse">
-          <Button onClick={onAddAppointment}>
-            <Plus className="w-4 h-4 ml-2" />
+        <div className="flex space-x-3-rtl">
+          <Button onClick={onAddAppointment} className="btn-rtl">
+            <Plus className="w-4 h-4 icon-right" />
             موعد جديد
           </Button>
-          <Button variant="outline" onClick={onAddPatient}>
-            <Plus className="w-4 h-4 ml-2" />
+          <Button variant="outline" onClick={onAddPatient} className="btn-rtl">
+            <Plus className="w-4 h-4 icon-right" />
             مريض جديد
           </Button>
         </div>
@@ -284,15 +282,15 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className={getCardStyles("blue")}>
+      <div className="dashboard-grid-rtl">
+        <Card className={`${getCardStyles("blue")} stats-card-rtl`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               إجمالي المرضى
             </CardTitle>
-            <Users className={`h-4 w-4 ${getIconStyles("blue")}`} />
+            <Users className={`h-4 w-4 stats-icon ${getIconStyles("blue")}`} />
           </CardHeader>
-          <CardContent>
+          <CardContent className="stats-content">
             <div className="text-2xl font-bold text-foreground">
               {patients.length}
             </div>
@@ -302,14 +300,14 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("purple")}>
+        <Card className={`${getCardStyles("purple")} stats-card-rtl`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate) ? 'إجمالي المواعيد' : 'المواعيد المفلترة'}
             </CardTitle>
-            <Calendar className={`h-4 w-4 ${getIconStyles("purple")}`} />
+            <Calendar className={`h-4 w-4 stats-icon ${getIconStyles("purple")}`} />
           </CardHeader>
-          <CardContent>
+          <CardContent className="stats-content">
             <div className="text-2xl font-bold text-foreground">
               {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate)
                 ? appointments.length
@@ -329,14 +327,14 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("emerald")}>
+        <Card className={`${getCardStyles("emerald")} stats-card-rtl`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate) ? 'المواعيد المكتملة' : 'المواعيد المكتملة المفلترة'}
             </CardTitle>
-            <TrendingUp className={`h-4 w-4 ${getIconStyles("emerald")}`} />
+            <TrendingUp className={`h-4 w-4 stats-icon ${getIconStyles("emerald")}`} />
           </CardHeader>
-          <CardContent>
+          <CardContent className="stats-content">
             <div className="text-2xl font-bold text-foreground">
               {appointmentStats.timeFilter.preset === 'all' || (!appointmentStats.timeFilter.startDate && !appointmentStats.timeFilter.endDate)
                 ? appointments.filter(a => a.status === 'completed').length
@@ -350,14 +348,14 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("green")}>
+        <Card className={`${getCardStyles("green")} stats-card-rtl`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'إيرادات الشهر' : 'الإيرادات المفلترة'}
             </CardTitle>
-            <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
+            <DollarSign className={`h-4 w-4 stats-icon ${getIconStyles("green")}`} />
           </CardHeader>
-          <CardContent>
+          <CardContent className="stats-content">
             <div className="text-2xl font-bold text-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
                 ? formatCurrency(stats.thisMonthRevenue, currency)
@@ -371,7 +369,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
             {paymentStats.trend && (
               <div className={`text-xs mt-1 flex items-center ${paymentStats.trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
                 <span>{paymentStats.trend.isPositive ? '↗' : '↘'}</span>
-                <span className="mr-1">{Math.abs(paymentStats.trend.changePercent)}%</span>
+                <span className="ml-1">{Math.abs(paymentStats.trend.changePercent)}%</span>
               </div>
             )}
           </CardContent>
@@ -379,15 +377,15 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
       </div>
 
       {/* Second Row Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className={getCardStyles("green")}>
+      <div className="dashboard-grid-rtl grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        <Card className={`${getCardStyles("green")} stats-card-rtl`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'إجمالي الإيرادات' : 'إجمالي الإيرادات المفلترة'}
             </CardTitle>
-            <DollarSign className={`h-4 w-4 ${getIconStyles("green")}`} />
+            <DollarSign className={`h-4 w-4 stats-icon ${getIconStyles("green")}`} />
           </CardHeader>
-          <CardContent>
+          <CardContent className="stats-content">
             <div className="text-2xl font-bold text-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
                 ? formatCurrency(stats.totalRevenue, currency)
@@ -401,14 +399,14 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("yellow")}>
+        <Card className={`${getCardStyles("yellow")} stats-card-rtl`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'المدفوعات المعلقة' : 'المدفوعات المعلقة المفلترة'}
             </CardTitle>
-            <Clock className={`h-4 w-4 ${getIconStyles("yellow")}`} />
+            <Clock className={`h-4 w-4 stats-icon ${getIconStyles("yellow")}`} />
           </CardHeader>
-          <CardContent>
+          <CardContent className="stats-content">
             <div className="text-2xl font-bold text-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
                 ? formatCurrency(stats.pendingPayments, currency)
@@ -422,12 +420,12 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("orange")}>
+        <Card className={`${getCardStyles("orange")} stats-card-rtl`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">تنبيهات المخزون</CardTitle>
-            <Package className={`h-4 w-4 ${getIconStyles("orange")}`} />
+            <Package className={`h-4 w-4 stats-icon ${getIconStyles("orange")}`} />
           </CardHeader>
-          <CardContent>
+          <CardContent className="stats-content">
             <div className="text-2xl font-bold text-foreground">{stats.lowStockItems}</div>
             <p className="text-xs text-muted-foreground">
               عناصر تحتاج انتباه
@@ -623,7 +621,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
                   <div className="flex items-center space-x-4 space-x-reverse">
                     <div className="w-2 h-2 rounded-full bg-primary"></div>
                     <div>
-                      <p className="font-medium">{appointment.title}</p>
+                      <p className="font-medium arabic-enhanced">{appointment.patient?.full_name || appointment.patient_name || 'مريض غير معروف'}</p>
                       <p className="text-sm text-muted-foreground">
                         {formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}
                       </p>

@@ -288,14 +288,7 @@ export default function PaymentTable({
                       <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
                         {getPatientName(payment).charAt(0)}
                       </div>
-                      <div>
-                        <span className="arabic-enhanced">{getPatientName(payment)}</span>
-                        {patientMap.get(payment.patient_id)?.phone && (
-                          <div className="text-sm text-muted-foreground">
-                            {patientMap.get(payment.patient_id)?.phone}
-                          </div>
-                        )}
-                      </div>
+                      <span className="arabic-enhanced">{getPatientName(payment)}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
@@ -378,11 +371,17 @@ export default function PaymentTable({
                               من أصل {formatCurrency(payment.total_amount_due)}
                             </div>
                           )}
-                          {payment.remaining_balance && payment.remaining_balance > 0 && (
-                            <div className="text-xs text-orange-600 dark:text-orange-400">
-                              متبقي: {formatCurrency(payment.remaining_balance)}
-                            </div>
-                          )}
+                          {payment.total_amount_due && (() => {
+                            // حساب المبلغ المتبقي بشكل صحيح للمدفوعات العامة
+                            const totalDue = payment.total_amount_due || 0
+                            const totalPaid = payment.amount || 0
+                            const remainingBalance = Math.max(0, totalDue - totalPaid)
+                            return remainingBalance > 0 && (
+                              <div className="text-xs text-orange-600 dark:text-orange-400">
+                                متبقي: {formatCurrency(remainingBalance)}
+                              </div>
+                            )
+                          })()}
                         </>
                       )}
                     </div>

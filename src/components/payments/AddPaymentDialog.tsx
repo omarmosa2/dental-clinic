@@ -212,7 +212,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
       const remainingBeforeThisPayment = appointmentCost - autoCalculations.previousPayments
 
       if (appointmentCost > 0 && currentAmount > remainingBeforeThisPayment) {
-        newErrors.amount = `مبلغ هذه الدفعة لا يمكن أن يكون أكبر من المبلغ المتبقي للموعد (${remainingBeforeThisPayment.toFixed(2)} ريال)`
+        newErrors.amount = `مبلغ هذه الدفعة لا يمكن أن يكون أكبر من المبلغ المتبقي للموعد (${remainingBeforeThisPayment.toFixed(2)} $)`
       }
 
       if (currentAmount <= 0) {
@@ -520,16 +520,16 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">تكلفة الموعد:</span>
-                        <span className="font-medium text-foreground">{getAppointmentCost(formData.appointment_id).toFixed(2)} ريال</span>
+                        <span className="font-medium text-foreground">{getAppointmentCost(formData.appointment_id).toFixed(2)} $</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">المدفوع سابقاً:</span>
-                        <span className="font-medium text-foreground">{autoCalculations.previousPayments.toFixed(2)} ريال</span>
+                        <span className="font-medium text-foreground">{autoCalculations.previousPayments.toFixed(2)} $</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">المتبقي قبل هذه الدفعة:</span>
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                          {(getAppointmentCost(formData.appointment_id) - autoCalculations.previousPayments).toFixed(2)} ريال
+                          {(getAppointmentCost(formData.appointment_id) - autoCalculations.previousPayments).toFixed(2)} $
                         </span>
                       </div>
                     </div>
@@ -538,7 +538,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">المتبقي بعد هذه الدفعة:</span>
                           <span className="font-bold text-lg text-emerald-600 dark:text-emerald-400">
-                            {calculateRemainingBalance().toFixed(2)} ريال
+                            {calculateRemainingBalance().toFixed(2)} $
                           </span>
                         </div>
                       </div>

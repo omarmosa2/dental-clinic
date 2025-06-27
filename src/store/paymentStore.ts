@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { Payment } from '../types'
+import { calculateTotalRemainingBalanceForAllPatients } from '../utils/paymentCalculations'
 
 interface PaymentState {
   payments: Payment[]
@@ -387,15 +388,42 @@ export const usePaymentStore = create<PaymentStore>()(
 
 
       calculateTotalRemainingBalance: () => {
+        // استخدام الطريقة المحسنة لحساب المبلغ المتبقي
+        // سنحسب المبلغ المتبقي بناءً على الفرق بين المطلوب والمدفوع لكل مريض
         const { payments } = get()
-        const totalRemaining = payments
-          .reduce((sum, payment) => {
-            // Ensure remaining_balance is a valid number
-            const remainingBalance = typeof payment.remaining_balance === 'number' ? payment.remaining_balance : 0
-            return sum + remainingBalance
-          }, 0)
 
-        set({ totalRemainingBalance: Math.round(totalRemaining * 100) / 100 }) // Round to 2 decimal places
+        // تجميع المدفوعات حسب المريض
+        const patientPayments: { [patientId: string]: Payment[] } = {}
+        payments.forEach(payment => {
+          if (!patientPayments[payment.patient_id]) {
+            patientPayments[payment.patient_id] = []
+          }
+          patientPayments[payment.patient_id].push(payment)
+        })
+
+        let totalRemaining = 0
+
+        // حساب المبلغ المتبقي لكل مريض
+        Object.keys(patientPayments).forEach(patientId => {
+          const patientPaymentsList = patientPayments[patientId]
+
+          // حساب إجمالي المطلوب والمدفوع لهذا المريض
+          let totalDue = 0
+          let totalPaid = 0
+
+          patientPaymentsList.forEach(payment => {
+            totalPaid += payment.amount || 0
+            if (payment.total_amount_due) {
+              totalDue += payment.total_amount_due
+            }
+          })
+
+          // المبلغ المتبقي = المطلوب - المدفوع (لا يقل عن صفر)
+          const patientRemaining = Math.max(0, totalDue - totalPaid)
+          totalRemaining += patientRemaining
+        })
+
+        set({ totalRemainingBalance: Math.round(totalRemaining * 100) / 100 })
       },
 
       calculatePartialPaymentsCount: () => {

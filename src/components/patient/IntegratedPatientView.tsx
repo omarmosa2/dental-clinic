@@ -4,16 +4,16 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
-import { 
-  User, 
-  Calendar, 
-  DollarSign, 
-  Activity, 
-  FileText, 
-  Clock, 
-  Phone, 
-  Mail, 
-  Edit, 
+import {
+  User,
+  Calendar,
+  DollarSign,
+  Activity,
+  FileText,
+  Clock,
+  Phone,
+  Mail,
+  Edit,
   Plus,
   Eye,
   TrendingUp,
@@ -316,8 +316,8 @@ export default function IntegratedPatientView({
                       </p>
                     </div>
                     <Badge className={getStatusColor(appointment.status)}>
-                      {appointment.status === 'completed' ? 'مكتمل' : 
-                       appointment.status === 'scheduled' ? 'مجدول' : 
+                      {appointment.status === 'completed' ? 'مكتمل' :
+                       appointment.status === 'scheduled' ? 'مجدول' :
                        appointment.status === 'cancelled' ? 'ملغي' : appointment.status}
                     </Badge>
                   </div>
@@ -345,8 +345,8 @@ export default function IntegratedPatientView({
                       </p>
                     </div>
                     <Badge className={getStatusColor(payment.status)}>
-                      {payment.status === 'completed' ? 'مكتمل' : 
-                       payment.status === 'pending' ? 'معلق' : 
+                      {payment.status === 'completed' ? 'مكتمل' :
+                       payment.status === 'pending' ? 'معلق' :
                        payment.status === 'partial' ? 'جزئي' : payment.status}
                     </Badge>
                   </div>
@@ -368,8 +368,8 @@ export default function IntegratedPatientView({
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">{appointment.title}</h4>
                       <Badge className={getStatusColor(appointment.status)}>
-                        {appointment.status === 'completed' ? 'مكتمل' : 
-                         appointment.status === 'scheduled' ? 'مجدول' : 
+                        {appointment.status === 'completed' ? 'مكتمل' :
+                         appointment.status === 'scheduled' ? 'مجدول' :
                          appointment.status === 'cancelled' ? 'ملغي' : appointment.status}
                       </Badge>
                     </div>
@@ -399,9 +399,9 @@ export default function IntegratedPatientView({
                         {treatment.treatment_type} - السن {treatment.tooth_number}
                       </h4>
                       <Badge className={getStatusColor(treatment.treatment_status)}>
-                        {treatment.treatment_status === 'completed' ? 'مكتمل' : 
-                         treatment.treatment_status === 'planned' ? 'مخطط' : 
-                         treatment.treatment_status === 'in_progress' ? 'قيد التنفيذ' : 
+                        {treatment.treatment_status === 'completed' ? 'مكتمل' :
+                         treatment.treatment_status === 'planned' ? 'مخطط' :
+                         treatment.treatment_status === 'in_progress' ? 'قيد التنفيذ' :
                          treatment.treatment_status === 'cancelled' ? 'ملغي' : treatment.treatment_status}
                       </Badge>
                     </div>
@@ -429,17 +429,23 @@ export default function IntegratedPatientView({
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">{formatCurrency(payment.amount)}</h4>
                       <Badge className={getStatusColor(payment.status)}>
-                        {payment.status === 'completed' ? 'مكتمل' : 
-                         payment.status === 'pending' ? 'معلق' : 
+                        {payment.status === 'completed' ? 'مكتمل' :
+                         payment.status === 'pending' ? 'معلق' :
                          payment.status === 'partial' ? 'جزئي' : payment.status}
                       </Badge>
                     </div>
                     <div className="text-sm text-muted-foreground">
                       <p>📅 {formatDate(payment.payment_date)}</p>
                       <p>💳 {payment.payment_method === 'cash' ? 'نقدي' : 'تحويل بنكي'}</p>
-                      {payment.remaining_balance && payment.remaining_balance > 0 && (
-                        <p className="text-red-600">متبقي: {formatCurrency(payment.remaining_balance)}</p>
-                      )}
+                      {payment.total_amount_due && (() => {
+                        // حساب المبلغ المتبقي بشكل صحيح
+                        const totalDue = payment.total_amount_due || 0
+                        const totalPaid = payment.amount || 0
+                        const remainingBalance = Math.max(0, totalDue - totalPaid)
+                        return remainingBalance > 0 && (
+                          <p className="text-red-600">متبقي: {formatCurrency(remainingBalance)}</p>
+                        )
+                      })()}
                       {payment.description && <p>📝 {payment.description}</p>}
                     </div>
                   </div>

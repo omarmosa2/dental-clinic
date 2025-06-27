@@ -39,7 +39,7 @@ const demoAppointment: Appointment = {
   start_time: new Date().toISOString(),
   end_time: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   status: 'scheduled',
-  cost: 300, // تكلفة الموعد 300 ريال
+  cost: 300, // تكلفة الموعد 300 $
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   patient: demoPatient
@@ -66,7 +66,7 @@ export default function PaymentSystemDemo() {
   const addPayment = () => {
     const amount = parseFloat(newPaymentAmount)
     if (amount <= 0 || amount > remainingBalance) {
-      alert(`يجب أن يكون المبلغ بين 1 و ${remainingBalance} ريال`)
+      alert(`يجب أن يكون المبلغ بين 1 و ${remainingBalance} $`)
       return
     }
 

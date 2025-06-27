@@ -31,6 +31,7 @@ interface AddPrescriptionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   editingPrescription?: Prescription | null
+  preSelectedPatientId?: string
 }
 
 interface PrescriptionMedication {
@@ -42,7 +43,8 @@ interface PrescriptionMedication {
 export default function AddPrescriptionDialog({
   open,
   onOpenChange,
-  editingPrescription
+  editingPrescription,
+  preSelectedPatientId
 }: AddPrescriptionDialogProps) {
   const { createPrescription, updatePrescription, isLoading } = usePrescriptionStore()
   const { medications, loadMedications } = useMedicationStore()
@@ -89,7 +91,7 @@ export default function AddPrescriptionDialog({
         setPrescriptionMedications(meds)
       } else {
         setFormData({
-          patient_id: '',
+          patient_id: preSelectedPatientId || '',
           appointment_id: '',
           prescription_date: new Date().toISOString().split('T')[0],
           notes: ''

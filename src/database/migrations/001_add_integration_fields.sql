@@ -205,7 +205,7 @@ BEGIN
         hex(randomblob(16)),
         NEW.patient_id,
         'payment',
-        'دفعة جديدة: ' || NEW.amount || ' ريال',
+        'دفعة جديدة: ' || NEW.amount || ' $',
         NEW.description,
         NEW.payment_date,
         'completed',

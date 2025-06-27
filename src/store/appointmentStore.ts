@@ -80,6 +80,18 @@ export const useAppointmentStore = create<AppointmentStore>()(
           console.log('🏪 Store: Loaded appointments:', appointments.length)
           if (appointments.length > 0) {
             console.log('🏪 Store: First appointment sample:', appointments[0])
+
+            // Log patient data for debugging
+            appointments.forEach((appointment, index) => {
+              if (index < 3) { // Log first 3 appointments for debugging
+                console.log(`🏪 Store: Appointment ${index + 1} patient data:`, {
+                  id: appointment.id,
+                  patient_id: appointment.patient_id,
+                  patient: appointment.patient,
+                  patient_name: appointment.patient_name || (appointment as any).patient_name
+                })
+              }
+            })
           }
 
           set({
@@ -267,13 +279,42 @@ export const useAppointmentStore = create<AppointmentStore>()(
       convertToCalendarEvents: () => {
         const { appointments } = get()
 
-        const events: CalendarEvent[] = appointments.map(appointment => ({
-          id: appointment.id,
-          title: appointment.title,
-          start: new Date(appointment.start_time),
-          end: new Date(appointment.end_time),
-          resource: appointment
-        }))
+        const events: CalendarEvent[] = appointments.map(appointment => {
+          // Create a more informative title that includes patient name
+          // Try multiple sources for patient name
+          const patientName = appointment.patient?.full_name ||
+                              appointment.patient_name ||
+                              (appointment as any).patient_name ||
+                              'مريض غير معروف'
+
+          // Only log if patient name is missing for debugging
+          if (patientName === 'مريض غير معروف') {
+            console.log('🗓️ Calendar: Missing patient data for appointment:', {
+              id: appointment.id,
+              patient_id: appointment.patient_id,
+              patient: appointment.patient,
+              patient_name: appointment.patient_name
+            })
+          }
+
+          const startTime = new Date(appointment.start_time)
+          const timeStr = startTime.toLocaleTimeString('ar-SA', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          })
+
+          // Format: "اسم المريض - الوقت"
+          const displayTitle = `${patientName} - ${timeStr}`
+
+          return {
+            id: appointment.id,
+            title: displayTitle,
+            start: new Date(appointment.start_time),
+            end: new Date(appointment.end_time),
+            resource: appointment
+          }
+        })
 
         set({ calendarEvents: events })
       },

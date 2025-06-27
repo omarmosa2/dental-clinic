@@ -579,6 +579,15 @@ ipcMain.handle('db:prescriptions:delete', async (_, id) => {
   }
 })
 
+ipcMain.handle('db:prescriptions:getByPatient', async (_, patientId) => {
+  try {
+    return await databaseService.getPrescriptionsByPatient(patientId)
+  } catch (error) {
+    console.error('Error getting prescriptions by patient:', error)
+    throw error
+  }
+})
+
 ipcMain.handle('db:prescriptions:search', async (_, query) => {
   try {
     return await databaseService.searchPrescriptions(query)

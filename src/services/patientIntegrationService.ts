@@ -1,10 +1,10 @@
-import type { 
-  PatientIntegratedData, 
-  Patient, 
-  Appointment, 
-  ToothTreatment, 
-  Payment, 
-  Prescription, 
+import type {
+  PatientIntegratedData,
+  Patient,
+  Appointment,
+  ToothTreatment,
+  Payment,
+  Prescription,
   LabOrder,
   PatientTreatmentTimeline,
   TreatmentPlan
@@ -15,7 +15,7 @@ import type {
  * تجمع جميع البيانات المرتبطة بالمريض من مختلف الجداول
  */
 export class PatientIntegrationService {
-  
+
   /**
    * جلب جميع البيانات المتكاملة للمريض
    */
@@ -175,9 +175,31 @@ export class PatientIntegrationService {
     const completedTreatments = treatments.filter(t => t.treatment_status === 'completed').length
     const pendingTreatments = treatments.filter(t => t.treatment_status === 'planned' || t.treatment_status === 'in_progress').length
 
-    // حساب المبالغ المالية
-    const totalPaid = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0)
-    const remainingBalance = payments.reduce((sum, payment) => sum + (payment.remaining_balance || 0), 0)
+    // حساب المبالغ المالية بالطريقة الصحيحة
+    let totalPaid = 0
+    let totalDue = 0
+
+    // حساب المدفوعات المرتبطة بالمواعيد
+    appointments.forEach(appointment => {
+      if (appointment.cost) {
+        const appointmentPayments = payments.filter(p => p.appointment_id === appointment.id)
+        const appointmentTotalPaid = appointmentPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+        totalDue += appointment.cost
+        totalPaid += appointmentTotalPaid
+      }
+    })
+
+    // إضافة المدفوعات العامة غير المرتبطة بمواعيد
+    const generalPayments = payments.filter(payment => !payment.appointment_id)
+    generalPayments.forEach(payment => {
+      totalPaid += payment.amount || 0
+      if (payment.total_amount_due) {
+        totalDue += payment.total_amount_due
+      }
+    })
+
+    // حساب المبلغ المتبقي بشكل صحيح: الإجمالي المطلوب - الإجمالي المدفوع
+    const remainingBalance = Math.max(0, totalDue - totalPaid)
 
     // آخر زيارة
     const lastVisit = appointments
@@ -236,7 +258,7 @@ export class PatientIntegrationService {
       if (appointmentId) {
         updateData.appointment_id = appointmentId
       }
-      
+
       const result = await window.electronAPI?.labOrders?.update?.(labOrderId, updateData)
       return !!result
     } catch (error) {

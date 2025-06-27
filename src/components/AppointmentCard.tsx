@@ -145,7 +145,7 @@ export default function AppointmentCard({ appointment, onClick, onEdit, onDelete
             {appointment.cost && (
               <div className="flex items-center space-x-2 space-x-reverse text-sm text-muted-foreground">
                 <DollarSign className="w-4 h-4" />
-                <span>{appointment.cost} ريال</span>
+                <span>{appointment.cost} $</span>
               </div>
             )}
           </div>

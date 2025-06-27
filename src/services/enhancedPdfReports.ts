@@ -960,11 +960,11 @@ export class EnhancedPdfReports {
             </div>
             <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-value">${data.totalRevenue?.toLocaleString() || '0'} ${settings?.currency || 'ريال'}</div>
+                <div class="stat-value">${data.totalRevenue?.toLocaleString() || '0'} ${settings?.currency || '$'}</div>
                 <div class="stat-label">إجمالي الإيرادات</div>
               </div>
               <div class="stat-card">
-                <div class="stat-value">${data.averageTreatmentCost?.toLocaleString() || '0'} ${settings?.currency || 'ريال'}</div>
+                <div class="stat-value">${data.averageTreatmentCost?.toLocaleString() || '0'} ${settings?.currency || '$'}</div>
                 <div class="stat-label">متوسط تكلفة العلاج</div>
               </div>
               <div class="stat-card">
@@ -1090,9 +1090,9 @@ export class EnhancedPdfReports {
                     return `
                       <tr>
                         <td class="category-cell">${item.category}</td>
-                        <td class="number-cell">${item.revenue?.toLocaleString() || '0'} ${settings?.currency || 'ريال'}</td>
+                        <td class="number-cell">${item.revenue?.toLocaleString() || '0'} ${settings?.currency || '$'}</td>
                         <td class="number-cell">${item.count?.toLocaleString() || '0'}</td>
-                        <td class="number-cell">${avgCost.toLocaleString()} ${settings?.currency || 'ريال'}</td>
+                        <td class="number-cell">${avgCost.toLocaleString()} ${settings?.currency || '$'}</td>
                       </tr>
                     `
                   }).join('')}
@@ -1131,7 +1131,7 @@ export class EnhancedPdfReports {
                         <span class="status-badge warning">${treatment.status || 'معلق'}</span>
                       </td>
                       <td class="date-cell">${treatment.created_at ? new Date(treatment.created_at).toLocaleDateString('ar-SA') : 'غير محدد'}</td>
-                      <td class="number-cell">${treatment.cost?.toLocaleString() || '0'} ${settings?.currency || 'ريال'}</td>
+                      <td class="number-cell">${treatment.cost?.toLocaleString() || '0'} ${settings?.currency || '$'}</td>
                     </tr>
                   `).join('')}
                 </tbody>

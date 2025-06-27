@@ -484,10 +484,10 @@ function AppContent() {
     <SidebarProvider>
         <AppSidebar activeTab={activeTab} onTabChange={setActiveTab} />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40">
+          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 rtl-layout">
             <div className="flex items-center gap-2 px-4">
               <Breadcrumb>
-                <BreadcrumbList>
+                <BreadcrumbList className="flex-rtl">
                   <BreadcrumbItem className="hidden md:block">
                     <BreadcrumbLink href="#" className="text-muted-foreground hover:text-foreground transition-colors duration-200">
                       🦷 نظام إدارة العيادة السنية
@@ -500,7 +500,7 @@ function AppContent() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="mr-auto flex items-center gap-3 px-4">
+            <div className="ml-auto-rtl flex items-center gap-3 px-4 space-x-3-rtl">
               <SidebarTrigger />
               <Separator orientation="vertical" className="mx-2 h-4" />
 
@@ -511,7 +511,7 @@ function AppContent() {
               </div>
             </div>
           </header>
-          <div className="flex flex-1 flex-col gap-4 p-10 pt-4 max-w-full overflow-hidden relative">
+          <div className="flex flex-1 flex-col gap-4 p-10 pt-4 max-w-full overflow-hidden relative rtl-layout">
             <div className="w-full max-w-none content-wrapper">
               {renderContent()}
             </div>

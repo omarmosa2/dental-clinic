@@ -826,8 +826,21 @@ export class DatabaseService {
     `)
     const appointments = stmt.all() as Appointment[]
 
-    // Add patient object for compatibility
+    console.log('📋 DB: Raw appointments from database:', appointments.length)
+    if (appointments.length > 0) {
+      console.log('📋 DB: First raw appointment:', appointments[0])
+    }
+
+    // Add patient object for compatibility and ensure patient_name is set
     return appointments.map(appointment => {
+      console.log('📋 DB: Processing appointment:', {
+        id: appointment.id,
+        patient_id: appointment.patient_id,
+        patient_name: appointment.patient_name,
+        first_name: appointment.first_name,
+        last_name: appointment.last_name
+      })
+
       if (appointment.patient_name) {
         appointment.patient = {
           id: appointment.patient_id,
@@ -837,6 +850,27 @@ export class DatabaseService {
           phone: appointment.phone,
           email: appointment.email,
           gender: appointment.gender
+        } as any
+
+        // Ensure patient_name is also available at the top level
+        appointment.patient_name = appointment.patient_name
+      } else {
+        // Handle case where patient was deleted or doesn't exist
+        console.log('⚠️ DB: Appointment has no patient data:', {
+          id: appointment.id,
+          patient_id: appointment.patient_id
+        })
+
+        // Set fallback patient data
+        appointment.patient_name = 'مريض محذوف'
+        appointment.patient = {
+          id: appointment.patient_id,
+          full_name: 'مريض محذوف',
+          first_name: 'مريض',
+          last_name: 'محذوف',
+          phone: '',
+          email: '',
+          gender: 'unknown'
         } as any
       }
       return appointment
@@ -968,6 +1002,21 @@ export class DatabaseService {
           email: createdAppointment.email,
           gender: createdAppointment.gender
         } as any
+
+        // Ensure patient_name is also available at the top level
+        createdAppointment.patient_name = createdAppointment.patient_name
+
+        console.log('✅ Created appointment with patient data:', {
+          id: createdAppointment.id,
+          patient_name: createdAppointment.patient_name,
+          patient: createdAppointment.patient
+        })
+      } else {
+        console.log('⚠️ Created appointment without patient data:', {
+          id: createdAppointment?.id,
+          patient_id: createdAppointment?.patient_id,
+          patient_name: createdAppointment?.patient_name
+        })
       }
 
       return createdAppointment
@@ -1060,6 +1109,21 @@ export class DatabaseService {
         email: updatedAppointment.email,
         gender: updatedAppointment.gender
       } as any
+
+      // Ensure patient_name is also available at the top level
+      updatedAppointment.patient_name = updatedAppointment.patient_name
+
+      console.log('✅ Updated appointment with patient data:', {
+        id: updatedAppointment.id,
+        patient_name: updatedAppointment.patient_name,
+        patient: updatedAppointment.patient
+      })
+    } else {
+      console.log('⚠️ Updated appointment without patient data:', {
+        id: updatedAppointment?.id,
+        patient_id: updatedAppointment?.patient_id,
+        patient_name: updatedAppointment?.patient_name
+      })
     }
 
     console.log('📋 Retrieved updated appointment with patient data:', updatedAppointment)

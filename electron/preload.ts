@@ -300,6 +300,7 @@ const electronAPI: ElectronAPI = {
     create: (prescription) => ipcRenderer.invoke('db:prescriptions:create', prescription),
     update: (id, prescription) => ipcRenderer.invoke('db:prescriptions:update', id, prescription),
     delete: (id) => ipcRenderer.invoke('db:prescriptions:delete', id),
+    getByPatient: (patientId) => ipcRenderer.invoke('db:prescriptions:getByPatient', patientId),
     search: (query) => ipcRenderer.invoke('db:prescriptions:search', query),
   },
 

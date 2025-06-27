@@ -2453,6 +2453,49 @@ class DatabaseService {
     return stmt.all(searchTerm, searchTerm)
   }
 
+  async getPrescriptionsByPatient(patientId) {
+    this.ensureConnection()
+    this.ensureMedicationTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT
+        p.*,
+        pt.full_name as patient_name,
+        a.title as appointment_title
+      FROM prescriptions p
+      LEFT JOIN patients pt ON p.patient_id = pt.id
+      LEFT JOIN appointments a ON p.appointment_id = a.id
+      WHERE p.patient_id = ?
+      ORDER BY p.prescription_date DESC
+    `)
+
+    const prescriptions = stmt.all(patientId)
+
+    // Get medications for each prescription
+    const medicationsStmt = this.db.prepare(`
+      SELECT
+        pm.*,
+        m.name as medication_name,
+        m.instructions as medication_instructions
+      FROM prescription_medications pm
+      LEFT JOIN medications m ON pm.medication_id = m.id
+      WHERE pm.prescription_id = ?
+    `)
+
+    return prescriptions.map(prescription => ({
+      ...prescription,
+      patient: prescription.patient_id ? {
+        id: prescription.patient_id,
+        full_name: prescription.patient_name
+      } : null,
+      appointment: prescription.appointment_id ? {
+        id: prescription.appointment_id,
+        title: prescription.appointment_title
+      } : null,
+      medications: medicationsStmt.all(prescription.id)
+    }))
+  }
+
   async searchPrescriptions(query) {
     this.ensureConnection()
     this.ensureMedicationTablesExist()

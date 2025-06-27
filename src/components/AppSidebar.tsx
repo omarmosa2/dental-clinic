@@ -103,12 +103,12 @@ export function AppSidebar({ activeTab, onTabChange, ...props }: AppSidebarProps
   const clinicLogo = useStableClinicLogo()
 
   return (
-    <Sidebar collapsible="offcanvas" side="right" className="border-r border-border/40 shadow-lg" {...props}>
-      <SidebarHeader className="border-b border-border/40 bg-gradient-to-r from-background to-accent/10">
+    <Sidebar collapsible="offcanvas" side="right" className="border-l border-border/40 shadow-lg rtl-layout" {...props}>
+      <SidebarHeader className="border-b border-border/40 bg-gradient-to-l from-background to-accent/10">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/30 transition-colors duration-200">
+              <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/30 transition-colors duration-200 flex-rtl">
                 <div className="flex aspect-square size-12 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-lg overflow-hidden">
                   {clinicLogo && clinicLogo.trim() !== '' ? (
                     <img
@@ -147,19 +147,19 @@ export function AppSidebar({ activeTab, onTabChange, ...props }: AppSidebarProps
 
       <SidebarContent className="px-3 py-3">
         <SidebarGroup className="space-y-1">
-          <SidebarGroupLabel className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-2 py-2">
+          <SidebarGroupLabel className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-2 py-2 text-right">
             القائمة الرئيسية
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="space-y-1 nav-rtl">
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     isActive={activeTab === item.url}
                     onClick={() => onTabChange(item.url)}
-                    className="flex items-center gap-3 w-full text-right justify-start hover:bg-accent/50 transition-colors duration-200 py-2 px-3 text-base"
+                    className="flex items-center gap-3 w-full text-right justify-start hover:bg-accent/50 transition-colors duration-200 py-2 px-3 text-base nav-item"
                   >
-                    <item.icon className="size-5 text-sky-600 dark:text-sky-400" />
+                    <item.icon className="size-5 text-sky-600 dark:text-sky-400 nav-icon" />
                     <span className="font-semibold text-sm">{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

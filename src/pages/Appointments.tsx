@@ -208,13 +208,67 @@ export default function Appointments() {
     return {
       style: {
         backgroundColor,
-        borderRadius: '4px',
-        opacity: 0.8,
+        borderRadius: '6px',
+        opacity: 0.9,
         color: 'white',
         border: '0px',
-        display: 'block'
+        display: 'block',
+        fontSize: '12px',
+        fontWeight: '500',
+        padding: '2px 6px',
+        textAlign: 'center' as const,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap' as const
       }
     }
+  }
+
+  // Custom event component for better display
+  const CustomEvent = ({ event }: { event: any }) => {
+    const appointment = event.resource
+
+    // Try multiple sources for patient name
+    const patientName = appointment?.patient?.full_name ||
+                        appointment?.patient_name ||
+                        (appointment as any)?.patient_name ||
+                        'مريض غير معروف'
+
+    // Check if patient was deleted
+    const isDeletedPatient = patientName === 'مريض محذوف'
+
+    const startTime = new Date(appointment?.start_time || event.start)
+    const timeStr = startTime.toLocaleTimeString('ar-SA', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+
+    // Get status color indicator
+    const getStatusIndicator = (status: string) => {
+      switch (status) {
+        case 'completed':
+          return '✓'
+        case 'cancelled':
+          return '✗'
+        case 'no_show':
+          return '⚠'
+        default:
+          return '●'
+      }
+    }
+
+    return (
+      <div className="w-full h-full flex flex-col justify-center items-center text-center p-1" dir="rtl">
+        <div className={`font-medium text-xs truncate w-full flex items-center justify-center gap-1 ${isDeletedPatient ? 'opacity-60' : ''}`} title={`${patientName} - ${getStatusInArabic(appointment?.status || 'scheduled')}`}>
+          <span className="text-xs">{getStatusIndicator(appointment?.status || 'scheduled')}</span>
+          <span className="truncate">{patientName}</span>
+        </div>
+        <div className="text-xs opacity-90" title={timeStr}>
+          {timeStr}
+        </div>
+      </div>
+    )
   }
 
   const CustomToolbar = ({ label, onNavigate, onView }: any) => (
@@ -481,6 +535,27 @@ export default function Appointments() {
               <Card>
                 <CardContent className="p-6">
                   <div style={{ height: '600px' }}>
+                    <style>{`
+                      .rbc-event {
+                        border-radius: 6px !important;
+                        border: none !important;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+                      }
+                      .rbc-event:hover {
+                        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+                        transform: translateY(-1px);
+                        transition: all 0.2s ease;
+                      }
+                      .rbc-event-content {
+                        padding: 2px 4px !important;
+                      }
+                      .rbc-month-view .rbc-event {
+                        margin: 1px !important;
+                      }
+                      .rbc-agenda-view .rbc-event {
+                        border-radius: 4px !important;
+                      }
+                    `}</style>
                     <BigCalendar
                       localizer={localizer}
                       events={calendarEvents}
@@ -495,7 +570,8 @@ export default function Appointments() {
                       selectable
                       eventPropGetter={eventStyleGetter}
                       components={{
-                        toolbar: CustomToolbar
+                        toolbar: CustomToolbar,
+                        event: CustomEvent
                       }}
                       step={30}
                       timeslots={2}
@@ -585,7 +661,7 @@ export default function Appointments() {
                       <div>
                         <span className="text-xs font-medium arabic-enhanced">التكلفة: </span>
                         <span className="text-xs text-muted-foreground">
-                          {selectedAppointment.cost} ريال
+                          {selectedAppointment.cost} $
                         </span>
                       </div>
                     )}
@@ -664,8 +740,8 @@ export default function Appointments() {
                       onClick={() => setSelectedAppointment(appointment)}
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium arabic-enhanced truncate" title={appointment.title}>
-                          {appointment.title}
+                        <p className="text-xs font-medium arabic-enhanced truncate" title={appointment.patient?.full_name || appointment.patient_name || 'مريض غير معروف'}>
+                          {appointment.patient?.full_name || appointment.patient_name || 'مريض غير معروف'}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatTime(appointment.start_time)}
@@ -717,8 +793,8 @@ export default function Appointments() {
                       onClick={() => setSelectedAppointment(appointment)}
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium arabic-enhanced truncate" title={appointment.title}>
-                          {appointment.title}
+                        <p className="text-xs font-medium arabic-enhanced truncate" title={appointment.patient?.full_name || appointment.patient_name || 'مريض غير معروف'}>
+                          {appointment.patient?.full_name || appointment.patient_name || 'مريض غير معروف'}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatTime(appointment.start_time)}

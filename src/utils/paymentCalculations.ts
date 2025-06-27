@@ -5,7 +5,7 @@ import { Payment, Appointment } from '@/types'
  */
 export function calculateAppointmentTotalPaid(appointmentId: string, payments: Payment[]): number {
   if (!appointmentId) return 0
-  
+
   return payments
     .filter(payment => payment.appointment_id === appointmentId)
     .reduce((total, payment) => total + payment.amount, 0)
@@ -15,8 +15,8 @@ export function calculateAppointmentTotalPaid(appointmentId: string, payments: P
  * حساب الرصيد المتبقي لموعد محدد
  */
 export function calculateAppointmentRemainingBalance(
-  appointmentId: string, 
-  appointmentCost: number, 
+  appointmentId: string,
+  appointmentCost: number,
   payments: Payment[]
 ): number {
   const totalPaid = calculateAppointmentTotalPaid(appointmentId, payments)
@@ -32,7 +32,7 @@ export function calculateAppointmentPaymentStatus(
   payments: Payment[]
 ): 'completed' | 'partial' | 'pending' {
   const totalPaid = calculateAppointmentTotalPaid(appointmentId, payments)
-  
+
   if (totalPaid >= appointmentCost) {
     return 'completed'
   } else if (totalPaid > 0) {
@@ -54,7 +54,7 @@ export function calculateAppointmentPaymentDetails(
   const totalPaid = appointmentPayments.reduce((total, payment) => total + payment.amount, 0)
   const remainingBalance = Math.max(0, appointmentCost - totalPaid)
   const status = calculateAppointmentPaymentStatus(appointmentId, appointmentCost, payments)
-  
+
   return {
     appointmentPayments,
     totalPaid,
@@ -77,25 +77,25 @@ export function validateNewPaymentAmount(
   if (!appointmentId || appointmentCost <= 0) {
     return { isValid: true } // للمدفوعات غير المرتبطة بموعد
   }
-  
+
   const totalPaid = calculateAppointmentTotalPaid(appointmentId, existingPayments)
   const remainingBalance = appointmentCost - totalPaid
-  
+
   if (newPaymentAmount <= 0) {
-    return { 
-      isValid: false, 
-      error: 'يجب أن يكون مبلغ الدفعة أكبر من صفر' 
+    return {
+      isValid: false,
+      error: 'يجب أن يكون مبلغ الدفعة أكبر من صفر'
     }
   }
-  
+
   if (newPaymentAmount > remainingBalance) {
-    return { 
-      isValid: false, 
-      error: `مبلغ الدفعة يتجاوز المبلغ المتبقي (${remainingBalance.toFixed(2)} ريال)`,
+    return {
+      isValid: false,
+      error: `مبلغ الدفعة يتجاوز المبلغ المتبقي (${remainingBalance.toFixed(2)} $)`,
       maxAllowed: remainingBalance
     }
   }
-  
+
   return { isValid: true }
 }
 
@@ -111,14 +111,14 @@ export function calculatePaymentData(
   taxAmount: number = 0
 ) {
   const totalAmount = amount + taxAmount - discountAmount
-  
+
   if (appointmentId && appointment?.cost) {
     // دفعة مرتبطة بموعد
     const appointmentCost = appointment.cost
     const previousPayments = calculateAppointmentTotalPaid(appointmentId, existingPayments)
     const newTotalPaid = previousPayments + amount
     const remainingBalance = Math.max(0, appointmentCost - newTotalPaid)
-    
+
     // تحديد الحالة
     let status: 'completed' | 'partial' | 'pending'
     if (remainingBalance <= 0) {
@@ -128,7 +128,7 @@ export function calculatePaymentData(
     } else {
       status = 'pending'
     }
-    
+
     return {
       total_amount: totalAmount,
       appointment_total_cost: appointmentCost,
@@ -162,11 +162,10 @@ export function calculatePaymentData(
 export function calculatePatientPaymentSummary(patientId: string, payments: Payment[], appointments: Appointment[]) {
   const patientPayments = payments.filter(payment => payment.patient_id === patientId)
   const patientAppointments = appointments.filter(appointment => appointment.patient_id === patientId)
-  
+
   let totalPaid = 0
   let totalDue = 0
-  let totalRemaining = 0
-  
+
   // حساب المدفوعات المرتبطة بالمواعيد
   patientAppointments.forEach(appointment => {
     if (appointment.cost) {
@@ -177,20 +176,21 @@ export function calculatePatientPaymentSummary(patientId: string, payments: Paym
       )
       totalDue += appointment.cost
       totalPaid += appointmentDetails.totalPaid
-      totalRemaining += appointmentDetails.remainingBalance
     }
   })
-  
+
   // إضافة المدفوعات العامة غير المرتبطة بمواعيد
   const generalPayments = patientPayments.filter(payment => !payment.appointment_id)
   generalPayments.forEach(payment => {
     totalPaid += payment.amount
     if (payment.total_amount_due) {
       totalDue += payment.total_amount_due
-      totalRemaining += payment.remaining_balance || 0
     }
   })
-  
+
+  // حساب المبلغ المتبقي بشكل صحيح: الإجمالي المطلوب - الإجمالي المدفوع
+  const totalRemaining = Math.max(0, totalDue - totalPaid)
+
   return {
     totalPaid,
     totalDue,
@@ -206,6 +206,27 @@ export function calculatePatientPaymentSummary(patientId: string, payments: Paym
 }
 
 /**
+ * حساب إجمالي المبلغ المتبقي لجميع المرضى
+ */
+export function calculateTotalRemainingBalanceForAllPatients(payments: Payment[], appointments: Appointment[]): number {
+  // الحصول على جميع معرفات المرضى الفريدة
+  const patientIds = Array.from(new Set([
+    ...payments.map(p => p.patient_id),
+    ...appointments.map(a => a.patient_id)
+  ]))
+
+  let totalRemaining = 0
+
+  // حساب المبلغ المتبقي لكل مريض
+  patientIds.forEach(patientId => {
+    const summary = calculatePatientPaymentSummary(patientId, payments, appointments)
+    totalRemaining += summary.totalRemaining
+  })
+
+  return Math.round(totalRemaining * 100) / 100 // Round to 2 decimal places
+}
+
+/**
  * تحديث جميع المدفوعات المرتبطة بموعد عند تغيير تكلفة الموعد
  */
 export function recalculateAppointmentPayments(
@@ -216,13 +237,13 @@ export function recalculateAppointmentPayments(
   const appointmentPayments = payments
     .filter(payment => payment.appointment_id === appointmentId)
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-  
+
   let runningTotal = 0
-  
+
   return appointmentPayments.map(payment => {
     runningTotal += payment.amount
     const remainingBalance = Math.max(0, newAppointmentCost - runningTotal)
-    
+
     let status: 'completed' | 'partial' | 'pending'
     if (remainingBalance <= 0) {
       status = 'completed'
@@ -231,7 +252,7 @@ export function recalculateAppointmentPayments(
     } else {
       status = 'pending'
     }
-    
+
     return {
       id: payment.id,
       appointment_total_cost: newAppointmentCost,

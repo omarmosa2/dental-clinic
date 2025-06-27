@@ -362,23 +362,32 @@ export class ComprehensiveExportService {
         let totalPayments = 0
         let totalRemaining = 0
 
-        patientPayments.forEach(payment => {
-          if (payment.status === 'partial') {
-            // للدفعات الجزئية
-            const amountPaid = Number(payment.amount_paid || payment.amount)
-            const remaining = Number(payment.remaining_balance || 0) ||
-                            (Number(payment.total_amount_due || payment.amount) - amountPaid)
-            totalPayments += amountPaid
-            totalRemaining += Math.max(0, remaining)
-          } else if (payment.appointment_id && payment.appointment_remaining_balance) {
-            // للمدفوعات المرتبطة بمواعيد
-            totalPayments += Number(payment.appointment_total_paid || payment.amount)
-            totalRemaining += Number(payment.appointment_remaining_balance || 0)
-          } else {
-            // للمدفوعات العادية
-            totalPayments += Number(payment.amount)
+        // حساب المبالغ بالطريقة الصحيحة
+        let patientTotalDue = 0
+        let patientTotalPaid = 0
+
+        // حساب المدفوعات المرتبطة بالمواعيد
+        const patientAppointments = appointments.filter(apt => apt.patient_id === patient.id)
+        patientAppointments.forEach(appointment => {
+          if (appointment.cost) {
+            const appointmentPayments = patientPayments.filter(p => p.appointment_id === appointment.id)
+            const appointmentTotalPaid = appointmentPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+            patientTotalDue += appointment.cost
+            patientTotalPaid += appointmentTotalPaid
           }
         })
+
+        // إضافة المدفوعات العامة غير المرتبطة بمواعيد
+        const generalPayments = patientPayments.filter(payment => !payment.appointment_id)
+        generalPayments.forEach(payment => {
+          patientTotalPaid += payment.amount || 0
+          if (payment.total_amount_due) {
+            patientTotalDue += payment.total_amount_due
+          }
+        })
+
+        totalPayments += patientTotalPaid
+        totalRemaining += Math.max(0, patientTotalDue - patientTotalPaid)
 
         csv += `"${serialNumber}","${fullName}","${phone}","${age}","${gender}","${patientCondition}","${allergies}","${email}","${address}","${registrationDate}","${lastAppointment}","${totalAppointments}","${formatCurrency(totalPayments)}","${formatCurrency(totalRemaining)}","${notes}"\n`
       })

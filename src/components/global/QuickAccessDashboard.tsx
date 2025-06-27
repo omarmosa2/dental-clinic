@@ -108,18 +108,18 @@ export default function QuickAccessDashboard({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 rtl-layout">
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="dashboard-grid-rtl">
         {/* Total Patients */}
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={onNavigateToPatients}>
-          <CardContent className="pt-6">
+        <Card className="hover:shadow-md transition-shadow cursor-pointer stats-card-rtl" onClick={onNavigateToPatients}>
+          <CardContent className="pt-6 stats-content">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">إجمالي المرضى</p>
                 <p className="text-2xl font-bold">{quickAccessData.quickStats.totalPatients}</p>
               </div>
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2 bg-blue-100 rounded-lg stats-icon">
                 <Users className="w-6 h-6 text-blue-600" />
               </div>
             </div>

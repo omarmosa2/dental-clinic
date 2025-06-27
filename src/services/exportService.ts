@@ -502,7 +502,7 @@ export class ExportService {
             ${data.paymentMethodStats.map(item => `
               <tr>
                 <td>${this.translatePaymentMethod(item.method)}</td>
-                <td>${formatCurrency(item.amount)} ريال</td>
+                <td>${formatCurrency(item.amount)} $</td>
                 <td>${item.count}</td>
               </tr>
             `).join('')}
@@ -551,7 +551,7 @@ export class ExportService {
               <tr>
                 <td>${item.category}</td>
                 <td>${item.count}</td>
-                <td>${formatCurrency(item.value)} ريال</td>
+                <td>${formatCurrency(item.value)} $</td>
               </tr>
             `).join('')}
           </tbody>

@@ -20,11 +20,9 @@ import SmartAlerts from '@/components/global/SmartAlerts'
 import QuickAccessDashboard from '@/components/global/QuickAccessDashboard'
 import ElegantShortcutsDisplay from '@/components/help/ElegantShortcutsDisplay'
 import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
-import { FullRealTimeIndicator } from '@/components/global/RealTimeIndicator'
 import { useGlobalStore } from '@/store/globalStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useStableClinicName } from '@/hooks/useStableSettings'
-import RealTimeIndicator from '@/components/ui/real-time-indicator'
 import type { SearchResult } from '@/types'
 import { enhanceKeyboardEvent } from '@/utils/arabicKeyboardMapping'
 
@@ -215,7 +213,6 @@ export default function EnhancedDashboard({
             <h1 className="text-3xl font-bold text-foreground">
               مرحباً بك في {clinicName}
             </h1>
-            <RealTimeIndicator isActive={true} />
           </div>
           <p className="text-muted-foreground">
             نظام إدارة سريع ومتكامل - تحديث تلقائي في الوقت الفعلي
@@ -228,9 +225,6 @@ export default function EnhancedDashboard({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Real-time Updates Indicator */}
-          <FullRealTimeIndicator />
-
           {/* Global Search Toggle */}
           <Button
             variant="outline"
@@ -271,7 +265,15 @@ export default function EnhancedDashboard({
 
       {/* Global Search Overlay */}
       {showGlobalSearch && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-20">
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-20"
+          onClick={(e) => {
+            // إغلاق البحث عند الضغط على الخلفية
+            if (e.target === e.currentTarget) {
+              setShowGlobalSearch(false)
+            }
+          }}
+        >
           <div className="w-full max-w-2xl mx-4">
             <GlobalSearch
               onResultSelect={handleSearchResultSelect}
