@@ -21,133 +21,89 @@ import {
   Activity,
   FileText,
   Phone,
-  Eye
+  Eye,
+  Package,
+  Pill,
+  UserCheck
 } from 'lucide-react'
 import { useGlobalStore } from '@/store/globalStore'
 import { SmartAlertsService } from '@/services/smartAlertsService'
+import { useRealTimeAlerts } from '@/hooks/useRealTimeAlerts'
+import { SimpleRealTimeIndicator } from './RealTimeIndicator'
 import type { SmartAlert } from '@/types'
 
-// Create demo alerts for testing
-const createDemoAlerts = (): SmartAlert[] => {
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-
-  return [
-    {
-      id: 'demo_appointment_today_1',
-      type: 'appointment',
-      priority: 'high',
-      title: 'موعد اليوم - أحمد محمد',
-      description: 'موعد مجدول اليوم في 2:00 PM - فحص دوري',
-      patientId: 'demo_patient_1',
-      patientName: 'أحمد محمد',
-      relatedData: {
-        appointmentId: 'demo_apt_1'
-      },
-      actionRequired: true,
-      dueDate: new Date(today.getTime() + 14 * 60 * 60 * 1000).toISOString(), // 2 PM today
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isDismissed: false,
-      context: 'upcoming today'
-    },
-    {
-      id: 'demo_payment_overdue_1',
-      type: 'payment',
-      priority: 'high',
-      title: 'دفعة معلقة - فاطمة أحمد',
-      description: 'دفعة معلقة منذ 5 أيام - المبلغ: 500 ريال',
-      patientId: 'demo_patient_2',
-      patientName: 'فاطمة أحمد',
-      relatedData: {
-        paymentId: 'demo_pay_1',
-        appointmentId: 'demo_apt_2'
-      },
-      actionRequired: true,
-      dueDate: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isDismissed: false,
-      context: 'overdue pending'
-    },
-    {
-      id: 'demo_appointment_upcoming_1',
-      type: 'appointment',
-      priority: 'medium',
-      title: 'موعد غداً - سارة علي',
-      description: 'موعد مجدول غداً في 10:00 AM - تنظيف أسنان',
-      patientId: 'demo_patient_3',
-      patientName: 'سارة علي',
-      relatedData: {
-        appointmentId: 'demo_apt_3'
-      },
-      actionRequired: false,
-      dueDate: new Date(today.getTime() + 24 * 60 * 60 * 1000 + 10 * 60 * 60 * 1000).toISOString(), // 10 AM tomorrow
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isDismissed: false,
-      context: 'upcoming tomorrow'
-    },
-    {
-      id: 'demo_follow_up_1',
-      type: 'follow_up',
-      priority: 'low',
-      title: 'متابعة مطلوبة - محمد خالد',
-      description: 'لم يزر المريض العيادة منذ 95 يوم - قد يحتاج متابعة',
-      patientId: 'demo_patient_4',
-      patientName: 'محمد خالد',
-      relatedData: {},
-      actionRequired: false,
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isDismissed: false
-    },
-    {
-      id: 'demo_treatment_reminder_1',
-      type: 'treatment',
-      priority: 'medium',
-      title: 'تذكير علاج - نور الدين',
-      description: 'موعد المتابعة للعلاج مستحق خلال 3 أيام',
-      patientId: 'demo_patient_5',
-      patientName: 'نور الدين',
-      relatedData: {
-        treatmentId: 'demo_treatment_1'
-      },
-      actionRequired: true,
-      dueDate: new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isDismissed: false
-    }
-  ]
-}
+// البيانات الحقيقية فقط - لا توجد بيانات تجريبية كما هو محدد في المتطلبات
 
 interface SmartAlertsProps {
   maxVisible?: number
   showHeader?: boolean
   compact?: boolean
   onAlertClick?: (alert: SmartAlert) => void
+  showReadAlerts?: boolean
 }
 
 // Helper function to format time distance
-function formatTimeDistance(date: Date): string {
-  const now = new Date()
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+function formatTimeDistance(dateInput: string | Date): string {
+  try {
+    // Handle invalid input
+    if (!dateInput) {
+      return 'غير محدد'
+    }
 
-  if (diffInSeconds < 60) {
-    return 'منذ لحظات'
-  } else if (diffInSeconds < 3600) {
-    const minutes = Math.floor(diffInSeconds / 60)
-    return `منذ ${minutes} دقيقة`
-  } else if (diffInSeconds < 86400) {
-    const hours = Math.floor(diffInSeconds / 3600)
-    return `منذ ${hours} ساعة`
-  } else if (diffInSeconds < 2592000) {
-    const days = Math.floor(diffInSeconds / 86400)
-    return `منذ ${days} يوم`
-  } else {
-    const months = Math.floor(diffInSeconds / 2592000)
-    return `منذ ${months} شهر`
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'تاريخ غير صحيح'
+    }
+
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+    if (diffInSeconds < 60) {
+      return 'منذ لحظات'
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60)
+      return `منذ ${minutes} دقيقة`
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600)
+      return `منذ ${hours} ساعة`
+    } else if (diffInSeconds < 2592000) {
+      const days = Math.floor(diffInSeconds / 86400)
+      return `منذ ${days} يوم`
+    } else {
+      const months = Math.floor(diffInSeconds / 2592000)
+      return `منذ ${months} شهر`
+    }
+  } catch (error) {
+    console.error('Error formatting time distance:', error)
+    return 'خطأ في التاريخ'
+  }
+}
+
+// Helper function to safely format date
+function formatSafeDate(dateInput: string | Date): string {
+  try {
+    if (!dateInput) {
+      return '--'
+    }
+
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return '--'
+    }
+
+    // Format as DD/MM/YYYY
+    const day = date.getDate().toString().padStart(2, '0')
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const year = date.getFullYear()
+
+    return `${day}/${month}/${year}`
+  } catch (error) {
+    console.error('Error formatting date:', error)
+    return '--'
   }
 }
 
@@ -155,7 +111,8 @@ export default function SmartAlerts({
   maxVisible = 5,
   showHeader = true,
   compact = false,
-  onAlertClick
+  onAlertClick,
+  showReadAlerts = false
 }: SmartAlertsProps) {
   const {
     alerts,
@@ -167,49 +124,50 @@ export default function SmartAlerts({
     snoozeAlert
   } = useGlobalStore()
 
+  // إعداد التحديثات في الوقت الفعلي
+  const { refreshAlerts } = useRealTimeAlerts()
+
   const [expandedAlerts, setExpandedAlerts] = useState<Set<string>>(new Set())
+  const [showRead, setShowRead] = useState(showReadAlerts)
 
   useEffect(() => {
+    // Load alerts using the global store method
     loadAlerts()
 
-    // Load real alerts from SmartAlertsService
-    const loadRealAlerts = async () => {
-      try {
-        const { SmartAlertsService } = await import('@/services/smartAlertsService')
-        const realAlerts = await SmartAlertsService.getAllAlerts()
-        console.log('🔔 Loaded smart alerts:', realAlerts.length)
+    // Refresh alerts every 30 seconds for periodic updates (reduced frequency since we have real-time events)
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refreshing alerts every 30 seconds...')
+      loadAlerts()
+    }, 30000) // 30 seconds - reduced since we have real-time updates
 
-        // Update the global store with real alerts
-        const { useGlobalStore } = await import('@/store/globalStore')
-        const store = useGlobalStore.getState()
-
-        if (realAlerts && realAlerts.length > 0) {
-          store.alerts = realAlerts
-          store.unreadAlertsCount = realAlerts.filter(alert => !alert.isRead && !alert.isDismissed).length
-          console.log('📊 Updated store with real alerts:', realAlerts.length, 'unread:', store.unreadAlertsCount)
-        } else {
-          // Create demo alerts if no real data exists (for development)
-          const demoAlerts = createDemoAlerts()
-          store.alerts = demoAlerts
-          store.unreadAlertsCount = demoAlerts.filter(alert => !alert.isRead && !alert.isDismissed).length
-          console.log('🎭 Using demo alerts:', demoAlerts.length)
-        }
-      } catch (error) {
-        console.error('❌ Error loading smart alerts:', error)
-        // Fallback to demo alerts on error
-        const demoAlerts = createDemoAlerts()
-        const { useGlobalStore } = await import('@/store/globalStore')
-        const store = useGlobalStore.getState()
-        store.alerts = demoAlerts
-        store.unreadAlertsCount = demoAlerts.filter(alert => !alert.isRead && !alert.isDismissed).length
-      }
+    // Listen for data change events to refresh alerts immediately
+    const handleDataChange = () => {
+      console.log('📡 Data changed, refreshing alerts...')
+      loadAlerts()
     }
 
-    loadRealAlerts()
+    // All data change events that should trigger alert refresh
+    const dataChangeEvents = [
+      'patient-added', 'patient-updated', 'patient-deleted', 'patient-changed',
+      'appointment-added', 'appointment-updated', 'appointment-deleted', 'appointment-changed',
+      'payment-added', 'payment-updated', 'payment-deleted', 'payment-changed',
+      'treatment-added', 'treatment-updated', 'treatment-deleted', 'treatment-changed',
+      'prescription-added', 'prescription-updated', 'prescription-deleted', 'prescription-changed',
+      'inventory-added', 'inventory-updated', 'inventory-deleted', 'inventory-changed'
+    ]
 
-    // Refresh alerts every 60 seconds (reduced frequency for better performance)
-    const interval = setInterval(loadRealAlerts, 60000)
-    return () => clearInterval(interval)
+    // Add event listeners for all data change events
+    dataChangeEvents.forEach(eventName => {
+      window.addEventListener(eventName, handleDataChange)
+    })
+
+    return () => {
+      clearInterval(interval)
+      // Remove all event listeners
+      dataChangeEvents.forEach(eventName => {
+        window.removeEventListener(eventName, handleDataChange)
+      })
+    }
   }, [loadAlerts])
 
   // Filter and sort alerts
@@ -223,7 +181,19 @@ export default function SmartAlerts({
       }
       return true
     })
+    .filter(alert => {
+      // Show read alerts only if showRead is true
+      if (showRead) {
+        return true // Show all alerts (read and unread)
+      } else {
+        return !alert.isRead // Show only unread alerts
+      }
+    })
     .slice(0, maxVisible)
+
+  // Count read and unread alerts for display
+  const readAlertsCount = alerts.filter(alert => alert.isRead && !alert.isDismissed).length
+  const totalAlertsCount = alerts.filter(alert => !alert.isDismissed).length
 
   // Get alert icon
   const getAlertIcon = (alert: SmartAlert) => {
@@ -235,9 +205,13 @@ export default function SmartAlerts({
       case 'treatment':
         return <Activity className="w-4 h-4" />
       case 'prescription':
-        return <FileText className="w-4 h-4" />
+        return <Pill className="w-4 h-4" />
       case 'follow_up':
-        return <Clock className="w-4 h-4" />
+        return <UserCheck className="w-4 h-4" />
+      case 'lab_order':
+        return <FileText className="w-4 h-4" />
+      case 'inventory':
+        return <Package className="w-4 h-4" />
       default:
         return <Bell className="w-4 h-4" />
     }
@@ -364,6 +338,14 @@ export default function SmartAlerts({
           </Button>
         )
         break
+      case 'inventory':
+        actions.push(
+          <Button key="restock" size="sm" variant="outline" className="h-6 text-xs">
+            <Package className="w-3 h-3 mr-1" />
+            تجديد المخزون
+          </Button>
+        )
+        break
     }
 
     // Common actions
@@ -416,10 +398,30 @@ export default function SmartAlerts({
                   {unreadAlertsCount}
                 </Badge>
               )}
+              {showRead && readAlertsCount > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {readAlertsCount} مقروءة
+                </Badge>
+              )}
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={loadAlerts}>
-              <CheckCircle className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <SimpleRealTimeIndicator />
+              <Button
+                variant={showRead ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowRead(!showRead)}
+                className="text-xs"
+              >
+                {showRead ? 'إخفاء المقروءة' : 'عرض المقروءة'}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={loadAlerts}>
+                <CheckCircle className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          {/* إحصائيات التنبيهات */}
+          <div className="text-sm text-muted-foreground mt-2">
+            المجموع: {totalAlertsCount} | غير مقروءة: {unreadAlertsCount} | مقروءة: {readAlertsCount}
           </div>
         </CardHeader>
       )}
@@ -428,7 +430,17 @@ export default function SmartAlerts({
         {visibleAlerts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">لا توجد تنبيهات جديدة</p>
+            <p className="text-sm">
+              {showRead
+                ? (totalAlertsCount === 0 ? 'لا توجد تنبيهات' : 'لا توجد تنبيهات في هذا العرض')
+                : 'لا توجد تنبيهات غير مقروءة'
+              }
+            </p>
+            {!showRead && readAlertsCount > 0 && (
+              <p className="text-xs mt-1">
+                يوجد {readAlertsCount} تنبيه مقروء - اضغط "عرض المقروءة" لرؤيتها
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -470,12 +482,12 @@ export default function SmartAlerts({
 
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">
-                          {formatTimeDistance(new Date(alert.createdAt))}
+                          {formatTimeDistance(alert.createdAt)}
                         </span>
 
                         {alert.dueDate && (
                           <span className="text-xs text-muted-foreground">
-                            📅 {new Date(alert.dueDate).toLocaleDateString('ar-EG')}
+                            📅 {formatSafeDate(alert.dueDate)}
                           </span>
                         )}
                       </div>

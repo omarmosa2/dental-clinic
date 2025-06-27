@@ -31,7 +31,7 @@ export default function GlobalSearch({
   onResultSelect,
   onClose,
   autoFocus = true,
-  placeholder = "🔍 ابحث في المرضى، المواعيد، الدفعات، العلاجات... (Ctrl+K)"
+  placeholder = "🔍 ابحث في المرضى، المواعيد، الدفعات، العلاجات... (F)"
 }: GlobalSearchProps) {
   const {
     globalSearchQuery,
@@ -48,6 +48,7 @@ export default function GlobalSearch({
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Auto focus on mount
   useEffect(() => {
@@ -55,6 +56,20 @@ export default function GlobalSearch({
       searchInputRef.current.focus()
     }
   }, [autoFocus])
+
+  // Handle click outside to close search
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        handleClose()
+      }
+    }
+
+    if (showResults) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showResults])
 
   // Handle search
   const handleSearch = async (query: string) => {
@@ -292,7 +307,7 @@ export default function GlobalSearch({
   }
 
   return (
-    <div className="relative w-full max-w-2xl mx-auto">
+    <div ref={containerRef} className="relative w-full max-w-2xl mx-auto">
       {/* Search Input */}
       <div className="relative">
         <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />

@@ -4,6 +4,7 @@ import { useAppointmentStore } from './store/appointmentStore'
 import { useSettingsStore } from './store/settingsStore'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import { useRealTimeSync } from './hooks/useRealTimeSync'
+import { useRealTimeTableSync } from './hooks/useRealTimeTableSync'
 import { useAuth } from './hooks/useAuth'
 import { useLicense } from './hooks/useLicense'
 import { useSystemShortcuts } from './hooks/useKeyboardShortcuts'
@@ -177,7 +178,10 @@ function AppContent() {
       if (enhanced.mappedKey.toLowerCase() === 'f') {
         enhanced.preventDefault()
         console.log('🎯 Shortcut F/ب pressed - Opening search')
-        // يمكن إضافة منطق البحث هنا حسب الصفحة الحالية
+        // فتح البحث العام في لوحة التحكم
+        if (activeTab === 'dashboard') {
+          // سيتم التعامل مع هذا في EnhancedDashboard
+        }
       }
 
 
@@ -241,6 +245,10 @@ function AppContent() {
   const {
     loadSettings
   } = useSettingsStore()
+
+  // Real-time sync hooks
+  useRealTimeSync()
+  useRealTimeTableSync()
 
   useEffect(() => {
     // Initialize app only if both license is valid AND authenticated

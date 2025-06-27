@@ -113,8 +113,15 @@ export const useAppointmentStore = create<AppointmentStore>()(
           // Update calendar events
           get().convertToCalendarEvents()
 
-          // Emit event for real-time sync
+          // Emit events for real-time sync
           if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('appointment-added', {
+              detail: {
+                type: 'created',
+                appointmentId: newAppointment.id,
+                appointment: newAppointment
+              }
+            }))
             window.dispatchEvent(new CustomEvent('appointment-changed', {
               detail: {
                 type: 'created',
@@ -135,6 +142,15 @@ export const useAppointmentStore = create<AppointmentStore>()(
         set({ isLoading: true, error: null })
         try {
           console.log('🏪 Store: Updating appointment:', { id, appointmentData })
+
+          // حذف التنبيهات القديمة المرتبطة بهذا الموعد قبل التحديث
+          try {
+            const { SmartAlertsService } = await import('@/services/smartAlertsService')
+            await SmartAlertsService.deleteAppointmentAlerts(id)
+          } catch (error) {
+            console.warn('Could not delete old appointment alerts:', error)
+          }
+
           const updatedAppointment = await window.electronAPI.appointments.update(id, appointmentData)
           console.log('🏪 Store: Received updated appointment:', updatedAppointment)
 
@@ -159,8 +175,15 @@ export const useAppointmentStore = create<AppointmentStore>()(
           // Reload appointments to ensure we have the latest data with patient info
           await get().loadAppointments()
 
-          // Emit event for real-time sync
+          // Emit events for real-time sync
           if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('appointment-updated', {
+              detail: {
+                type: 'updated',
+                appointmentId: id,
+                appointment: updatedAppointment
+              }
+            }))
             window.dispatchEvent(new CustomEvent('appointment-changed', {
               detail: {
                 type: 'updated',
@@ -197,8 +220,14 @@ export const useAppointmentStore = create<AppointmentStore>()(
             // Update calendar events
             get().convertToCalendarEvents()
 
-            // Emit event for real-time sync
+            // Emit events for real-time sync
             if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('appointment-deleted', {
+                detail: {
+                  type: 'deleted',
+                  appointmentId: id
+                }
+              }))
               window.dispatchEvent(new CustomEvent('appointment-changed', {
                 detail: {
                   type: 'deleted',

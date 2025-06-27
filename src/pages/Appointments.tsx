@@ -14,6 +14,7 @@ import { usePatientStore } from '@/store/patientStore'
 import { useToast } from '@/hooks/use-toast'
 import { formatDate, formatDateTime, formatTime, getStatusColor } from '@/lib/utils'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
+import { useRealTimeTableSync } from '@/hooks/useRealTimeTableSync'
 import { Calendar, Plus, ChevronLeft, ChevronRight, Clock, User, RefreshCw, Download, Table, Search, Filter, X, CalendarDays } from 'lucide-react'
 import AppointmentTable from '@/components/appointments/AppointmentTable'
 import { notify } from '@/services/notificationService'
@@ -50,6 +51,7 @@ const getStatusInArabic = (status: string) => {
 export default function Appointments() {
   // Enable real-time synchronization for automatic updates
   useRealTimeSync()
+  useRealTimeTableSync()
 
   const {
     appointments,

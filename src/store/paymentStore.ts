@@ -178,6 +178,14 @@ export const usePaymentStore = create<PaymentStore>()(
       updatePayment: async (id, paymentData) => {
         set({ isLoading: true, error: null })
         try {
+          // حذف التنبيهات القديمة المرتبطة بهذه الدفعة قبل التحديث
+          try {
+            const { SmartAlertsService } = await import('@/services/smartAlertsService')
+            await SmartAlertsService.deletePaymentAlerts(id)
+          } catch (error) {
+            console.warn('Could not delete old payment alerts:', error)
+          }
+
           const updatedPayment = await window.electronAPI.payments.update(id, paymentData)
           const { payments, selectedPayment } = get()
 

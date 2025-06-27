@@ -212,13 +212,7 @@ export interface CalendarEvent {
   resource?: Appointment
 }
 
-export interface SearchResult {
-  type: 'patient' | 'appointment' | 'payment'
-  id: string
-  title: string
-  subtitle: string
-  data: Patient | Appointment | Payment
-}
+
 
 // Medication and Prescription Types
 export interface Medication {
@@ -670,7 +664,7 @@ export interface SearchCriteria {
 // Smart Alerts Types
 export interface SmartAlert {
   id: string
-  type: 'appointment' | 'payment' | 'treatment' | 'follow_up' | 'prescription' | 'lab_order'
+  type: 'appointment' | 'payment' | 'treatment' | 'follow_up' | 'prescription' | 'lab_order' | 'inventory'
   priority: 'high' | 'medium' | 'low'
   title: string
   description: string
@@ -682,6 +676,7 @@ export interface SmartAlert {
     treatmentId?: string
     prescriptionId?: string
     labOrderId?: string
+    inventoryId?: string
   }
   actionRequired: boolean
   dueDate?: string

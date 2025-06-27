@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
+import { useRealTimeTableSync } from '@/hooks/useRealTimeTableSync'
 import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
 import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import AddPaymentDialog from '@/components/payments/AddPaymentDialog'
@@ -40,6 +41,7 @@ import { notify } from '@/services/notificationService'
 export default function Payments() {
   // Enable real-time synchronization for automatic updates
   useRealTimeSync()
+  useRealTimeTableSync()
 
   const { toast } = useToast()
   const [showAddDialog, setShowAddDialog] = useState(false)

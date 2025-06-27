@@ -208,7 +208,7 @@ export const defaultShortcuts = {
 
   search: {
     key: 'f',
-    description: 'بحث في الصفحة',
+    description: 'البحث العام',
     arabicKey: 'ب',
     category: 'بحث'
   }

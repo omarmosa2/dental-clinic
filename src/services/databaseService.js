@@ -3503,7 +3503,7 @@ class DatabaseService {
       this.db.exec(`
         CREATE TABLE IF NOT EXISTS smart_alerts (
           id TEXT PRIMARY KEY,
-          type TEXT NOT NULL CHECK (type IN ('appointment', 'payment', 'treatment', 'follow_up', 'prescription', 'lab_order')),
+          type TEXT NOT NULL CHECK (type IN ('appointment', 'payment', 'treatment', 'follow_up', 'prescription', 'lab_order', 'inventory')),
           priority TEXT NOT NULL CHECK (priority IN ('high', 'medium', 'low')),
           title TEXT NOT NULL,
           description TEXT NOT NULL,

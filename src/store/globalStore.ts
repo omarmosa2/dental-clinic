@@ -45,6 +45,7 @@ interface GlobalState {
   showGlobalSearch: boolean
   showQuickAccess: boolean
   showAlerts: boolean
+  eventListenersSetup: boolean
 }
 
 interface GlobalActions {
@@ -89,7 +90,31 @@ type GlobalStore = GlobalState & GlobalActions
 
 export const useGlobalStore = create<GlobalStore>()(
   devtools(
-    (set, get) => ({
+    (set, get) => {
+      // Listen for data change events to refresh alerts automatically
+      if (typeof window !== 'undefined') {
+        const handleDataChange = () => {
+          console.log('🔄 Global Store: Data changed, refreshing alerts...')
+          get().loadAlerts()
+        }
+
+        const dataChangeEvents = [
+          'patient-added', 'patient-updated', 'patient-deleted', 'patient-changed',
+          'appointment-added', 'appointment-updated', 'appointment-deleted', 'appointment-changed',
+          'payment-added', 'payment-updated', 'payment-deleted', 'payment-changed',
+          'treatment-added', 'treatment-updated', 'treatment-deleted', 'treatment-changed',
+          'prescription-added', 'prescription-updated', 'prescription-deleted', 'prescription-changed',
+          'inventory-added', 'inventory-updated', 'inventory-deleted', 'inventory-changed'
+        ]
+
+        dataChangeEvents.forEach(eventName => {
+          window.addEventListener(eventName, handleDataChange)
+        })
+      }
+
+
+
+      return {
       // Initial State
       globalSearchQuery: '',
       globalSearchResults: null,
@@ -115,6 +140,7 @@ export const useGlobalStore = create<GlobalStore>()(
       showGlobalSearch: false,
       showQuickAccess: true,
       showAlerts: true,
+      eventListenersSetup: false,
 
       // Search Actions
       setGlobalSearchQuery: (query: string) => {
@@ -174,18 +200,26 @@ export const useGlobalStore = create<GlobalStore>()(
         set({ isLoadingAlerts: true, error: null })
         try {
           const alerts = await SmartAlertsService.getAllAlerts()
-          const unreadCount = alerts.filter(alert => !alert.isRead).length
+          // حساب التنبيهات غير المقروءة والغير مخفية
+          const unreadCount = alerts.filter(alert => !alert.isRead && !alert.isDismissed).length
+
+          console.log('📊 Loaded alerts:', alerts.length, 'unread:', unreadCount)
+          console.log('📋 Alert details:', alerts.map(a => ({ id: a.id, title: a.title, isRead: a.isRead, isDismissed: a.isDismissed })))
 
           set({
             alerts,
             unreadAlertsCount: unreadCount,
             isLoadingAlerts: false
           })
+
+
         } catch (error) {
           console.error('Load alerts error:', error)
           set({
             error: error instanceof Error ? error.message : 'فشل في تحميل التنبيهات',
-            isLoadingAlerts: false
+            isLoadingAlerts: false,
+            alerts: [],
+            unreadAlertsCount: 0
           })
         }
       },
@@ -193,17 +227,7 @@ export const useGlobalStore = create<GlobalStore>()(
       markAlertAsRead: async (alertId: string) => {
         try {
           await SmartAlertsService.updateAlert(alertId, { isRead: true })
-
-          const { alerts } = get()
-          const updatedAlerts = alerts.map(alert =>
-            alert.id === alertId ? { ...alert, isRead: true } : alert
-          )
-          const unreadCount = updatedAlerts.filter(alert => !alert.isRead).length
-
-          set({
-            alerts: updatedAlerts,
-            unreadAlertsCount: unreadCount
-          })
+          // التحديث سيتم تلقائياً عبر نظام الأحداث
         } catch (error) {
           console.error('Mark alert as read error:', error)
         }
@@ -212,13 +236,7 @@ export const useGlobalStore = create<GlobalStore>()(
       dismissAlert: async (alertId: string) => {
         try {
           await SmartAlertsService.updateAlert(alertId, { isDismissed: true })
-
-          const { alerts } = get()
-          const updatedAlerts = alerts.map(alert =>
-            alert.id === alertId ? { ...alert, isDismissed: true } : alert
-          )
-
-          set({ alerts: updatedAlerts })
+          // التحديث سيتم تلقائياً عبر نظام الأحداث
         } catch (error) {
           console.error('Dismiss alert error:', error)
         }
@@ -227,13 +245,7 @@ export const useGlobalStore = create<GlobalStore>()(
       snoozeAlert: async (alertId: string, snoozeUntil: string) => {
         try {
           await SmartAlertsService.updateAlert(alertId, { snoozeUntil })
-
-          const { alerts } = get()
-          const updatedAlerts = alerts.map(alert =>
-            alert.id === alertId ? { ...alert, snoozeUntil } : alert
-          )
-
-          set({ alerts: updatedAlerts })
+          // التحديث سيتم تلقائياً عبر نظام الأحداث
         } catch (error) {
           console.error('Snooze alert error:', error)
         }
@@ -241,12 +253,8 @@ export const useGlobalStore = create<GlobalStore>()(
 
       createAlert: async (alert: Omit<SmartAlert, 'id' | 'createdAt'>) => {
         try {
-          const newAlert = await SmartAlertsService.createAlert(alert)
-          const { alerts, unreadAlertsCount } = get()
-          set({
-            alerts: [newAlert, ...alerts],
-            unreadAlertsCount: unreadAlertsCount + 1
-          })
+          await SmartAlertsService.createAlert(alert)
+          // التحديث سيتم تلقائياً عبر نظام الأحداث
         } catch (error) {
           console.error('Create alert error:', error)
         }
@@ -354,7 +362,8 @@ export const useGlobalStore = create<GlobalStore>()(
       toggleAlerts: () => {
         set(state => ({ showAlerts: !state.showAlerts }))
       }
-    }),
+      }
+    },
     {
       name: 'global-store'
     }

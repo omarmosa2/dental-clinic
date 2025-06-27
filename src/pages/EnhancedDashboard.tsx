@@ -20,6 +20,7 @@ import SmartAlerts from '@/components/global/SmartAlerts'
 import QuickAccessDashboard from '@/components/global/QuickAccessDashboard'
 import ElegantShortcutsDisplay from '@/components/help/ElegantShortcutsDisplay'
 import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
+import { FullRealTimeIndicator } from '@/components/global/RealTimeIndicator'
 import { useGlobalStore } from '@/store/globalStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useStableClinicName } from '@/hooks/useStableSettings'
@@ -184,8 +185,8 @@ export default function EnhancedDashboard({
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+K for global search
-      if (e.ctrlKey && e.key === 'k') {
+      // F for global search (دعم الحرف العربي ب)
+      if ((e.key === 'f' || e.key === 'F' || e.key === 'ب') && !e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault()
         setShowGlobalSearch(true)
       }
@@ -227,6 +228,9 @@ export default function EnhancedDashboard({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Real-time Updates Indicator */}
+          <FullRealTimeIndicator />
+
           {/* Global Search Toggle */}
           <Button
             variant="outline"
@@ -235,7 +239,7 @@ export default function EnhancedDashboard({
           >
             <Search className="w-4 h-4 mr-2" />
             بحث شامل
-            <span className="text-xs text-muted-foreground ml-2">(Ctrl+K)</span>
+            <span className="text-xs text-muted-foreground ml-2">(F)</span>
           </Button>
 
           {/* Alerts Indicator */}
@@ -353,6 +357,7 @@ export default function EnhancedDashboard({
             maxVisible={20}
             showHeader={true}
             compact={false}
+            showReadAlerts={true}
             onAlertClick={(alert) => {
               handleAlertClick(alert)
             }}

@@ -118,6 +118,24 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
         set({ toothTreatments: refreshedTreatments })
       }
 
+      // Emit events for real-time sync
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('treatment-added', {
+          detail: {
+            type: 'created',
+            treatmentId: newTreatment.id,
+            treatment: newTreatment
+          }
+        }))
+        window.dispatchEvent(new CustomEvent('treatment-changed', {
+          detail: {
+            type: 'created',
+            treatmentId: newTreatment.id,
+            treatment: newTreatment
+          }
+        }))
+      }
+
       return newTreatment
     } catch (error) {
       set({
@@ -145,6 +163,24 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
         const refreshedTreatments = await window.electronAPI.toothTreatments.getByPatient(selectedPatientId)
         set({ toothTreatments: refreshedTreatments })
       }
+
+      // Emit events for real-time sync
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('treatment-updated', {
+          detail: {
+            type: 'updated',
+            treatmentId: id,
+            updates: updates
+          }
+        }))
+        window.dispatchEvent(new CustomEvent('treatment-changed', {
+          detail: {
+            type: 'updated',
+            treatmentId: id,
+            updates: updates
+          }
+        }))
+      }
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to update tooth treatment',
@@ -163,6 +199,22 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
         toothTreatments: toothTreatments.filter(treatment => treatment.id !== id),
         isLoading: false
       })
+
+      // Emit events for real-time sync
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('treatment-deleted', {
+          detail: {
+            type: 'deleted',
+            treatmentId: id
+          }
+        }))
+        window.dispatchEvent(new CustomEvent('treatment-changed', {
+          detail: {
+            type: 'deleted',
+            treatmentId: id
+          }
+        }))
+      }
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to delete tooth treatment',

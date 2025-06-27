@@ -95,6 +95,13 @@ export const usePatientStore = create<PatientStore>()(
                 patientName: newPatient.full_name || 'New Patient'
               }
             }))
+            window.dispatchEvent(new CustomEvent('patient-changed', {
+              detail: {
+                type: 'created',
+                patientId: newPatient.id,
+                patientName: newPatient.full_name || 'New Patient'
+              }
+            }))
           }
         } catch (error) {
           set({
@@ -127,6 +134,13 @@ export const usePatientStore = create<PatientStore>()(
           if (typeof window !== 'undefined' && window.dispatchEvent) {
             window.dispatchEvent(new CustomEvent('patient-updated', {
               detail: {
+                patientId: id,
+                patientName: updatedPatient.full_name || 'Updated Patient'
+              }
+            }))
+            window.dispatchEvent(new CustomEvent('patient-changed', {
+              detail: {
+                type: 'updated',
                 patientId: id,
                 patientName: updatedPatient.full_name || 'Updated Patient'
               }

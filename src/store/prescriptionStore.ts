@@ -89,6 +89,24 @@ export const usePrescriptionStore = create<PrescriptionStore>()(
           if (newPrescription) {
             // Reload all prescriptions to ensure proper data population
             await get().loadPrescriptions()
+
+            // Emit events for real-time sync
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('prescription-added', {
+                detail: {
+                  type: 'created',
+                  prescriptionId: newPrescription.id,
+                  prescription: newPrescription
+                }
+              }))
+              window.dispatchEvent(new CustomEvent('prescription-changed', {
+                detail: {
+                  type: 'created',
+                  prescriptionId: newPrescription.id,
+                  prescription: newPrescription
+                }
+              }))
+            }
           }
         } catch (error) {
           console.error('Error creating prescription:', error)
@@ -107,6 +125,24 @@ export const usePrescriptionStore = create<PrescriptionStore>()(
           if (updatedPrescription) {
             // Reload all prescriptions to ensure proper data population
             await get().loadPrescriptions()
+
+            // Emit events for real-time sync
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('prescription-updated', {
+                detail: {
+                  type: 'updated',
+                  prescriptionId: id,
+                  prescription: updatedPrescription
+                }
+              }))
+              window.dispatchEvent(new CustomEvent('prescription-changed', {
+                detail: {
+                  type: 'updated',
+                  prescriptionId: id,
+                  prescription: updatedPrescription
+                }
+              }))
+            }
           }
         } catch (error) {
           console.error('Error updating prescription:', error)
@@ -132,6 +168,22 @@ export const usePrescriptionStore = create<PrescriptionStore>()(
             })
             get().calculateStatistics()
             get().filterPrescriptions()
+
+            // Emit events for real-time sync
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('prescription-deleted', {
+                detail: {
+                  type: 'deleted',
+                  prescriptionId: id
+                }
+              }))
+              window.dispatchEvent(new CustomEvent('prescription-changed', {
+                detail: {
+                  type: 'deleted',
+                  prescriptionId: id
+                }
+              }))
+            }
           }
         } catch (error) {
           console.error('Error deleting prescription:', error)
@@ -170,7 +222,7 @@ export const usePrescriptionStore = create<PrescriptionStore>()(
 
       filterPrescriptions: () => {
         const { prescriptions, searchQuery, patientFilter, dateRangeFilter } = get()
-        
+
         let filtered = [...prescriptions]
 
         // Apply search filter
@@ -179,7 +231,7 @@ export const usePrescriptionStore = create<PrescriptionStore>()(
             prescription.patient?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             prescription.appointment?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             prescription.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            prescription.medications?.some(med => 
+            prescription.medications?.some(med =>
               med.medication_name?.toLowerCase().includes(searchQuery.toLowerCase())
             )
           )
@@ -215,13 +267,13 @@ export const usePrescriptionStore = create<PrescriptionStore>()(
       // Analytics
       calculateStatistics: () => {
         const { prescriptions } = get()
-        
+
         const totalPrescriptions = prescriptions.length
-        
+
         // Calculate recent prescriptions (last 30 days)
         const thirtyDaysAgo = new Date()
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-        
+
         const recentPrescriptions = prescriptions.filter(prescription => {
           const prescriptionDate = new Date(prescription.prescription_date)
           return prescriptionDate >= thirtyDaysAgo
