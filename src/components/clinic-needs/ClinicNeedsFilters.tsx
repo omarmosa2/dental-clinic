@@ -131,42 +131,6 @@ const ClinicNeedsFilters: React.FC<ClinicNeedsFiltersProps> = ({
           </Select>
         </div>
 
-        {/* Quick Filter Buttons */}
-        <div className="flex flex-wrap gap-2 mt-4">
-          <Button
-            variant={filters.priority === 'urgent' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onFilterChange('priority', filters.priority === 'urgent' ? 'all' : 'urgent')}
-            className="text-xs"
-          >
-            العاجل فقط
-          </Button>
-          <Button
-            variant={filters.status === 'pending' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onFilterChange('status', filters.status === 'pending' ? 'all' : 'pending')}
-            className="text-xs"
-          >
-            المعلق فقط
-          </Button>
-          <Button
-            variant={filters.status === 'ordered' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onFilterChange('status', filters.status === 'ordered' ? 'all' : 'ordered')}
-            className="text-xs"
-          >
-            المطلوب فقط
-          </Button>
-          <Button
-            variant={filters.category === 'أدوات طبية' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onFilterChange('category', filters.category === 'أدوات طبية' ? 'all' : 'أدوات طبية')}
-            className="text-xs"
-          >
-            أدوات طبية
-          </Button>
-        </div>
-
         {/* Filter Summary */}
         {hasActiveFilters && (
           <div className="mt-4 p-3 bg-muted/50 rounded-lg">

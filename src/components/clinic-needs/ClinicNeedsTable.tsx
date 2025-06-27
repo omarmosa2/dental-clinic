@@ -116,11 +116,11 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {needs.map((need) => (
+          {needs.map((need, index) => (
             <TableRow key={need.id} className="hover:bg-muted/50">
               <TableCell className="font-medium">
                 <span className="text-sm text-muted-foreground">
-                  #{need.serial_number}
+                  #{index + 1}
                 </span>
               </TableCell>
 
