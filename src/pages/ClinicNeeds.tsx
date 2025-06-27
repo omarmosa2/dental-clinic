@@ -17,6 +17,7 @@ import DeleteClinicNeedDialog from '../components/clinic-needs/DeleteClinicNeedD
 import ClinicNeedsTable from '../components/clinic-needs/ClinicNeedsTable'
 import ExportClinicNeedsButton from '../components/clinic-needs/ExportClinicNeedsButton'
 import ClinicNeedsFilters from '../components/clinic-needs/ClinicNeedsFilters'
+import { useToast } from '@/hooks/use-toast'
 import type { ClinicNeed } from '../types'
 
 const ClinicNeeds: React.FC = () => {
@@ -41,6 +42,7 @@ const ClinicNeeds: React.FC = () => {
     clearError
   } = useClinicNeedsStore()
 
+  const { toast } = useToast()
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingNeed, setEditingNeed] = useState<ClinicNeed | null>(null)
@@ -74,6 +76,22 @@ const ClinicNeeds: React.FC = () => {
   const handleDelete = (need: ClinicNeed) => {
     setDeletingNeed(need)
     setShowDeleteDialog(true)
+  }
+
+  const handleReceiveAndDelete = async (need: ClinicNeed) => {
+    try {
+      await deleteNeed(need.id)
+      toast({
+        title: "تم تأكيد الاستلام",
+        description: `تم تأكيد استلام "${need.need_name}" وحذفه من النظام`,
+      })
+    } catch (error) {
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ أثناء تأكيد الاستلام",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleCloseAddDialog = () => {
@@ -203,6 +221,7 @@ const ClinicNeeds: React.FC = () => {
             needs={filteredNeeds}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onReceiveAndDelete={handleReceiveAndDelete}
             isLoading={isLoading}
           />
         </CardContent>

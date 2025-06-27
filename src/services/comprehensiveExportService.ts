@@ -367,7 +367,6 @@ export class ComprehensiveExportService {
         let patientTotalPaid = 0
 
         // حساب المدفوعات المرتبطة بالمواعيد
-        const patientAppointments = appointments.filter(apt => apt.patient_id === patient.id)
         patientAppointments.forEach(appointment => {
           if (appointment.cost) {
             const appointmentPayments = patientPayments.filter(p => p.appointment_id === appointment.id)

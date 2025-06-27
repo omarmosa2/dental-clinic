@@ -9,14 +9,15 @@ import {
 } from '../ui/table'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
-import { 
-  Edit, 
-  Trash2, 
-  Clock, 
-  ShoppingCart, 
-  CheckCircle, 
+import {
+  Edit,
+  Trash2,
+  Clock,
+  ShoppingCart,
+  CheckCircle,
   AlertTriangle,
-  Package
+  Package,
+  Check
 } from 'lucide-react'
 import { formatCurrency } from '../../lib/utils'
 import type { ClinicNeed } from '../../types'
@@ -25,6 +26,7 @@ interface ClinicNeedsTableProps {
   needs: ClinicNeed[]
   onEdit: (need: ClinicNeed) => void
   onDelete: (need: ClinicNeed) => void
+  onReceiveAndDelete: (need: ClinicNeed) => void
   isLoading?: boolean
 }
 
@@ -32,6 +34,7 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
   needs,
   onEdit,
   onDelete,
+  onReceiveAndDelete,
   isLoading = false
 }) => {
   const getStatusBadge = (status: string) => {
@@ -41,10 +44,10 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
       received: { label: 'مستلم', variant: 'default' as const, icon: CheckCircle },
       cancelled: { label: 'ملغي', variant: 'destructive' as const, icon: AlertTriangle }
     }
-    
+
     const config = statusConfig[status as keyof typeof statusConfig]
     if (!config) return null
-    
+
     const Icon = config.icon
     return (
       <Badge variant={config.variant} className="flex items-center gap-1 w-fit">
@@ -61,10 +64,10 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
       high: { label: 'عالي', variant: 'default' as const, color: 'bg-orange-100 text-orange-800' },
       urgent: { label: 'عاجل', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' }
     }
-    
+
     const config = priorityConfig[priority as keyof typeof priorityConfig]
     if (!config) return null
-    
+
     return (
       <Badge variant={config.variant} className={`${config.color} w-fit`}>
         {config.label}
@@ -120,7 +123,7 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
                   #{need.serial_number}
                 </span>
               </TableCell>
-              
+
               <TableCell>
                 <div>
                   <div className="font-medium">{need.need_name}</div>
@@ -131,21 +134,21 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
                   )}
                 </div>
               </TableCell>
-              
+
               <TableCell>
                 <span className="font-medium">{need.quantity}</span>
               </TableCell>
-              
+
               <TableCell>
                 <span className="font-medium">{formatCurrency(need.price)}</span>
               </TableCell>
-              
+
               <TableCell>
                 <span className="font-bold text-primary">
                   {formatCurrency(need.price * need.quantity)}
                 </span>
               </TableCell>
-              
+
               <TableCell>
                 {need.category && (
                   <Badge variant="outline" className="w-fit">
@@ -153,23 +156,34 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
                   </Badge>
                 )}
               </TableCell>
-              
+
               <TableCell>
                 {getPriorityBadge(need.priority)}
               </TableCell>
-              
+
               <TableCell>
                 {getStatusBadge(need.status)}
               </TableCell>
-              
+
               <TableCell>
                 {need.supplier && (
                   <span className="text-sm">{need.supplier}</span>
                 )}
               </TableCell>
-              
+
               <TableCell>
                 <div className="flex items-center gap-2">
+                  {/* زر تأكيد الاستلام والحذف */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onReceiveAndDelete(need)}
+                    className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                    title="تأكيد الاستلام وحذف الاحتياج"
+                  >
+                    <Check className="h-4 w-4" />
+                  </Button>
+
                   <Button
                     variant="ghost"
                     size="sm"
