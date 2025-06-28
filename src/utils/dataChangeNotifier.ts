@@ -3,7 +3,7 @@
  * يرسل أحداث عند تغيير أي بيانات في النظام لضمان التحديث في الوقت الفعلي
  */
 
-export type DataChangeEvent = 
+export type DataChangeEvent =
   | 'patient:created' | 'patient:updated' | 'patient:deleted'
   | 'appointment:created' | 'appointment:updated' | 'appointment:deleted'
   | 'payment:created' | 'payment:updated' | 'payment:deleted'
@@ -11,6 +11,10 @@ export type DataChangeEvent =
   | 'prescription:created' | 'prescription:updated' | 'prescription:deleted'
   | 'inventory:created' | 'inventory:updated' | 'inventory:deleted'
   | 'need:created' | 'need:updated' | 'need:deleted'
+  | 'lab_order:created' | 'lab_order:updated' | 'lab_order:deleted'
+  | 'clinic_need:created' | 'clinic_need:updated' | 'clinic_need:deleted'
+  | 'medication:created' | 'medication:updated' | 'medication:deleted'
+  | 'lab:created' | 'lab:updated' | 'lab:deleted'
 
 export interface DataChangePayload {
   id: string
@@ -91,8 +95,8 @@ export class DataChangeNotifier {
    */
   private static notifyAlertsSystem(event: DataChangeEvent, payload: DataChangePayload) {
     // إرسال حدث عام لتحديث التنبيهات
-    window.dispatchEvent(new CustomEvent('alerts:data-changed', { 
-      detail: { event, payload } 
+    window.dispatchEvent(new CustomEvent('alerts:data-changed', {
+      detail: { event, payload }
     }))
 
     // إرسال حدث مباشر لنظام التنبيهات
@@ -315,6 +319,114 @@ export const notifyNeedDeleted = (id: string) => {
   DataChangeNotifier.emit('need:deleted', {
     id,
     type: 'need',
+    timestamp: new Date().toISOString()
+  })
+}
+
+// أحداث طلبات المختبرات
+export const notifyLabOrderCreated = (id: string, data?: any) => {
+  DataChangeNotifier.emit('lab_order:created', {
+    id,
+    type: 'lab_order',
+    data,
+    timestamp: new Date().toISOString()
+  })
+}
+
+export const notifyLabOrderUpdated = (id: string, data?: any) => {
+  DataChangeNotifier.emit('lab_order:updated', {
+    id,
+    type: 'lab_order',
+    data,
+    timestamp: new Date().toISOString()
+  })
+}
+
+export const notifyLabOrderDeleted = (id: string) => {
+  DataChangeNotifier.emit('lab_order:deleted', {
+    id,
+    type: 'lab_order',
+    timestamp: new Date().toISOString()
+  })
+}
+
+// أحداث احتياجات العيادة
+export const notifyClinicNeedCreated = (id: string, data?: any) => {
+  DataChangeNotifier.emit('clinic_need:created', {
+    id,
+    type: 'clinic_need',
+    data,
+    timestamp: new Date().toISOString()
+  })
+}
+
+export const notifyClinicNeedUpdated = (id: string, data?: any) => {
+  DataChangeNotifier.emit('clinic_need:updated', {
+    id,
+    type: 'clinic_need',
+    data,
+    timestamp: new Date().toISOString()
+  })
+}
+
+export const notifyClinicNeedDeleted = (id: string) => {
+  DataChangeNotifier.emit('clinic_need:deleted', {
+    id,
+    type: 'clinic_need',
+    timestamp: new Date().toISOString()
+  })
+}
+
+// أحداث الأدوية
+export const notifyMedicationCreated = (id: string, data?: any) => {
+  DataChangeNotifier.emit('medication:created', {
+    id,
+    type: 'medication',
+    data,
+    timestamp: new Date().toISOString()
+  })
+}
+
+export const notifyMedicationUpdated = (id: string, data?: any) => {
+  DataChangeNotifier.emit('medication:updated', {
+    id,
+    type: 'medication',
+    data,
+    timestamp: new Date().toISOString()
+  })
+}
+
+export const notifyMedicationDeleted = (id: string) => {
+  DataChangeNotifier.emit('medication:deleted', {
+    id,
+    type: 'medication',
+    timestamp: new Date().toISOString()
+  })
+}
+
+// أحداث المختبرات
+export const notifyLabCreated = (id: string, data?: any) => {
+  DataChangeNotifier.emit('lab:created', {
+    id,
+    type: 'lab',
+    data,
+    timestamp: new Date().toISOString()
+  })
+}
+
+export const notifyLabUpdated = (id: string, data?: any) => {
+  DataChangeNotifier.emit('lab:updated', {
+    id,
+    type: 'lab',
+    data,
+    timestamp: new Date().toISOString()
+  })
+}
+
+export const notifyLabDeleted = (id: string) => {
+  DataChangeNotifier.emit('lab:deleted', {
+    id,
+    type: 'lab',
     timestamp: new Date().toISOString()
   })
 }

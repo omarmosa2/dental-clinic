@@ -22,15 +22,17 @@ export const getCardStyles = (color: string) => {
     case "emerald":
       return `${baseStyles} card-emerald`
     case "cyan":
-      return `${baseStyles} bg-cyan-50 dark:bg-cyan-950 border-cyan-200 dark:border-cyan-800`
+      return `${baseStyles} card-cyan`
     case "indigo":
-      return `${baseStyles} bg-indigo-50 dark:bg-indigo-950 border-indigo-200 dark:border-indigo-800`
+      return `${baseStyles} card-indigo`
     case "pink":
       return `${baseStyles} bg-pink-50 dark:bg-pink-950 border-pink-200 dark:border-pink-800`
     case "slate":
       return `${baseStyles} bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800`
+    case "gray":
+      return `${baseStyles} card-gray`
     default:
-      return `${baseStyles} bg-gray-50 dark:bg-gray-950 border-gray-200 dark:border-gray-800`
+      return `${baseStyles} card-gray`
   }
 }
 

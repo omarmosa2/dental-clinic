@@ -24,7 +24,10 @@ import {
   Eye,
   Package,
   Pill,
-  UserCheck
+  UserCheck,
+  CreditCard,
+  User,
+  RefreshCw
 } from 'lucide-react'
 import { useGlobalStore } from '@/store/globalStore'
 import { SmartAlertsService } from '@/services/smartAlertsService'
@@ -333,6 +336,14 @@ export default function SmartAlerts({
             اتصال
           </Button>
         )
+        if (alert.relatedData?.appointmentId) {
+          actions.push(
+            <Button key="reschedule" size="sm" variant="outline" className="h-6 text-xs">
+              <Calendar className="w-3 h-3 mr-1" />
+              إعادة جدولة
+            </Button>
+          )
+        }
         break
       case 'payment':
         actions.push(
@@ -341,6 +352,14 @@ export default function SmartAlerts({
             تحصيل
           </Button>
         )
+        if (alert.relatedData?.paymentId) {
+          actions.push(
+            <Button key="installment" size="sm" variant="outline" className="h-6 text-xs">
+              <CreditCard className="w-3 h-3 mr-1" />
+              تقسيط
+            </Button>
+          )
+        }
         break
       case 'treatment':
         actions.push(
@@ -349,6 +368,14 @@ export default function SmartAlerts({
             جدولة
           </Button>
         )
+        if (alert.patientId) {
+          actions.push(
+            <Button key="view-patient" size="sm" variant="outline" className="h-6 text-xs">
+              <User className="w-3 h-3 mr-1" />
+              ملف المريض
+            </Button>
+          )
+        }
         break
       case 'inventory':
         actions.push(
@@ -357,6 +384,64 @@ export default function SmartAlerts({
             تجديد المخزون
           </Button>
         )
+        if (alert.relatedData?.inventoryId) {
+          actions.push(
+            <Button key="view-item" size="sm" variant="outline" className="h-6 text-xs">
+              <Eye className="w-3 h-3 mr-1" />
+              عرض العنصر
+            </Button>
+          )
+        }
+        break
+      case 'lab_order':
+        actions.push(
+          <Button key="contact-lab" size="sm" variant="outline" className="h-6 text-xs">
+            <Phone className="w-3 h-3 mr-1" />
+            اتصال بالمختبر
+          </Button>
+        )
+        if (alert.relatedData?.labOrderId) {
+          actions.push(
+            <Button key="update-status" size="sm" variant="outline" className="h-6 text-xs">
+              <RefreshCw className="w-3 h-3 mr-1" />
+              تحديث الحالة
+            </Button>
+          )
+        }
+        break
+      case 'prescription':
+        if (alert.patientId) {
+          actions.push(
+            <Button key="call-patient" size="sm" variant="outline" className="h-6 text-xs">
+              <Phone className="w-3 h-3 mr-1" />
+              اتصال بالمريض
+            </Button>
+          )
+        }
+        if (alert.relatedData?.prescriptionId) {
+          actions.push(
+            <Button key="view-prescription" size="sm" variant="outline" className="h-6 text-xs">
+              <FileText className="w-3 h-3 mr-1" />
+              عرض الوصفة
+            </Button>
+          )
+        }
+        break
+      case 'follow_up':
+        if (alert.patientId) {
+          actions.push(
+            <Button key="schedule-appointment" size="sm" variant="outline" className="h-6 text-xs">
+              <Calendar className="w-3 h-3 mr-1" />
+              حجز موعد
+            </Button>
+          )
+          actions.push(
+            <Button key="call-patient" size="sm" variant="outline" className="h-6 text-xs">
+              <Phone className="w-3 h-3 mr-1" />
+              اتصال
+            </Button>
+          )
+        }
         break
     }
 

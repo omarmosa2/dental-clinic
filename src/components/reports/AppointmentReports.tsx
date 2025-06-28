@@ -465,10 +465,10 @@ export default function AppointmentReports() {
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("gray")} dir="rtl">
+        <Card className={getCardStyles("cyan")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground text-right">المواعيد المجدولة</CardTitle>
-            <Clock className={`h-4 w-4 ${getIconStyles("gray")}`} />
+            <Clock className={`h-4 w-4 ${getIconStyles("cyan")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">

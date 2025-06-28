@@ -8,6 +8,7 @@ import {
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import { EnhancedPdfReports } from './enhancedPdfReports'
+import { getTreatmentNameInArabic, getCategoryNameInArabic } from '../data/teethData'
 
 export class PdfService {
   // Enhanced color scheme optimized for print clarity

@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
 import { usePatientStore } from '@/store/patientStore'
-import { getToothInfo, getTreatmentColor, IMAGE_TYPE_OPTIONS } from '@/data/teethData'
+import { getToothInfo, getTreatmentColor, IMAGE_TYPE_OPTIONS, getTreatmentByValue } from '@/data/teethData'
 import { ToothTreatment } from '@/types'
 import { notify } from '@/services/notificationService'
 import MultipleToothTreatments from './MultipleToothTreatments'
@@ -475,7 +475,7 @@ export default function EnhancedToothDetailsDialog({
                         .filter(treatment => treatment.patient_id === patientId && treatment.tooth_number === toothNumber)
                         .map((treatment) => (
                           <SelectItem key={treatment.id} value={treatment.id}>
-                            {treatment.treatment_type} - {treatment.treatment_status === 'completed' ? 'مكتمل' :
+                            {getTreatmentByValue(treatment.treatment_type)?.label || treatment.treatment_type} - {treatment.treatment_status === 'completed' ? 'مكتمل' :
                              treatment.treatment_status === 'in_progress' ? 'قيد التنفيذ' :
                              treatment.treatment_status === 'planned' ? 'مخطط' : 'ملغي'}
                           </SelectItem>

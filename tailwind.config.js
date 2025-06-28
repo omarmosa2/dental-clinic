@@ -36,7 +36,7 @@ export default {
     'dark:text-indigo-300', 'dark:text-pink-300', 'dark:text-slate-300', 'dark:text-gray-300',
 
     // Custom card classes
-    'card-green', 'card-blue', 'card-purple', 'card-emerald', 'card-yellow', 'card-orange', 'card-red',
+    'card-green', 'card-blue', 'card-purple', 'card-emerald', 'card-yellow', 'card-orange', 'card-red', 'card-indigo', 'card-gray', 'card-cyan',
 
     // Common utility classes
     'transition-all', 'duration-200', 'hover:shadow-lg', 'border', 'rounded-lg'

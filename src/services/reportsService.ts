@@ -17,6 +17,111 @@ import type {
 
 export class ReportsService {
 
+  // Helper function to get Arabic treatment name
+  private getTreatmentNameInArabic(treatmentType: string): string {
+    const treatmentMap: { [key: string]: string } = {
+      // Preventive treatments
+      'healthy': 'سليم',
+      'cleaning': 'تنظيف',
+      'fluoride': 'فلورايد',
+      'sealant': 'حشو وقائي',
+      'scaling': 'تقليح',
+
+      // Restorative treatments
+      'filling_metal': 'حشو معدني',
+      'filling_cosmetic': 'حشو تجميلي',
+      'filling_glass_ionomer': 'حشو زجاجي',
+      'inlay': 'حشو داخلي',
+      'onlay': 'حشو خارجي',
+
+      // Endodontic treatments
+      'nerve_extraction': 'استئصال عصب',
+      'pulp_therapy': 'مداولة لبية',
+      'direct_pulp_cap': 'ضغطية مباشرة',
+      'indirect_pulp_cap': 'ضغطية غير مباشرة',
+      'retreatment': 'إعادة معالجة',
+      'deep_pulp_treatment': 'معالجة لبية عميقة',
+
+      // Surgical treatments
+      'extraction_simple': 'قلع بسيط',
+      'extraction_surgical': 'قلع جراحي',
+      'implant': 'زراعة',
+      'bone_graft': 'ترقيع عظم',
+      'sinus_lift': 'رفع الجيب الفكي',
+      'gum_surgery': 'جراحة لثة',
+      'apical_resection': 'قطع ذروة',
+
+      // Cosmetic treatments
+      'veneer_porcelain': 'قشرة خزفية',
+      'veneer_composite': 'قشرة مركبة',
+      'whitening': 'تبييض',
+      'bonding': 'ربط تجميلي',
+      'contouring': 'تشكيل تجميلي',
+      'polish': 'بوليش',
+
+      // Orthodontic treatments
+      'orthodontic_metal': 'تقويم معدني',
+      'orthodontic_ceramic': 'تقويم خزفي',
+      'orthodontic_clear': 'تقويم شفاف',
+      'retainer': 'مثبت',
+      'space_maintainer': 'حافظ مسافة',
+
+      // Periodontal treatments
+      'scaling_periodontal': 'تقليح',
+      'subgingival_scaling': 'تقليح تحت لثوي',
+      'deep_cleaning': 'تنظيف عميق',
+      'root_planing': 'تسوية الجذور',
+      'gum_graft': 'ترقيع لثة',
+      'pocket_reduction': 'تقليل الجيوب',
+
+      // Pediatric treatments
+      'pediatric_filling': 'حشوة',
+      'pulp_amputation': 'بتر لب',
+      'pediatric_pulp_treatment': 'معالجة لبية',
+      'pulp_therapy_pediatric': 'علاج عصب لبني',
+      'stainless_crown': 'تاج ستانلس',
+      'space_maintainer_fixed': 'حافظ مسافة ثابت',
+      'space_maintainer_removable': 'حافظ مسافة متحرك',
+
+      // Prosthetic treatments
+      'crown_metal': 'تاج معدني',
+      'crown_ceramic': 'تاج خزفي',
+      'crown_zirconia': 'تاج زيركونيا',
+      'bridge': 'جسر',
+
+      // Legacy treatments
+      'preventive': 'علاج وقائي',
+      'pulp_cap': 'ضغطية لب',
+      'orthodontic_metal': 'تقويم معدني',
+      'extraction_simple': 'قلع بسيط'
+    }
+
+    return treatmentMap[treatmentType] || treatmentType
+  }
+
+  // Helper function to get Arabic category name
+  private getCategoryNameInArabic(category: string): string {
+    // If category is already in Arabic, return it
+    if (category && (category.includes('العلاجات') || category.includes('علاج') || category.includes('التعويضات'))) {
+      return category
+    }
+
+    // Map English categories to Arabic
+    const categoryMap: { [key: string]: string } = {
+      'preventive': 'العلاجات الوقائية',
+      'restorative': 'الترميمية (المحافظة)',
+      'endodontic': 'علاج العصب',
+      'surgical': 'العلاجات الجراحية',
+      'cosmetic': 'العلاجات التجميلية',
+      'orthodontic': 'علاجات التقويم',
+      'periodontal': 'علاجات اللثة',
+      'pediatric': 'علاجات الأطفال',
+      'prosthetic': 'التعويضات'
+    }
+
+    return categoryMap[category] || category
+  }
+
   // Helper function to filter data by date range
   private filterByDateRange<T extends { created_at: string }>(
     data: T[],
@@ -670,7 +775,7 @@ export class ReportsService {
       filteredTreatments.filter(t => t.treatment_status === 'completed'),
       'treatment_category'
     ).map(group => ({
-      category: group.key || 'غير محدد',
+      category: this.getCategoryNameInArabic(group.key) || 'غير محدد',
       revenue: group.items.reduce((sum, t) => sum + validateAmount(t.cost), 0),
       count: group.items.length
     }))
@@ -678,14 +783,14 @@ export class ReportsService {
     // Treatment Analysis
     const treatmentsByType = this.groupBy(filteredTreatments, 'treatment_type')
       .map(group => ({
-        type: group.key || 'غير محدد',
+        type: this.getTreatmentNameInArabic(group.key) || 'غير محدد',
         count: group.items.length,
         percentage: totalTreatments > 0 ? Math.round((group.items.length / totalTreatments) * 100) : 0
       }))
 
     const treatmentsByCategory = this.groupBy(filteredTreatments, 'treatment_category')
       .map(group => ({
-        category: group.key || 'غير محدد',
+        category: this.getCategoryNameInArabic(group.key) || 'غير محدد',
         count: group.items.length,
         percentage: totalTreatments > 0 ? Math.round((group.items.length / totalTreatments) * 100) : 0
       }))
@@ -727,7 +832,7 @@ export class ReportsService {
     // Most Popular Treatments
     const mostPopularTreatments = this.groupBy(filteredTreatments, 'treatment_type')
       .map(group => ({
-        name: group.key || 'غير محدد',
+        name: this.getTreatmentNameInArabic(group.key) || 'غير محدد',
         count: group.items.length,
         revenue: group.items
           .filter(t => t.treatment_status === 'completed')

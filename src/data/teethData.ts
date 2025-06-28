@@ -117,88 +117,88 @@ export const getTeethByType = (type: ToothInfo['type'], isPrimary: boolean = fal
 // Treatment type options with Arabic labels - International Dental Standards
 export const TREATMENT_TYPES = [
   // ===== PREVENTIVE TREATMENTS (العلاجات الوقائية) =====
-  { value: 'healthy', label: 'سليم', color: '#22c55e', category: 'preventive' },
-  { value: 'cleaning', label: 'تنظيف', color: '#06b6d4', category: 'preventive' },
-  { value: 'fluoride', label: 'فلورايد', color: '#0ea5e9', category: 'preventive' },
-  { value: 'sealant', label: 'حشو وقائي', color: '#14b8a6', category: 'preventive' },
-  { value: 'scaling', label: 'تقليح', color: '#06b6d4', category: 'preventive' },
+  { value: 'healthy', label: 'سليم', color: '#22c55e', category: 'العلاجات الوقائية' },
+  { value: 'cleaning', label: 'تنظيف', color: '#06b6d4', category: 'العلاجات الوقائية' },
+  { value: 'fluoride', label: 'فلورايد', color: '#0ea5e9', category: 'العلاجات الوقائية' },
+  { value: 'sealant', label: 'حشو وقائي', color: '#14b8a6', category: 'العلاجات الوقائية' },
+  { value: 'scaling', label: 'تقليح', color: '#06b6d4', category: 'العلاجات الوقائية' },
 
   // ===== RESTORATIVE TREATMENTS (الترميمية - المحافظة) =====
-  { value: 'filling_metal', label: 'حشو معدني', color: '#64748b', category: 'restorative' },
-  { value: 'filling_cosmetic', label: 'حشو تجميلي', color: '#f97316', category: 'restorative' },
-  { value: 'filling_glass_ionomer', label: 'حشو زجاجي', color: '#fb7185', category: 'restorative' },
-  { value: 'inlay', label: 'حشو داخلي', color: '#a855f7', category: 'restorative' },
-  { value: 'onlay', label: 'حشو خارجي', color: '#8b5cf6', category: 'restorative' },
+  { value: 'filling_metal', label: 'حشو معدني', color: '#64748b', category: 'الترميمية (المحافظة)' },
+  { value: 'filling_cosmetic', label: 'حشو تجميلي', color: '#f97316', category: 'الترميمية (المحافظة)' },
+  { value: 'filling_glass_ionomer', label: 'حشو زجاجي', color: '#fb7185', category: 'الترميمية (المحافظة)' },
+  { value: 'inlay', label: 'حشو داخلي', color: '#a855f7', category: 'الترميمية (المحافظة)' },
+  { value: 'onlay', label: 'حشو خارجي', color: '#8b5cf6', category: 'الترميمية (المحافظة)' },
 
   // ===== ENDODONTIC TREATMENTS (علاج العصب) =====
-  { value: 'nerve_extraction', label: 'استئصال عصب', color: '#ef4444', category: 'endodontic' },
-  { value: 'pulp_therapy', label: 'مداولة لبية', color: '#dc2626', category: 'endodontic' },
-  { value: 'direct_pulp_cap', label: 'ضغطية مباشرة', color: '#f87171', category: 'endodontic' },
-  { value: 'indirect_pulp_cap', label: 'ضغطية غير مباشرة', color: '#fca5a5', category: 'endodontic' },
-  { value: 'retreatment', label: 'إعادة معالجة', color: '#b91c1c', category: 'endodontic' },
-  { value: 'deep_pulp_treatment', label: 'معالجة لبية عميقة', color: '#991b1b', category: 'endodontic' },
+  { value: 'nerve_extraction', label: 'استئصال عصب', color: '#ef4444', category: 'علاج العصب' },
+  { value: 'pulp_therapy', label: 'مداولة لبية', color: '#dc2626', category: 'علاج العصب' },
+  { value: 'direct_pulp_cap', label: 'ضغطية مباشرة', color: '#f87171', category: 'علاج العصب' },
+  { value: 'indirect_pulp_cap', label: 'ضغطية غير مباشرة', color: '#fca5a5', category: 'علاج العصب' },
+  { value: 'retreatment', label: 'إعادة معالجة', color: '#b91c1c', category: 'علاج العصب' },
+  { value: 'deep_pulp_treatment', label: 'معالجة لبية عميقة', color: '#991b1b', category: 'علاج العصب' },
 
   // ===== SURGICAL TREATMENTS (العلاجات الجراحية) =====
-  { value: 'extraction_simple', label: 'قلع بسيط', color: '#6b7280', category: 'surgical' },
-  { value: 'extraction_surgical', label: 'قلع جراحي', color: '#4b5563', category: 'surgical' },
-  { value: 'implant', label: 'زراعة', color: '#10b981', category: 'surgical' },
-  { value: 'bone_graft', label: 'ترقيع عظم', color: '#059669', category: 'surgical' },
-  { value: 'sinus_lift', label: 'رفع الجيب الفكي', color: '#047857', category: 'surgical' },
-  { value: 'gum_surgery', label: 'جراحة لثة', color: '#065f46', category: 'surgical' },
-  { value: 'apical_resection', label: 'قطع ذروة', color: '#374151', category: 'surgical' },
+  { value: 'extraction_simple', label: 'قلع بسيط', color: '#6b7280', category: 'العلاجات الجراحية' },
+  { value: 'extraction_surgical', label: 'قلع جراحي', color: '#4b5563', category: 'العلاجات الجراحية' },
+  { value: 'implant', label: 'زراعة', color: '#10b981', category: 'العلاجات الجراحية' },
+  { value: 'bone_graft', label: 'ترقيع عظم', color: '#059669', category: 'العلاجات الجراحية' },
+  { value: 'sinus_lift', label: 'رفع الجيب الفكي', color: '#047857', category: 'العلاجات الجراحية' },
+  { value: 'gum_surgery', label: 'جراحة لثة', color: '#065f46', category: 'العلاجات الجراحية' },
+  { value: 'apical_resection', label: 'قطع ذروة', color: '#374151', category: 'العلاجات الجراحية' },
 
   // ===== COSMETIC TREATMENTS (العلاجات التجميلية) =====
-  { value: 'veneer_porcelain', label: 'قشرة خزفية', color: '#ec4899', category: 'cosmetic' },
-  { value: 'veneer_composite', label: 'قشرة مركبة', color: '#f472b6', category: 'cosmetic' },
-  { value: 'whitening', label: 'تبييض', color: '#fbbf24', category: 'cosmetic' },
-  { value: 'bonding', label: 'ربط تجميلي', color: '#f59e0b', category: 'cosmetic' },
-  { value: 'contouring', label: 'تشكيل تجميلي', color: '#d97706', category: 'cosmetic' },
-  { value: 'polish', label: 'بوليش', color: '#eab308', category: 'cosmetic' },
+  { value: 'veneer_porcelain', label: 'قشرة خزفية', color: '#ec4899', category: 'العلاجات التجميلية' },
+  { value: 'veneer_composite', label: 'قشرة مركبة', color: '#f472b6', category: 'العلاجات التجميلية' },
+  { value: 'whitening', label: 'تبييض', color: '#fbbf24', category: 'العلاجات التجميلية' },
+  { value: 'bonding', label: 'ربط تجميلي', color: '#f59e0b', category: 'العلاجات التجميلية' },
+  { value: 'contouring', label: 'تشكيل تجميلي', color: '#d97706', category: 'العلاجات التجميلية' },
+  { value: 'polish', label: 'بوليش', color: '#eab308', category: 'العلاجات التجميلية' },
 
   // ===== ORTHODONTIC TREATMENTS (علاجات التقويم) =====
-  { value: 'orthodontic_metal', label: 'تقويم معدني', color: '#6366f1', category: 'orthodontic' },
-  { value: 'orthodontic_ceramic', label: 'تقويم خزفي', color: '#8b5cf6', category: 'orthodontic' },
-  { value: 'orthodontic_clear', label: 'تقويم شفاف', color: '#a855f7', category: 'orthodontic' },
-  { value: 'retainer', label: 'مثبت', color: '#7c3aed', category: 'orthodontic' },
-  { value: 'space_maintainer', label: 'حافظ مسافة', color: '#5b21b6', category: 'orthodontic' },
+  { value: 'orthodontic_metal', label: 'تقويم معدني', color: '#6366f1', category: 'علاجات التقويم' },
+  { value: 'orthodontic_ceramic', label: 'تقويم خزفي', color: '#8b5cf6', category: 'علاجات التقويم' },
+  { value: 'orthodontic_clear', label: 'تقويم شفاف', color: '#a855f7', category: 'علاجات التقويم' },
+  { value: 'retainer', label: 'مثبت', color: '#7c3aed', category: 'علاجات التقويم' },
+  { value: 'space_maintainer', label: 'حافظ مسافة', color: '#5b21b6', category: 'علاجات التقويم' },
 
   // ===== PERIODONTAL TREATMENTS (علاجات اللثة) =====
-  { value: 'scaling_periodontal', label: 'تقليح', color: '#0891b2', category: 'periodontal' },
-  { value: 'subgingival_scaling', label: 'تقليح تحت لثوي', color: '#0e7490', category: 'periodontal' },
-  { value: 'deep_cleaning', label: 'تنظيف عميق', color: '#0891b2', category: 'periodontal' },
-  { value: 'root_planing', label: 'تسوية الجذور', color: '#0e7490', category: 'periodontal' },
-  { value: 'gum_graft', label: 'ترقيع لثة', color: '#155e75', category: 'periodontal' },
-  { value: 'pocket_reduction', label: 'تقليل الجيوب', color: '#164e63', category: 'periodontal' },
+  { value: 'scaling_periodontal', label: 'تقليح', color: '#0891b2', category: 'علاجات اللثة' },
+  { value: 'subgingival_scaling', label: 'تقليح تحت لثوي', color: '#0e7490', category: 'علاجات اللثة' },
+  { value: 'deep_cleaning', label: 'تنظيف عميق', color: '#0891b2', category: 'علاجات اللثة' },
+  { value: 'root_planing', label: 'تسوية الجذور', color: '#0e7490', category: 'علاجات اللثة' },
+  { value: 'gum_graft', label: 'ترقيع لثة', color: '#155e75', category: 'علاجات اللثة' },
+  { value: 'pocket_reduction', label: 'تقليل الجيوب', color: '#164e63', category: 'علاجات اللثة' },
 
   // ===== PEDIATRIC TREATMENTS (علاجات الأطفال) =====
-  { value: 'pediatric_filling', label: 'حشوة', color: '#f472b6', category: 'pediatric' },
-  { value: 'pulp_amputation', label: 'بتر لب', color: '#ec4899', category: 'pediatric' },
-  { value: 'pediatric_pulp_treatment', label: 'معالجة لبية', color: '#db2777', category: 'pediatric' },
-  { value: 'pulp_therapy_pediatric', label: 'علاج عصب لبني', color: '#f472b6', category: 'pediatric' },
-  { value: 'stainless_crown', label: 'تاج ستانلس', color: '#9ca3af', category: 'pediatric' },
-  { value: 'space_maintainer_fixed', label: 'حافظ مسافة ثابت', color: '#6b7280', category: 'pediatric' },
-  { value: 'space_maintainer_removable', label: 'حافظ مسافة متحرك', color: '#4b5563', category: 'pediatric' },
+  { value: 'pediatric_filling', label: 'حشوة', color: '#f472b6', category: 'علاجات الأطفال' },
+  { value: 'pulp_amputation', label: 'بتر لب', color: '#ec4899', category: 'علاجات الأطفال' },
+  { value: 'pediatric_pulp_treatment', label: 'معالجة لبية', color: '#db2777', category: 'علاجات الأطفال' },
+  { value: 'pulp_therapy_pediatric', label: 'علاج عصب لبني', color: '#f472b6', category: 'علاجات الأطفال' },
+  { value: 'stainless_crown', label: 'تاج ستانلس', color: '#9ca3af', category: 'علاجات الأطفال' },
+  { value: 'space_maintainer_fixed', label: 'حافظ مسافة ثابت', color: '#6b7280', category: 'علاجات الأطفال' },
+  { value: 'space_maintainer_removable', label: 'حافظ مسافة متحرك', color: '#4b5563', category: 'علاجات الأطفال' },
 
   // ===== PROSTHETIC TREATMENTS (التعويضات) =====
-  { value: 'crown_metal', label: 'تاج معدني', color: '#6b7280', category: 'prosthetic' },
-  { value: 'crown_ceramic', label: 'تاج خزفي', color: '#8b5cf6', category: 'prosthetic' },
-  { value: 'crown_zirconia', label: 'تاج زيركونيا', color: '#a855f7', category: 'prosthetic' },
-  { value: 'bridge', label: 'جسر', color: '#f59e0b', category: 'prosthetic' },
+  { value: 'crown_metal', label: 'تاج معدني', color: '#6b7280', category: 'التعويضات' },
+  { value: 'crown_ceramic', label: 'تاج خزفي', color: '#8b5cf6', category: 'التعويضات' },
+  { value: 'crown_zirconia', label: 'تاج زيركونيا', color: '#a855f7', category: 'التعويضات' },
+  { value: 'bridge', label: 'جسر', color: '#f59e0b', category: 'التعويضات' },
 ] as const
 
 export type TreatmentType = typeof TREATMENT_TYPES[number]['value']
 
 // Treatment categories for organization
 export const TREATMENT_CATEGORIES = [
-  { value: 'preventive', label: 'العلاجات الوقائية', color: '#22c55e', icon: '🛡️' },
-  { value: 'restorative', label: 'الترميمية (المحافظة)', color: '#f97316', icon: '🔧' },
-  { value: 'endodontic', label: 'علاج العصب', color: '#ef4444', icon: '🦷' },
-  { value: 'surgical', label: 'العلاجات الجراحية', color: '#6b7280', icon: '⚔️' },
-  { value: 'cosmetic', label: 'العلاجات التجميلية', color: '#ec4899', icon: '✨' },
-  { value: 'orthodontic', label: 'علاجات التقويم', color: '#6366f1', icon: '📐' },
-  { value: 'periodontal', label: 'علاجات اللثة', color: '#0891b2', icon: '🌿' },
-  { value: 'pediatric', label: 'علاجات الأطفال', color: '#f472b6', icon: '👶' },
-  { value: 'prosthetic', label: 'التعويضات', color: '#8b5cf6', icon: '👑' },
+  { value: 'العلاجات الوقائية', label: 'العلاجات الوقائية', color: '#22c55e', icon: '🛡️' },
+  { value: 'الترميمية (المحافظة)', label: 'الترميمية (المحافظة)', color: '#f97316', icon: '🔧' },
+  { value: 'علاج العصب', label: 'علاج العصب', color: '#ef4444', icon: '🦷' },
+  { value: 'العلاجات الجراحية', label: 'العلاجات الجراحية', color: '#6b7280', icon: '⚔️' },
+  { value: 'العلاجات التجميلية', label: 'العلاجات التجميلية', color: '#ec4899', icon: '✨' },
+  { value: 'علاجات التقويم', label: 'علاجات التقويم', color: '#6366f1', icon: '📐' },
+  { value: 'علاجات اللثة', label: 'علاجات اللثة', color: '#0891b2', icon: '🌿' },
+  { value: 'علاجات الأطفال', label: 'علاجات الأطفال', color: '#f472b6', icon: '👶' },
+  { value: 'التعويضات', label: 'التعويضات', color: '#8b5cf6', icon: '👑' },
 ] as const
 
 export type TreatmentCategory = typeof TREATMENT_CATEGORIES[number]['value']
@@ -214,6 +214,35 @@ export const getTreatmentByValue = (value: string) => {
 
 export const getCategoryInfo = (category: TreatmentCategory) => {
   return TREATMENT_CATEGORIES.find(cat => cat.value === category)
+}
+
+// Helper function to get Arabic treatment name
+export const getTreatmentNameInArabic = (treatmentType: string): string => {
+  const treatment = getTreatmentByValue(treatmentType)
+  return treatment ? treatment.label : treatmentType
+}
+
+// Helper function to get Arabic category name
+export const getCategoryNameInArabic = (category: string): string => {
+  // If category is already in Arabic, return it
+  if (category && (category.includes('العلاجات') || category.includes('علاج') || category.includes('التعويضات'))) {
+    return category
+  }
+
+  // Map English categories to Arabic
+  const categoryMap: { [key: string]: string } = {
+    'preventive': 'العلاجات الوقائية',
+    'restorative': 'الترميمية (المحافظة)',
+    'endodontic': 'علاج العصب',
+    'surgical': 'العلاجات الجراحية',
+    'cosmetic': 'العلاجات التجميلية',
+    'orthodontic': 'علاجات التقويم',
+    'periodontal': 'علاجات اللثة',
+    'pediatric': 'علاجات الأطفال',
+    'prosthetic': 'التعويضات'
+  }
+
+  return categoryMap[category] || category
 }
 
 // Get treatment color by value (for backward compatibility)

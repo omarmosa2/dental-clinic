@@ -1261,6 +1261,42 @@
     box-shadow: 0 1px 3px rgba(239, 68, 68, 0.2);
   }
 
+  .card-indigo {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 50%, #c7d2fe 100%);
+    border-color: #a5b4fc;
+    box-shadow: 0 1px 3px rgba(99, 102, 241, 0.1);
+  }
+
+  .dark .card-indigo {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+    border-color: #6366f1;
+    box-shadow: 0 1px 3px rgba(99, 102, 241, 0.2);
+  }
+
+  .card-gray {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+    border-color: #cbd5e1;
+    box-shadow: 0 1px 3px rgba(100, 116, 139, 0.1);
+  }
+
+  .dark .card-gray {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+    border-color: #475569;
+    box-shadow: 0 1px 3px rgba(100, 116, 139, 0.2);
+  }
+
+  .card-cyan {
+    background: linear-gradient(135deg, #ecfeff 0%, #cffafe 50%, #a5f3fc 100%);
+    border-color: #67e8f9;
+    box-shadow: 0 1px 3px rgba(6, 182, 212, 0.1);
+  }
+
+  .dark .card-cyan {
+    background: linear-gradient(135deg, #083344 0%, #155e75 50%, #0891b2 100%);
+    border-color: #06b6d4;
+    box-shadow: 0 1px 3px rgba(6, 182, 212, 0.2);
+  }
+
   /* Dental Chart Grid Styles */
   .grid-cols-16 {
     grid-template-columns: repeat(16, minmax(0, 1fr));

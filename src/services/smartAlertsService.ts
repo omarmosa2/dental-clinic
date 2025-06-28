@@ -152,6 +152,16 @@ export class SmartAlertsService {
       console.log('📦 Generated inventory alerts:', inventoryAlerts.length)
       alerts.push(...inventoryAlerts)
 
+      // تنبيهات المختبرات
+      const labOrderAlerts = await this.generateLabOrderAlerts()
+      console.log('🧪 Generated lab order alerts:', labOrderAlerts.length)
+      alerts.push(...labOrderAlerts)
+
+      // تنبيهات احتياجات العيادة
+      const clinicNeedsAlerts = await this.generateClinicNeedsAlerts()
+      console.log('🏥 Generated clinic needs alerts:', clinicNeedsAlerts.length)
+      alerts.push(...clinicNeedsAlerts)
+
       console.log('✅ Total generated alerts:', alerts.length)
 
     } catch (error) {
@@ -533,13 +543,112 @@ export class SmartAlertsService {
             type: 'prescription',
             priority: 'medium',
             title: `متابعة وصفة - ${prescription.patient?.full_name || 'مريض غير محدد'}`,
-            description: `وصفة تحتاج متابعة - ${prescription.notes}`,
+            description: `وصفة تحتاج متابعة منذ ${daysSince} يوم - ${prescription.notes}`,
+            patientId: prescription.patient_id,
+            patientName: prescription.patient?.full_name,
+            relatedData: {
+              prescriptionId: prescription.id,
+              appointmentId: prescription.appointment_id,
+              treatmentId: prescription.tooth_treatment_id,
+              daysSince: daysSince
+            },
+            actionRequired: true,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            isDismissed: false
+          })
+        }
+
+        // تنبيه للوصفات التي تحتوي على أدوية مهمة
+        if (prescription.notes && (prescription.notes.includes('مضاد حيوي') || prescription.notes.includes('مسكن قوي'))) {
+          if (daysSince > 14) { // أكثر من أسبوعين
+            alerts.push({
+              id: `prescription_important_med_${prescription.id}`,
+              type: 'prescription',
+              priority: 'medium',
+              title: `وصفة أدوية مهمة - ${prescription.patient?.full_name || 'مريض غير محدد'}`,
+              description: `وصفة تحتوي على أدوية مهمة منذ ${daysSince} يوم - تحتاج متابعة`,
+              patientId: prescription.patient_id,
+              patientName: prescription.patient?.full_name,
+              relatedData: {
+                prescriptionId: prescription.id,
+                appointmentId: prescription.appointment_id,
+                treatmentId: prescription.tooth_treatment_id,
+                medicationType: 'important'
+              },
+              actionRequired: true,
+              createdAt: new Date().toISOString(),
+              isRead: false,
+              isDismissed: false
+            })
+          }
+        }
+
+        // تنبيه للوصفات بدون ملاحظات (قد تحتاج توضيح)
+        if (!prescription.notes || prescription.notes.trim() === '') {
+          alerts.push({
+            id: `prescription_no_notes_${prescription.id}`,
+            type: 'prescription',
+            priority: 'low',
+            title: `وصفة بدون ملاحظات - ${prescription.patient?.full_name || 'مريض غير محدد'}`,
+            description: `وصفة صادرة منذ ${daysSince} يوم بدون ملاحظات - قد تحتاج توضيح`,
             patientId: prescription.patient_id,
             patientName: prescription.patient?.full_name,
             relatedData: {
               prescriptionId: prescription.id,
               appointmentId: prescription.appointment_id,
               treatmentId: prescription.tooth_treatment_id
+            },
+            actionRequired: false,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            isDismissed: false
+          })
+        }
+      })
+
+      // فحص الأدوية في المخزون للتنبيهات المتعلقة بالوصفات
+      const medications = await window.electronAPI?.medications?.getAll?.() || []
+      medications.forEach((medication: any) => {
+        // تنبيه للأدوية منتهية الصلاحية
+        if (medication.expiry_date) {
+          const expiryDate = new Date(medication.expiry_date)
+          const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+
+          if (daysUntilExpiry <= 30 && daysUntilExpiry >= 0) {
+            alerts.push({
+              id: `medication_expiry_warning_${medication.id}`,
+              type: 'prescription',
+              priority: daysUntilExpiry <= 7 ? 'high' : 'medium',
+              title: `دواء قريب الانتهاء - ${medication.name}`,
+              description: `ينتهي خلال ${daysUntilExpiry} يوم - قد يؤثر على الوصفات الجديدة`,
+              relatedData: {
+                medicationId: medication.id,
+                medicationName: medication.name,
+                expiryDate: medication.expiry_date,
+                daysUntilExpiry: daysUntilExpiry
+              },
+              actionRequired: true,
+              createdAt: new Date().toISOString(),
+              isRead: false,
+              isDismissed: false
+            })
+          }
+        }
+
+        // تنبيه للأدوية المنخفضة في المخزون
+        if (medication.quantity <= (medication.min_quantity || 10)) {
+          alerts.push({
+            id: `medication_low_stock_${medication.id}`,
+            type: 'prescription',
+            priority: medication.quantity === 0 ? 'high' : 'medium',
+            title: `دواء منخفض في المخزون - ${medication.name}`,
+            description: `الكمية المتبقية: ${medication.quantity} - قد يؤثر على الوصفات`,
+            relatedData: {
+              medicationId: medication.id,
+              medicationName: medication.name,
+              currentQuantity: medication.quantity,
+              minimumQuantity: medication.min_quantity || 10
             },
             actionRequired: true,
             createdAt: new Date().toISOString(),
@@ -822,13 +931,67 @@ export class SmartAlertsService {
             title: `مخزون منخفض - ${item.name}`,
             description: `الكمية المتبقية: ${item.quantity} - الحد الأدنى: ${item.min_quantity || 5}`,
             relatedData: {
-              inventoryId: item.id
+              inventoryId: item.id,
+              currentQuantity: item.quantity,
+              minimumQuantity: item.min_quantity || 5
             },
             actionRequired: true,
             createdAt: new Date().toISOString(),
             isRead: false,
             isDismissed: false
           })
+        }
+
+        // تنبيه للاستخدام المفرط (إذا كان معدل الاستخدام متوفر)
+        if (item.usage_rate && item.usage_rate > 0) {
+          const daysUntilEmpty = Math.floor(item.quantity / item.usage_rate)
+
+          // تنبيه إذا كان المخزون سينفد خلال أسبوع
+          if (daysUntilEmpty <= 7 && daysUntilEmpty > 0) {
+            alerts.push({
+              id: `inventory_high_usage_${item.id}`,
+              type: 'inventory',
+              priority: daysUntilEmpty <= 3 ? 'high' : 'medium',
+              title: `استخدام مفرط - ${item.name}`,
+              description: `سينفد خلال ${daysUntilEmpty} يوم بمعدل الاستخدام الحالي (${item.usage_rate}/يوم)`,
+              relatedData: {
+                inventoryId: item.id,
+                usageRate: item.usage_rate,
+                daysUntilEmpty: daysUntilEmpty,
+                currentQuantity: item.quantity
+              },
+              actionRequired: true,
+              createdAt: new Date().toISOString(),
+              isRead: false,
+              isDismissed: false
+            })
+          }
+        }
+
+        // تنبيه للعناصر غير المستخدمة لفترة طويلة
+        if (item.last_used_date) {
+          const lastUsedDate = new Date(item.last_used_date)
+          const daysSinceLastUse = Math.floor((today.getTime() - lastUsedDate.getTime()) / (1000 * 60 * 60 * 24))
+
+          if (daysSinceLastUse > 90) { // أكثر من 3 أشهر
+            alerts.push({
+              id: `inventory_unused_${item.id}`,
+              type: 'inventory',
+              priority: 'low',
+              title: `عنصر غير مستخدم - ${item.name}`,
+              description: `لم يستخدم منذ ${daysSinceLastUse} يوم - الكمية: ${item.quantity}`,
+              relatedData: {
+                inventoryId: item.id,
+                lastUsedDate: item.last_used_date,
+                daysSinceLastUse: daysSinceLastUse,
+                currentQuantity: item.quantity
+              },
+              actionRequired: false,
+              createdAt: new Date().toISOString(),
+              isRead: false,
+              isDismissed: false
+            })
+          }
         }
       })
 
@@ -941,27 +1104,92 @@ export class SmartAlertsService {
    */
   private static removeDuplicateAlerts(alerts: SmartAlert[]): SmartAlert[] {
     const seen = new Map<string, SmartAlert>()
+    const contentBasedSeen = new Map<string, SmartAlert>()
 
     alerts.forEach(alert => {
+      // فحص التكرار بناءً على المعرف
       const existingAlert = seen.get(alert.id)
 
       if (!existingAlert) {
-        // إذا لم يكن موجود، أضفه
-        seen.set(alert.id, alert)
-      } else {
-        // إذا كان موجود، احتفظ بالأحدث أو الذي له بيانات أكثر
-        const existingDate = new Date(existingAlert.createdAt).getTime()
-        const newDate = new Date(alert.createdAt).getTime()
+        // فحص التكرار بناءً على المحتوى
+        const contentKey = this.generateContentKey(alert)
+        const existingContentAlert = contentBasedSeen.get(contentKey)
 
-        if (newDate > existingDate ||
-            (alert.isRead !== undefined && existingAlert.isRead === undefined) ||
-            (alert.isDismissed !== undefined && existingAlert.isDismissed === undefined)) {
+        if (!existingContentAlert) {
+          // تنبيه جديد تماماً
           seen.set(alert.id, alert)
+          contentBasedSeen.set(contentKey, alert)
+        } else {
+          // تنبيه مكرر بناءً على المحتوى - احتفظ بالأحدث
+          const existingDate = new Date(existingContentAlert.createdAt).getTime()
+          const newDate = new Date(alert.createdAt).getTime()
+
+          if (newDate > existingDate || this.isAlertMoreComplete(alert, existingContentAlert)) {
+            // استبدل التنبيه القديم بالجديد
+            seen.delete(existingContentAlert.id)
+            seen.set(alert.id, alert)
+            contentBasedSeen.set(contentKey, alert)
+          }
+        }
+      } else {
+        // تنبيه موجود بنفس المعرف - احتفظ بالأحدث أو الأكثر اكتمالاً
+        if (this.isAlertMoreComplete(alert, existingAlert)) {
+          seen.set(alert.id, alert)
+          const contentKey = this.generateContentKey(alert)
+          contentBasedSeen.set(contentKey, alert)
         }
       }
     })
 
     return Array.from(seen.values())
+  }
+
+  /**
+   * توليد مفتاح فريد بناءً على محتوى التنبيه
+   */
+  private static generateContentKey(alert: SmartAlert): string {
+    const keyParts = [
+      alert.type,
+      alert.patientId || 'no-patient',
+      alert.title.replace(/\s+/g, '').toLowerCase(),
+      alert.relatedData ? JSON.stringify(alert.relatedData) : 'no-data'
+    ]
+    return keyParts.join('|')
+  }
+
+  /**
+   * فحص ما إذا كان التنبيه أكثر اكتمالاً من آخر
+   */
+  private static isAlertMoreComplete(alert1: SmartAlert, alert2: SmartAlert): boolean {
+    const alert1Date = new Date(alert1.createdAt).getTime()
+    const alert2Date = new Date(alert2.createdAt).getTime()
+
+    // الأحدث زمنياً
+    if (alert1Date > alert2Date) return true
+    if (alert1Date < alert2Date) return false
+
+    // نفس التاريخ - فحص اكتمال البيانات
+    const alert1Score = this.calculateCompletenessScore(alert1)
+    const alert2Score = this.calculateCompletenessScore(alert2)
+
+    return alert1Score > alert2Score
+  }
+
+  /**
+   * حساب درجة اكتمال التنبيه
+   */
+  private static calculateCompletenessScore(alert: SmartAlert): number {
+    let score = 0
+
+    if (alert.patientId) score += 2
+    if (alert.patientName) score += 1
+    if (alert.relatedData && Object.keys(alert.relatedData).length > 0) score += 3
+    if (alert.dueDate) score += 1
+    if (alert.actionRequired) score += 1
+    if (alert.isRead !== undefined) score += 1
+    if (alert.isDismissed !== undefined) score += 1
+
+    return score
   }
 
   /**
@@ -985,6 +1213,193 @@ export class SmartAlertsService {
     return date1.getFullYear() === date2.getFullYear() &&
            date1.getMonth() === date2.getMonth() &&
            date1.getDate() === date2.getDate()
+  }
+
+  /**
+   * توليد تنبيهات المختبرات
+   */
+  private static async generateLabOrderAlerts(): Promise<SmartAlert[]> {
+    const alerts: SmartAlert[] = []
+
+    try {
+      const labOrders = await window.electronAPI?.labOrders?.getAll?.() || []
+      const today = new Date()
+
+      labOrders.forEach((order: any) => {
+        // تنبيه للطلبات المتأخرة في التسليم
+        if (order.expected_delivery_date && order.status === 'معلق') {
+          const expectedDate = new Date(order.expected_delivery_date)
+          const daysLate = Math.floor((today.getTime() - expectedDate.getTime()) / (1000 * 60 * 60 * 24))
+
+          if (daysLate > 0) {
+            alerts.push({
+              id: `lab_order_overdue_${order.id}`,
+              type: 'lab_order',
+              priority: daysLate > 7 ? 'high' : 'medium',
+              title: `طلب مختبر متأخر - ${order.service_name}`,
+              description: `متأخر ${daysLate} يوم عن الموعد المتوقع${order.patient?.full_name ? ` - ${order.patient.full_name}` : ''}`,
+              patientId: order.patient_id,
+              patientName: order.patient?.full_name,
+              relatedData: {
+                labOrderId: order.id,
+                labId: order.lab_id,
+                expectedDate: order.expected_delivery_date
+              },
+              actionRequired: true,
+              dueDate: order.expected_delivery_date,
+              createdAt: new Date().toISOString(),
+              isRead: false,
+              isDismissed: false
+            })
+          }
+        }
+
+        // تنبيه للدفعات المعلقة
+        if (order.remaining_balance > 0) {
+          alerts.push({
+            id: `lab_order_payment_${order.id}`,
+            type: 'payment',
+            priority: 'medium',
+            title: `دفعة مختبر معلقة - ${order.service_name}`,
+            description: `المبلغ المتبقي: $${order.remaining_balance}${order.patient?.full_name ? ` - ${order.patient.full_name}` : ''}`,
+            patientId: order.patient_id,
+            patientName: order.patient?.full_name,
+            relatedData: {
+              labOrderId: order.id,
+              labId: order.lab_id,
+              remainingBalance: order.remaining_balance
+            },
+            actionRequired: true,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            isDismissed: false
+          })
+        }
+
+        // تنبيه للطلبات القريبة من موعد التسليم
+        if (order.expected_delivery_date && order.status === 'معلق') {
+          const expectedDate = new Date(order.expected_delivery_date)
+          const daysUntilDelivery = Math.floor((expectedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+
+          if (daysUntilDelivery <= 2 && daysUntilDelivery >= 0) {
+            alerts.push({
+              id: `lab_order_due_soon_${order.id}`,
+              type: 'lab_order',
+              priority: 'low',
+              title: `طلب مختبر قريب التسليم - ${order.service_name}`,
+              description: `متوقع التسليم خلال ${daysUntilDelivery} يوم${order.patient?.full_name ? ` - ${order.patient.full_name}` : ''}`,
+              patientId: order.patient_id,
+              patientName: order.patient?.full_name,
+              relatedData: {
+                labOrderId: order.id,
+                labId: order.lab_id,
+                expectedDate: order.expected_delivery_date
+              },
+              actionRequired: false,
+              dueDate: order.expected_delivery_date,
+              createdAt: new Date().toISOString(),
+              isRead: false,
+              isDismissed: false
+            })
+          }
+        }
+      })
+
+    } catch (error) {
+      console.error('Error generating lab order alerts:', error)
+    }
+
+    return alerts
+  }
+
+  /**
+   * توليد تنبيهات احتياجات العيادة
+   */
+  private static async generateClinicNeedsAlerts(): Promise<SmartAlert[]> {
+    const alerts: SmartAlert[] = []
+
+    try {
+      const clinicNeeds = await window.electronAPI?.clinicNeeds?.getAll?.() || []
+      const today = new Date()
+
+      clinicNeeds.forEach((need: any) => {
+        // تنبيه للاحتياجات عالية الأولوية المعلقة
+        if (need.priority === 'urgent' && need.status === 'pending') {
+          const createdDate = new Date(need.created_at)
+          const daysPending = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
+
+          alerts.push({
+            id: `clinic_need_urgent_${need.id}`,
+            type: 'inventory',
+            priority: 'high',
+            title: `احتياج عاجل معلق - ${need.need_name}`,
+            description: `معلق منذ ${daysPending} يوم - الكمية: ${need.quantity}`,
+            relatedData: {
+              clinicNeedId: need.id,
+              needName: need.need_name,
+              quantity: need.quantity,
+              priority: need.priority
+            },
+            actionRequired: true,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            isDismissed: false
+          })
+        }
+
+        // تنبيه للاحتياجات المطلوبة لفترة طويلة
+        if (need.status === 'ordered') {
+          const createdDate = new Date(need.created_at)
+          const daysOrdered = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
+
+          if (daysOrdered > 14) { // أكثر من أسبوعين
+            alerts.push({
+              id: `clinic_need_delayed_${need.id}`,
+              type: 'inventory',
+              priority: need.priority === 'urgent' ? 'high' : 'medium',
+              title: `احتياج متأخر - ${need.need_name}`,
+              description: `مطلوب منذ ${daysOrdered} يوم - الكمية: ${need.quantity}`,
+              relatedData: {
+                clinicNeedId: need.id,
+                needName: need.need_name,
+                quantity: need.quantity,
+                supplier: need.supplier
+              },
+              actionRequired: true,
+              createdAt: new Date().toISOString(),
+              isRead: false,
+              isDismissed: false
+            })
+          }
+        }
+
+        // تنبيه للاحتياجات عالية التكلفة المعلقة
+        if (need.price > 1000 && need.status === 'pending') {
+          alerts.push({
+            id: `clinic_need_expensive_${need.id}`,
+            type: 'inventory',
+            priority: 'medium',
+            title: `احتياج عالي التكلفة - ${need.need_name}`,
+            description: `التكلفة: $${need.price} - يحتاج موافقة`,
+            relatedData: {
+              clinicNeedId: need.id,
+              needName: need.need_name,
+              price: need.price,
+              quantity: need.quantity
+            },
+            actionRequired: true,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            isDismissed: false
+          })
+        }
+      })
+
+    } catch (error) {
+      console.error('Error generating clinic needs alerts:', error)
+    }
+
+    return alerts
   }
 
   private static formatTime(dateString: string): string {

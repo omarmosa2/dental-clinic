@@ -40,6 +40,7 @@ import TimeFilter from '@/components/ui/time-filter'
 import { PdfService } from '@/services/pdfService'
 import { ExportService } from '@/services/exportService'
 import { notify } from '@/services/notificationService'
+import { getTreatmentNameInArabic, getCategoryNameInArabic } from '@/data/teethData'
 import {
   Activity,
   TrendingUp,
@@ -69,24 +70,20 @@ interface StatCardProps {
 }
 
 function StatCard({ title, value, icon: Icon, color, description, trend }: StatCardProps) {
-  const { isDarkMode } = useTheme()
-  const cardStyles = getCardStyles(color, isDarkMode)
-  const iconStyles = getIconStyles(color, isDarkMode)
-
   return (
-    <Card className={cardStyles.card}>
+    <Card className={getCardStyles(color)} dir="rtl">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-right">{title}</CardTitle>
-        <Icon className={`h-4 w-4 ${iconStyles.icon}`} />
+        <CardTitle className="text-sm font-medium text-muted-foreground text-right">{title}</CardTitle>
+        <Icon className={`h-4 w-4 ${getIconStyles(color)}`} />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold text-right mb-1">{value}</div>
+        <div className="text-2xl font-bold text-foreground text-right mb-1">{value}</div>
         {description && (
           <p className="text-xs text-muted-foreground text-right">{description}</p>
         )}
         {trend && (
           <div className={`text-xs flex items-center justify-end mt-1 ${
-            trend.isPositive ? 'text-green-600' : 'text-red-600'
+            trend.isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
           }`}>
             <TrendingUp className={`h-3 w-3 ml-1 ${trend.isPositive ? '' : 'rotate-180'}`} />
             <span>{Math.abs(trend.value)}%</span>
@@ -170,7 +167,7 @@ export default function TreatmentReports() {
 
     // Group by category
     const categoryGroups = filteredData.reduce((acc, treatment) => {
-      const category = treatment.category || 'غير محدد'
+      const category = getCategoryNameInArabic(treatment.treatment_category || 'غير محدد')
       acc[category] = (acc[category] || 0) + 1
       return acc
     }, {} as Record<string, number>)
@@ -183,7 +180,7 @@ export default function TreatmentReports() {
 
     // Group by type
     const typeGroups = filteredData.reduce((acc, treatment) => {
-      const type = treatment.treatment_type || 'غير محدد'
+      const type = getTreatmentNameInArabic(treatment.treatment_type || 'غير محدد')
       acc[type] = (acc[type] || 0) + 1
       return acc
     }, {} as Record<string, number>)
@@ -197,7 +194,7 @@ export default function TreatmentReports() {
     // Revenue by category
     const revenueByCategory = Object.entries(
       filteredData.reduce((acc, treatment) => {
-        const category = treatment.category || 'غير محدد'
+        const category = getCategoryNameInArabic(treatment.treatment_category || 'غير محدد')
         if (!acc[category]) {
           acc[category] = { revenue: 0, count: 0 }
         }
@@ -398,7 +395,7 @@ export default function TreatmentReports() {
         value={treatmentStats.timeFilter}
         onChange={treatmentStats.handleFilterChange}
         onClear={treatmentStats.resetFilter}
-        title="فلترة العلاجات"
+        title="فلترة العلاجات حسب التاريخ"
         defaultOpen={false}
       />
 
@@ -455,25 +452,37 @@ export default function TreatmentReports() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={filteredTreatmentStats.treatmentsByStatus}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ status, percentage }) => `${status}: ${percentage}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="count"
-                    >
-                      {filteredTreatmentStats.treatmentsByStatus.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                {filteredTreatmentStats.treatmentsByStatus.length === 0 ? (
+                  <div className="flex items-center justify-center h-80 text-muted-foreground">
+                    <div className="text-center">
+                      <PieChartIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>لا توجد بيانات علاجات متاحة</p>
+                    </div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={filteredTreatmentStats.treatmentsByStatus}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ status, percentage }) => `${status}: ${percentage}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="count"
+                      >
+                        {filteredTreatmentStats.treatmentsByStatus.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value, name) => [value, name]}
+                        labelFormatter={(label) => `الحالة: ${label}`}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
@@ -486,15 +495,34 @@ export default function TreatmentReports() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={filteredTreatmentStats.treatmentsByCategory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="category" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#3b82f6" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {filteredTreatmentStats.treatmentsByCategory.length === 0 ? (
+                  <div className="flex items-center justify-center h-80 text-muted-foreground">
+                    <div className="text-center">
+                      <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>لا توجد بيانات فئات علاجات متاحة</p>
+                    </div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={filteredTreatmentStats.treatmentsByCategory}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="category"
+                        tick={{ fontSize: 12 }}
+                        interval={0}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                      />
+                      <YAxis />
+                      <Tooltip
+                        formatter={(value, name) => [value, 'عدد العلاجات']}
+                        labelFormatter={(label) => `الفئة: ${label}`}
+                      />
+                      <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -509,19 +537,28 @@ export default function TreatmentReports() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {treatmentReports.revenueByCategory.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center">
-                      <span className="font-medium">{item.category}</span>
-                      <div className="text-left">
-                        <div className="font-bold">
-                          <CurrencyDisplay amount={item.revenue} currency={currency} />
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {item.count} علاج
-                        </div>
+                  {(!filteredTreatmentStats.revenueByCategory || filteredTreatmentStats.revenueByCategory.length === 0) ? (
+                    <div className="flex items-center justify-center h-40 text-muted-foreground">
+                      <div className="text-center">
+                        <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">لا توجد بيانات إيرادات متاحة</p>
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    filteredTreatmentStats.revenueByCategory.map((item, index) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                        <span className="font-medium text-right">{item.category}</span>
+                        <div className="text-left">
+                          <div className="font-bold">
+                            <CurrencyDisplay amount={item.revenue} currency={currency} />
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {item.count} علاج
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -556,16 +593,42 @@ export default function TreatmentReports() {
                 <CardTitle>اتجاه العلاجات الشهري</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={treatmentReports.treatmentTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="period" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="completed" stroke="#10b981" name="مكتمل" />
-                    <Line type="monotone" dataKey="planned" stroke="#3b82f6" name="مخطط" />
-                  </LineChart>
-                </ResponsiveContainer>
+                {(!treatmentReports.treatmentTrend || treatmentReports.treatmentTrend.length === 0) ? (
+                  <div className="flex items-center justify-center h-80 text-muted-foreground">
+                    <div className="text-center">
+                      <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>لا توجد بيانات اتجاه العلاجات متاحة</p>
+                    </div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={treatmentReports.treatmentTrend}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="period" />
+                      <YAxis />
+                      <Tooltip
+                        formatter={(value, name) => [value, name]}
+                        labelFormatter={(label) => `الفترة: ${label}`}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="completed"
+                        stroke="#10b981"
+                        name="مكتمل"
+                        strokeWidth={2}
+                        dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="planned"
+                        stroke="#3b82f6"
+                        name="مخطط"
+                        strokeWidth={2}
+                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
@@ -609,19 +672,28 @@ export default function TreatmentReports() {
               </CardHeader>
               <CardContent>
                 <div className="max-h-96 overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-right">نوع العلاج</TableHead>
-                        <TableHead className="text-right">اسم المريض</TableHead>
-                        <TableHead className="text-right">الحالة</TableHead>
-                        <TableHead className="text-right">التاريخ</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredTreatmentStats.pendingTreatments.slice(0, 10).map((treatment) => (
+                  {filteredTreatmentStats.pendingTreatments.length === 0 ? (
+                    <div className="flex items-center justify-center h-40 text-muted-foreground">
+                      <div className="text-center">
+                        <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">لا توجد علاجات معلقة</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-right">نوع العلاج</TableHead>
+                          <TableHead className="text-right">اسم المريض</TableHead>
+                          <TableHead className="text-right">الحالة</TableHead>
+                          <TableHead className="text-right">التاريخ</TableHead>
+                          <TableHead className="text-right">التكلفة</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredTreatmentStats.pendingTreatments.slice(0, 10).map((treatment) => (
                         <TableRow key={treatment.id}>
-                          <TableCell className="text-right">{treatment.treatment_type}</TableCell>
+                          <TableCell className="text-right">{getTreatmentNameInArabic(treatment.treatment_type)}</TableCell>
                           <TableCell className="text-right">{treatment.patient_name || `مريض ${treatment.patient_id}`}</TableCell>
                           <TableCell className="text-right">
                             <Badge variant={treatment.status === 'planned' ? 'secondary' : 'default'}>
@@ -631,10 +703,14 @@ export default function TreatmentReports() {
                           <TableCell className="text-right">
                             {treatment.created_at ? formatDate(treatment.created_at) : 'غير محدد'}
                           </TableCell>
+                          <TableCell className="text-right">
+                            <CurrencyDisplay amount={treatment.cost || 0} currency={currency} />
+                          </TableCell>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -649,23 +725,32 @@ export default function TreatmentReports() {
               </CardHeader>
               <CardContent>
                 <div className="max-h-96 overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-right">نوع العلاج</TableHead>
-                        <TableHead className="text-right">اسم المريض</TableHead>
-                        <TableHead className="text-right">تاريخ الإنشاء</TableHead>
-                        <TableHead className="text-right">الأيام المتأخرة</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredTreatmentStats.overdueTreatments.slice(0, 10).map((treatment) => {
+                  {filteredTreatmentStats.overdueTreatments.length === 0 ? (
+                    <div className="flex items-center justify-center h-40 text-muted-foreground">
+                      <div className="text-center">
+                        <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-50 text-green-500" />
+                        <p className="text-sm">لا توجد علاجات متأخرة</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-right">نوع العلاج</TableHead>
+                          <TableHead className="text-right">اسم المريض</TableHead>
+                          <TableHead className="text-right">تاريخ الإنشاء</TableHead>
+                          <TableHead className="text-right">الأيام المتأخرة</TableHead>
+                          <TableHead className="text-right">التكلفة</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredTreatmentStats.overdueTreatments.slice(0, 10).map((treatment) => {
                         const daysOverdue = treatment.created_at
                           ? Math.ceil((new Date().getTime() - new Date(treatment.created_at).getTime()) / (1000 * 60 * 60 * 24))
                           : 0
                         return (
                           <TableRow key={treatment.id}>
-                            <TableCell className="text-right">{treatment.treatment_type}</TableCell>
+                            <TableCell className="text-right">{getTreatmentNameInArabic(treatment.treatment_type)}</TableCell>
                             <TableCell className="text-right">{treatment.patient_name || `مريض ${treatment.patient_id}`}</TableCell>
                             <TableCell className="text-right">
                               {treatment.created_at ? formatDate(treatment.created_at) : 'غير محدد'}
@@ -673,11 +758,15 @@ export default function TreatmentReports() {
                             <TableCell className="text-right">
                               <Badge variant="destructive">{daysOverdue} يوم</Badge>
                             </TableCell>
+                            <TableCell className="text-right">
+                              <CurrencyDisplay amount={treatment.cost || 0} currency={currency} />
+                            </TableCell>
                           </TableRow>
                         )
-                      })}
-                    </TableBody>
-                  </Table>
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
               </CardContent>
             </Card>

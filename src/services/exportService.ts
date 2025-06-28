@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas'
 import ExcelJS from 'exceljs'
 import type { Patient, Appointment, Payment, ReportExportOptions, PatientReportData, AppointmentReportData, FinancialReportData, InventoryReportData } from '../types'
 import { formatCurrency, formatDate } from '../lib/utils'
+import { getTreatmentNameInArabic, getCategoryNameInArabic } from '../data/teethData'
 
 export class ExportService {
   // Generate descriptive filename with date and time in DD-MM-YYYY format
@@ -1801,8 +1802,8 @@ export class ExportService {
       }
 
       csvData.push([
-        treatment.treatment_type || '',
-        treatment.treatment_category || '',
+        getTreatmentNameInArabic(treatment.treatment_type || ''),
+        getCategoryNameInArabic(treatment.treatment_category || ''),
         getStatusLabel(treatment.treatment_status || 'planned'),
         treatment.cost || 0,
         treatment.start_date || '',

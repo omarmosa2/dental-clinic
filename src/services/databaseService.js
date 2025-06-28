@@ -1463,6 +1463,18 @@ class DatabaseService {
         console.log('✅ password_enabled column added successfully')
       }
 
+      if (!columnNames.includes('security_question')) {
+        console.log('🔧 Adding security_question column to settings table')
+        this.db.exec('ALTER TABLE settings ADD COLUMN security_question TEXT')
+        console.log('✅ security_question column added successfully')
+      }
+
+      if (!columnNames.includes('security_answer')) {
+        console.log('🔧 Adding security_answer column to settings table')
+        this.db.exec('ALTER TABLE settings ADD COLUMN security_answer TEXT')
+        console.log('✅ security_answer column added successfully')
+      }
+
       // Verify columns were added
       const updatedColumns = this.db.prepare("PRAGMA table_info(settings)").all()
       const updatedColumnNames = updatedColumns.map(col => col.name)
@@ -1505,6 +1517,8 @@ class DatabaseService {
         working_days: 'السبت,الأحد,الاثنين,الثلاثاء,الأربعاء',
         app_password: null,
         password_enabled: 0,
+        security_question: null,
+        security_answer: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }

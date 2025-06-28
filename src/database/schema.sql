@@ -154,6 +154,8 @@ CREATE TABLE IF NOT EXISTS settings (
     working_days TEXT DEFAULT 'monday,tuesday,wednesday,thursday,friday',
     app_password TEXT, -- Password for app protection (hashed)
     password_enabled INTEGER DEFAULT 0, -- 0 = disabled, 1 = enabled
+    security_question TEXT, -- Security question for password recovery
+    security_answer TEXT, -- Security answer (hashed)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -183,13 +185,13 @@ INSERT OR IGNORE INTO settings (id) VALUES ('clinic_settings');
 
 -- Insert default treatments
 INSERT OR IGNORE INTO treatments (id, name, description, default_cost, duration_minutes, category) VALUES
-('cleaning', 'Dental Cleaning', 'Regular dental cleaning and checkup', 100.00, 60, 'Preventive'),
-('filling', 'Dental Filling', 'Tooth filling procedure', 150.00, 90, 'Restorative'),
-('extraction', 'Tooth Extraction', 'Tooth removal procedure', 200.00, 45, 'Surgery'),
-('crown', 'Dental Crown', 'Crown placement procedure', 800.00, 120, 'Restorative'),
-('root_canal', 'Root Canal', 'Root canal treatment', 600.00, 90, 'Endodontic'),
-('whitening', 'Teeth Whitening', 'Professional teeth whitening', 300.00, 60, 'Cosmetic'),
-('checkup', 'Regular Checkup', 'Routine dental examination', 75.00, 30, 'Preventive');
+('cleaning', 'تنظيف الأسنان', 'تنظيف وتلميع الأسنان بشكل منتظم', 100.00, 60, 'العلاجات الوقائية'),
+('filling', 'حشو الأسنان', 'إجراء حشو الأسنان المتضررة', 150.00, 90, 'الترميمية (المحافظة)'),
+('extraction', 'قلع الأسنان', 'إجراء إزالة الأسنان', 200.00, 45, 'العلاجات الجراحية'),
+('crown', 'تاج الأسنان', 'إجراء تركيب تاج الأسنان', 800.00, 120, 'التعويضات'),
+('root_canal', 'علاج العصب', 'علاج عصب الأسنان', 600.00, 90, 'علاج العصب'),
+('whitening', 'تبييض الأسنان', 'تبييض الأسنان المهني', 300.00, 60, 'العلاجات التجميلية'),
+('checkup', 'فحص عام', 'فحص روتيني شامل للأسنان', 75.00, 30, 'العلاجات الوقائية');
 
 -- Performance Indexes
 -- Patient indexes for search optimization

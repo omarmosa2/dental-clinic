@@ -7,6 +7,7 @@ import {
   ClinicSettings
 } from '../types'
 import { PdfService } from './pdfService'
+import { getTreatmentNameInArabic, getCategoryNameInArabic } from '../data/teethData'
 
 export class EnhancedPdfReports {
   // Create enhanced HTML report for appointments
@@ -131,7 +132,7 @@ export class EnhancedPdfReports {
                       </div>
                       <div class="detail-item">
                         <span class="detail-label">نوع العلاج:</span>
-                        <span class="detail-value">${appointment.treatment_name || 'غير محدد'}</span>
+                        <span class="detail-value">${appointment.treatment_name ? getTreatmentNameInArabic(appointment.treatment_name) : 'غير محدد'}</span>
                       </div>
                       <div class="detail-item">
                         <span class="detail-label">المدة:</span>
@@ -223,7 +224,7 @@ export class EnhancedPdfReports {
                     const barWidth = Math.max(5, percentage)
                     return `
                       <tr>
-                        <td class="category-cell">${item.treatment}</td>
+                        <td class="category-cell">${getTreatmentNameInArabic(item.treatment)}</td>
                         <td class="number-cell">${item.count.toLocaleString()}</td>
                         <td class="chart-cell">
                           <div class="progress-bar">
@@ -460,7 +461,7 @@ export class EnhancedPdfReports {
                 <tbody>
                   ${data.revenueByTreatment.slice(0, 10).map((item: any) => `
                     <tr>
-                      <td class="category-cell">${item.treatment}</td>
+                      <td class="category-cell">${getTreatmentNameInArabic(item.treatment)}</td>
                       <td class="number-cell">$${item.amount?.toLocaleString() || '0'}</td>
                       <td class="number-cell">${item.count?.toLocaleString() || '0'}</td>
                       <td class="number-cell">$${item.avgAmount?.toLocaleString() || '0'}</td>
@@ -1125,7 +1126,7 @@ export class EnhancedPdfReports {
                 <tbody>
                   ${data.pendingTreatments.slice(0, 20).map(treatment => `
                     <tr>
-                      <td class="category-cell">${treatment.treatment_type || 'غير محدد'}</td>
+                      <td class="category-cell">${getTreatmentNameInArabic(treatment.treatment_type || 'غير محدد')}</td>
                       <td class="patient-cell">${treatment.patient_name || 'غير محدد'}</td>
                       <td class="status-cell">
                         <span class="status-badge warning">${treatment.status || 'معلق'}</span>

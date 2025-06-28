@@ -47,7 +47,9 @@ import {
   PieChart,
   AlertTriangle,
   Stethoscope,
-  ClipboardList
+  ClipboardList,
+  Clock,
+  CheckCircle
 
 } from 'lucide-react'
 import { notify } from '@/services/notificationService'
@@ -417,7 +419,7 @@ onClick={async () => {
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6" dir="rtl">
           {/* Time Filters Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4" dir="rtl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" dir="rtl">
             <TimeFilter
               value={appointmentStats.timeFilter}
               onChange={appointmentStats.handleFilterChange}
@@ -437,6 +439,13 @@ onClick={async () => {
               onChange={inventoryStats.handleFilterChange}
               onClear={inventoryStats.resetFilter}
               title="فلترة المخزون"
+              defaultOpen={false}
+            />
+            <TimeFilter
+              value={clinicNeedsStats.timeFilter}
+              onChange={clinicNeedsStats.handleFilterChange}
+              onClear={clinicNeedsStats.resetFilter}
+              title="فلترة احتياجات العيادة"
               defaultOpen={false}
             />
           </div>
@@ -603,8 +612,128 @@ onClick={async () => {
                           </Badge>
                         </TableCell>
                       </TableRow>
+                      <TableRow className="hover:bg-muted/50">
+                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
+                          <div className="flex items-center gap-2 justify-end">
+                            <span className="arabic-enhanced">احتياجات العيادة</span>
+                            <ClipboardList className="h-4 w-4 text-indigo-500" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold">
+                          {clinicNeedsStats.filteredData.length}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={clinicNeedsStats.filteredData.length > 0 ? "default" : "secondary"}
+                            className="arabic-enhanced"
+                          >
+                            {clinicNeedsStats.filteredData.length > 0 ? 'يوجد احتياجات' : 'لا توجد احتياجات'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow className="hover:bg-muted/50">
+                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
+                          <div className="flex items-center gap-2 justify-end">
+                            <span className="arabic-enhanced">قيمة احتياجات العيادة</span>
+                            <DollarSign className="h-4 w-4 text-indigo-500" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold table-cell-wrap-truncate-sm">
+                          <CurrencyDisplay
+                            amount={clinicNeedsStats.filteredData.reduce((total, need) => total + (need.total_cost || 0), 0)}
+                            currency={currency}
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={clinicNeedsStats.filteredData.reduce((total, need) => total + (need.total_cost || 0), 0) > 0 ? "default" : "secondary"}
+                            className="arabic-enhanced"
+                          >
+                            {clinicNeedsStats.filteredData.reduce((total, need) => total + (need.total_cost || 0), 0) > 0 ? 'قيمة متاحة' : 'لا توجد قيمة'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Clinic Needs Summary Card */}
+            <Card dir="rtl">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-indigo-500" />
+                  ملخص احتياجات العيادة
+                </CardTitle>
+                <CardDescription>إحصائيات مفصلة عن احتياجات العيادة المفلترة</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`text-center p-4 ${getCardStyles('blue')} transition-all duration-200`}>
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <Clock className={`h-4 w-4 ${getIconStyles('blue')}`} />
+                      </div>
+                      <div className="text-2xl font-bold text-foreground">
+                        {clinicNeedsStats.filteredData.filter(need => need.status === 'pending').length}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground mt-1">معلقة</div>
+                    </div>
+                    <div className={`text-center p-4 ${getCardStyles('green')} transition-all duration-200`}>
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <CheckCircle className={`h-4 w-4 ${getIconStyles('green')}`} />
+                      </div>
+                      <div className="text-2xl font-bold text-foreground">
+                        {clinicNeedsStats.filteredData.filter(need => need.status === 'received').length}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground mt-1">مستلمة</div>
+                    </div>
+                    <div className={`text-center p-4 ${getCardStyles('orange')} transition-all duration-200`}>
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <AlertTriangle className={`h-4 w-4 ${getIconStyles('orange')}`} />
+                      </div>
+                      <div className="text-2xl font-bold text-foreground">
+                        {clinicNeedsStats.filteredData.filter(need => need.priority === 'urgent').length}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground mt-1">عاجلة</div>
+                    </div>
+                    <div className={`text-center p-4 ${getCardStyles('purple')} transition-all duration-200`}>
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <DollarSign className={`h-4 w-4 ${getIconStyles('purple')}`} />
+                      </div>
+                      <div className="text-lg font-bold text-foreground">
+                        <CurrencyDisplay
+                          amount={clinicNeedsStats.filteredData.reduce((total, need) => total + (need.total_cost || 0), 0)}
+                          currency={currency}
+                          className="text-lg font-bold"
+                        />
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground mt-1">القيمة الإجمالية</div>
+                    </div>
+                  </div>
+
+                  {/* Progress indicators */}
+                  <div className={`space-y-3 p-4 ${getCardStyles('gray')} transition-all duration-200`}>
+                    <div className="flex justify-between items-center text-sm font-medium">
+                      <span className="text-foreground">معدل الإنجاز</span>
+                      <span className={`font-bold ${getIconStyles('green')}`}>
+                        {clinicNeedsStats.filteredData.length > 0 ? Math.round((clinicNeedsStats.filteredData.filter(need => need.status === 'received').length / clinicNeedsStats.filteredData.length) * 100) : 0}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-3 shadow-inner">
+                      <div
+                        className={`bg-gradient-to-r from-green-500 to-green-600 dark:from-green-400 dark:to-green-500 h-3 rounded-full transition-all duration-500 ease-out shadow-sm`}
+                        style={{
+                          width: `${clinicNeedsStats.filteredData.length > 0 ? (clinicNeedsStats.filteredData.filter(need => need.status === 'received').length / clinicNeedsStats.filteredData.length) * 100 : 0}%`
+                        }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>مستلمة: {clinicNeedsStats.filteredData.filter(need => need.status === 'received').length}</span>
+                      <span>الإجمالي: {clinicNeedsStats.filteredData.length}</span>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

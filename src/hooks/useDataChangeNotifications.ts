@@ -1,15 +1,15 @@
 import { useEffect, useCallback } from 'react'
-import { 
-  DataChangeNotifier, 
-  DataChangeEvent, 
-  DataChangePayload 
+import {
+  DataChangeNotifier,
+  DataChangeEvent,
+  DataChangePayload
 } from '@/utils/dataChangeNotifier'
 
 /**
  * Hook لاستخدام إشعارات تغيير البيانات
  */
 export function useDataChangeNotifications() {
-  
+
   /**
    * إرسال إشعار تغيير البيانات
    */
@@ -22,7 +22,7 @@ export function useDataChangeNotifications() {
    */
   const addEventListener = useCallback((event: DataChangeEvent, callback: Function) => {
     DataChangeNotifier.addEventListener(event, callback)
-    
+
     return () => {
       DataChangeNotifier.removeEventListener(event, callback)
     }
@@ -53,7 +53,7 @@ export function useDataChangeListener(
       }
 
       DataChangeNotifier.addEventListener(event, handler)
-      
+
       cleanupFunctions.push(() => {
         DataChangeNotifier.removeEventListener(event, handler)
       })
@@ -304,6 +304,74 @@ export function useDataNotifier() {
     notifyNeedDeleted: (id: string) => {
       DataChangeNotifier.emit('need:deleted', {
         id, type: 'need', timestamp: new Date().toISOString()
+      })
+    },
+
+    // طلبات المختبرات
+    notifyLabOrderCreated: (id: string, data?: any) => {
+      DataChangeNotifier.emit('lab_order:created', {
+        id, type: 'lab_order', data, timestamp: new Date().toISOString()
+      })
+    },
+    notifyLabOrderUpdated: (id: string, data?: any) => {
+      DataChangeNotifier.emit('lab_order:updated', {
+        id, type: 'lab_order', data, timestamp: new Date().toISOString()
+      })
+    },
+    notifyLabOrderDeleted: (id: string) => {
+      DataChangeNotifier.emit('lab_order:deleted', {
+        id, type: 'lab_order', timestamp: new Date().toISOString()
+      })
+    },
+
+    // احتياجات العيادة
+    notifyClinicNeedCreated: (id: string, data?: any) => {
+      DataChangeNotifier.emit('clinic_need:created', {
+        id, type: 'clinic_need', data, timestamp: new Date().toISOString()
+      })
+    },
+    notifyClinicNeedUpdated: (id: string, data?: any) => {
+      DataChangeNotifier.emit('clinic_need:updated', {
+        id, type: 'clinic_need', data, timestamp: new Date().toISOString()
+      })
+    },
+    notifyClinicNeedDeleted: (id: string) => {
+      DataChangeNotifier.emit('clinic_need:deleted', {
+        id, type: 'clinic_need', timestamp: new Date().toISOString()
+      })
+    },
+
+    // الأدوية
+    notifyMedicationCreated: (id: string, data?: any) => {
+      DataChangeNotifier.emit('medication:created', {
+        id, type: 'medication', data, timestamp: new Date().toISOString()
+      })
+    },
+    notifyMedicationUpdated: (id: string, data?: any) => {
+      DataChangeNotifier.emit('medication:updated', {
+        id, type: 'medication', data, timestamp: new Date().toISOString()
+      })
+    },
+    notifyMedicationDeleted: (id: string) => {
+      DataChangeNotifier.emit('medication:deleted', {
+        id, type: 'medication', timestamp: new Date().toISOString()
+      })
+    },
+
+    // المختبرات
+    notifyLabCreated: (id: string, data?: any) => {
+      DataChangeNotifier.emit('lab:created', {
+        id, type: 'lab', data, timestamp: new Date().toISOString()
+      })
+    },
+    notifyLabUpdated: (id: string, data?: any) => {
+      DataChangeNotifier.emit('lab:updated', {
+        id, type: 'lab', data, timestamp: new Date().toISOString()
+      })
+    },
+    notifyLabDeleted: (id: string) => {
+      DataChangeNotifier.emit('lab:deleted', {
+        id, type: 'lab', timestamp: new Date().toISOString()
       })
     }
   }

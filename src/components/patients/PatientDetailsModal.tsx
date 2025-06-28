@@ -41,7 +41,7 @@ import { useToast } from '@/hooks/use-toast'
 import AddAppointmentDialog from '@/components/AddAppointmentDialog'
 import AddPaymentDialog from '@/components/payments/AddPaymentDialog'
 import AddPrescriptionDialog from '@/components/medications/AddPrescriptionDialog'
-import { TREATMENT_STATUS_OPTIONS } from '@/data/teethData'
+import { TREATMENT_STATUS_OPTIONS, getTreatmentNameInArabic } from '@/data/teethData'
 
 interface PatientDetailsModalProps {
   patient: Patient | null
@@ -480,7 +480,7 @@ export default function PatientDetailsModal({
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-foreground">
-                                  {treatment.treatment_type || '-'}
+                                  {getTreatmentNameInArabic(treatment.treatment_type) || '-'}
                                 </td>
                                 <td className="px-4 py-3 text-sm font-medium text-foreground">
                                   {treatment.tooth_name}

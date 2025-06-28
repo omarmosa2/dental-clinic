@@ -284,7 +284,15 @@ export class DatabaseService {
             this.db.exec('ALTER TABLE settings ADD COLUMN password_enabled INTEGER DEFAULT 0')
           }
 
-          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(5, 'Add password fields to settings')
+          if (!settingsColumnNames.includes('security_question')) {
+            this.db.exec('ALTER TABLE settings ADD COLUMN security_question TEXT')
+          }
+
+          if (!settingsColumnNames.includes('security_answer')) {
+            this.db.exec('ALTER TABLE settings ADD COLUMN security_answer TEXT')
+          }
+
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(5, 'Add password and security fields to settings')
           console.log('✅ Migration 5 completed successfully')
         }
 
@@ -1566,9 +1574,13 @@ export class DatabaseService {
       `)
 
       const defaultTreatments = [
-        { name: 'فحص عام', description: 'فحص شامل للأسنان واللثة', cost: 100, duration: 30, category: 'فحص' },
-        { name: 'تنظيف الأسنان', description: 'تنظيف وتلميع الأسنان', cost: 150, duration: 45, category: 'تنظيف' },
-        { name: 'حشو الأسنان', description: 'حشو الأسنان المتضررة', cost: 200, duration: 60, category: 'علاج' }
+        { name: 'فحص عام', description: 'فحص شامل للأسنان واللثة', cost: 100, duration: 30, category: 'العلاجات الوقائية' },
+        { name: 'تنظيف الأسنان', description: 'تنظيف وتلميع الأسنان', cost: 150, duration: 45, category: 'العلاجات الوقائية' },
+        { name: 'حشو الأسنان', description: 'حشو الأسنان المتضررة', cost: 200, duration: 60, category: 'الترميمية (المحافظة)' },
+        { name: 'قلع الأسنان', description: 'إجراء إزالة الأسنان', cost: 200, duration: 45, category: 'العلاجات الجراحية' },
+        { name: 'تاج الأسنان', description: 'إجراء تركيب تاج الأسنان', cost: 800, duration: 120, category: 'التعويضات' },
+        { name: 'علاج العصب', description: 'علاج عصب الأسنان', cost: 600, duration: 90, category: 'علاج العصب' },
+        { name: 'تبييض الأسنان', description: 'تبييض الأسنان المهني', cost: 300, duration: 60, category: 'العلاجات التجميلية' }
       ]
 
       defaultTreatments.forEach(treatment => {

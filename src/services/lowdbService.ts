@@ -47,7 +47,7 @@ export class LowDBService {
         description: 'فحص شامل للأسنان واللثة',
         default_cost: 100,
         duration_minutes: 30,
-        category: 'فحص',
+        category: 'العلاجات الوقائية',
         created_at: now,
         updated_at: now
       },
@@ -57,7 +57,7 @@ export class LowDBService {
         description: 'تنظيف وتلميع الأسنان',
         default_cost: 150,
         duration_minutes: 45,
-        category: 'تنظيف',
+        category: 'العلاجات الوقائية',
         created_at: now,
         updated_at: now
       },
@@ -67,7 +67,47 @@ export class LowDBService {
         description: 'حشو الأسنان المتضررة',
         default_cost: 200,
         duration_minutes: 60,
-        category: 'علاج',
+        category: 'الترميمية (المحافظة)',
+        created_at: now,
+        updated_at: now
+      },
+      {
+        id: uuidv4(),
+        name: 'قلع الأسنان',
+        description: 'إجراء إزالة الأسنان',
+        default_cost: 200,
+        duration_minutes: 45,
+        category: 'العلاجات الجراحية',
+        created_at: now,
+        updated_at: now
+      },
+      {
+        id: uuidv4(),
+        name: 'تاج الأسنان',
+        description: 'إجراء تركيب تاج الأسنان',
+        default_cost: 800,
+        duration_minutes: 120,
+        category: 'التعويضات',
+        created_at: now,
+        updated_at: now
+      },
+      {
+        id: uuidv4(),
+        name: 'علاج العصب',
+        description: 'علاج عصب الأسنان',
+        default_cost: 600,
+        duration_minutes: 90,
+        category: 'علاج العصب',
+        created_at: now,
+        updated_at: now
+      },
+      {
+        id: uuidv4(),
+        name: 'تبييض الأسنان',
+        description: 'تبييض الأسنان المهني',
+        default_cost: 300,
+        duration_minutes: 60,
+        category: 'العلاجات التجميلية',
         created_at: now,
         updated_at: now
       }

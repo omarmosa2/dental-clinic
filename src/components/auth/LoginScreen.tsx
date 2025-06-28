@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Eye, EyeOff, Lock, Shield, AlertCircle, Moon, Sun } from 'lucide-react'
+import { Eye, EyeOff, Lock, Shield, AlertCircle, Moon, Sun, HelpCircle } from 'lucide-react'
 import { useTheme, useThemeClasses } from '../../contexts/ThemeContext'
+import PasswordRecoveryDialog from './PasswordRecoveryDialog'
 
 interface LoginScreenProps {
   onLogin: (password: string) => Promise<boolean>
@@ -17,6 +18,7 @@ export default function LoginScreen({ onLogin, isLoading = false }: LoginScreenP
   const [attempts, setAttempts] = useState(0)
   const [isBlocked, setIsBlocked] = useState(false)
   const [blockTimeLeft, setBlockTimeLeft] = useState(0)
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false)
 
   // Block user after 5 failed attempts for 5 minutes
   const MAX_ATTEMPTS = 5
@@ -84,6 +86,15 @@ export default function LoginScreen({ onLogin, isLoading = false }: LoginScreenP
     const minutes = Math.floor(ms / 60000)
     const seconds = Math.floor((ms % 60000) / 1000)
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
+
+  const handlePasswordReset = () => {
+    // Reset login state after password recovery
+    setAttempts(0)
+    setIsBlocked(false)
+    setBlockTimeLeft(0)
+    setError('')
+    setPassword('')
   }
 
   return (
@@ -208,9 +219,28 @@ export default function LoginScreen({ onLogin, isLoading = false }: LoginScreenP
                 </p>
               </div>
             )}
+
+            {/* Forgot Password Link */}
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setShowRecoveryDialog(true)}
+                className={`text-sm ${themeClasses.textSecondary} hover:text-primary transition-colors duration-200 arabic-enhanced flex items-center justify-center gap-2 mx-auto`}
+              >
+                <HelpCircle className="w-4 h-4" />
+                نسيت كلمة المرور؟
+              </button>
+            </div>
           </form>
           </div>
         </div>
+
+        {/* Password Recovery Dialog */}
+        <PasswordRecoveryDialog
+          open={showRecoveryDialog}
+          onOpenChange={setShowRecoveryDialog}
+          onPasswordReset={handlePasswordReset}
+        />
 
         {/* Footer */}
         <div className="text-center mt-12">

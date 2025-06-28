@@ -8,6 +8,7 @@ import type {
   ToothTreatment,
   Prescription
 } from '@/types'
+import { getTreatmentNameInArabic } from '@/data/teethData'
 
 /**
  * خدمة البحث الشامل
@@ -185,11 +186,11 @@ export class GlobalSearchService {
       return treatments.map((treatment: ToothTreatment) => ({
         id: treatment.id,
         type: 'treatment' as const,
-        title: `${treatment.treatment_type} - السن ${treatment.tooth_number}`,
+        title: `${getTreatmentNameInArabic(treatment.treatment_type)} - السن ${treatment.tooth_number}`,
         subtitle: `${treatment.patient?.full_name || 'مريض غير محدد'} | ${this.getTreatmentStatusText(treatment.treatment_status)}`,
         description: `🦷 ${treatment.tooth_name} | 💰 ${treatment.cost || 0}$`,
         relevanceScore: this.calculateRelevanceScore(criteria.query, [
-          treatment.treatment_type,
+          getTreatmentNameInArabic(treatment.treatment_type),
           treatment.tooth_name,
           treatment.patient?.full_name || '',
           treatment.notes || ''

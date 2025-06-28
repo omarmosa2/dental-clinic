@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import SecurityQuestionDialog from '../auth/SecurityQuestionDialog'
 import {
   Key,
   Shield,
@@ -9,7 +10,9 @@ import {
   Unlock,
   AlertTriangle,
   CheckCircle,
-  Info
+  Info,
+  HelpCircle,
+  Edit
 } from 'lucide-react'
 
 interface SecuritySettingsProps {
@@ -37,6 +40,9 @@ export default function SecuritySettings({ showNotification }: SecuritySettingsP
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
   const [showRemovePassword, setShowRemovePassword] = useState(false)
+  const [showSecurityQuestionDialog, setShowSecurityQuestionDialog] = useState(false)
+  const [securityQuestion, setSecurityQuestion] = useState('')
+  const [hasSecurityQuestion, setHasSecurityQuestion] = useState(false)
 
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -50,6 +56,25 @@ export default function SecuritySettings({ showNotification }: SecuritySettingsP
   })
 
   const [isLoading, setIsLoading] = useState(false)
+
+  // Load security question on component mount
+  useEffect(() => {
+    loadSecurityQuestion()
+  }, [])
+
+  const loadSecurityQuestion = async () => {
+    try {
+      const settings = await window.electronAPI.settings.get()
+      if (settings?.security_question) {
+        setSecurityQuestion(settings.security_question)
+        setHasSecurityQuestion(true)
+      } else {
+        setHasSecurityQuestion(false)
+      }
+    } catch (error) {
+      console.error('Error loading security question:', error)
+    }
+  }
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -215,6 +240,11 @@ export default function SecuritySettings({ showNotification }: SecuritySettingsP
     }))
   }
 
+  const handleSecurityQuestionSave = () => {
+    loadSecurityQuestion()
+    showNotification('تم حفظ سؤال الأمان بنجاح', 'success')
+  }
+
   return (
     <div className="space-y-6" dir="rtl">
       {/* Password Protection Status */}
@@ -298,7 +328,91 @@ export default function SecuritySettings({ showNotification }: SecuritySettingsP
                   <li>• عند تفعيل كلمة المرور، ستحتاج لإدخالها في كل مرة تفتح فيها التطبيق</li>
                   <li>• يُنصح باستخدام كلمة مرور قوية تحتوي على أرقام وحروف</li>
                   <li>• احتفظ بكلمة المرور في مكان آمن</li>
-                  <li>• في حالة نسيان كلمة المرور، ستحتاج للتواصل مع فريق الدعم</li>
+                  <li>• في حالة نسيان كلمة المرور، يمكنك استخدام سؤال الأمان لاستعادتها</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Security Question Section */}
+      <div className="bg-card rounded-lg shadow border border-border">
+        <div className="p-6 border-b border-border">
+          <h3 className="text-lg font-medium text-foreground">سؤال الأمان</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            إعداد سؤال أمان لاستعادة كلمة المرور في حالة نسيانها
+          </p>
+        </div>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3 space-x-reverse">
+              <div className={`p-2 rounded-lg ${hasSecurityQuestion ? 'bg-green-100 dark:bg-green-900/20' : 'bg-gray-100 dark:bg-gray-900/20'}`}>
+                {hasSecurityQuestion ? (
+                  <HelpCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                ) : (
+                  <HelpCircle className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                )}
+              </div>
+              <div>
+                <h4 className="font-medium text-foreground">
+                  {hasSecurityQuestion ? 'تم إعداد سؤال الأمان' : 'لم يتم إعداد سؤال أمان'}
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  {hasSecurityQuestion ? 'يمكنك استخدام سؤال الأمان لاستعادة كلمة المرور' : 'قم بإعداد سؤال أمان لاستعادة كلمة المرور'}
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-2 space-x-reverse">
+              <button
+                onClick={() => setShowSecurityQuestionDialog(true)}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 flex items-center space-x-2 space-x-reverse"
+              >
+                {hasSecurityQuestion ? (
+                  <>
+                    <Edit className="w-4 h-4" />
+                    <span>تحديث</span>
+                  </>
+                ) : (
+                  <>
+                    <HelpCircle className="w-4 h-4" />
+                    <span>إعداد</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Current Security Question Display */}
+          {hasSecurityQuestion && securityQuestion && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start space-x-3 space-x-reverse">
+                <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+                    سؤال الأمان الحالي
+                  </h4>
+                  <p className="text-blue-700 dark:text-blue-300">
+                    {securityQuestion}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Security Question Info */}
+          <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <div className="flex items-start space-x-3 space-x-reverse">
+              <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <h4 className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
+                  نصائح مهمة لسؤال الأمان
+                </h4>
+                <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
+                  <li>• اختر سؤالاً تتذكر إجابته بسهولة</li>
+                  <li>• تأكد من أن الإجابة لا يمكن للآخرين تخمينها</li>
+                  <li>• تجنب الأسئلة التي قد تتغير إجابتها مع الوقت</li>
+                  <li>• احتفظ بإجابة السؤال في مكان آمن</li>
                 </ul>
               </div>
             </div>
@@ -422,6 +536,14 @@ export default function SecuritySettings({ showNotification }: SecuritySettingsP
           confirmClass="bg-red-600 hover:bg-red-700"
         />
       )}
+
+      {/* Security Question Dialog */}
+      <SecurityQuestionDialog
+        open={showSecurityQuestionDialog}
+        onOpenChange={setShowSecurityQuestionDialog}
+        onSave={handleSecurityQuestionSave}
+        editMode={hasSecurityQuestion}
+      />
     </div>
   )
 }

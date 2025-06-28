@@ -5,33 +5,33 @@ import { Stethoscope, Plus } from 'lucide-react'
 
 export default function Treatments() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Treatments</h1>
+          <h1 className="text-3xl font-bold text-foreground">العلاجات</h1>
           <p className="text-muted-foreground mt-2">
-            Manage treatment types, procedures, and pricing
+            إدارة أنواع العلاجات والإجراءات والأسعار
           </p>
         </div>
         <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Treatment
+          <Plus className="w-4 h-4 ml-2" />
+          إضافة علاج
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Treatment Management</CardTitle>
+          <CardTitle>إدارة العلاجات</CardTitle>
           <CardDescription>
-            Configure available treatments and their details
+            تكوين العلاجات المتاحة وتفاصيلها
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center py-12">
             <Stethoscope className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-medium mb-2">Treatment Catalog</h3>
+            <h3 className="text-lg font-medium mb-2">كتالوج العلاجات</h3>
             <p className="text-muted-foreground">
-              Treatment management interface will be implemented here
+              سيتم تطبيق واجهة إدارة العلاجات هنا
             </p>
           </div>
         </CardContent>
