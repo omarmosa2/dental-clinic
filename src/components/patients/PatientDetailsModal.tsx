@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Patient, Appointment, Payment, ToothTreatment, Prescription, LabOrder } from '@/types'
+import { calculatePatientPaymentSummary } from '@/utils/paymentCalculations'
 import {
   Dialog,
   DialogContent,
@@ -236,41 +237,41 @@ export default function PatientDetailsModal({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden" dir="rtl">
-          <TabsList className="grid w-full grid-cols-5 rtl-tabs">
-            <TabsTrigger value="prescriptions" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
-              <FileText className="w-4 h-4" />
-              الوصفات ({patientPrescriptions.length})
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
-              <DollarSign className="w-4 h-4" />
-              المدفوعات ({patientPayments.length})
-            </TabsTrigger>
-            <TabsTrigger value="appointments" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
-              <Calendar className="w-4 h-4" />
-              المواعيد ({patientAppointments.length})
+          <TabsList className="grid w-full grid-cols-5 rtl-tabs" dir="rtl">
+            <TabsTrigger value="info" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
+              <User className="w-4 h-4" />
+              معلومات المريض
             </TabsTrigger>
             <TabsTrigger value="treatments" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
               <Activity className="w-4 h-4" />
               العلاجات ({patientTreatments.length})
             </TabsTrigger>
-            <TabsTrigger value="info" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
-              <User className="w-4 h-4" />
-              معلومات المريض
+            <TabsTrigger value="appointments" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
+              <Calendar className="w-4 h-4" />
+              المواعيد ({patientAppointments.length})
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
+              <DollarSign className="w-4 h-4" />
+              المدفوعات ({patientPayments.length})
+            </TabsTrigger>
+            <TabsTrigger value="prescriptions" className="arabic-enhanced flex items-center justify-center gap-2 flex-row-reverse">
+              <FileText className="w-4 h-4" />
+              الوصفات ({patientPrescriptions.length})
             </TabsTrigger>
           </TabsList>
 
-          <div className="mt-4 overflow-y-auto max-h-[calc(90vh-200px)] dialog-rtl">
-            <TabsContent value="info" className="space-y-4 dialog-rtl">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mt-4 overflow-y-auto max-h-[calc(90vh-200px)] dialog-rtl" dir="rtl">
+            <TabsContent value="info" className="space-y-4 dialog-rtl" dir="rtl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4" dir="rtl">
                 {/* Basic Information */}
-                <Card>
-                  <CardHeader>
+                <Card className="card-rtl">
+                  <CardHeader className="card-header">
                     <CardTitle className="flex items-center gap-2 text-right">
                       <User className="w-5 h-5" />
                       المعلومات الأساسية
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-3 card-content" dir="rtl">
                     <div className="flex justify-between items-center">
                       <Badge variant="outline">#{patient.serial_number}</Badge>
                       <span className="text-muted-foreground">الرقم التسلسلي:</span>
@@ -297,14 +298,14 @@ export default function PatientDetailsModal({
                 </Card>
 
                 {/* Contact Information */}
-                <Card>
-                  <CardHeader>
+                <Card className="card-rtl">
+                  <CardHeader className="card-header">
                     <CardTitle className="flex items-center gap-2 text-right">
                       <Phone className="w-5 h-5" />
                       معلومات الاتصال
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-3 card-content" dir="rtl">
                     <div className="flex items-center justify-between">
                       {patient.phone ? (
                         <div className="flex items-center gap-2">
@@ -342,14 +343,14 @@ export default function PatientDetailsModal({
                 </Card>
 
                 {/* Medical Information */}
-                <Card className="md:col-span-2">
-                  <CardHeader>
+                <Card className="md:col-span-2 card-rtl">
+                  <CardHeader className="card-header">
                     <CardTitle className="flex items-center gap-2 text-right">
                       <Heart className="w-5 h-5" />
                       المعلومات الطبية
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-4 card-content" dir="rtl">
                     <div>
                       <h4 className="font-medium mb-2 flex items-center gap-2 text-right">
                         <FileText className="w-4 h-4" />
@@ -394,8 +395,8 @@ export default function PatientDetailsModal({
               </div>
             </TabsContent>
 
-            <TabsContent value="treatments" className="space-y-4 dialog-rtl">
-              <div className="flex justify-between items-center mb-4">
+            <TabsContent value="treatments" className="space-y-4 dialog-rtl" dir="rtl">
+              <div className="flex justify-between items-center mb-4" dir="rtl">
                 <h3 className="text-lg font-medium">العلاجات السنية</h3>
                 <Button
                   onClick={handleAddTreatment}
@@ -412,9 +413,9 @@ export default function PatientDetailsModal({
                   <div className="loading-spinner"></div>
                 </div>
               ) : patientTreatments.length === 0 ? (
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center py-8">
+                <Card className="card-rtl">
+                  <CardContent className="pt-6 card-content" dir="rtl">
+                    <div className="text-center py-8" dir="rtl">
                       <Activity className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                       <h3 className="text-lg font-medium mb-2">لا توجد علاجات</h3>
                       <p className="text-muted-foreground mb-4">لم يتم تسجيل أي علاجات سنية لهذا المريض بعد</p>
@@ -430,14 +431,14 @@ export default function PatientDetailsModal({
                   </CardContent>
                 </Card>
               ) : (
-                <Card>
-                  <CardHeader>
+                <Card className="card-rtl">
+                  <CardHeader className="card-header">
                     <CardTitle className="flex items-center gap-2 text-foreground text-right">
                       <Activity className="w-5 h-5" />
                       جدول العلاجات
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="card-content" dir="rtl">
                     <div className="overflow-hidden rounded-lg border border-border" dir="rtl">
                       <table className="w-full">
                         <thead className="bg-muted">
@@ -529,8 +530,8 @@ export default function PatientDetailsModal({
               )}
             </TabsContent>
 
-            <TabsContent value="appointments" className="space-y-4 dialog-rtl">
-              <div className="flex justify-between items-center mb-4">
+            <TabsContent value="appointments" className="space-y-4 dialog-rtl" dir="rtl">
+              <div className="flex justify-between items-center mb-4" dir="rtl">
                 <h3 className="text-lg font-medium">المواعيد</h3>
                 <Button
                   onClick={handleAddAppointment}
@@ -546,9 +547,9 @@ export default function PatientDetailsModal({
                   <div className="loading-spinner"></div>
                 </div>
               ) : patientAppointments.length === 0 ? (
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center py-8">
+                <Card className="card-rtl">
+                  <CardContent className="pt-6 card-content" dir="rtl">
+                    <div className="text-center py-8" dir="rtl">
                       <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                       <h3 className="text-lg font-medium mb-2">لا توجد مواعيد</h3>
                       <p className="text-muted-foreground">لم يتم تحديد أي مواعيد لهذا المريض بعد</p>
@@ -556,14 +557,14 @@ export default function PatientDetailsModal({
                   </CardContent>
                 </Card>
               ) : (
-                <Card>
-                  <CardHeader>
+                <Card className="card-rtl">
+                  <CardHeader className="card-header">
                     <CardTitle className="flex items-center gap-2 text-foreground text-right">
                       <Calendar className="w-5 h-5" />
                       جدول المواعيد
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="card-content" dir="rtl">
                     <div className="overflow-hidden rounded-lg border border-border" dir="rtl">
                       <table className="w-full">
                         <thead className="bg-muted">
@@ -659,8 +660,8 @@ export default function PatientDetailsModal({
               )}
             </TabsContent>
 
-            <TabsContent value="payments" className="space-y-4 dialog-rtl">
-              <div className="flex justify-between items-center mb-4">
+            <TabsContent value="payments" className="space-y-4 dialog-rtl" dir="rtl">
+              <div className="flex justify-between items-center mb-4" dir="rtl">
                 <h3 className="text-lg font-medium">المدفوعات</h3>
                 <Button
                   onClick={handleAddPayment}
@@ -676,9 +677,9 @@ export default function PatientDetailsModal({
                   <div className="loading-spinner"></div>
                 </div>
               ) : patientPayments.length === 0 ? (
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center py-8">
+                <Card className="card-rtl">
+                  <CardContent className="pt-6 card-content" dir="rtl">
+                    <div className="text-center py-8" dir="rtl">
                       <DollarSign className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                       <h3 className="text-lg font-medium mb-2">لا توجد مدفوعات</h3>
                       <p className="text-muted-foreground">لم يتم تسجيل أي مدفوعات لهذا المريض بعد</p>
@@ -686,11 +687,10 @@ export default function PatientDetailsModal({
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4" dir="rtl">
                   {/* Payment Summary */}
                   {(() => {
                     // حساب الملخص المالي باستخدام الدالة الجديدة
-                    const { calculatePatientPaymentSummary } = require('@/utils/paymentCalculations')
                     const summary = calculatePatientPaymentSummary(patient.id, payments, appointments)
 
                     const totalAmountDue = summary.totalDue
@@ -698,14 +698,14 @@ export default function PatientDetailsModal({
                     const totalRemainingBalance = summary.totalRemaining
 
                     return (
-                      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-border">
-                        <CardHeader>
+                      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-border card-rtl">
+                        <CardHeader className="card-header">
                           <CardTitle className="flex items-center gap-2 text-primary text-right">
                             <DollarSign className="w-5 h-5" />
                             ملخص المدفوعات
                           </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="card-content" dir="rtl">
                           {/* جدول ملخص المدفوعات */}
                           <div className="overflow-hidden rounded-lg border border-border" dir="rtl">
                             <table className="w-full">
@@ -758,14 +758,14 @@ export default function PatientDetailsModal({
                   })()}
 
                   {/* Payment List as Table */}
-                  <Card>
-                    <CardHeader>
+                  <Card className="card-rtl">
+                    <CardHeader className="card-header">
                       <CardTitle className="flex items-center gap-2 text-foreground text-right">
                         <DollarSign className="w-5 h-5" />
                         تفاصيل المدفوعات
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="card-content" dir="rtl">
                       <div className="overflow-hidden rounded-lg border border-border" dir="rtl">
                         <table className="w-full">
                           <thead className="bg-muted">
@@ -868,8 +868,8 @@ export default function PatientDetailsModal({
             </TabsContent>
 
             {/* تبويب الوصفات الطبية */}
-            <TabsContent value="prescriptions" className="space-y-4 dialog-rtl">
-              <div className="flex justify-between items-center mb-4">
+            <TabsContent value="prescriptions" className="space-y-4 dialog-rtl" dir="rtl">
+              <div className="flex justify-between items-center mb-4" dir="rtl">
                 <h3 className="text-lg font-medium">الوصفات الطبية</h3>
                 <Button
                   onClick={handleAddPrescription}
@@ -885,9 +885,9 @@ export default function PatientDetailsModal({
                   <div className="loading-spinner"></div>
                 </div>
               ) : patientPrescriptions.length === 0 ? (
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center py-8">
+                <Card className="card-rtl">
+                  <CardContent className="pt-6 card-content" dir="rtl">
+                    <div className="text-center py-8" dir="rtl">
                       <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                       <h3 className="text-lg font-medium mb-2">لا توجد وصفات طبية</h3>
                       <p className="text-muted-foreground mb-4">لم يتم إنشاء أي وصفات طبية لهذا المريض بعد</p>
@@ -895,10 +895,10 @@ export default function PatientDetailsModal({
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4" dir="rtl">
                   {patientPrescriptions.map((prescription) => (
-                    <Card key={prescription.id}>
-                      <CardContent className="pt-4">
+                    <Card key={prescription.id} className="card-rtl">
+                      <CardContent className="pt-4 card-content" dir="rtl">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <FileText className="w-4 h-4 text-blue-500" />
