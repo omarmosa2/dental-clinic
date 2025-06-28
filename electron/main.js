@@ -3507,8 +3507,13 @@ ipcMain.handle('db:smartAlerts:create', async (_, alert) => {
     if (databaseService) {
       console.log('Creating smart alert:', alert.title)
       const result = await databaseService.createSmartAlert(alert)
-      console.log('Smart alert created successfully:', result.id)
-      return result
+      if (result) {
+        console.log('Smart alert created successfully:', result.id)
+        return result
+      } else {
+        console.log('Smart alert creation skipped (duplicate found):', alert.title)
+        return null
+      }
     } else {
       const newAlert = { ...alert, id: Date.now().toString() }
       console.log('Creating smart alert (mock):', newAlert)
@@ -3598,6 +3603,57 @@ ipcMain.handle('db:smartAlerts:clearExpiredSnoozed', async () => {
     }
   } catch (error) {
     console.error('Error clearing expired snoozed smart alerts:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:smartAlerts:deleteByPatient', async (_, patientId) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting smart alerts for patient:', patientId)
+      const result = await databaseService.deleteSmartAlertsByPatient(patientId)
+      console.log('Smart alerts deleted for patient:', patientId, 'count:', result)
+      return result
+    } else {
+      console.log('Deleting smart alerts for patient (mock):', patientId)
+      return 0
+    }
+  } catch (error) {
+    console.error('Error deleting smart alerts for patient:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:smartAlerts:deleteByType', async (_, type, patientId = null) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting smart alerts by type:', type, 'for patient:', patientId)
+      const result = await databaseService.deleteSmartAlertsByType(type, patientId)
+      console.log('Smart alerts deleted by type:', type, 'count:', result)
+      return result
+    } else {
+      console.log('Deleting smart alerts by type (mock):', type, patientId)
+      return 0
+    }
+  } catch (error) {
+    console.error('Error deleting smart alerts by type:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:smartAlerts:deleteByRelatedData', async (_, relatedDataKey, relatedDataValue) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting smart alerts by related data:', relatedDataKey, relatedDataValue)
+      const result = await databaseService.deleteSmartAlertsByRelatedData(relatedDataKey, relatedDataValue)
+      console.log('Smart alerts deleted by related data:', relatedDataKey, relatedDataValue, 'count:', result)
+      return result
+    } else {
+      console.log('Deleting smart alerts by related data (mock):', relatedDataKey, relatedDataValue)
+      return 0
+    }
+  } catch (error) {
+    console.error('Error deleting smart alerts by related data:', error)
     throw error
   }
 })

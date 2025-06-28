@@ -226,10 +226,29 @@ export const useGlobalStore = create<GlobalStore>()(
 
       markAlertAsRead: async (alertId: string) => {
         try {
+          console.log('🏪 GlobalStore: markAlertAsRead called for:', alertId)
+
+          // التحقق من وجود التنبيه قبل التحديث
+          const currentAlert = get().alerts.find(alert => alert.id === alertId)
+          if (!currentAlert) {
+            console.warn('⚠️ Alert not found in store:', alertId)
+            return
+          }
+
+          console.log('📋 Current alert state:', {
+            id: currentAlert.id,
+            title: currentAlert.title,
+            isRead: currentAlert.isRead
+          })
+
+          console.log('🔄 Calling SmartAlertsService.updateAlert...')
           await SmartAlertsService.updateAlert(alertId, { isRead: true })
+          console.log('✅ SmartAlertsService.updateAlert completed')
+
           // التحديث سيتم تلقائياً عبر نظام الأحداث
         } catch (error) {
-          console.error('Mark alert as read error:', error)
+          console.error('❌ Mark alert as read error:', error)
+          throw error
         }
       },
 

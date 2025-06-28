@@ -3577,7 +3577,28 @@ class DatabaseService {
           FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
         )
       `)
-      console.log('✅ Smart alerts table ensured')
+
+      // إنشاء فهارس لتحسين الأداء
+      const indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_smart_alerts_type ON smart_alerts(type)',
+        'CREATE INDEX IF NOT EXISTS idx_smart_alerts_priority ON smart_alerts(priority)',
+        'CREATE INDEX IF NOT EXISTS idx_smart_alerts_patient_id ON smart_alerts(patient_id)',
+        'CREATE INDEX IF NOT EXISTS idx_smart_alerts_is_read ON smart_alerts(is_read)',
+        'CREATE INDEX IF NOT EXISTS idx_smart_alerts_is_dismissed ON smart_alerts(is_dismissed)',
+        'CREATE INDEX IF NOT EXISTS idx_smart_alerts_snooze_until ON smart_alerts(snooze_until)',
+        'CREATE INDEX IF NOT EXISTS idx_smart_alerts_created_at ON smart_alerts(created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_smart_alerts_due_date ON smart_alerts(due_date)'
+      ]
+
+      indexes.forEach(indexSql => {
+        try {
+          this.db.exec(indexSql)
+        } catch (error) {
+          console.warn('Smart alerts index creation warning:', error.message)
+        }
+      })
+
+      console.log('✅ Smart alerts table and indexes ensured')
     } catch (error) {
       console.error('❌ Error ensuring smart alerts table:', error)
     }
@@ -3587,27 +3608,61 @@ class DatabaseService {
     this.ensureConnection()
     this.ensureSmartAlertsTableExists()
 
+    // تنظيف الإشعارات المؤجلة المنتهية الصلاحية أولاً
+    await this.clearExpiredSnoozedAlerts()
+
+    const now = new Date().toISOString()
     const stmt = this.db.prepare(`
       SELECT * FROM smart_alerts
+      WHERE
+        (snooze_until IS NULL OR snooze_until <= ?)
+        AND is_dismissed = 0
       ORDER BY
         CASE priority
           WHEN 'high' THEN 1
           WHEN 'medium' THEN 2
           WHEN 'low' THEN 3
         END,
+        is_read ASC,
         created_at DESC
     `)
 
-    const alerts = stmt.all()
+    const alerts = stmt.all(now)
+    console.log(`📊 Retrieved ${alerts.length} active smart alerts from database`)
 
-    // Parse related_data JSON for each alert
-    return alerts.map(alert => ({
-      ...alert,
-      relatedData: alert.related_data ? JSON.parse(alert.related_data) : {},
-      actionRequired: Boolean(alert.action_required),
-      isRead: Boolean(alert.is_read),
-      isDismissed: Boolean(alert.is_dismissed)
-    }))
+    // Parse related_data JSON for each alert with error handling
+    return alerts.map(alert => {
+      try {
+        return {
+          ...alert,
+          relatedData: alert.related_data ? JSON.parse(alert.related_data) : {},
+          actionRequired: Boolean(alert.action_required),
+          isRead: Boolean(alert.is_read),
+          isDismissed: Boolean(alert.is_dismissed),
+          patientId: alert.patient_id,
+          patientName: alert.patient_name,
+          dueDate: alert.due_date,
+          snoozeUntil: alert.snooze_until,
+          createdAt: alert.created_at,
+          updatedAt: alert.updated_at
+        }
+      } catch (error) {
+        console.error('❌ Error parsing alert data:', alert.id, error)
+        return {
+          ...alert,
+          relatedData: {},
+          actionRequired: Boolean(alert.action_required),
+          isRead: Boolean(alert.is_read),
+          isDismissed: Boolean(alert.is_dismissed),
+          patientId: alert.patient_id,
+          patientName: alert.patient_name,
+          dueDate: alert.due_date,
+          snoozeUntil: alert.snooze_until,
+          createdAt: alert.created_at,
+          updatedAt: alert.updated_at
+        }
+      }
+    })
   }
 
   async createSmartAlert(alert) {
@@ -3618,10 +3673,32 @@ class DatabaseService {
     const id = alert.id || uuidv4()
     const now = new Date().toISOString()
 
-    // Check if alert already exists
+    // التحقق من وجود تنبيه مماثل (نفس النوع والمريض والبيانات المرتبطة)
+    const duplicateCheckStmt = this.db.prepare(`
+      SELECT id FROM smart_alerts
+      WHERE type = ?
+        AND patient_id = ?
+        AND title = ?
+        AND is_dismissed = 0
+        AND (snooze_until IS NULL OR snooze_until <= ?)
+    `)
+
+    const existingDuplicate = duplicateCheckStmt.get(
+      alert.type,
+      alert.patientId || null,
+      alert.title,
+      now
+    )
+
+    if (existingDuplicate) {
+      console.log('⚠️ Duplicate smart alert found, skipping:', existingDuplicate.id)
+      return null
+    }
+
+    // Check if alert with specific ID already exists
     const existingAlert = this.db.prepare('SELECT id FROM smart_alerts WHERE id = ?').get(id)
     if (existingAlert) {
-      console.log('⚠️ Smart alert already exists, skipping:', id)
+      console.log('⚠️ Smart alert with ID already exists, skipping:', id)
       return {
         ...alert,
         id,
@@ -3679,6 +3756,8 @@ class DatabaseService {
     this.ensureConnection()
     this.ensureSmartAlertsTableExists()
 
+    console.log('💾 DatabaseService: updateSmartAlert called', { id, updates })
+
     const now = new Date().toISOString()
 
     // Convert camelCase to snake_case for database fields
@@ -3700,14 +3779,22 @@ class DatabaseService {
       }
     })
 
+    console.log('💾 DatabaseService: Converted updates to database format', { dbUpdates })
+
     if (Object.keys(dbUpdates).length === 0) {
       console.log('⚠️ No valid updates provided for smart alert:', id)
-      return
+      return false
     }
 
     const fields = Object.keys(dbUpdates)
     const setClause = fields.map(field => `${field} = ?`).join(', ')
     const values = fields.map(field => dbUpdates[field])
+
+    console.log('💾 DatabaseService: Executing SQL update', {
+      setClause,
+      values,
+      id
+    })
 
     const stmt = this.db.prepare(`
       UPDATE smart_alerts
@@ -3717,8 +3804,17 @@ class DatabaseService {
 
     const result = stmt.run(...values, now, id)
 
+    console.log('💾 DatabaseService: Update result', {
+      changes: result.changes,
+      lastInsertRowid: result.lastInsertRowid
+    })
+
     if (result.changes > 0) {
-      console.log('✅ Smart alert updated:', id)
+      console.log('✅ Smart alert updated successfully:', id)
+
+      // التحقق من التحديث
+      const updatedAlert = this.db.prepare('SELECT * FROM smart_alerts WHERE id = ?').get(id)
+      console.log('💾 DatabaseService: Updated alert data', updatedAlert)
 
       // Force WAL checkpoint
       const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
@@ -3797,6 +3893,71 @@ class DatabaseService {
 
     if (result.changes > 0) {
       console.log(`✅ Cleared ${result.changes} expired snoozed alerts`)
+
+      // Force WAL checkpoint
+      const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+      console.log('💾 Checkpoint result:', checkpoint)
+    }
+
+    return result.changes
+  }
+
+  async deleteSmartAlertsByPatient(patientId) {
+    this.ensureConnection()
+    this.ensureSmartAlertsTableExists()
+
+    const stmt = this.db.prepare('DELETE FROM smart_alerts WHERE patient_id = ?')
+    const result = stmt.run(patientId)
+
+    if (result.changes > 0) {
+      console.log(`✅ Deleted ${result.changes} alerts for patient:`, patientId)
+
+      // Force WAL checkpoint
+      const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+      console.log('💾 Checkpoint result:', checkpoint)
+    }
+
+    return result.changes
+  }
+
+  async deleteSmartAlertsByType(type, patientId = null) {
+    this.ensureConnection()
+    this.ensureSmartAlertsTableExists()
+
+    let stmt, result
+    if (patientId) {
+      stmt = this.db.prepare('DELETE FROM smart_alerts WHERE type = ? AND patient_id = ?')
+      result = stmt.run(type, patientId)
+    } else {
+      stmt = this.db.prepare('DELETE FROM smart_alerts WHERE type = ?')
+      result = stmt.run(type)
+    }
+
+    if (result.changes > 0) {
+      console.log(`✅ Deleted ${result.changes} alerts of type '${type}'${patientId ? ` for patient ${patientId}` : ''}`)
+
+      // Force WAL checkpoint
+      const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+      console.log('💾 Checkpoint result:', checkpoint)
+    }
+
+    return result.changes
+  }
+
+  async deleteSmartAlertsByRelatedData(relatedDataKey, relatedDataValue) {
+    this.ensureConnection()
+    this.ensureSmartAlertsTableExists()
+
+    const stmt = this.db.prepare(`
+      DELETE FROM smart_alerts
+      WHERE related_data LIKE ?
+    `)
+
+    const searchPattern = `%"${relatedDataKey}":"${relatedDataValue}"%`
+    const result = stmt.run(searchPattern)
+
+    if (result.changes > 0) {
+      console.log(`✅ Deleted ${result.changes} alerts with ${relatedDataKey}=${relatedDataValue}`)
 
       // Force WAL checkpoint
       const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')

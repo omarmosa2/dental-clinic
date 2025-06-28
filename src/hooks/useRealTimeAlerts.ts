@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { SmartAlertsService } from '@/services/smartAlertsService'
 import { useGlobalStore } from '@/store/globalStore'
 
@@ -8,51 +8,70 @@ import { useGlobalStore } from '@/store/globalStore'
  */
 export function useRealTimeAlerts() {
   const { loadAlerts } = useGlobalStore()
+  const listenersRef = useRef<Map<string, Function>>(new Map())
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // دالة لإعادة تحميل التنبيهات
+  // دالة لإعادة تحميل التنبيهات مع تجميع الطلبات
   const refreshAlerts = useCallback(() => {
-    console.log('🔄 Real-time alerts refresh triggered')
-    loadAlerts()
+    console.log('🔄 useRealTimeAlerts: refreshAlerts triggered')
+
+    // إلغاء أي تحديث مؤجل سابق
+    if (refreshTimeoutRef.current) {
+      console.log('🔄 useRealTimeAlerts: Clearing previous timeout')
+      clearTimeout(refreshTimeoutRef.current)
+    }
+
+    // تأجيل التحديث لتجميع الطلبات المتعددة (زيادة التأخير لتقليل التحديثات)
+    refreshTimeoutRef.current = setTimeout(() => {
+      console.log('🔄 useRealTimeAlerts: Executing loadAlerts...')
+      loadAlerts()
+      refreshTimeoutRef.current = null
+    }, 300)
   }, [loadAlerts])
 
   useEffect(() => {
     console.log('🔔 Setting up real-time alerts listeners...')
 
-    // دالة معالجة تغيير البيانات
+    // دالة معالجة تغيير البيانات مع تحسينات
     const handleDataChanged = async (event?: any) => {
-      console.log('📡 Data changed, refreshing alerts...', event?.type || 'unknown')
+      const eventType = event?.type || event?.detail?.event || 'unknown'
+      console.log('📡 Data changed, refreshing alerts...', eventType)
 
-      // تأخير قصير للسماح للبيانات بالتحديث في قاعدة البيانات
-      setTimeout(async () => {
-        try {
-          await refreshAlerts()
-          console.log('✅ Alerts refreshed after data change')
-        } catch (error) {
-          console.error('❌ Error refreshing alerts after data change:', error)
-        }
-      }, 100)
-    }
-
-    // دوال معالجة الأحداث
-    const handleAlertsChanged = () => {
-      console.log('🔔 Alerts changed event received')
+      // تحديث فوري للتنبيهات
       refreshAlerts()
     }
 
-    const handleAlertUpdated = (data: any) => {
-      console.log('🔔 Alert updated event received:', data)
+    // دوال معالجة الأحداث المحسنة
+    const handleAlertsChanged = (event?: any) => {
+      console.log('🔔 Alerts changed event received:', event?.detail || 'no details')
       refreshAlerts()
     }
 
-    const handleAlertCreated = (data: any) => {
+    const handleAlertUpdated = (event?: any) => {
+      const data = event?.detail || event
+      console.log('🔔 useRealTimeAlerts: Alert updated event received:', data)
+      console.log('🔄 useRealTimeAlerts: Triggering refreshAlerts...')
+      refreshAlerts()
+    }
+
+    const handleAlertCreated = (event?: any) => {
+      const data = event?.detail || event
       console.log('🔔 Alert created event received:', data)
       refreshAlerts()
     }
 
-    const handleAlertDeleted = (data: any) => {
+    const handleAlertDeleted = (event?: any) => {
+      const data = event?.detail || event
       console.log('🔔 Alert deleted event received:', data)
       refreshAlerts()
     }
+
+    // حفظ المراجع للمستمعين
+    listenersRef.current.set('handleDataChanged', handleDataChanged)
+    listenersRef.current.set('handleAlertsChanged', handleAlertsChanged)
+    listenersRef.current.set('handleAlertUpdated', handleAlertUpdated)
+    listenersRef.current.set('handleAlertCreated', handleAlertCreated)
+    listenersRef.current.set('handleAlertDeleted', handleAlertDeleted)
 
     // تسجيل المستمعين للأحداث المباشرة
     SmartAlertsService.addEventListener('alerts:changed', handleAlertsChanged)
@@ -81,26 +100,60 @@ export function useRealTimeAlerts() {
       window.addEventListener(eventName, handleDataChanged)
     })
 
-    // دالة التنظيف
+    // دالة التنظيف المحسنة
     return () => {
       console.log('🔔 Cleaning up real-time alerts listeners...')
 
+      // إلغاء أي تحديث مؤجل
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+        refreshTimeoutRef.current = null
+      }
+
+      // الحصول على المراجع المحفوظة للمستمعين
+      const savedListeners = listenersRef.current
+
       // إزالة مستمعي الأحداث المباشرة
-      SmartAlertsService.removeEventListener('alerts:changed', handleAlertsChanged)
-      SmartAlertsService.removeEventListener('alert:updated', handleAlertUpdated)
-      SmartAlertsService.removeEventListener('alert:created', handleAlertCreated)
-      SmartAlertsService.removeEventListener('alert:deleted', handleAlertDeleted)
+      if (savedListeners.has('handleAlertsChanged')) {
+        SmartAlertsService.removeEventListener('alerts:changed', savedListeners.get('handleAlertsChanged')!)
+      }
+      if (savedListeners.has('handleAlertUpdated')) {
+        SmartAlertsService.removeEventListener('alert:updated', savedListeners.get('handleAlertUpdated')!)
+      }
+      if (savedListeners.has('handleAlertCreated')) {
+        SmartAlertsService.removeEventListener('alert:created', savedListeners.get('handleAlertCreated')!)
+      }
+      if (savedListeners.has('handleAlertDeleted')) {
+        SmartAlertsService.removeEventListener('alert:deleted', savedListeners.get('handleAlertDeleted')!)
+      }
 
       // إزالة مستمعي أحداث window
-      window.removeEventListener('alerts:alerts:changed', handleAlertsChanged)
-      window.removeEventListener('alerts:alert:updated', (e: any) => handleAlertUpdated(e.detail))
-      window.removeEventListener('alerts:alert:created', (e: any) => handleAlertCreated(e.detail))
-      window.removeEventListener('alerts:alert:deleted', (e: any) => handleAlertDeleted(e.detail))
+      if (savedListeners.has('handleAlertsChanged')) {
+        window.removeEventListener('alerts:alerts:changed', savedListeners.get('handleAlertsChanged')!)
+      }
+      if (savedListeners.has('handleAlertUpdated')) {
+        const handler = savedListeners.get('handleAlertUpdated')!
+        window.removeEventListener('alerts:alert:updated', (e: any) => handler(e.detail))
+      }
+      if (savedListeners.has('handleAlertCreated')) {
+        const handler = savedListeners.get('handleAlertCreated')!
+        window.removeEventListener('alerts:alert:created', (e: any) => handler(e.detail))
+      }
+      if (savedListeners.has('handleAlertDeleted')) {
+        const handler = savedListeners.get('handleAlertDeleted')!
+        window.removeEventListener('alerts:alert:deleted', (e: any) => handler(e.detail))
+      }
 
       // إزالة مستمعي أحداث تغيير البيانات
-      dataChangeEvents.forEach(eventName => {
-        window.removeEventListener(eventName, handleDataChanged)
-      })
+      if (savedListeners.has('handleDataChanged')) {
+        const handler = savedListeners.get('handleDataChanged')!
+        dataChangeEvents.forEach(eventName => {
+          window.removeEventListener(eventName, handler)
+        })
+      }
+
+      // تنظيف المراجع
+      listenersRef.current.clear()
     }
   }, [refreshAlerts])
 

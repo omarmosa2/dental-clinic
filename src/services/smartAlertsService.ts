@@ -13,38 +13,124 @@ import type {
  */
 class AlertsEventSystem {
   private static listeners: Map<string, Set<Function>> = new Map()
+  private static isInitialized = false
+
+  static init() {
+    if (this.isInitialized) return
+
+    console.log('🔔 AlertsEventSystem: Initializing...')
+    this.isInitialized = true
+
+    // تنظيف دوري للمستمعين المنتهية الصلاحية
+    setInterval(() => {
+      this.cleanupListeners()
+    }, 60000) // كل دقيقة
+  }
 
   static addEventListener(event: string, callback: Function) {
+    this.init()
+
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set())
     }
     this.listeners.get(event)!.add(callback)
+    console.log(`🔔 AlertsEventSystem: Added listener for '${event}' (total: ${this.listeners.get(event)!.size})`)
   }
 
   static removeEventListener(event: string, callback: Function) {
     if (this.listeners.has(event)) {
       this.listeners.get(event)!.delete(callback)
+      console.log(`🔔 AlertsEventSystem: Removed listener for '${event}' (remaining: ${this.listeners.get(event)!.size})`)
+
+      // إزالة المجموعة إذا كانت فارغة
+      if (this.listeners.get(event)!.size === 0) {
+        this.listeners.delete(event)
+      }
     }
   }
 
   static emit(event: string, data?: any) {
-    console.log(`🔔 Emitting alert event: ${event}`, data)
+    console.log(`🔔 AlertsEventSystem: Emitting event '${event}'`, data ? 'with data:' : 'without data', data)
+
     if (this.listeners.has(event)) {
-      this.listeners.get(event)!.forEach(callback => {
+      const listeners = Array.from(this.listeners.get(event)!)
+      console.log(`🔔 AlertsEventSystem: Notifying ${listeners.length} listeners for '${event}'`)
+
+      listeners.forEach((callback, index) => {
         try {
+          console.log(`🔔 AlertsEventSystem: Calling listener ${index} for '${event}'`)
           callback(data)
+          console.log(`✅ AlertsEventSystem: Listener ${index} for '${event}' completed`)
         } catch (error) {
-          console.error(`Error in alert event listener for ${event}:`, error)
+          console.error(`❌ Error in event listener ${index} for '${event}':`, error)
         }
       })
+    } else {
+      console.log(`🔔 AlertsEventSystem: No listeners for event '${event}'`)
     }
 
-    // أيضاً إرسال الحدث عبر window للمكونات الأخرى
-    window.dispatchEvent(new CustomEvent(`alerts:${event}`, { detail: data }))
+    // إرسال أحداث window للتوافق مع الأنظمة القديمة
+    console.log(`🔔 AlertsEventSystem: Emitting window event for '${event}'`)
+    this.emitWindowEvent(event, data)
+  }
+
+  private static emitWindowEvent(event: string, data?: any) {
+    if (typeof window !== 'undefined') {
+      try {
+        // إرسال حدث مباشر
+        window.dispatchEvent(new CustomEvent(`alerts:${event}`, {
+          detail: data
+        }))
+
+        // إرسال أحداث إضافية للتوافق
+        const compatEvents = [
+          `alert:${event}`,
+          `smart-alert:${event}`,
+          event
+        ]
+
+        compatEvents.forEach(compatEvent => {
+          try {
+            window.dispatchEvent(new CustomEvent(compatEvent, {
+              detail: data
+            }))
+          } catch (error) {
+            console.warn(`Could not dispatch compat event '${compatEvent}':`, error)
+          }
+        })
+
+      } catch (error) {
+        console.warn('Could not dispatch window events:', error)
+      }
+    }
+  }
+
+  private static cleanupListeners() {
+    let totalListeners = 0
+    this.listeners.forEach((listeners, event) => {
+      totalListeners += listeners.size
+    })
+
+    if (totalListeners > 100) {
+      console.warn(`🔔 AlertsEventSystem: High listener count detected (${totalListeners}). Consider cleanup.`)
+    }
   }
 
   static removeAllListeners() {
+    console.log('🔔 AlertsEventSystem: Removing all listeners')
     this.listeners.clear()
+  }
+
+  static getListenerCount(event: string): number {
+    return this.listeners.get(event)?.size || 0
+  }
+
+  static getAllListenerCounts(): Record<string, number> {
+    const counts: Record<string, number> = {}
+    this.listeners.forEach((listeners, event) => {
+      counts[event] = listeners.size
+    })
+    return counts
   }
 }
 
@@ -56,59 +142,120 @@ class AlertsEventSystem {
 export class SmartAlertsService {
 
   /**
-   * جلب جميع التنبيهات الذكية
+   * جلب جميع التنبيهات الذكية مع معالجة محسنة للأخطاء
    */
   static async getAllAlerts(): Promise<SmartAlert[]> {
+    const startTime = Date.now()
+
     try {
       console.log('🔄 Starting to load all alerts...')
 
-      // جلب التنبيهات المحفوظة من قاعدة البيانات
-      const savedAlerts = await window.electronAPI?.smartAlerts?.getAll?.() || []
-      console.log('📋 Loaded saved alerts from database:', savedAlerts.length)
+      // جلب التنبيهات المحفوظة من قاعدة البيانات مع معالجة الأخطاء
+      let savedAlerts: SmartAlert[] = []
+      try {
+        savedAlerts = await window.electronAPI?.smartAlerts?.getAll?.() || []
+        console.log('📋 Loaded saved alerts from database:', savedAlerts.length)
+      } catch (error) {
+        console.error('❌ Error loading saved alerts:', error)
+        // المتابعة بدون التنبيهات المحفوظة
+      }
 
       // تنظيف التنبيهات القديمة والمنتهية الصلاحية
-      await this.cleanupOutdatedAlerts()
+      try {
+        await this.cleanupOutdatedAlerts()
+      } catch (error) {
+        console.error('❌ Error during cleanup:', error)
+        // المتابعة حتى لو فشل التنظيف
+      }
 
       // توليد تنبيهات جديدة من البيانات الحقيقية
-      const generatedAlerts = await this.generateSmartAlerts()
-      console.log('🔄 Generated new alerts from real data:', generatedAlerts.length)
+      let generatedAlerts: SmartAlert[] = []
+      try {
+        generatedAlerts = await this.generateSmartAlerts()
+        console.log('🔄 Generated new alerts from real data:', generatedAlerts.length)
+      } catch (error) {
+        console.error('❌ Error generating alerts:', error)
+        // المتابعة بدون التنبيهات المولدة
+      }
 
-      // حفظ التنبيهات الجديدة في قاعدة البيانات
-      for (const alert of generatedAlerts) {
+      // فلترة التنبيهات المولدة لإزالة التي توجد بالفعل في قاعدة البيانات
+      const newAlertsToSave = generatedAlerts.filter(generated => {
+        const existingAlert = savedAlerts.find(saved => saved.id === generated.id)
+        if (existingAlert) {
+          console.log('📋 Alert already exists, skipping generation:', generated.id, 'isRead:', existingAlert.isRead)
+          return false
+        }
+        return true
+      })
+
+      console.log(`📊 Filtered alerts: ${generatedAlerts.length} generated, ${newAlertsToSave.length} new to save`)
+
+      // حفظ التنبيهات الجديدة فقط في قاعدة البيانات
+      for (const alert of newAlertsToSave) {
         try {
-          // تحقق من عدم وجود التنبيه مسبقاً
-          const existingAlert = savedAlerts.find(saved => saved.id === alert.id)
-          if (!existingAlert) {
-            await window.electronAPI?.smartAlerts?.create?.(alert)
+          // التأكد من أن التنبيه له معرف صحيح
+          if (!alert.id) {
+            console.warn('⚠️ Alert missing ID, skipping:', alert.title)
+            continue
+          }
+
+          const result = await window.electronAPI?.smartAlerts?.create?.(alert)
+          if (result) {
             console.log('💾 Saved new alert to database:', alert.id, alert.title)
+          } else {
+            console.log('⚠️ Alert creation skipped (duplicate found):', alert.title)
           }
         } catch (error) {
           console.error('Error saving alert to database:', error)
         }
       }
 
-      // دمج التنبيهات وإزالة المكررات
-      const allAlerts = [...savedAlerts, ...generatedAlerts]
+      // دمج التنبيهات: استخدام التنبيهات المحفوظة + التنبيهات الجديدة المحفوظة فقط
+      const allAlerts = [...savedAlerts, ...newAlertsToSave]
       const uniqueAlerts = this.removeDuplicateAlerts(allAlerts)
 
+      console.log(`📊 Final merge: ${savedAlerts.length} saved + ${newAlertsToSave.length} new = ${uniqueAlerts.length} total`)
+
       // تنظيف التنبيهات المؤجلة المنتهية الصلاحية
-      await this.clearExpiredSnoozedAlerts()
+      try {
+        await this.clearExpiredSnoozedAlerts()
+      } catch (error) {
+        console.error('❌ Error clearing expired snoozed alerts:', error)
+      }
 
       // ترتيب حسب الأولوية والتاريخ
       const sortedAlerts = this.sortAlertsByPriority(uniqueAlerts)
+
+      // قياس الأداء
+      const endTime = Date.now()
+      const duration = endTime - startTime
 
       console.log('✅ Final alerts count:', sortedAlerts.length)
       console.log('📊 Alert breakdown:', {
         total: sortedAlerts.length,
         unread: sortedAlerts.filter(a => !a.isRead).length,
         undismissed: sortedAlerts.filter(a => !a.isDismissed).length,
-        actionRequired: sortedAlerts.filter(a => a.actionRequired).length
+        actionRequired: sortedAlerts.filter(a => a.actionRequired).length,
+        byPriority: {
+          high: sortedAlerts.filter(a => a.priority === 'high').length,
+          medium: sortedAlerts.filter(a => a.priority === 'medium').length,
+          low: sortedAlerts.filter(a => a.priority === 'low').length
+        },
+        byType: sortedAlerts.reduce((acc, alert) => {
+          acc[alert.type] = (acc[alert.type] || 0) + 1
+          return acc
+        }, {} as Record<string, number>)
       })
+      console.log(`⏱️ Alert loading completed in ${duration}ms`)
 
       return sortedAlerts
 
     } catch (error) {
-      console.error('❌ Error getting all alerts:', error)
+      const endTime = Date.now()
+      const duration = endTime - startTime
+      console.error(`❌ Error getting all alerts (${duration}ms):`, error)
+
+      // إرجاع مصفوفة فارغة بدلاً من إثارة خطأ
       return []
     }
   }
@@ -186,7 +333,12 @@ export class SmartAlertsService {
       tomorrow.setDate(tomorrow.getDate() + 1)
 
       appointments.forEach((appointment: Appointment) => {
-        // تحقق من صحة التاريخ
+        // تحقق من صحة البيانات الأساسية
+        if (!appointment.id) {
+          console.warn('Appointment missing ID, skipping')
+          return
+        }
+
         if (!appointment.start_time) {
           console.warn('Appointment missing start_time:', appointment.id)
           return
@@ -202,14 +354,17 @@ export class SmartAlertsService {
 
         // تنبيه للمواعيد اليوم
         if (this.isSameDay(appointmentDate, today) && appointment.status === 'scheduled') {
+          const patientName = appointment.patient?.full_name || 'مريض غير محدد'
+          const patientId = appointment.patient_id || null
+
           alerts.push({
             id: `appointment_today_${appointment.id}`,
             type: 'appointment',
             priority: 'high',
-            title: `موعد اليوم - ${appointment.patient?.full_name || 'مريض غير محدد'}`,
-            description: `موعد مجدول اليوم في ${this.formatTime(appointment.start_time)} - ${appointment.title}`,
-            patientId: appointment.patient_id,
-            patientName: appointment.patient?.full_name,
+            title: `موعد اليوم - ${patientName}`,
+            description: `موعد مجدول اليوم في ${this.formatTime(appointment.start_time)} - ${appointment.title || 'موعد'}`,
+            patientId: patientId,
+            patientName: patientName !== 'مريض غير محدد' ? patientName : null,
             relatedData: {
               appointmentId: appointment.id
             },
@@ -223,14 +378,17 @@ export class SmartAlertsService {
 
         // تنبيه للمواعيد غداً
         if (this.isSameDay(appointmentDate, tomorrow) && appointment.status === 'scheduled') {
+          const patientName = appointment.patient?.full_name || 'مريض غير محدد'
+          const patientId = appointment.patient_id || null
+
           alerts.push({
             id: `appointment_tomorrow_${appointment.id}`,
             type: 'appointment',
             priority: 'medium',
-            title: `موعد غداً - ${appointment.patient?.full_name || 'مريض غير محدد'}`,
-            description: `موعد مجدول غداً في ${this.formatTime(appointment.start_time)} - ${appointment.title}`,
-            patientId: appointment.patient_id,
-            patientName: appointment.patient?.full_name,
+            title: `موعد غداً - ${patientName}`,
+            description: `موعد مجدول غداً في ${this.formatTime(appointment.start_time)} - ${appointment.title || 'موعد'}`,
+            patientId: patientId,
+            patientName: patientName !== 'مريض غير محدد' ? patientName : null,
             relatedData: {
               appointmentId: appointment.id
             },
@@ -244,15 +402,19 @@ export class SmartAlertsService {
 
         // تنبيه للمواعيد المتأخرة
         if (appointmentDate < today && appointment.status === 'scheduled') {
+          const alertId = `appointment_overdue_${appointment.id}`
           const daysLate = Math.floor((today.getTime() - appointmentDate.getTime()) / (1000 * 60 * 60 * 24))
+          const patientName = appointment.patient?.full_name || 'مريض غير محدد'
+          const patientId = appointment.patient_id || null
+
           alerts.push({
-            id: `appointment_overdue_${appointment.id}`,
+            id: alertId,
             type: 'appointment',
             priority: 'high',
-            title: `موعد متأخر - ${appointment.patient?.full_name || 'مريض غير محدد'}`,
-            description: `موعد متأخر منذ ${daysLate} يوم - ${appointment.title}`,
-            patientId: appointment.patient_id,
-            patientName: appointment.patient?.full_name,
+            title: `موعد متأخر - ${patientName}`,
+            description: `موعد متأخر منذ ${daysLate} يوم - ${appointment.title || 'موعد'}`,
+            patientId: patientId,
+            patientName: patientName !== 'مريض غير محدد' ? patientName : null,
             relatedData: {
               appointmentId: appointment.id
             },
@@ -272,14 +434,17 @@ export class SmartAlertsService {
 
           // تذكير قبل 2-6 ساعات من الموعد كما هو محدد في المتطلبات
           if (hoursUntilAppointment <= 6 && hoursUntilAppointment >= 2) {
+            const patientName = appointment.patient?.full_name || 'مريض غير محدد'
+            const patientId = appointment.patient_id || null
+
             alerts.push({
               id: `appointment_reminder_${appointment.id}`,
               type: 'appointment',
               priority: 'medium',
-              title: `تذكير موعد - ${appointment.patient?.full_name || 'مريض غير محدد'}`,
-              description: `موعد خلال ${Math.round(hoursUntilAppointment)} ساعة - ${appointment.title}`,
-              patientId: appointment.patient_id,
-              patientName: appointment.patient?.full_name,
+              title: `تذكير موعد - ${patientName}`,
+              description: `موعد خلال ${Math.round(hoursUntilAppointment)} ساعة - ${appointment.title || 'موعد'}`,
+              patientId: patientId,
+              patientName: patientName !== 'مريض غير محدد' ? patientName : null,
               relatedData: {
                 appointmentId: appointment.id
               },
@@ -330,17 +495,20 @@ export class SmartAlertsService {
           const daysOverdue = Math.floor((today.getTime() - paymentDate.getTime()) / (1000 * 60 * 60 * 24))
 
           if (daysOverdue > 0) {
+            const patientName = payment.patient?.full_name || 'مريض غير محدد'
+            const patientId = payment.patient_id || null
+
             alerts.push({
               id: `payment_overdue_${payment.id}`,
               type: 'payment',
               priority: daysOverdue > 7 ? 'high' : 'medium',
-              title: `دفعة معلقة - ${payment.patient?.full_name || 'مريض غير محدد'}`,
+              title: `دفعة معلقة - ${patientName}`,
               description: `دفعة معلقة منذ ${daysOverdue} يوم - المبلغ: ${payment.remaining_balance}$`,
-              patientId: payment.patient_id,
-              patientName: payment.patient?.full_name,
+              patientId: patientId,
+              patientName: patientName !== 'مريض غير محدد' ? patientName : null,
               relatedData: {
                 paymentId: payment.id,
-                appointmentId: payment.appointment_id
+                appointmentId: payment.appointment_id || null
               },
               actionRequired: true,
               dueDate: payment.payment_date,
@@ -353,17 +521,20 @@ export class SmartAlertsService {
 
         // تنبيه للدفعات الجزئية
         if (payment.status === 'partial' && payment.remaining_balance && payment.remaining_balance > 0) {
+          const patientName = payment.patient?.full_name || 'مريض غير محدد'
+          const patientId = payment.patient_id || null
+
           alerts.push({
             id: `payment_partial_${payment.id}`,
             type: 'payment',
             priority: 'medium',
-            title: `دفعة جزئية - ${payment.patient?.full_name || 'مريض غير محدد'}`,
+            title: `دفعة جزئية - ${patientName}`,
             description: `تم دفع ${payment.amount}$ من أصل ${payment.amount + payment.remaining_balance}$ - المتبقي: ${payment.remaining_balance}$`,
-            patientId: payment.patient_id,
-            patientName: payment.patient?.full_name,
+            patientId: patientId,
+            patientName: patientName !== 'مريض غير محدد' ? patientName : null,
             relatedData: {
               paymentId: payment.id,
-              appointmentId: payment.appointment_id
+              appointmentId: payment.appointment_id || null
             },
             actionRequired: true,
             dueDate: payment.payment_date,
@@ -375,17 +546,20 @@ export class SmartAlertsService {
 
         // تنبيه للدفعات المرفوضة
         if (payment.status === 'failed' || payment.status === 'rejected') {
+          const patientName = payment.patient?.full_name || 'مريض غير محدد'
+          const patientId = payment.patient_id || null
+
           alerts.push({
             id: `payment_failed_${payment.id}`,
             type: 'payment',
             priority: 'high',
-            title: `دفعة مرفوضة - ${payment.patient?.full_name || 'مريض غير محدد'}`,
+            title: `دفعة مرفوضة - ${patientName}`,
             description: `دفعة بقيمة ${payment.amount}$ تم رفضها - ${payment.notes || 'بحاجة لمراجعة'}`,
-            patientId: payment.patient_id,
-            patientName: payment.patient?.full_name,
+            patientId: patientId,
+            patientName: patientName !== 'مريض غير محدد' ? patientName : null,
             relatedData: {
               paymentId: payment.id,
-              appointmentId: payment.appointment_id
+              appointmentId: payment.appointment_id || null
             },
             actionRequired: true,
             dueDate: payment.payment_date,
@@ -516,18 +690,21 @@ export class SmartAlertsService {
 
         // تنبيه للوصفات القديمة (قد تحتاج تجديد)
         if (daysSince > 30) {
+          const patientName = prescription.patient?.full_name || 'مريض غير محدد'
+          const patientId = prescription.patient_id || null
+
           alerts.push({
             id: `prescription_old_${prescription.id}`,
             type: 'prescription',
             priority: 'medium',
-            title: `وصفة قديمة - ${prescription.patient?.full_name || 'مريض غير محدد'}`,
+            title: `وصفة قديمة - ${patientName}`,
             description: `وصفة صادرة منذ ${daysSince} يوم - قد تحتاج تجديد`,
-            patientId: prescription.patient_id,
-            patientName: prescription.patient?.full_name,
+            patientId: patientId,
+            patientName: patientName !== 'مريض غير محدد' ? patientName : null,
             relatedData: {
               prescriptionId: prescription.id,
-              appointmentId: prescription.appointment_id,
-              treatmentId: prescription.tooth_treatment_id
+              appointmentId: prescription.appointment_id || null,
+              treatmentId: prescription.tooth_treatment_id || null
             },
             actionRequired: false,
             createdAt: new Date().toISOString(),
@@ -538,18 +715,21 @@ export class SmartAlertsService {
 
         // تنبيه للوصفات التي تحتاج متابعة
         if (prescription.notes && prescription.notes.includes('متابعة') && daysSince > 7) {
+          const patientName = prescription.patient?.full_name || 'مريض غير محدد'
+          const patientId = prescription.patient_id || null
+
           alerts.push({
             id: `prescription_followup_${prescription.id}`,
             type: 'prescription',
             priority: 'medium',
-            title: `متابعة وصفة - ${prescription.patient?.full_name || 'مريض غير محدد'}`,
+            title: `متابعة وصفة - ${patientName}`,
             description: `وصفة تحتاج متابعة منذ ${daysSince} يوم - ${prescription.notes}`,
-            patientId: prescription.patient_id,
-            patientName: prescription.patient?.full_name,
+            patientId: patientId,
+            patientName: patientName !== 'مريض غير محدد' ? patientName : null,
             relatedData: {
               prescriptionId: prescription.id,
-              appointmentId: prescription.appointment_id,
-              treatmentId: prescription.tooth_treatment_id,
+              appointmentId: prescription.appointment_id || null,
+              treatmentId: prescription.tooth_treatment_id || null,
               daysSince: daysSince
             },
             actionRequired: true,
@@ -562,18 +742,21 @@ export class SmartAlertsService {
         // تنبيه للوصفات التي تحتوي على أدوية مهمة
         if (prescription.notes && (prescription.notes.includes('مضاد حيوي') || prescription.notes.includes('مسكن قوي'))) {
           if (daysSince > 14) { // أكثر من أسبوعين
+            const patientName = prescription.patient?.full_name || 'مريض غير محدد'
+            const patientId = prescription.patient_id || null
+
             alerts.push({
               id: `prescription_important_med_${prescription.id}`,
               type: 'prescription',
               priority: 'medium',
-              title: `وصفة أدوية مهمة - ${prescription.patient?.full_name || 'مريض غير محدد'}`,
+              title: `وصفة أدوية مهمة - ${patientName}`,
               description: `وصفة تحتوي على أدوية مهمة منذ ${daysSince} يوم - تحتاج متابعة`,
-              patientId: prescription.patient_id,
-              patientName: prescription.patient?.full_name,
+              patientId: patientId,
+              patientName: patientName !== 'مريض غير محدد' ? patientName : null,
               relatedData: {
                 prescriptionId: prescription.id,
-                appointmentId: prescription.appointment_id,
-                treatmentId: prescription.tooth_treatment_id,
+                appointmentId: prescription.appointment_id || null,
+                treatmentId: prescription.tooth_treatment_id || null,
                 medicationType: 'important'
               },
               actionRequired: true,
@@ -586,18 +769,21 @@ export class SmartAlertsService {
 
         // تنبيه للوصفات بدون ملاحظات (قد تحتاج توضيح)
         if (!prescription.notes || prescription.notes.trim() === '') {
+          const patientName = prescription.patient?.full_name || 'مريض غير محدد'
+          const patientId = prescription.patient_id || null
+
           alerts.push({
             id: `prescription_no_notes_${prescription.id}`,
             type: 'prescription',
             priority: 'low',
-            title: `وصفة بدون ملاحظات - ${prescription.patient?.full_name || 'مريض غير محدد'}`,
+            title: `وصفة بدون ملاحظات - ${patientName}`,
             description: `وصفة صادرة منذ ${daysSince} يوم بدون ملاحظات - قد تحتاج توضيح`,
-            patientId: prescription.patient_id,
-            patientName: prescription.patient?.full_name,
+            patientId: patientId,
+            patientName: patientName !== 'مريض غير محدد' ? patientName : null,
             relatedData: {
               prescriptionId: prescription.id,
-              appointmentId: prescription.appointment_id,
-              treatmentId: prescription.tooth_treatment_id
+              appointmentId: prescription.appointment_id || null,
+              treatmentId: prescription.tooth_treatment_id || null
             },
             actionRequired: false,
             createdAt: new Date().toISOString(),
@@ -737,13 +923,19 @@ export class SmartAlertsService {
     }
 
     try {
-      await window.electronAPI?.smartAlerts?.create?.(newAlert)
+      const result = await window.electronAPI?.smartAlerts?.create?.(newAlert)
 
-      // إرسال حدث الإنشاء في الوقت الفعلي
-      AlertsEventSystem.emit('alert:created', { alert: newAlert })
-      AlertsEventSystem.emit('alerts:changed')
+      if (result) {
+        // إرسال حدث الإنشاء في الوقت الفعلي
+        AlertsEventSystem.emit('alert:created', { alert: newAlert })
+        AlertsEventSystem.emit('alerts:changed')
 
-      return newAlert
+        return newAlert
+      } else {
+        console.log('⚠️ Alert creation skipped (duplicate found):', newAlert.title)
+        // Return the alert anyway since it was requested to be created
+        return newAlert
+      }
     } catch (error) {
       console.error('Error creating alert:', error)
       throw error
@@ -756,23 +948,14 @@ export class SmartAlertsService {
   static async deleteAppointmentAlerts(appointmentId: string): Promise<void> {
     try {
       console.log('🗑️ Deleting alerts for appointment:', appointmentId)
-      const alerts = await window.electronAPI?.smartAlerts?.getAll?.() || []
 
-      let deletedCount = 0
-      for (const alert of alerts) {
-        if (alert.type === 'appointment' && alert.relatedData?.appointmentId === appointmentId) {
-          try {
-            await window.electronAPI?.smartAlerts?.delete?.(alert.id)
-            deletedCount++
-          } catch (error) {
-            console.warn('Error deleting appointment alert:', alert.id, error)
-          }
-        }
-      }
+      // استخدام الطريقة الجديدة المحسنة لحذف الإشعارات
+      const deletedCount = await window.electronAPI?.smartAlerts?.deleteByRelatedData?.('appointmentId', appointmentId) || 0
 
       console.log(`🗑️ Deleted ${deletedCount} alerts for appointment ${appointmentId}`)
 
       // إرسال حدث التحديث في الوقت الفعلي
+      AlertsEventSystem.emit('alert:deleted', { type: 'appointment', relatedId: appointmentId, count: deletedCount })
       AlertsEventSystem.emit('alerts:changed')
     } catch (error) {
       console.error('Error deleting appointment alerts:', error)
@@ -785,26 +968,57 @@ export class SmartAlertsService {
   static async deletePaymentAlerts(paymentId: string): Promise<void> {
     try {
       console.log('🗑️ Deleting alerts for payment:', paymentId)
-      const alerts = await window.electronAPI?.smartAlerts?.getAll?.() || []
 
-      let deletedCount = 0
-      for (const alert of alerts) {
-        if (alert.type === 'payment' && alert.relatedData?.paymentId === paymentId) {
-          try {
-            await window.electronAPI?.smartAlerts?.delete?.(alert.id)
-            deletedCount++
-          } catch (error) {
-            console.warn('Error deleting payment alert:', alert.id, error)
-          }
-        }
-      }
+      // استخدام الطريقة الجديدة المحسنة لحذف الإشعارات
+      const deletedCount = await window.electronAPI?.smartAlerts?.deleteByRelatedData?.('paymentId', paymentId) || 0
 
       console.log(`🗑️ Deleted ${deletedCount} alerts for payment ${paymentId}`)
 
       // إرسال حدث التحديث في الوقت الفعلي
+      AlertsEventSystem.emit('alert:deleted', { type: 'payment', relatedId: paymentId, count: deletedCount })
       AlertsEventSystem.emit('alerts:changed')
     } catch (error) {
       console.error('Error deleting payment alerts:', error)
+    }
+  }
+
+  /**
+   * حذف التنبيهات المرتبطة بمريض معين
+   */
+  static async deletePatientAlerts(patientId: string): Promise<void> {
+    try {
+      console.log('🗑️ Deleting alerts for patient:', patientId)
+
+      // استخدام الطريقة الجديدة المحسنة لحذف الإشعارات
+      const deletedCount = await window.electronAPI?.smartAlerts?.deleteByPatient?.(patientId) || 0
+
+      console.log(`🗑️ Deleted ${deletedCount} alerts for patient ${patientId}`)
+
+      // إرسال حدث التحديث في الوقت الفعلي
+      AlertsEventSystem.emit('alert:deleted', { type: 'patient', relatedId: patientId, count: deletedCount })
+      AlertsEventSystem.emit('alerts:changed')
+    } catch (error) {
+      console.error('Error deleting patient alerts:', error)
+    }
+  }
+
+  /**
+   * حذف التنبيهات حسب النوع
+   */
+  static async deleteAlertsByType(type: string, patientId?: string): Promise<void> {
+    try {
+      console.log('🗑️ Deleting alerts by type:', type, 'for patient:', patientId)
+
+      // استخدام الطريقة الجديدة المحسنة لحذف الإشعارات
+      const deletedCount = await window.electronAPI?.smartAlerts?.deleteByType?.(type, patientId) || 0
+
+      console.log(`🗑️ Deleted ${deletedCount} alerts of type ${type}${patientId ? ` for patient ${patientId}` : ''}`)
+
+      // إرسال حدث التحديث في الوقت الفعلي
+      AlertsEventSystem.emit('alert:deleted', { type, patientId, count: deletedCount })
+      AlertsEventSystem.emit('alerts:changed')
+    } catch (error) {
+      console.error('Error deleting alerts by type:', error)
     }
   }
 
@@ -813,15 +1027,22 @@ export class SmartAlertsService {
    */
   static async updateAlert(alertId: string, updates: Partial<SmartAlert>): Promise<void> {
     try {
-      await window.electronAPI?.smartAlerts?.update?.(alertId, updates)
-      console.log('✅ Alert updated in database:', alertId, updates)
+      console.log('🔄 SmartAlertsService: updateAlert called', { alertId, updates })
+
+      const result = await window.electronAPI?.smartAlerts?.update?.(alertId, updates)
+      console.log('✅ Alert updated in database:', alertId, updates, 'Result:', result)
 
       // إرسال حدث التحديث في الوقت الفعلي
+      console.log('📡 Emitting alert:updated event...')
       AlertsEventSystem.emit('alert:updated', { alertId, updates })
+
+      console.log('📡 Emitting alerts:changed event...')
       AlertsEventSystem.emit('alerts:changed')
 
+      console.log('✅ All events emitted successfully')
+
     } catch (error) {
-      console.error('Error updating alert:', error)
+      console.error('❌ Error updating alert:', error)
       throw error
     }
   }
@@ -1193,17 +1414,37 @@ export class SmartAlertsService {
   }
 
   /**
-   * ترتيب التنبيهات حسب الأولوية والتاريخ
+   * ترتيب التنبيهات حسب الأولوية والتاريخ والحالة
    */
   private static sortAlertsByPriority(alerts: SmartAlert[]): SmartAlert[] {
     const priorityOrder = { 'high': 1, 'medium': 2, 'low': 3 }
 
     return alerts.sort((a, b) => {
-      // ترتيب حسب الأولوية أولاً
+      // التنبيهات غير المقروءة أولاً
+      if (a.isRead !== b.isRead) {
+        return a.isRead ? 1 : -1
+      }
+
+      // التنبيهات التي تتطلب إجراء أولاً
+      if (a.actionRequired !== b.actionRequired) {
+        return a.actionRequired ? -1 : 1
+      }
+
+      // ترتيب حسب الأولوية
       const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
       if (priorityDiff !== 0) return priorityDiff
 
-      // ثم حسب التاريخ (الأحدث أولاً)
+      // ترتيب حسب تاريخ الاستحقاق إذا وجد
+      if (a.dueDate && b.dueDate) {
+        const dueDateDiff = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+        if (dueDateDiff !== 0) return dueDateDiff
+      } else if (a.dueDate && !b.dueDate) {
+        return -1 // التنبيهات ذات تاريخ الاستحقاق أولاً
+      } else if (!a.dueDate && b.dueDate) {
+        return 1
+      }
+
+      // أخيراً حسب التاريخ (الأحدث أولاً)
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     })
   }
