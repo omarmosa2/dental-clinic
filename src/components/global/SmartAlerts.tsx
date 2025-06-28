@@ -34,6 +34,7 @@ import { SmartAlertsService } from '@/services/smartAlertsService'
 import { useRealTimeAlerts } from '@/hooks/useRealTimeAlerts'
 import { useTheme } from '@/contexts/ThemeContext'
 import { SimpleRealTimeIndicator } from './RealTimeIndicator'
+import { useToast } from '@/hooks/use-toast'
 import type { SmartAlert } from '@/types'
 
 // البيانات الحقيقية فقط - لا توجد بيانات تجريبية كما هو محدد في المتطلبات
@@ -133,6 +134,9 @@ export default function SmartAlerts({
 
   // إعداد الثيم
   const { isDarkMode } = useTheme()
+
+  // إعداد Toast notifications
+  const { toast } = useToast()
 
   const [expandedAlerts, setExpandedAlerts] = useState<Set<string>>(new Set())
   const [showRead, setShowRead] = useState(showReadAlerts)
@@ -291,8 +295,19 @@ export default function SmartAlerts({
     try {
       await dismissAlert(alertId)
       console.log('✅ Alert dismissed successfully:', alertId)
+
+      toast({
+        title: "🗑️ تم إخفاء الإشعار",
+        description: "تم إخفاء الإشعار بنجاح",
+        duration: 2000,
+      })
     } catch (error) {
       console.error('❌ Error dismissing alert:', error)
+      toast({
+        title: "❌ خطأ",
+        description: "حدث خطأ أثناء إخفاء الإشعار",
+        variant: "destructive",
+      })
     }
   }
 
@@ -305,8 +320,20 @@ export default function SmartAlerts({
     try {
       await snoozeAlert(alertId, snoozeUntil.toISOString())
       console.log('✅ Alert snoozed successfully:', alertId)
+
+      const timeText = hours === 1 ? 'ساعة واحدة' : `${hours} ساعة`
+      toast({
+        title: "⏰ تم تأجيل الإشعار",
+        description: `تم تأجيل الإشعار لمدة ${timeText}`,
+        duration: 2000,
+      })
     } catch (error) {
       console.error('❌ Error snoozing alert:', error)
+      toast({
+        title: "❌ خطأ",
+        description: "حدث خطأ أثناء تأجيل الإشعار",
+        variant: "destructive",
+      })
     }
   }
 
@@ -323,6 +350,334 @@ export default function SmartAlerts({
     })
   }
 
+  // Handle action button clicks
+  const handleActionClick = async (action: string, alert: SmartAlert, e: React.MouseEvent) => {
+    e.stopPropagation()
+    console.log(`🔧 Action clicked: ${action} for alert:`, alert.id)
+
+    try {
+      switch (action) {
+        case 'call':
+        case 'call-patient':
+          if (alert.patientId) {
+            // فتح ملف المريض وعرض معلومات الاتصال
+            const patients = await window.electronAPI?.patients?.getAll?.() || []
+            const patient = patients.find(p => p.id === alert.patientId)
+            if (patient?.phone) {
+              // إظهار رقم الهاتف للمستخدم
+              toast({
+                title: "📞 معلومات الاتصال",
+                description: `رقم هاتف ${patient.full_name}: ${patient.phone}`,
+                duration: 5000,
+              })
+              // تحديث الإشعار كمقروء
+              await markAlertAsRead(alert.id)
+            } else {
+              toast({
+                title: "❌ خطأ",
+                description: "لا يوجد رقم هاتف مسجل لهذا المريض",
+                variant: "destructive",
+              })
+            }
+          }
+          break
+
+        case 'reschedule':
+          if (alert.relatedData?.appointmentId) {
+            // فتح نافذة إعادة جدولة الموعد
+            const appointments = await window.electronAPI?.appointments?.getAll?.() || []
+            const appointment = appointments.find(a => a.id === alert.relatedData?.appointmentId)
+            if (appointment) {
+              // إظهار خيارات للموعد
+              const action = confirm(`موعد ${appointment.title}\n\nاختر:\nOK = تأكيد الموعد\nCancel = إعادة جدولة`)
+              if (action) {
+                try {
+                  // تأكيد الموعد
+                  await window.electronAPI?.appointments?.update?.(appointment.id, {
+                    ...appointment,
+                    status: 'confirmed'
+                  })
+
+                  toast({
+                    title: "✅ تم تأكيد الموعد",
+                    description: `تم تأكيد موعد ${appointment.title}`,
+                    duration: 3000,
+                  })
+
+                  await markAlertAsRead(alert.id)
+                  window.dispatchEvent(new CustomEvent('appointment-updated'))
+                } catch (error) {
+                  toast({
+                    title: "❌ خطأ",
+                    description: "حدث خطأ أثناء تحديث الموعد",
+                    variant: "destructive",
+                  })
+                }
+              } else {
+                toast({
+                  title: "📅 إعادة جدولة الموعد",
+                  description: `موعد ${appointment.title} - يرجى استخدام صفحة المواعيد لإعادة الجدولة`,
+                  duration: 4000,
+                })
+                await markAlertAsRead(alert.id)
+              }
+            }
+          }
+          break
+
+        case 'collect':
+          if (alert.relatedData?.paymentId) {
+            // فتح نافذة تحصيل الدفعة
+            const payments = await window.electronAPI?.payments?.getAll?.() || []
+            const payment = payments.find(p => p.id === alert.relatedData?.paymentId)
+            if (payment) {
+              // إظهار تأكيد للتحصيل
+              const confirmed = confirm(`هل تريد تأكيد تحصيل دفعة بقيمة $${payment.remaining_balance}؟`)
+              if (confirmed) {
+                try {
+                  // تحديث حالة الدفعة إلى مكتملة
+                  await window.electronAPI?.payments?.update?.(payment.id, {
+                    ...payment,
+                    status: 'completed',
+                    remaining_balance: 0,
+                    paid_amount: payment.total_amount
+                  })
+
+                  toast({
+                    title: "✅ تم التحصيل",
+                    description: `تم تحصيل دفعة بقيمة $${payment.remaining_balance} بنجاح`,
+                    duration: 3000,
+                  })
+
+                  // حذف الإشعار لأن الدفعة اكتملت
+                  await dismissAlert(alert.id)
+
+                  // إرسال حدث تحديث الدفعات
+                  window.dispatchEvent(new CustomEvent('payment-updated'))
+                } catch (error) {
+                  toast({
+                    title: "❌ خطأ",
+                    description: "حدث خطأ أثناء تحديث الدفعة",
+                    variant: "destructive",
+                  })
+                }
+              } else {
+                toast({
+                  title: "💰 تحصيل الدفعة",
+                  description: `دفعة بقيمة $${payment.remaining_balance} - يرجى استخدام صفحة المدفوعات للتحصيل`,
+                  duration: 4000,
+                })
+                await markAlertAsRead(alert.id)
+              }
+            }
+          }
+          break
+
+        case 'installment':
+          if (alert.relatedData?.paymentId) {
+            // فتح نافذة تقسيط الدفعة
+            toast({
+              title: "💳 تقسيط الدفعة",
+              description: "يرجى استخدام صفحة المدفوعات لإعداد التقسيط",
+              duration: 3000,
+            })
+            await markAlertAsRead(alert.id)
+          }
+          break
+
+        case 'schedule':
+          if (alert.patientId) {
+            // فتح نافذة جدولة موعد جديد
+            toast({
+              title: "📅 جدولة موعد جديد",
+              description: "يرجى استخدام صفحة المواعيد لإضافة موعد جديد",
+              duration: 3000,
+            })
+            await markAlertAsRead(alert.id)
+          }
+          break
+
+        case 'view-patient':
+          if (alert.patientId) {
+            // فتح ملف المريض
+            const patients = await window.electronAPI?.patients?.getAll?.() || []
+            const patient = patients.find(p => p.id === alert.patientId)
+            if (patient) {
+              toast({
+                title: "👤 ملف المريض",
+                description: `${patient.full_name} - يرجى استخدام صفحة المرضى لعرض التفاصيل`,
+                duration: 3000,
+              })
+              await markAlertAsRead(alert.id)
+            }
+          }
+          break
+
+        case 'restock':
+          if (alert.relatedData?.inventoryId) {
+            // فتح نافذة تجديد المخزون
+            toast({
+              title: "📦 تجديد المخزون",
+              description: "يرجى استخدام صفحة المخزون لتجديد العناصر",
+              duration: 3000,
+            })
+            await markAlertAsRead(alert.id)
+          }
+          break
+
+        case 'view-item':
+          if (alert.relatedData?.inventoryId) {
+            // عرض تفاصيل العنصر
+            toast({
+              title: "👁️ عرض العنصر",
+              description: "يرجى استخدام صفحة المخزون لعرض التفاصيل",
+              duration: 3000,
+            })
+            await markAlertAsRead(alert.id)
+          }
+          break
+
+        case 'contact-lab':
+          // اتصال بالمختبر
+          toast({
+            title: "🔬 اتصال بالمختبر",
+            description: "يرجى استخدام معلومات الاتصال المحفوظة",
+            duration: 3000,
+          })
+          await markAlertAsRead(alert.id)
+          break
+
+        case 'update-status':
+          if (alert.relatedData?.labOrderId) {
+            // تحديث حالة طلب المختبر
+            const labOrders = await window.electronAPI?.labOrders?.getAll?.() || []
+            const labOrder = labOrders.find(l => l.id === alert.relatedData?.labOrderId)
+            if (labOrder) {
+              const statusOptions = ['pending', 'in_progress', 'completed', 'cancelled']
+              const currentStatus = labOrder.status || 'pending'
+              const nextStatus = statusOptions[(statusOptions.indexOf(currentStatus) + 1) % statusOptions.length]
+
+              const confirmed = confirm(`تحديث حالة طلب المختبر من "${currentStatus}" إلى "${nextStatus}"؟`)
+              if (confirmed) {
+                try {
+                  await window.electronAPI?.labOrders?.update?.(labOrder.id, {
+                    ...labOrder,
+                    status: nextStatus
+                  })
+
+                  toast({
+                    title: "✅ تم تحديث الحالة",
+                    description: `تم تحديث حالة طلب المختبر إلى "${nextStatus}"`,
+                    duration: 3000,
+                  })
+
+                  await markAlertAsRead(alert.id)
+                  window.dispatchEvent(new CustomEvent('lab-order-updated'))
+                } catch (error) {
+                  toast({
+                    title: "❌ خطأ",
+                    description: "حدث خطأ أثناء تحديث حالة المختبر",
+                    variant: "destructive",
+                  })
+                }
+              } else {
+                await markAlertAsRead(alert.id)
+              }
+            } else {
+              toast({
+                title: "🔄 تحديث حالة المختبر",
+                description: "يرجى استخدام صفحة طلبات المختبر",
+                duration: 3000,
+              })
+              await markAlertAsRead(alert.id)
+            }
+          }
+          break
+
+        case 'view-prescription':
+          if (alert.relatedData?.prescriptionId) {
+            // عرض الوصفة
+            const prescriptions = await window.electronAPI?.prescriptions?.getAll?.() || []
+            const prescription = prescriptions.find(p => p.id === alert.relatedData?.prescriptionId)
+            if (prescription) {
+              toast({
+                title: "💊 عرض الوصفة",
+                description: `${prescription.notes || 'وصفة طبية'} - يرجى استخدام صفحة الوصفات لعرض التفاصيل`,
+                duration: 4000,
+              })
+              await markAlertAsRead(alert.id)
+            }
+          }
+          break
+
+        case 'schedule-appointment':
+          if (alert.patientId) {
+            // حجز موعد جديد
+            const patients = await window.electronAPI?.patients?.getAll?.() || []
+            const patient = patients.find(p => p.id === alert.patientId)
+            if (patient) {
+              const confirmed = confirm(`حجز موعد جديد للمريض ${patient.full_name}؟`)
+              if (confirmed) {
+                try {
+                  // إنشاء موعد جديد بتاريخ غداً
+                  const tomorrow = new Date()
+                  tomorrow.setDate(tomorrow.getDate() + 1)
+                  tomorrow.setHours(9, 0, 0, 0) // 9 صباحاً
+
+                  const newAppointment = {
+                    id: `appointment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    patient_id: alert.patientId,
+                    title: 'موعد متابعة',
+                    description: 'موعد متابعة تم إنشاؤه من الإشعارات',
+                    start_time: tomorrow.toISOString(),
+                    end_time: new Date(tomorrow.getTime() + 30 * 60000).toISOString(), // 30 دقيقة
+                    status: 'scheduled',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  }
+
+                  await window.electronAPI?.appointments?.create?.(newAppointment)
+
+                  toast({
+                    title: "✅ تم حجز الموعد",
+                    description: `تم حجز موعد للمريض ${patient.full_name} غداً في 9:00 صباحاً`,
+                    duration: 4000,
+                  })
+
+                  await markAlertAsRead(alert.id)
+                  window.dispatchEvent(new CustomEvent('appointment-added'))
+                } catch (error) {
+                  toast({
+                    title: "❌ خطأ",
+                    description: "حدث خطأ أثناء حجز الموعد",
+                    variant: "destructive",
+                  })
+                }
+              } else {
+                toast({
+                  title: "📅 حجز موعد جديد",
+                  description: "يرجى استخدام صفحة المواعيد لحجز موعد",
+                  duration: 3000,
+                })
+                await markAlertAsRead(alert.id)
+              }
+            }
+          }
+          break
+
+        default:
+          console.log('Unknown action:', action)
+      }
+    } catch (error) {
+      console.error('Error handling action:', error)
+      toast({
+        title: "❌ خطأ",
+        description: "حدث خطأ أثناء تنفيذ العملية",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Render alert actions
   const renderAlertActions = (alert: SmartAlert) => {
     const actions = []
@@ -331,14 +686,26 @@ export default function SmartAlerts({
     switch (alert.type) {
       case 'appointment':
         actions.push(
-          <Button key="call" size="sm" variant="outline" className="h-6 text-xs">
+          <Button
+            key="call"
+            size="sm"
+            variant="outline"
+            className="h-6 text-xs"
+            onClick={(e) => handleActionClick('call', alert, e)}
+          >
             <Phone className="w-3 h-3 mr-1" />
             اتصال
           </Button>
         )
         if (alert.relatedData?.appointmentId) {
           actions.push(
-            <Button key="reschedule" size="sm" variant="outline" className="h-6 text-xs">
+            <Button
+              key="reschedule"
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={(e) => handleActionClick('reschedule', alert, e)}
+            >
               <Calendar className="w-3 h-3 mr-1" />
               إعادة جدولة
             </Button>
@@ -347,14 +714,26 @@ export default function SmartAlerts({
         break
       case 'payment':
         actions.push(
-          <Button key="collect" size="sm" variant="outline" className="h-6 text-xs">
+          <Button
+            key="collect"
+            size="sm"
+            variant="outline"
+            className="h-6 text-xs"
+            onClick={(e) => handleActionClick('collect', alert, e)}
+          >
             <DollarSign className="w-3 h-3 mr-1" />
             تحصيل
           </Button>
         )
         if (alert.relatedData?.paymentId) {
           actions.push(
-            <Button key="installment" size="sm" variant="outline" className="h-6 text-xs">
+            <Button
+              key="installment"
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={(e) => handleActionClick('installment', alert, e)}
+            >
               <CreditCard className="w-3 h-3 mr-1" />
               تقسيط
             </Button>
@@ -363,14 +742,26 @@ export default function SmartAlerts({
         break
       case 'treatment':
         actions.push(
-          <Button key="schedule" size="sm" variant="outline" className="h-6 text-xs">
+          <Button
+            key="schedule"
+            size="sm"
+            variant="outline"
+            className="h-6 text-xs"
+            onClick={(e) => handleActionClick('schedule', alert, e)}
+          >
             <Calendar className="w-3 h-3 mr-1" />
             جدولة
           </Button>
         )
         if (alert.patientId) {
           actions.push(
-            <Button key="view-patient" size="sm" variant="outline" className="h-6 text-xs">
+            <Button
+              key="view-patient"
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={(e) => handleActionClick('view-patient', alert, e)}
+            >
               <User className="w-3 h-3 mr-1" />
               ملف المريض
             </Button>
@@ -379,14 +770,26 @@ export default function SmartAlerts({
         break
       case 'inventory':
         actions.push(
-          <Button key="restock" size="sm" variant="outline" className="h-6 text-xs">
+          <Button
+            key="restock"
+            size="sm"
+            variant="outline"
+            className="h-6 text-xs"
+            onClick={(e) => handleActionClick('restock', alert, e)}
+          >
             <Package className="w-3 h-3 mr-1" />
             تجديد المخزون
           </Button>
         )
         if (alert.relatedData?.inventoryId) {
           actions.push(
-            <Button key="view-item" size="sm" variant="outline" className="h-6 text-xs">
+            <Button
+              key="view-item"
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={(e) => handleActionClick('view-item', alert, e)}
+            >
               <Eye className="w-3 h-3 mr-1" />
               عرض العنصر
             </Button>
@@ -395,14 +798,26 @@ export default function SmartAlerts({
         break
       case 'lab_order':
         actions.push(
-          <Button key="contact-lab" size="sm" variant="outline" className="h-6 text-xs">
+          <Button
+            key="contact-lab"
+            size="sm"
+            variant="outline"
+            className="h-6 text-xs"
+            onClick={(e) => handleActionClick('contact-lab', alert, e)}
+          >
             <Phone className="w-3 h-3 mr-1" />
             اتصال بالمختبر
           </Button>
         )
         if (alert.relatedData?.labOrderId) {
           actions.push(
-            <Button key="update-status" size="sm" variant="outline" className="h-6 text-xs">
+            <Button
+              key="update-status"
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={(e) => handleActionClick('update-status', alert, e)}
+            >
               <RefreshCw className="w-3 h-3 mr-1" />
               تحديث الحالة
             </Button>
@@ -412,7 +827,13 @@ export default function SmartAlerts({
       case 'prescription':
         if (alert.patientId) {
           actions.push(
-            <Button key="call-patient" size="sm" variant="outline" className="h-6 text-xs">
+            <Button
+              key="call-patient"
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={(e) => handleActionClick('call-patient', alert, e)}
+            >
               <Phone className="w-3 h-3 mr-1" />
               اتصال بالمريض
             </Button>
@@ -420,7 +841,13 @@ export default function SmartAlerts({
         }
         if (alert.relatedData?.prescriptionId) {
           actions.push(
-            <Button key="view-prescription" size="sm" variant="outline" className="h-6 text-xs">
+            <Button
+              key="view-prescription"
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={(e) => handleActionClick('view-prescription', alert, e)}
+            >
               <FileText className="w-3 h-3 mr-1" />
               عرض الوصفة
             </Button>
@@ -430,13 +857,25 @@ export default function SmartAlerts({
       case 'follow_up':
         if (alert.patientId) {
           actions.push(
-            <Button key="schedule-appointment" size="sm" variant="outline" className="h-6 text-xs">
+            <Button
+              key="schedule-appointment"
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={(e) => handleActionClick('schedule-appointment', alert, e)}
+            >
               <Calendar className="w-3 h-3 mr-1" />
               حجز موعد
             </Button>
           )
           actions.push(
-            <Button key="call-patient" size="sm" variant="outline" className="h-6 text-xs">
+            <Button
+              key="call-patient"
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={(e) => handleActionClick('call-patient', alert, e)}
+            >
               <Phone className="w-3 h-3 mr-1" />
               اتصال
             </Button>
@@ -591,11 +1030,33 @@ export default function SmartAlerts({
                         )}
                       </div>
 
+                      {/* Quick action buttons - always visible for important alerts */}
+                      {alert.actionRequired && (
+                        <div className="mt-2">
+                          <div className="flex flex-wrap gap-1">
+                            {renderAlertActions(alert).slice(0, 2).map((action, idx) => (
+                              <div key={idx}>{action}</div>
+                            ))}
+                            {renderAlertActions(alert).length > 2 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-xs"
+                                onClick={() => toggleExpanded(alert.id)}
+                              >
+                                <MoreVertical className="w-3 h-3 mr-1" />
+                                المزيد ({renderAlertActions(alert).length - 2})
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Expanded content */}
-                      {expandedAlerts.has(alert.id) && alert.actionRequired && (
+                      {expandedAlerts.has(alert.id) && alert.actionRequired && renderAlertActions(alert).length > 2 && (
                         <div className={`mt-3 pt-3 border-t ${isDarkMode ? 'border-muted/50' : 'border-muted'}`}>
                           <div className="flex flex-wrap gap-2">
-                            {renderAlertActions(alert)}
+                            {renderAlertActions(alert).slice(2)}
                           </div>
                         </div>
                       )}

@@ -444,22 +444,22 @@ export default function PatientDetailsModal({
                         <thead className="bg-muted">
                           <tr>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              الحالة
-                            </th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              التكلفة
-                            </th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              العلاج الحالي
-                            </th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              اسم السن
+                              الرقم التسلسلي
                             </th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                               رقم السن
                             </th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              الرقم التسلسلي
+                              اسم السن
+                            </th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              العلاج الحالي
+                            </th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              التكلفة
+                            </th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              الحالة
                             </th>
                           </tr>
                         </thead>
@@ -468,8 +468,17 @@ export default function PatientDetailsModal({
                             const status = getTreatmentStatusBadge(treatment.treatment_status)
                             return (
                               <tr key={treatment.id} className="hover:bg-muted/50 transition-colors">
-                                <td className="px-4 py-3 text-sm">
-                                  <Badge variant={status.variant}>{status.label}</Badge>
+                                <td className="px-4 py-3 text-sm font-medium text-foreground">
+                                  {index + 1}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-medium text-foreground">
+                                  {treatment.tooth_number}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-medium text-foreground">
+                                  {treatment.tooth_name}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-foreground">
+                                  {getTreatmentNameInArabic(treatment.treatment_type) || '-'}
                                 </td>
                                 <td className="px-4 py-3 text-sm font-medium">
                                   {treatment.cost ? (
@@ -480,17 +489,8 @@ export default function PatientDetailsModal({
                                     <span className="text-muted-foreground">-</span>
                                   )}
                                 </td>
-                                <td className="px-4 py-3 text-sm text-foreground">
-                                  {getTreatmentNameInArabic(treatment.treatment_type) || '-'}
-                                </td>
-                                <td className="px-4 py-3 text-sm font-medium text-foreground">
-                                  {treatment.tooth_name}
-                                </td>
-                                <td className="px-4 py-3 text-sm font-medium text-foreground">
-                                  {treatment.tooth_number}
-                                </td>
-                                <td className="px-4 py-3 text-sm font-medium text-foreground">
-                                  {index + 1}
+                                <td className="px-4 py-3 text-sm">
+                                  <Badge variant={status.variant}>{status.label}</Badge>
                                 </td>
                               </tr>
                             )
@@ -570,22 +570,22 @@ export default function PatientDetailsModal({
                         <thead className="bg-muted">
                           <tr>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              الحالة
-                            </th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              التكلفة
-                            </th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              الوقت
-                            </th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              التاريخ
+                              الرقم التسلسلي
                             </th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                               العنوان
                             </th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              الرقم التسلسلي
+                              التاريخ
+                            </th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              الوقت
+                            </th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              التكلفة
+                            </th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              الحالة
                             </th>
                           </tr>
                         </thead>
@@ -594,8 +594,20 @@ export default function PatientDetailsModal({
                             const status = getStatusBadge(appointment.status)
                             return (
                               <tr key={appointment.id} className="hover:bg-muted/50 transition-colors">
-                                <td className="px-4 py-3 text-sm">
-                                  <Badge variant={status.variant}>{status.label}</Badge>
+                                <td className="px-4 py-3 text-sm font-medium text-foreground">
+                                  {index + 1}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-medium text-foreground">
+                                  {appointment.title}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-foreground">
+                                  {formatDate(appointment.start_time)}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-muted-foreground">
+                                  {new Date(appointment.start_time).toLocaleTimeString('ar-SA', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
                                 </td>
                                 <td className="px-4 py-3 text-sm font-medium">
                                   {appointment.cost ? (
@@ -606,20 +618,8 @@ export default function PatientDetailsModal({
                                     <span className="text-muted-foreground">-</span>
                                   )}
                                 </td>
-                                <td className="px-4 py-3 text-sm text-muted-foreground">
-                                  {new Date(appointment.start_time).toLocaleTimeString('ar-SA', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-foreground">
-                                  {formatDate(appointment.start_time)}
-                                </td>
-                                <td className="px-4 py-3 text-sm font-medium text-foreground">
-                                  {appointment.title}
-                                </td>
-                                <td className="px-4 py-3 text-sm font-medium text-foreground">
-                                  {index + 1}
+                                <td className="px-4 py-3 text-sm">
+                                  <Badge variant={status.variant}>{status.label}</Badge>
                                 </td>
                               </tr>
                             )
@@ -712,41 +712,41 @@ export default function PatientDetailsModal({
                               <thead className="bg-muted">
                                 <tr>
                                   <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                                    المبلغ
+                                    البيان
                                   </th>
                                   <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                                    البيان
+                                    المبلغ
                                   </th>
                                 </tr>
                               </thead>
                               <tbody className="bg-background divide-y divide-border">
                                 <tr>
-                                  <td className="px-4 py-3 text-sm font-bold text-blue-600 dark:text-blue-400">
-                                    {formatCurrency(totalAmountDue)}
-                                  </td>
                                   <td className="px-4 py-3 text-sm text-muted-foreground">
                                     الإجمالي المطلوب
                                   </td>
+                                  <td className="px-4 py-3 text-sm font-bold text-blue-600 dark:text-blue-400">
+                                    {formatCurrency(totalAmountDue)}
+                                  </td>
                                 </tr>
                                 <tr>
-                                  <td className="px-4 py-3 text-sm font-bold text-green-600 dark:text-green-400">
-                                    {formatCurrency(totalAmountPaid)}
-                                  </td>
                                   <td className="px-4 py-3 text-sm text-muted-foreground">
                                     المبلغ المدفوع
                                   </td>
+                                  <td className="px-4 py-3 text-sm font-bold text-green-600 dark:text-green-400">
+                                    {formatCurrency(totalAmountPaid)}
+                                  </td>
                                 </tr>
                                 <tr className="bg-muted/50">
+                                  <td className="px-4 py-3 text-sm font-medium text-foreground">
+                                    المبلغ المتبقي
+                                  </td>
                                   <td className="px-4 py-3 text-sm font-bold">
                                     <span className={totalRemainingBalance > 0 ? 'text-destructive' : 'text-green-600 dark:text-green-400'}>
                                       {formatCurrency(totalRemainingBalance)}
                                     </span>
                                     {totalRemainingBalance === 0 && (
-                                      <span className="ml-2 text-xs text-green-600 dark:text-green-400">✓ مكتمل</span>
+                                      <span className="mr-2 text-xs text-green-600 dark:text-green-400">✓ مكتمل</span>
                                     )}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm font-medium text-foreground">
-                                    المبلغ المتبقي
                                   </td>
                                 </tr>
                               </tbody>
@@ -771,25 +771,25 @@ export default function PatientDetailsModal({
                           <thead className="bg-muted">
                             <tr>
                               <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                                الحالة
-                              </th>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                                طريقة الدفع
-                              </th>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                                المتبقي
-                              </th>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                                الإجمالي المطلوب
-                              </th>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                                المبلغ المدفوع
+                                الرقم التسلسلي
                               </th>
                               <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                                 تاريخ الدفع
                               </th>
                               <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                                الرقم التسلسلي
+                                المبلغ المدفوع
+                              </th>
+                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                                الإجمالي المطلوب
+                              </th>
+                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                                المتبقي
+                              </th>
+                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                                طريقة الدفع
+                              </th>
+                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                                الحالة
                               </th>
                             </tr>
                           </thead>
@@ -798,13 +798,17 @@ export default function PatientDetailsModal({
                               const status = getPaymentStatusBadge(payment.status)
                               return (
                                 <tr key={payment.id} className="hover:bg-muted/50 transition-colors">
-                                  <td className="px-4 py-3 text-sm">
-                                    <Badge variant={status.variant}>{status.label}</Badge>
+                                  <td className="px-4 py-3 text-sm text-foreground">
+                                    {index + 1}
                                   </td>
-                                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                                    {payment.payment_method === 'cash' ? 'نقداً' :
-                                     payment.payment_method === 'bank_transfer' ? 'تحويل بنكي' :
-                                     payment.payment_method}
+                                  <td className="px-4 py-3 text-sm text-foreground">
+                                    {formatDate(payment.payment_date)}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm font-bold text-green-600 dark:text-green-400">
+                                    {formatCurrency(payment.amount)}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-foreground">
+                                    {payment.total_amount_due ? formatCurrency(payment.total_amount_due) : '-'}
                                   </td>
                                   <td className="px-4 py-3 text-sm font-medium">
                                     {payment.remaining_balance !== undefined ? (
@@ -813,17 +817,13 @@ export default function PatientDetailsModal({
                                       </span>
                                     ) : '-'}
                                   </td>
-                                  <td className="px-4 py-3 text-sm text-foreground">
-                                    {payment.total_amount_due ? formatCurrency(payment.total_amount_due) : '-'}
+                                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                                    {payment.payment_method === 'cash' ? 'نقداً' :
+                                     payment.payment_method === 'bank_transfer' ? 'تحويل بنكي' :
+                                     payment.payment_method}
                                   </td>
-                                  <td className="px-4 py-3 text-sm font-bold text-green-600 dark:text-green-400">
-                                    {formatCurrency(payment.amount)}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-foreground">
-                                    {formatDate(payment.payment_date)}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-foreground">
-                                    {index + 1}
+                                  <td className="px-4 py-3 text-sm">
+                                    <Badge variant={status.variant}>{status.label}</Badge>
                                   </td>
                                 </tr>
                               )
