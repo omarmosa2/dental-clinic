@@ -11,6 +11,7 @@ import { useAppointmentStore } from '@/store/appointmentStore'
 import { useInventoryStore } from '@/store/inventoryStore'
 import { usePatientStore } from '@/store/patientStore'
 import { useClinicNeedsStore } from '@/store/clinicNeedsStore'
+import { useLabOrderStore } from '@/store/labOrderStore'
 import { useRealTimeReports } from '@/hooks/useRealTimeReports'
 import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -21,8 +22,14 @@ import AppointmentReports from '@/components/reports/AppointmentReports'
 import FinancialReports from '@/components/reports/FinancialReports'
 import TreatmentReports from '@/components/reports/TreatmentReports'
 import ClinicNeedsReports from '@/components/reports/ClinicNeedsReports'
-import CalculationValidator from '@/components/admin/CalculationValidator'
+import ComprehensiveProfitLossReport from '@/components/reports/ComprehensiveProfitLossReport'
 import CurrencyDisplay from '@/components/ui/currency-display'
+import { ComprehensiveExportService, TIME_PERIODS, TimePeriod } from '@/services/comprehensiveExportService'
+import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
+import { usePrescriptionStore } from '@/store/prescriptionStore'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import RealTimeIndicator from '@/components/ui/real-time-indicator'
 import TimeFilter from '@/components/ui/time-filter'
 import {
@@ -49,11 +56,11 @@ import {
   Stethoscope,
   ClipboardList,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Calculator
 
 } from 'lucide-react'
 import { notify } from '@/services/notificationService'
-import { ComprehensiveExportService } from '@/services/comprehensiveExportService'
 
 export default function Reports() {
   const { currency } = useSettingsStore()
@@ -62,6 +69,9 @@ export default function Reports() {
   const { items: inventoryItems } = useInventoryStore()
   const { patients } = usePatientStore()
   const { needs: clinicNeeds, totalValue: clinicNeedsTotalValue } = useClinicNeedsStore()
+  const { labOrders } = useLabOrderStore()
+  const { toothTreatments } = useDentalTreatmentStore()
+  const { prescriptions } = usePrescriptionStore()
   const {
     reportData,
     patientReports,
@@ -83,6 +93,12 @@ export default function Reports() {
   } = useReportsStore()
 
   const [selectedTab, setSelectedTab] = useState('overview')
+
+  // Comprehensive report state
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('this_month')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
+  const [isComprehensiveExporting, setIsComprehensiveExporting] = useState(false)
 
   // Time filtering for different data types in overview (excluding patients)
   const appointmentStats = useTimeFilteredStats({
@@ -116,14 +132,36 @@ export default function Reports() {
     clearError()
     generateAllReports()
 
-    // Load data for filtering (excluding patients as they don't need filtering)
-    const { loadAppointments } = useAppointmentStore.getState()
-    const { loadPayments } = usePaymentStore.getState()
-    const { loadItems } = useInventoryStore.getState()
+    // Load ALL data for comprehensive reporting
+    const loadAllData = async () => {
+      try {
+        const { loadAppointments } = useAppointmentStore.getState()
+        const { loadPayments } = usePaymentStore.getState()
+        const { loadItems } = useInventoryStore.getState()
+        const { loadPatients } = usePatientStore.getState()
+        const { loadNeeds } = useClinicNeedsStore.getState()
+        const { loadLabOrders } = useLabOrderStore.getState()
+        const { loadToothTreatments } = useDentalTreatmentStore.getState()
+        const { loadPrescriptions } = usePrescriptionStore.getState()
 
-    loadAppointments()
-    loadPayments()
-    loadItems()
+        console.log('🔄 Loading all data for comprehensive reports...')
+        await Promise.all([
+          loadAppointments(),
+          loadPayments(),
+          loadItems(),
+          loadPatients(),
+          loadNeeds(),
+          loadLabOrders(),
+          loadToothTreatments(),
+          loadPrescriptions()
+        ])
+        console.log('✅ All data loaded successfully for reports')
+      } catch (error) {
+        console.error('❌ Error loading data for reports:', error)
+      }
+    }
+
+    loadAllData()
   }, [generateAllReports, clearError])
 
   useEffect(() => {
@@ -141,22 +179,72 @@ export default function Reports() {
     }
   }, [error])
 
-  const handleTabChange = (value: string) => {
+  const handleTabChange = async (value: string) => {
     setSelectedTab(value)
     setActiveReportType(value as any)
 
-    // Generate specific report if not already loaded
-    if (value !== 'overview') {
-      generateReport(value as any)
+    // Load specific data based on tab and generate report
+    try {
+      if (value === 'treatments') {
+        const { loadToothTreatments } = useDentalTreatmentStore.getState()
+        const { loadPatients } = usePatientStore.getState()
+        await Promise.all([loadToothTreatments(), loadPatients()])
+      } else if (value === 'clinicNeeds') {
+        const { loadNeeds } = useClinicNeedsStore.getState()
+        await loadNeeds()
+      } else if (value === 'inventory') {
+        const { loadItems } = useInventoryStore.getState()
+        await loadItems()
+      } else if (value === 'financial') {
+        const { loadPayments } = usePaymentStore.getState()
+        const { loadLabOrders } = useLabOrderStore.getState()
+        await Promise.all([loadPayments(), loadLabOrders()])
+      } else if (value === 'patients') {
+        const { loadPatients } = usePatientStore.getState()
+        await loadPatients()
+      } else if (value === 'appointments') {
+        const { loadAppointments } = useAppointmentStore.getState()
+        await loadAppointments()
+      }
+
+      // Generate specific report if not already loaded
+      if (value !== 'overview') {
+        await generateReport(value as any)
+      }
+    } catch (error) {
+      console.error(`❌ Error loading data for ${value} tab:`, error)
     }
   }
 
   const handleRefresh = async () => {
     try {
-      console.log('🔄 Refreshing all reports...')
+      console.log('🔄 Refreshing all reports and data...')
       clearError()
+
+      // Refresh all data first
+      const { loadAppointments } = useAppointmentStore.getState()
+      const { loadPayments } = usePaymentStore.getState()
+      const { loadItems } = useInventoryStore.getState()
+      const { loadPatients } = usePatientStore.getState()
+      const { loadNeeds } = useClinicNeedsStore.getState()
+      const { loadLabOrders } = useLabOrderStore.getState()
+      const { loadToothTreatments } = useDentalTreatmentStore.getState()
+      const { loadPrescriptions } = usePrescriptionStore.getState()
+
+      await Promise.all([
+        loadAppointments(),
+        loadPayments(),
+        loadItems(),
+        loadPatients(),
+        loadNeeds(),
+        loadLabOrders(),
+        loadToothTreatments(),
+        loadPrescriptions()
+      ])
+
+      // Then regenerate reports
       await generateAllReports()
-      console.log('✅ All reports refreshed successfully')
+      console.log('✅ All reports and data refreshed successfully')
     } catch (error) {
       console.error('❌ Error refreshing reports:', error)
       throw error
@@ -212,7 +300,65 @@ export default function Reports() {
     }
   }
 
+  // Handle comprehensive export
+  const handleComprehensiveExport = async () => {
+    setIsComprehensiveExporting(true)
+    try {
+      // Ensure all data is loaded before export
+      console.log('🔄 Loading fresh data for comprehensive export...')
+      const { loadAppointments } = useAppointmentStore.getState()
+      const { loadPayments } = usePaymentStore.getState()
+      const { loadItems } = useInventoryStore.getState()
+      const { loadPatients } = usePatientStore.getState()
+      const { loadNeeds } = useClinicNeedsStore.getState()
+      const { loadLabOrders } = useLabOrderStore.getState()
+      const { loadToothTreatments } = useDentalTreatmentStore.getState()
+      const { loadPrescriptions } = usePrescriptionStore.getState()
 
+      await Promise.all([
+        loadAppointments(),
+        loadPayments(),
+        loadItems(),
+        loadPatients(),
+        loadNeeds(),
+        loadLabOrders(),
+        loadToothTreatments(),
+        loadPrescriptions()
+      ])
+
+      console.log('✅ All data loaded, starting export...')
+      await ComprehensiveExportService.exportComprehensiveReport({
+        patients,
+        appointments,
+        payments,
+        inventory: inventoryItems,
+        treatments: toothTreatments || [],
+        prescriptions: prescriptions || [],
+        labOrders: labOrders || [],
+        clinicNeeds: clinicNeeds || [],
+        timePeriod: selectedPeriod,
+        customStartDate: selectedPeriod === 'custom' ? customStartDate : undefined,
+        customEndDate: selectedPeriod === 'custom' ? customEndDate : undefined
+      })
+
+      // Success message
+      const periodText = TIME_PERIODS[selectedPeriod]
+      let successMessage = `تم تصدير التقرير الشامل المفصل بنجاح!`
+      successMessage += ` (${periodText})`
+
+      const totalRecords = appointments.length + payments.length + (toothTreatments?.length || 0) +
+                          (prescriptions?.length || 0) + (labOrders?.length || 0) + (clinicNeeds?.length || 0)
+
+      successMessage += ` - ${totalRecords} سجل إجمالي`
+
+      notify.exportSuccess(successMessage)
+    } catch (error) {
+      console.error('Error exporting comprehensive report:', error)
+      notify.exportError('فشل في تصدير التقرير الشامل')
+    } finally {
+      setIsComprehensiveExporting(false)
+    }
+  }
 
   // Use real-time reports hook for automatic updates
   const { refreshReports } = useRealTimeReports(['overview'])
@@ -293,71 +439,7 @@ export default function Reports() {
             تقارير شاملة ومفصلة لجميع جوانب العيادة - تحديث تلقائي في الوقت الفعلي
           </p>
         </div>
-        <div className="flex items-center space-x-2 space-x-reverse">
-          <Button
-            disabled={isExporting}
-            className="flex items-center space-x-2 space-x-reverse bg-sky-600 hover:bg-sky-700"
-onClick={async () => {
-              try {
-                // التحقق من وجود البيانات
-                if (appointments.length === 0 && payments.length === 0 && inventoryItems.length === 0) {
-                  notify.noDataToExport('لا توجد بيانات للتصدير')
-                  return
-                }
 
-                // إعداد معلومات الفلاتر
-                const appointmentFilterInfo = appointmentStats.timeFilter.startDate && appointmentStats.timeFilter.endDate
-                  ? `من ${appointmentStats.timeFilter.startDate} إلى ${appointmentStats.timeFilter.endDate}`
-                  : 'جميع البيانات'
-
-                const paymentFilterInfo = paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
-                  ? `من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
-                  : 'جميع البيانات'
-
-                const inventoryFilterInfo = inventoryStats.timeFilter.startDate && inventoryStats.timeFilter.endDate
-                  ? `من ${inventoryStats.timeFilter.startDate} إلى ${inventoryStats.timeFilter.endDate}`
-                  : 'جميع البيانات'
-
-                // استخدام الخدمة الجديدة للتصدير الشامل
-                await ComprehensiveExportService.exportComprehensiveReport({
-                  patients: patients, // المرضى بدون فلترة كما هو مطلوب
-                  filteredAppointments: appointmentStats.filteredData, // المواعيد المفلترة
-                  filteredPayments: paymentStats.filteredData, // المدفوعات المفلترة
-                  filteredInventory: inventoryStats.filteredData, // المخزون المفلتر
-                  filterInfo: {
-                    appointmentFilter: appointmentFilterInfo,
-                    paymentFilter: paymentFilterInfo,
-                    inventoryFilter: inventoryFilterInfo
-                  }
-                })
-
-                const totalFilteredItems = appointmentStats.filteredData.length +
-                                         paymentStats.filteredData.length +
-                                         inventoryStats.filteredData.length
-
-                // رسالة نجاح مفصلة للتصدير الشامل
-                let successMessage = `تم تصدير التقرير الشامل بنجاح!`
-                successMessage += ` (${patients.length} مريض، ${appointmentStats.filteredData.length} موعد، ${paymentStats.filteredData.length} دفعة، ${inventoryStats.filteredData.length} عنصر مخزون)`
-
-                const hasFilters = appointmentFilterInfo !== 'جميع البيانات' ||
-                                 paymentFilterInfo !== 'جميع البيانات' ||
-                                 inventoryFilterInfo !== 'جميع البيانات'
-
-                if (hasFilters) {
-                  successMessage += ` - مع فلاتر مطبقة`
-                }
-
-                notify.exportSuccess(successMessage)
-              } catch (error) {
-                console.error('Error exporting comprehensive report:', error)
-                notify.exportError('فشل في تصدير التقرير الشامل')
-              }
-            }}
-          >
-            <Download className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
-            <span>{isExporting ? 'جاري التصدير...' : 'تصدير تقرير شامل'}</span>
-          </Button>
-        </div>
       </div>
 
       {/* Error Alert */}
@@ -393,10 +475,10 @@ onClick={async () => {
 
       {/* Reports Tabs */}
       <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="flex items-center space-x-2 space-x-reverse">
-            <BarChart3 className="w-4 h-4" />
-            <span>نظرة عامة</span>
+            <Calculator className="w-4 h-4" />
+            <span>التقرير الشامل المفصل</span>
           </TabsTrigger>
           <TabsTrigger value="patients" className="flex items-center space-x-2 space-x-reverse">
             <Users className="w-4 h-4" />
@@ -422,44 +504,280 @@ onClick={async () => {
             <ClipboardList className="w-4 h-4" />
             <span>احتياجات العيادة</span>
           </TabsTrigger>
-          <TabsTrigger value="validation" className="flex items-center space-x-2 space-x-reverse">
-            <FileText className="w-4 h-4" />
-            <span>التحقق من الدقة</span>
-          </TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
+        {/* Comprehensive Report Tab */}
         <TabsContent value="overview" className="space-y-6" dir="rtl">
-          {/* Time Filters Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" dir="rtl">
-            <TimeFilter
-              value={appointmentStats.timeFilter}
-              onChange={appointmentStats.handleFilterChange}
-              onClear={appointmentStats.resetFilter}
-              title="فلترة المواعيد"
-              defaultOpen={false}
-            />
-            <TimeFilter
-              value={paymentStats.timeFilter}
-              onChange={paymentStats.handleFilterChange}
-              onClear={paymentStats.resetFilter}
-              title="فلترة المدفوعات"
-              defaultOpen={false}
-            />
-            <TimeFilter
-              value={inventoryStats.timeFilter}
-              onChange={inventoryStats.handleFilterChange}
-              onClear={inventoryStats.resetFilter}
-              title="فلترة المخزون"
-              defaultOpen={false}
-            />
-            <TimeFilter
-              value={clinicNeedsStats.timeFilter}
-              onChange={clinicNeedsStats.handleFilterChange}
-              onClear={clinicNeedsStats.resetFilter}
-              title="فلترة احتياجات العيادة"
-              defaultOpen={false}
-            />
+          {/* Comprehensive Report Section - Main Content */}
+          <div className="space-y-6" dir="rtl">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
+                  <Calculator className="w-6 h-6" />
+                  التقرير الشامل المفصل
+                </h2>
+                <p className="text-muted-foreground mt-2 text-base">
+                  تقرير شامل يغطي جميع جوانب العيادة: المواعيد، المدفوعات، العلاجات، الوصفات، المخابر، الاحتياجات، والأرباح والخسائر
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleComprehensiveExport}
+                  disabled={isComprehensiveExporting}
+                  className="flex items-center gap-2"
+                >
+                  <Download className={`w-4 h-4 ${isComprehensiveExporting ? 'animate-bounce' : ''}`} />
+                  {isComprehensiveExporting ? 'جاري التصدير...' : 'تصدير التقرير'}
+                </Button>
+              </div>
+            </div>
+
+            {/* Filter Section */}
+            <Card className={getCardStyles("blue")}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                  <Filter className={`w-5 h-5 ${getIconStyles("blue")}`} />
+                  فلترة التقرير
+                </CardTitle>
+                <CardDescription>
+                  اختر الفترة الزمنية للتقرير الشامل
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Period Selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="period">الفترة الزمنية</Label>
+                    <Select value={selectedPeriod} onValueChange={(value: TimePeriod) => setSelectedPeriod(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر الفترة الزمنية" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(TIME_PERIODS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Custom Date Range */}
+                  {selectedPeriod === 'custom' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="startDate">تاريخ البداية</Label>
+                        <Input
+                          id="startDate"
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="endDate">تاريخ النهاية</Label>
+                        <Input
+                          id="endDate"
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Report Preview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className={getCardStyles("green")}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className={`w-8 h-8 ${getIconStyles("green")}`} />
+                    <div>
+                      <p className="text-sm text-muted-foreground">المرضى</p>
+                      <p className="text-xl font-bold">{patients.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={getCardStyles("blue")}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <Calendar className={`w-8 h-8 ${getIconStyles("blue")}`} />
+                    <div>
+                      <p className="text-sm text-muted-foreground">المواعيد</p>
+                      <p className="text-xl font-bold">{appointments.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={getCardStyles("purple")}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <FileText className={`w-8 h-8 ${getIconStyles("purple")}`} />
+                    <div>
+                      <p className="text-sm text-muted-foreground">المدفوعات</p>
+                      <p className="text-xl font-bold">{payments.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={getCardStyles("orange")}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <Calculator className={`w-8 h-8 ${getIconStyles("orange")}`} />
+                    <div>
+                      <p className="text-sm text-muted-foreground">العلاجات</p>
+                      <p className="text-xl font-bold">{toothTreatments?.length || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Additional Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className={getCardStyles("cyan")}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <FileText className={`w-8 h-8 ${getIconStyles("cyan")}`} />
+                    <div>
+                      <p className="text-sm text-muted-foreground">الوصفات</p>
+                      <p className="text-xl font-bold">{prescriptions?.length || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={getCardStyles("indigo")}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <FileText className={`w-8 h-8 ${getIconStyles("indigo")}`} />
+                    <div>
+                      <p className="text-sm text-muted-foreground">طلبات المخابر</p>
+                      <p className="text-xl font-bold">{labOrders?.length || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={getCardStyles("indigo")}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <ClipboardList className={`w-8 h-8 ${getIconStyles("indigo")}`} />
+                    <div>
+                      <p className="text-sm text-muted-foreground">احتياجات العيادة</p>
+                      <p className="text-xl font-bold">{clinicNeeds?.length || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={getCardStyles("gray")}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <FileText className={`w-8 h-8 ${getIconStyles("gray")}`} />
+                    <div>
+                      <p className="text-sm text-muted-foreground">عناصر المخزون</p>
+                      <p className="text-xl font-bold">{inventoryItems.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Report Description */}
+            <Card>
+              <CardHeader>
+                <CardTitle>محتويات التقرير الشامل</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                  <div>
+                    <h4 className="font-semibold mb-2">التحليل المالي:</h4>
+                    <ul className="space-y-1 text-muted-foreground">
+                      <li>• المدفوعات المكتملة والجزئية</li>
+                      <li>• إجمالي الإيرادات والمصروفات</li>
+                      <li>• تحليل الأرباح والخسائر</li>
+                      <li>• المبالغ المتبقية والمعلقة</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-2">التحليل الطبي:</h4>
+                    <ul className="space-y-1 text-muted-foreground">
+                      <li>• إحصائيات المواعيد والحضور</li>
+                      <li>• تفاصيل العلاجات والإنجاز</li>
+                      <li>• الوصفات والأدوية</li>
+                      <li>• طلبات المخابر والنتائج</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-2">إدارة العيادة:</h4>
+                    <ul className="space-y-1 text-muted-foreground">
+                      <li>• احتياجات العيادة والأولويات</li>
+                      <li>• إدارة المخزون والمستلزمات</li>
+                      <li>• تحليل الأداء والكفاءة</li>
+                      <li>• التوقيتات والذروات</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-2">تحليلات متقدمة:</h4>
+                    <ul className="space-y-1 text-muted-foreground">
+                      <li>• أكثر العلاجات طلباً</li>
+                      <li>• أكثر المخابر استخداماً</li>
+                      <li>• توزيع الأوقات والأيام</li>
+                      <li>• معدلات الإنجاز والنجاح</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Time Filters Section - Secondary */}
+          <div className="space-y-4" dir="rtl">
+            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <Filter className="w-5 h-5" />
+              فلاتر البيانات التفصيلية
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <TimeFilter
+                value={appointmentStats.timeFilter}
+                onChange={appointmentStats.handleFilterChange}
+                onClear={appointmentStats.resetFilter}
+                title="فلترة المواعيد"
+                defaultOpen={false}
+              />
+              <TimeFilter
+                value={paymentStats.timeFilter}
+                onChange={paymentStats.handleFilterChange}
+                onClear={paymentStats.resetFilter}
+                title="فلترة المدفوعات"
+                defaultOpen={false}
+              />
+              <TimeFilter
+                value={inventoryStats.timeFilter}
+                onChange={inventoryStats.handleFilterChange}
+                onClear={inventoryStats.resetFilter}
+                title="فلترة المخزون"
+                defaultOpen={false}
+              />
+              <TimeFilter
+                value={clinicNeedsStats.timeFilter}
+                onChange={clinicNeedsStats.handleFilterChange}
+                onClear={clinicNeedsStats.resetFilter}
+                title="فلترة احتياجات العيادة"
+                defaultOpen={false}
+              />
+            </div>
           </div>
 
           {/* Stats Cards with Filtered Data */}
@@ -672,10 +990,10 @@ onClick={async () => {
             </Card>
 
             {/* Clinic Needs Summary Card */}
-            <Card dir="rtl">
+            <Card className={getCardStyles("indigo")} dir="rtl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5 text-indigo-500" />
+                  <ClipboardList className={`h-5 w-5 ${getIconStyles("indigo")}`} />
                   ملخص احتياجات العيادة
                 </CardTitle>
                 <CardDescription>إحصائيات مفصلة عن احتياجات العيادة المفلترة</CardDescription>
@@ -701,18 +1019,18 @@ onClick={async () => {
                       </div>
                       <div className="text-xs font-medium text-muted-foreground mt-1">مستلمة</div>
                     </div>
-                    <div className={`text-center p-4 ${getCardStyles('orange')} transition-all duration-200`}>
+                    <div className={`text-center p-4 ${getCardStyles('red')} transition-all duration-200`}>
                       <div className="flex items-center justify-center gap-2 mb-2">
-                        <AlertTriangle className={`h-4 w-4 ${getIconStyles('orange')}`} />
+                        <AlertTriangle className={`h-4 w-4 ${getIconStyles('red')}`} />
                       </div>
                       <div className="text-2xl font-bold text-foreground">
                         {clinicNeedsStats.filteredData.filter(need => need.priority === 'urgent').length}
                       </div>
                       <div className="text-xs font-medium text-muted-foreground mt-1">عاجلة</div>
                     </div>
-                    <div className={`text-center p-4 ${getCardStyles('purple')} transition-all duration-200`}>
+                    <div className={`text-center p-4 ${getCardStyles('emerald')} transition-all duration-200`}>
                       <div className="flex items-center justify-center gap-2 mb-2">
-                        <DollarSign className={`h-4 w-4 ${getIconStyles('purple')}`} />
+                        <DollarSign className={`h-4 w-4 ${getIconStyles('emerald')}`} />
                       </div>
                       <div className="text-lg font-bold text-foreground">
                         <CurrencyDisplay
@@ -751,6 +1069,7 @@ onClick={async () => {
             </Card>
 
           </div>
+
         </TabsContent>
 
         {/* Patient Reports Tab */}
@@ -776,10 +1095,6 @@ onClick={async () => {
 
         <TabsContent value="clinicNeeds" dir="rtl">
           <ClinicNeedsReports />
-        </TabsContent>
-
-        <TabsContent value="validation" dir="rtl">
-          <CalculationValidator />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,6 +1,103 @@
-import { Payment, Appointment, Patient, InventoryItem } from '@/types'
+import { Payment, Appointment, Patient, InventoryItem, ToothTreatment, Prescription, ClinicNeed, LabOrder } from '@/types'
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
 import { validateBeforeExport } from '@/utils/exportValidation'
+import { getTreatmentNameInArabic, getCategoryNameInArabic, getStatusLabelInArabic, getPaymentStatusInArabic } from '@/utils/arabicTranslations'
+
+// أنواع الفترات الزمنية المتاحة
+export const TIME_PERIODS = {
+  'all': 'جميع البيانات',
+  'today': 'اليوم',
+  'yesterday': 'أمس',
+  'this_week': 'هذا الأسبوع',
+  'last_week': 'الأسبوع الماضي',
+  'this_month': 'هذا الشهر',
+  'last_month': 'الشهر الماضي',
+  'this_quarter': 'هذا الربع',
+  'last_quarter': 'الربع الماضي',
+  'this_year': 'هذا العام',
+  'last_year': 'العام الماضي',
+  'last_30_days': 'آخر 30 يوم',
+  'last_90_days': 'آخر 90 يوم',
+  'custom': 'فترة مخصصة'
+} as const
+
+export type TimePeriod = keyof typeof TIME_PERIODS
+
+// دالة حساب التواريخ للفترات المختلفة
+export function getDateRangeForPeriod(period: TimePeriod, customStart?: string, customEnd?: string): { startDate: Date; endDate: Date } {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  switch (period) {
+    case 'today':
+      return { startDate: today, endDate: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1) }
+
+    case 'yesterday':
+      const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+      return { startDate: yesterday, endDate: new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1) }
+
+    case 'this_week':
+      const startOfWeek = new Date(today)
+      startOfWeek.setDate(today.getDate() - today.getDay())
+      return { startDate: startOfWeek, endDate: now }
+
+    case 'last_week':
+      const lastWeekStart = new Date(today)
+      lastWeekStart.setDate(today.getDate() - today.getDay() - 7)
+      const lastWeekEnd = new Date(lastWeekStart)
+      lastWeekEnd.setDate(lastWeekStart.getDate() + 6)
+      lastWeekEnd.setHours(23, 59, 59, 999)
+      return { startDate: lastWeekStart, endDate: lastWeekEnd }
+
+    case 'this_month':
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+      return { startDate: startOfMonth, endDate: now }
+
+    case 'last_month':
+      const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
+      lastMonthEnd.setHours(23, 59, 59, 999)
+      return { startDate: lastMonthStart, endDate: lastMonthEnd }
+
+    case 'this_quarter':
+      const quarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1)
+      return { startDate: quarterStart, endDate: now }
+
+    case 'last_quarter':
+      const lastQuarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3 - 3, 1)
+      const lastQuarterEnd = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 0)
+      lastQuarterEnd.setHours(23, 59, 59, 999)
+      return { startDate: lastQuarterStart, endDate: lastQuarterEnd }
+
+    case 'this_year':
+      const startOfYear = new Date(today.getFullYear(), 0, 1)
+      return { startDate: startOfYear, endDate: now }
+
+    case 'last_year':
+      const lastYearStart = new Date(today.getFullYear() - 1, 0, 1)
+      const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31)
+      lastYearEnd.setHours(23, 59, 59, 999)
+      return { startDate: lastYearStart, endDate: lastYearEnd }
+
+    case 'last_30_days':
+      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+      return { startDate: thirtyDaysAgo, endDate: now }
+
+    case 'last_90_days':
+      const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
+      return { startDate: ninetyDaysAgo, endDate: now }
+
+    case 'custom':
+      if (customStart && customEnd) {
+        return { startDate: new Date(customStart), endDate: new Date(customEnd) }
+      }
+      return { startDate: new Date(0), endDate: now }
+
+    case 'all':
+    default:
+      return { startDate: new Date(0), endDate: now }
+  }
+}
 
 /**
  * خدمة التصدير الشامل المحسنة
@@ -9,122 +106,236 @@ import { validateBeforeExport } from '@/utils/exportValidation'
 export class ComprehensiveExportService {
 
   /**
-   * حساب الإحصائيات المالية بدقة مع المدفوعات الجزئية
+   * حساب الإحصائيات المالية الشاملة مع الأرباح والخسائر
    */
-  static calculateFinancialStats(payments: Payment[]) {
+  static calculateFinancialStats(payments: Payment[], labOrders?: any[], clinicNeeds?: any[], inventoryItems?: any[]) {
     const validateAmount = (amount: any): number => {
       const num = Number(amount)
       return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
     }
 
-    // حساب الإيرادات الإجمالية (مكتملة + جزئية)
-    const totalRevenue = payments
-      .filter(p => p.status === 'completed' || p.status === 'partial')
-      .reduce((sum, payment) => {
-        // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
-        const amount = validateAmount(payment.amount)
-        return sum + amount
-      }, 0)
+    // === الإيرادات ===
+    // المدفوعات المكتملة
+    const completedPayments = validateAmount(
+      payments
+        .filter(p => p.status === 'completed')
+        .reduce((sum, payment) => sum + validateAmount(payment.amount), 0)
+    )
+
+    // المدفوعات الجزئية
+    const partialPayments = validateAmount(
+      payments
+        .filter(p => p.status === 'partial')
+        .reduce((sum, payment) => sum + validateAmount(payment.amount), 0)
+    )
+
+    // إجمالي الإيرادات
+    const totalRevenue = completedPayments + partialPayments
+
+    // المبالغ المتبقية من المدفوعات الجزئية
+    const remainingBalances = validateAmount(
+      payments
+        .filter(p => p.status === 'partial' && p.appointment_remaining_balance)
+        .reduce((sum, payment) => sum + validateAmount(payment.appointment_remaining_balance), 0)
+    )
 
     // المدفوعات المعلقة
     const pendingAmount = payments
       .filter(p => p.status === 'pending')
       .reduce((sum, payment) => sum + validateAmount(payment.amount), 0)
 
+    // === المصروفات ===
+    let labOrdersTotal = 0
+    let labOrdersRemaining = 0
+    let clinicNeedsTotal = 0
+    let clinicNeedsRemaining = 0
+    let inventoryExpenses = 0
+
+    // حسابات المخابر
+    if (labOrders && Array.isArray(labOrders)) {
+      labOrdersTotal = validateAmount(
+        labOrders.reduce((sum, order) => sum + validateAmount(order.paid_amount || 0), 0)
+      )
+      labOrdersRemaining = validateAmount(
+        labOrders.reduce((sum, order) => sum + validateAmount(order.remaining_balance || 0), 0)
+      )
+    }
+
+    // حسابات احتياجات العيادة
+    if (clinicNeeds && Array.isArray(clinicNeeds)) {
+      clinicNeedsTotal = validateAmount(
+        clinicNeeds
+          .filter(need => need.status === 'received' || need.status === 'ordered')
+          .reduce((sum, need) => sum + (validateAmount(need.quantity) * validateAmount(need.price)), 0)
+      )
+      clinicNeedsRemaining = validateAmount(
+        clinicNeeds
+          .filter(need => need.status === 'pending' || need.status === 'ordered')
+          .reduce((sum, need) => sum + (validateAmount(need.quantity) * validateAmount(need.price)), 0)
+      )
+    }
+
+    // حسابات المخزون
+    if (inventoryItems && Array.isArray(inventoryItems)) {
+      inventoryExpenses = validateAmount(
+        inventoryItems.reduce((sum, item) => {
+          const cost = validateAmount(item.cost_per_unit || 0)
+          const quantity = validateAmount(item.quantity || 0)
+          return sum + (cost * quantity)
+        }, 0)
+      )
+    }
+
+    // === حسابات الأرباح والخسائر ===
+    const totalExpenses = labOrdersTotal + clinicNeedsTotal + inventoryExpenses
+    const netProfit = totalRevenue - totalExpenses
+    const isProfit = netProfit >= 0
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
+
     // المدفوعات المتأخرة (المدفوعات المعلقة التي تجاوز تاريخ دفعها 30 يوماً)
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const overdueAmount = payments
-      .filter(p => {
-        if (p.status !== 'pending') return false
-
-        const paymentDate = new Date(p.payment_date || p.created_at)
-        return paymentDate < thirtyDaysAgo
-      })
-      .reduce((sum, payment) => sum + validateAmount(payment.amount), 0)
-
-    // المدفوعات المكتملة فقط
-    const completedAmount = payments
-      .filter(p => p.status === 'completed')
-      .reduce((sum, payment) => sum + validateAmount(payment.amount), 0)
-
-    // المدفوعات الجزئية
-    const partialAmount = payments
-      .filter(p => p.status === 'partial')
-      .reduce((sum, payment) => {
-        // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
-        const amount = validateAmount(payment.amount)
-        return sum + amount
-      }, 0)
-
-    // حساب إجمالي المبالغ المتبقية من الدفعات الجزئية بشكل صحيح
-    // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
-    const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
-    let generalRemainingBalance = 0
-
-    payments.forEach(payment => {
-      if (payment.status === 'partial') {
-        if (payment.appointment_id) {
-          // مدفوعات مرتبطة بمواعيد
-          const appointmentId = payment.appointment_id
-          const totalDue = payment.total_amount_due || payment.appointment_total_cost || 0
-          const paidAmount = payment.amount || 0
-
-          if (!appointmentGroups.has(appointmentId)) {
-            appointmentGroups.set(appointmentId, { totalDue: validateAmount(totalDue), totalPaid: 0 })
-          }
-
-          const group = appointmentGroups.get(appointmentId)!
-          group.totalPaid += validateAmount(paidAmount)
-        } else {
-          // مدفوعات عامة غير مرتبطة بمواعيد
-          const totalDue = payment.total_amount_due || payment.amount || 0
-          const paid = payment.amount_paid || payment.amount || 0
-          generalRemainingBalance += Math.max(0, validateAmount(totalDue) - validateAmount(paid))
-        }
-      }
-    })
-
-    // حساب إجمالي المبالغ المتبقية من المواعيد
-    const appointmentRemainingBalance = Array.from(appointmentGroups.values()).reduce((sum, group) => {
-      return sum + Math.max(0, group.totalDue - group.totalPaid)
-    }, 0)
-
-    // إجمالي المبالغ المتبقية
-    const totalRemainingFromPartialPayments = appointmentRemainingBalance + generalRemainingBalance
-
-    // إحصائيات طرق الدفع
-    const paymentMethodStats: { [key: string]: { amount: number, count: number } } = {}
-    payments
-      .filter(p => p.status === 'completed' || p.status === 'partial')
-      .forEach(payment => {
-        const method = payment.payment_method || 'غير محدد'
-        const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-          ? validateAmount(payment.amount_paid)
-          : validateAmount(payment.amount)
-
-        if (!paymentMethodStats[method]) {
-          paymentMethodStats[method] = { amount: 0, count: 0 }
-        }
-        paymentMethodStats[method].amount += amount
-        paymentMethodStats[method].count += 1
-      })
-
     return {
-      totalRevenue: Math.round(totalRevenue * 100) / 100,
-      completedAmount: Math.round(completedAmount * 100) / 100,
-      partialAmount: Math.round(partialAmount * 100) / 100,
-      pendingAmount: Math.round(pendingAmount * 100) / 100,
-      overdueAmount: Math.round(overdueAmount * 100) / 100,
-      totalRemainingFromPartialPayments: Math.round(totalRemainingFromPartialPayments * 100) / 100,
-      outstandingBalance: Math.round((pendingAmount + overdueAmount + totalRemainingFromPartialPayments) * 100) / 100,
-      paymentMethodStats,
+      // الإيرادات
+      completedPayments,
+      partialPayments,
+      totalRevenue,
+      remainingBalances,
+      pendingAmount,
+
+      // المصروفات
+      labOrdersTotal,
+      labOrdersRemaining,
+      clinicNeedsTotal,
+      clinicNeedsRemaining,
+      inventoryExpenses,
+      totalExpenses,
+
+      // الأرباح والخسائر
+      netProfit: isProfit ? netProfit : 0,
+      lossAmount: isProfit ? 0 : Math.abs(netProfit),
+      profitMargin: validateAmount(profitMargin),
+      isProfit,
+
+      // إحصائيات إضافية
       totalTransactions: payments.length,
       completedTransactions: payments.filter(p => p.status === 'completed').length,
       partialTransactions: payments.filter(p => p.status === 'partial').length,
-      pendingTransactions: payments.filter(p => p.status === 'pending').length,
-      overdueTransactions: payments.filter(p => p.status === 'pending' && new Date(p.payment_date || p.created_at) < thirtyDaysAgo).length
+      pendingTransactions: payments.filter(p => p.status === 'pending').length
+    }
+  }
+
+  /**
+   * فلترة جميع البيانات حسب الفترة الزمنية
+   */
+  private static filterAllDataByDateRange(data: {
+    patients: Patient[]
+    appointments: Appointment[]
+    payments: Payment[]
+    inventory: InventoryItem[]
+    treatments?: ToothTreatment[]
+    prescriptions?: Prescription[]
+    labOrders?: LabOrder[]
+    clinicNeeds?: ClinicNeed[]
+  }, dateRange: { startDate: Date; endDate: Date }) {
+
+    const isInDateRange = (dateStr: string) => {
+      if (!dateStr) return false
+      const date = new Date(dateStr)
+      return date >= dateRange.startDate && date <= dateRange.endDate
+    }
+
+    return {
+      patients: data.patients, // المرضى لا يتم فلترتهم حسب التاريخ
+      appointments: data.appointments.filter(apt =>
+        isInDateRange(apt.start_time) || isInDateRange(apt.created_at)
+      ),
+      payments: data.payments.filter(payment =>
+        isInDateRange(payment.payment_date) || isInDateRange(payment.created_at)
+      ),
+      inventory: data.inventory, // المخزون لا يتم فلترته حسب التاريخ
+      treatments: data.treatments?.filter(treatment =>
+        isInDateRange(treatment.start_date) || isInDateRange(treatment.created_at)
+      ) || [],
+      prescriptions: data.prescriptions?.filter(prescription =>
+        isInDateRange(prescription.created_at)
+      ) || [],
+      labOrders: data.labOrders?.filter(order =>
+        isInDateRange(order.order_date) || isInDateRange(order.created_at)
+      ) || [],
+      clinicNeeds: data.clinicNeeds?.filter(need =>
+        isInDateRange(need.created_at)
+      ) || []
+    }
+  }
+
+  /**
+   * حساب الإحصائيات الشاملة لجميع جوانب التطبيق
+   */
+  private static calculateAllAspectsStats(filteredData: {
+    patients: Patient[]
+    appointments: Appointment[]
+    payments: Payment[]
+    inventory: InventoryItem[]
+    treatments: ToothTreatment[]
+    prescriptions: Prescription[]
+    labOrders: LabOrder[]
+    clinicNeeds: ClinicNeed[]
+  }, dateRange: { startDate: Date; endDate: Date }) {
+
+    // الإحصائيات المالية
+    const financialStats = this.calculateFinancialStats(
+      filteredData.payments,
+      filteredData.labOrders,
+      filteredData.clinicNeeds,
+      filteredData.inventory
+    )
+
+    // إحصائيات المواعيد
+    const appointmentStats = this.calculateDetailedAppointmentStats(filteredData.appointments)
+
+    // إحصائيات العلاجات
+    const treatmentStats = this.calculateTreatmentStats(filteredData.treatments)
+
+    // إحصائيات الوصفات
+    const prescriptionStats = this.calculatePrescriptionStats(filteredData.prescriptions)
+
+    // إحصائيات المخابر
+    const labStats = this.calculateLabOrderStats(filteredData.labOrders)
+
+    // إحصائيات احتياجات العيادة
+    const clinicNeedsStats = this.calculateClinicNeedsStats(filteredData.clinicNeeds)
+
+    // إحصائيات المخزون
+    const inventoryStats = this.calculateInventoryStats(filteredData.inventory)
+
+    return {
+      // معلومات الفترة
+      dateRange: {
+        start: formatDate(dateRange.startDate.toISOString()),
+        end: formatDate(dateRange.endDate.toISOString()),
+        period: `${formatDate(dateRange.startDate.toISOString())} - ${formatDate(dateRange.endDate.toISOString())}`
+      },
+
+      // الإحصائيات العامة
+      totalPatients: filteredData.patients.length,
+      totalAppointments: filteredData.appointments.length,
+      totalPayments: filteredData.payments.length,
+      totalTreatments: filteredData.treatments.length,
+      totalPrescriptions: filteredData.prescriptions.length,
+      totalLabOrders: filteredData.labOrders.length,
+      totalClinicNeeds: filteredData.clinicNeeds.length,
+      totalInventoryItems: filteredData.inventory.length,
+
+      // الإحصائيات التفصيلية
+      ...financialStats,
+      ...appointmentStats,
+      ...treatmentStats,
+      ...prescriptionStats,
+      ...labStats,
+      ...clinicNeedsStats,
+      ...inventoryStats
     }
   }
 
@@ -151,36 +362,267 @@ export class ComprehensiveExportService {
   }
 
   /**
-   * حساب إحصائيات المخزون
+   * حساب إحصائيات المواعيد التفصيلية
    */
-  static calculateInventoryStats(inventory: InventoryItem[]) {
-    const totalItems = inventory.length
-    const totalValue = inventory.reduce((sum, item) =>
-      sum + ((item.cost_per_unit || 0) * (item.quantity || 0)), 0)
-    const lowStockItems = inventory.filter(item =>
-      (item.quantity || 0) <= (item.minimum_stock || 0) && (item.quantity || 0) > 0).length
-    const outOfStockItems = inventory.filter(item => (item.quantity || 0) === 0).length
-    const expiredItems = inventory.filter(item => {
-      if (!item.expiry_date) return false
-      return new Date(item.expiry_date) < new Date()
-    }).length
-    const nearExpiryItems = inventory.filter(item => {
-      if (!item.expiry_date) return false
-      const expiryDate = new Date(item.expiry_date)
-      const thirtyDaysFromNow = new Date()
-      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
-      return expiryDate <= thirtyDaysFromNow && expiryDate >= new Date()
-    }).length
+  private static calculateDetailedAppointmentStats(appointments: Appointment[]) {
+    const basicStats = this.calculateAppointmentStats(appointments)
+
+    // تحليل أوقات المواعيد
+    const timeAnalysis = appointments.reduce((acc, apt) => {
+      if (apt.start_time) {
+        const hour = new Date(apt.start_time).getHours()
+        acc[hour] = (acc[hour] || 0) + 1
+      }
+      return acc
+    }, {} as Record<number, number>)
+
+    const peakHour = Object.entries(timeAnalysis).reduce((max, [hour, count]) =>
+      count > max.count ? { hour: parseInt(hour), count } : max,
+      { hour: 0, count: 0 }
+    )
+
+    // تحليل أيام الأسبوع
+    const dayAnalysis = appointments.reduce((acc, apt) => {
+      if (apt.start_time) {
+        const day = new Date(apt.start_time).getDay()
+        const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+        const dayName = dayNames[day]
+        acc[dayName] = (acc[dayName] || 0) + 1
+      }
+      return acc
+    }, {} as Record<string, number>)
 
     return {
-      totalItems,
-      totalValue: Math.round(totalValue * 100) / 100,
-      lowStockItems,
-      outOfStockItems,
-      expiredItems,
-      nearExpiryItems
+      ...basicStats,
+      peakHour: peakHour.hour ? `${peakHour.hour}:00 (${peakHour.count} مواعيد)` : 'غير محدد',
+      dayDistribution: dayAnalysis,
+      averagePerDay: appointments.length > 0 ? Math.round(appointments.length / 7) : 0
     }
   }
+
+  /**
+   * حساب إحصائيات العلاجات
+   */
+  private static calculateTreatmentStats(treatments: ToothTreatment[]) {
+    const total = treatments.length
+    const completed = treatments.filter(t => t.treatment_status === 'completed').length
+    const planned = treatments.filter(t => t.treatment_status === 'planned').length
+    const inProgress = treatments.filter(t => t.treatment_status === 'in_progress').length
+    const cancelled = treatments.filter(t => t.treatment_status === 'cancelled').length
+
+    // تحليل أنواع العلاجات
+    const treatmentTypes = treatments.reduce((acc, treatment) => {
+      const type = treatment.treatment_type || 'غير محدد'
+      acc[type] = (acc[type] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    // تحليل الأسنان المعالجة
+    const teethTreated = treatments.reduce((acc, treatment) => {
+      const tooth = treatment.tooth_number?.toString() || 'غير محدد'
+      acc[tooth] = (acc[tooth] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0
+
+    return {
+      totalTreatments: total,
+      completedTreatments: completed,
+      plannedTreatments: planned,
+      inProgressTreatments: inProgress,
+      cancelledTreatments: cancelled,
+      completionRate,
+      treatmentTypes,
+      teethTreated,
+      mostTreatedTooth: Object.entries(teethTreated).reduce((max, [tooth, count]) =>
+        count > max.count ? { tooth, count } : max,
+        { tooth: 'غير محدد', count: 0 }
+      )
+    }
+  }
+
+  /**
+   * حساب إحصائيات الوصفات
+   */
+  private static calculatePrescriptionStats(prescriptions: Prescription[]) {
+    const total = prescriptions.length
+
+    // تحليل الأدوية الأكثر وصفاً
+    const medicationFrequency = prescriptions.reduce((acc, prescription) => {
+      // هنا يمكن إضافة تحليل الأدوية إذا كانت متوفرة في البيانات
+      return acc
+    }, {} as Record<string, number>)
+
+    // تحليل المرضى الذين لديهم وصفات
+    const patientsWithPrescriptions = new Set(prescriptions.map(p => p.patient_id)).size
+
+    return {
+      totalPrescriptions: total,
+      patientsWithPrescriptions,
+      averagePrescriptionsPerPatient: patientsWithPrescriptions > 0 ?
+        Math.round((total / patientsWithPrescriptions) * 100) / 100 : 0
+    }
+  }
+
+  /**
+   * حساب إحصائيات طلبات المخابر
+   */
+  private static calculateLabOrderStats(labOrders: LabOrder[]) {
+    const total = labOrders.length
+    const pending = labOrders.filter(order => order.status === 'معلق').length
+    const completed = labOrders.filter(order => order.status === 'مكتمل').length
+    const cancelled = labOrders.filter(order => order.status === 'ملغي').length
+
+    const totalCost = labOrders.reduce((sum, order) => sum + (order.cost || 0), 0)
+    const totalPaid = labOrders.reduce((sum, order) => sum + (order.paid_amount || 0), 0)
+    const totalRemaining = labOrders.reduce((sum, order) => sum + (order.remaining_balance || 0), 0)
+
+    // تحليل المخابر الأكثر استخداماً
+    const labFrequency = labOrders.reduce((acc, order) => {
+      const labName = order.lab?.name || 'غير محدد'
+      acc[labName] = (acc[labName] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0
+
+    return {
+      totalLabOrders: total,
+      pendingLabOrders: pending,
+      completedLabOrders: completed,
+      cancelledLabOrders: cancelled,
+      labOrdersCompletionRate: completionRate,
+      totalLabCost: totalCost,
+      totalLabPaid: totalPaid,
+      totalLabRemaining: totalRemaining,
+      labFrequency,
+      mostUsedLab: Object.entries(labFrequency).reduce((max, [lab, count]) =>
+        count > max.count ? { lab, count } : max,
+        { lab: 'غير محدد', count: 0 }
+      )
+    }
+  }
+
+  /**
+   * حساب إحصائيات احتياجات العيادة
+   */
+  private static calculateClinicNeedsStats(clinicNeeds: ClinicNeed[]) {
+    const total = clinicNeeds.length
+    const pending = clinicNeeds.filter(need => need.status === 'pending').length
+    const ordered = clinicNeeds.filter(need => need.status === 'ordered').length
+    const received = clinicNeeds.filter(need => need.status === 'received').length
+    const cancelled = clinicNeeds.filter(need => need.status === 'cancelled').length
+
+    const totalValue = clinicNeeds.reduce((sum, need) =>
+      sum + ((need.quantity || 0) * (need.price || 0)), 0)
+
+    // تحليل الأولويات
+    const priorityAnalysis = clinicNeeds.reduce((acc, need) => {
+      const priority = need.priority || 'medium'
+      acc[priority] = (acc[priority] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    // تحليل الفئات
+    const categoryAnalysis = clinicNeeds.reduce((acc, need) => {
+      const category = need.category || 'غير محدد'
+      acc[category] = (acc[category] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    const completionRate = total > 0 ? Math.round((received / total) * 100) : 0
+
+    return {
+      totalClinicNeeds: total,
+      pendingNeeds: pending,
+      orderedNeeds: ordered,
+      receivedNeeds: received,
+      cancelledNeeds: cancelled,
+      needsCompletionRate: completionRate,
+      totalNeedsValue: totalValue,
+      priorityAnalysis,
+      categoryAnalysis,
+      urgentNeeds: priorityAnalysis.urgent || 0,
+      highPriorityNeeds: priorityAnalysis.high || 0
+    }
+  }
+
+  /**
+   * دالة التحقق من صحة المبلغ (مساعدة)
+   */
+  private static validateAmount(amount: any): number {
+    const num = Number(amount)
+    return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+  }
+
+  /**
+   * حساب إحصائيات المخزون التفصيلية
+   */
+  private static calculateInventoryStats(inventoryItems: InventoryItem[]) {
+    const total = inventoryItems.length
+
+    // تحليل الفئات
+    const categoryAnalysis = inventoryItems.reduce((acc, item) => {
+      const category = item.category || 'غير محدد'
+      acc[category] = (acc[category] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    // حساب القيمة الإجمالية
+    const totalValue = inventoryItems.reduce((sum, item) => {
+      const cost = this.validateAmount(item.cost_per_unit || 0)
+      const quantity = this.validateAmount(item.quantity || 0)
+      return sum + (cost * quantity)
+    }, 0)
+
+    // العناصر منخفضة المخزون
+    const lowStockItems = inventoryItems.filter(item =>
+      (item.quantity || 0) <= (item.minimum_quantity || 0)
+    ).length
+
+    return {
+      totalInventoryItems: total,
+      totalInventoryValue: totalValue,
+      lowStockItems,
+      inventoryByCategory: categoryAnalysis
+    }
+  }
+
+  /**
+   * تجميع البيانات حسب الحالة
+   */
+  private static groupByStatus<T extends { status?: string }>(data: T[], statusField: keyof T) {
+    return data.reduce((acc, item) => {
+      const status = (item[statusField] as string) || 'غير محدد'
+      acc[status] = (acc[status] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+  }
+
+  /**
+   * تجميع المدفوعات حسب طريقة الدفع
+   */
+  private static groupByMethod(payments: Payment[]) {
+    return payments.reduce((acc, payment) => {
+      const method = payment.payment_method || 'غير محدد'
+      acc[method] = (acc[method] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+  }
+
+  /**
+   * تجميع المخزون حسب الفئة
+   */
+  private static groupByCategory(inventoryItems: InventoryItem[]) {
+    return inventoryItems.reduce((acc, item) => {
+      const category = item.category || 'غير محدد'
+      acc[category] = (acc[category] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+  }
+
+
 
   /**
    * إنشاء تقرير شامل بصيغة CSV
@@ -205,7 +647,7 @@ export class ComprehensiveExportService {
 
     // معلومات التقرير
     csv += 'التقرير الشامل - عيادة الأسنان الحديثة\n'
-    csv += `تاريخ التقرير,${formatDate(new Date().toISOString())}\n`
+    csv += `تاريخ التقرير,${this.formatGregorianDate(new Date())}\n`
     csv += `وقت الإنشاء,${new Date().toLocaleTimeString('ar-SA')}\n\n`
 
     // معلومات الفلترة
@@ -629,8 +1071,9 @@ export class ComprehensiveExportService {
     const treatmentStats: { [key: string]: { count: number, totalValue: number } } = {}
 
     appointments.forEach(apt => {
-      // استخدام title أو treatment_type
-      const treatment = apt.title || apt.treatment_type || 'غير محدد'
+      // استخدام title أو treatment_type مع الترجمة للعربية
+      const treatmentType = apt.title || apt.treatment_type || 'غير محدد'
+      const treatment = this.getTreatmentNameInArabic(treatmentType)
       if (!treatmentStats[treatment]) {
         treatmentStats[treatment] = { count: 0, totalValue: 0 }
       }
@@ -720,41 +1163,57 @@ export class ComprehensiveExportService {
   }
 
   /**
-   * تصدير التقرير الشامل المحسن
+   * تصدير التقرير الشامل المحسن لجميع جوانب التطبيق
    */
   static async exportComprehensiveReport(data: {
     patients: Patient[]
-    filteredAppointments: Appointment[]
-    filteredPayments: Payment[]
-    filteredInventory: InventoryItem[]
-    filterInfo: {
-      appointmentFilter: string
-      paymentFilter: string
-      inventoryFilter: string
-    }
+    appointments: Appointment[]
+    payments: Payment[]
+    inventory: InventoryItem[]
+    treatments?: ToothTreatment[]
+    prescriptions?: Prescription[]
+    labOrders?: LabOrder[]
+    clinicNeeds?: ClinicNeed[]
+    timePeriod: TimePeriod
+    customStartDate?: string
+    customEndDate?: string
   }): Promise<void> {
     try {
+      // حساب نطاق التواريخ للفترة المحددة
+      const dateRange = getDateRangeForPeriod(data.timePeriod, data.customStartDate, data.customEndDate)
+
+      // فلترة جميع البيانات حسب الفترة الزمنية
+      const filteredData = this.filterAllDataByDateRange(data, dateRange)
+
       // التحقق من صحة البيانات قبل التصدير
       const isValid = validateBeforeExport({
-        payments: data.filteredPayments,
-        appointments: data.filteredAppointments,
-        inventory: data.filteredInventory,
-        filterInfo: data.filterInfo
+        payments: filteredData.payments,
+        appointments: filteredData.appointments,
+        inventory: filteredData.inventory,
+        filterInfo: {
+          appointmentFilter: TIME_PERIODS[data.timePeriod],
+          paymentFilter: TIME_PERIODS[data.timePeriod],
+          inventoryFilter: TIME_PERIODS[data.timePeriod]
+        }
       })
 
       if (!isValid) {
         throw new Error('فشل في التحقق من صحة البيانات')
       }
 
-      // حساب الإحصائيات الشاملة
-      const comprehensiveStats = this.calculateComprehensiveStats(data)
+      // حساب الإحصائيات الشاملة لجميع جوانب التطبيق
+      const comprehensiveStats = this.calculateAllAspectsStats(filteredData, dateRange)
 
       const csvContent = this.generateEnhancedComprehensiveCSV({
         patients: data.patients,
-        appointments: data.filteredAppointments,
-        payments: data.filteredPayments,
-        inventory: data.filteredInventory,
-        filterInfo: data.filterInfo,
+        appointments: filteredData.appointments,
+        payments: filteredData.payments,
+        inventory: filteredData.inventory,
+        treatments: filteredData.treatments,
+        prescriptions: filteredData.prescriptions,
+        labOrders: filteredData.labOrders,
+        clinicNeeds: filteredData.clinicNeeds,
+        timePeriod: data.timePeriod,
         stats: comprehensiveStats
       })
 
@@ -769,13 +1228,10 @@ export class ComprehensiveExportService {
 
       let fileName = `التقرير_الشامل_المفصل_${dateStr}_${timeStr}`
 
-      // إضافة معلومات الفلترة لاسم الملف
-      const hasFilters = data.filterInfo.appointmentFilter !== 'جميع البيانات' ||
-                        data.filterInfo.paymentFilter !== 'جميع البيانات' ||
-                        data.filterInfo.inventoryFilter !== 'جميع البيانات'
-
-      if (hasFilters) {
-        fileName += '_مفلتر'
+      // إضافة معلومات الفترة الزمنية لاسم الملف
+      const periodText = TIME_PERIODS[data.timePeriod]
+      if (data.timePeriod !== 'all') {
+        fileName += `_${periodText.replace(/\s+/g, '_')}`
       }
 
       fileName += '.csv'
@@ -795,21 +1251,30 @@ export class ComprehensiveExportService {
   }
 
   /**
-   * حساب الإحصائيات الشاملة
+   * حساب الإحصائيات الشاملة مع الأرباح والخسائر
    */
   private static calculateComprehensiveStats(data: {
     patients: Patient[]
     filteredAppointments: Appointment[]
     filteredPayments: Payment[]
     filteredInventory: InventoryItem[]
+    labOrders?: any[]
+    clinicNeeds?: any[]
   }) {
-    const financialStats = this.calculateFinancialStats(data.filteredPayments)
+    const financialStats = this.calculateFinancialStats(
+      data.filteredPayments,
+      data.labOrders,
+      data.clinicNeeds,
+      data.filteredInventory
+    )
 
     return {
       totalPatients: data.patients.length,
       totalAppointments: data.filteredAppointments.length,
       totalPayments: data.filteredPayments.length,
       totalInventoryItems: data.filteredInventory.length,
+      totalLabOrders: data.labOrders?.length || 0,
+      totalClinicNeeds: data.clinicNeeds?.length || 0,
       ...financialStats,
       appointmentsByStatus: this.groupByStatus(data.filteredAppointments, 'status'),
       paymentsByMethod: this.groupByMethod(data.filteredPayments),
@@ -851,58 +1316,335 @@ export class ComprehensiveExportService {
   }
 
   /**
-   * توليد CSV شامل محسن
+   * توليد CSV شامل محسن لجميع جوانب التطبيق
    */
   private static generateEnhancedComprehensiveCSV(data: {
     patients: Patient[]
     appointments: Appointment[]
     payments: Payment[]
     inventory: InventoryItem[]
-    filterInfo: any
+    treatments: ToothTreatment[]
+    prescriptions: Prescription[]
+    labOrders: LabOrder[]
+    clinicNeeds: ClinicNeed[]
+    timePeriod: TimePeriod
     stats: any
   }): string {
     let csv = '\uFEFF' // BOM for Arabic support
 
     // عنوان التقرير
-    csv += 'التقرير الشامل المفصل للعيادة\n'
-    csv += `تاريخ التقرير,${new Date().toLocaleDateString('ar-SA')}\n`
-    csv += `وقت التقرير,${new Date().toLocaleTimeString('ar-SA')}\n\n`
+    csv += 'التقرير الشامل المفصل للعيادة - جميع الجوانب\n'
+    csv += `تاريخ التقرير,${this.formatGregorianDate(new Date())}\n`
+    csv += `وقت التقرير,${new Date().toLocaleTimeString('ar-SA')}\n`
+    csv += `الفترة الزمنية,${TIME_PERIODS[data.timePeriod]}\n`
+    if (data.stats.dateRange) {
+      csv += `نطاق التواريخ,${data.stats.dateRange.period}\n`
+    }
+    csv += '\n'
 
-    // معلومات الفلترة
-    csv += 'معلومات الفلترة المطبقة\n'
-    csv += `فلتر المواعيد,${data.filterInfo.appointmentFilter}\n`
-    csv += `فلتر المدفوعات,${data.filterInfo.paymentFilter}\n`
-    csv += `فلتر المخزون,${data.filterInfo.inventoryFilter}\n\n`
-
-    // الإحصائيات العامة
-    csv += 'الإحصائيات العامة\n'
+    // ملخص عام شامل
+    csv += '=== ملخص عام شامل ===\n'
     csv += `إجمالي المرضى,${data.stats.totalPatients}\n`
-    csv += `إجمالي المواعيد المفلترة,${data.stats.totalAppointments}\n`
-    csv += `إجمالي المدفوعات المفلترة,${data.stats.totalPayments}\n`
-    csv += `إجمالي عناصر المخزون المفلترة,${data.stats.totalInventoryItems}\n`
-    csv += `إجمالي الإيرادات,${formatCurrency(data.stats.totalRevenue)}\n`
-    csv += `المبالغ المعلقة,${formatCurrency(data.stats.pendingAmount)}\n`
-    csv += `المبالغ المتبقية,${formatCurrency(data.stats.totalRemainingBalance)}\n\n`
+    csv += `إجمالي المواعيد (مفلترة),${data.stats.totalAppointments}\n`
+    csv += `إجمالي المدفوعات (مفلترة),${data.stats.totalPayments}\n`
+    csv += `إجمالي العلاجات (مفلترة),${data.stats.totalTreatments}\n`
+    csv += `إجمالي الوصفات (مفلترة),${data.stats.totalPrescriptions}\n`
+    csv += `إجمالي طلبات المخابر (مفلترة),${data.stats.totalLabOrders}\n`
+    csv += `إجمالي احتياجات العيادة (مفلترة),${data.stats.totalClinicNeeds}\n`
+    csv += `إجمالي عناصر المخزون,${data.stats.totalInventoryItems}\n\n`
+
+    // === تحليل الأرباح والخسائر الشامل ===
+    csv += 'تحليل الأرباح والخسائر الشامل\n'
+    csv += '=================================\n\n'
+
+    // الإيرادات
+    csv += 'الإيرادات\n'
+    csv += `المدفوعات المكتملة,${formatCurrency(data.stats.completedPayments || 0)}\n`
+    csv += `المدفوعات الجزئية,${formatCurrency(data.stats.partialPayments || 0)}\n`
+    csv += `إجمالي الإيرادات,${formatCurrency(data.stats.totalRevenue || 0)}\n`
+    csv += `المبالغ المتبقية من المدفوعات الجزئية,${formatCurrency(data.stats.remainingBalances || 0)}\n`
+    csv += `المدفوعات المعلقة,${formatCurrency(data.stats.pendingAmount || 0)}\n\n`
+
+    // المصروفات
+    csv += 'المصروفات\n'
+    csv += `إجمالي المدفوعات للمخابر,${formatCurrency(data.stats.labOrdersTotal || 0)}\n`
+    csv += `إجمالي المتبقي للمخابر,${formatCurrency(data.stats.labOrdersRemaining || 0)}\n`
+    csv += `إجمالي المدفوعات للاحتياجات والمخزون,${formatCurrency(data.stats.clinicNeedsTotal || 0)}\n`
+    csv += `إجمالي المتبقي للاحتياجات,${formatCurrency(data.stats.clinicNeedsRemaining || 0)}\n`
+    csv += `قيمة المخزون الحالي,${formatCurrency(data.stats.inventoryExpenses || 0)}\n`
+    csv += `إجمالي المصروفات,${formatCurrency(data.stats.totalExpenses || 0)}\n\n`
+
+    // النتيجة النهائية
+    csv += 'النتيجة النهائية\n'
+    if (data.stats.isProfit) {
+      csv += `صافي الربح,${formatCurrency(data.stats.netProfit || 0)}\n`
+      csv += `نسبة الربح,${(data.stats.profitMargin || 0).toFixed(2)}%\n`
+      csv += `الحالة,ربح\n`
+    } else {
+      csv += `إجمالي الخسارة,${formatCurrency(data.stats.lossAmount || 0)}\n`
+      csv += `نسبة الخسارة,${Math.abs(data.stats.profitMargin || 0).toFixed(2)}%\n`
+      csv += `الحالة,خسارة\n`
+    }
+    csv += '\n'
+
+    // === تحليل المواعيد التفصيلي ===
+    csv += 'تحليل المواعيد التفصيلي\n'
+    csv += '========================\n'
+    csv += `إجمالي المواعيد,${data.stats.total || 0}\n`
+    csv += `المواعيد المكتملة,${data.stats.completed || 0}\n`
+    csv += `المواعيد الملغية,${data.stats.cancelled || 0}\n`
+    csv += `المواعيد المجدولة,${data.stats.scheduled || 0}\n`
+    csv += `المواعيد الغائبة,${data.stats.noShow || 0}\n`
+    csv += `معدل الحضور,${data.stats.attendanceRate || 0}%\n`
+    if (data.stats.peakHour) {
+      csv += `أكثر الأوقات ازدحاماً,${data.stats.peakHour}\n`
+    }
+    csv += `متوسط المواعيد يومياً,${data.stats.averagePerDay || 0}\n\n`
+
+    // === تحليل العلاجات التفصيلي ===
+    csv += 'تحليل العلاجات التفصيلي\n'
+    csv += '========================\n'
+    csv += `إجمالي العلاجات,${data.stats.totalTreatments || 0}\n`
+    csv += `العلاجات المكتملة,${data.stats.completedTreatments || 0}\n`
+    csv += `العلاجات المخططة,${data.stats.plannedTreatments || 0}\n`
+    csv += `العلاجات قيد التنفيذ,${data.stats.inProgressTreatments || 0}\n`
+    csv += `العلاجات الملغية,${data.stats.cancelledTreatments || 0}\n`
+    csv += `معدل إنجاز العلاجات,${data.stats.completionRate || 0}%\n`
+    if (data.stats.mostTreatedTooth) {
+      csv += `أكثر الأسنان علاجاً,السن رقم ${data.stats.mostTreatedTooth.tooth} (${data.stats.mostTreatedTooth.count} علاج)\n`
+    }
+    csv += '\n'
+
+    // توزيع أنواع العلاجات
+    csv += 'توزيع أنواع العلاجات\n'
+    if (data.stats.treatmentTypes && typeof data.stats.treatmentTypes === 'object') {
+      Object.entries(data.stats.treatmentTypes).forEach(([type, count]) => {
+        const typeArabic = this.getTreatmentNameInArabic(type)
+        csv += `${typeArabic},${count}\n`
+      })
+    } else {
+      csv += 'لا توجد بيانات متاحة\n'
+    }
+    csv += '\n'
+
+    // توزيع الأسنان المعالجة
+    csv += 'توزيع الأسنان المعالجة\n'
+    if (data.stats.teethTreated && typeof data.stats.teethTreated === 'object') {
+      Object.entries(data.stats.teethTreated).forEach(([tooth, count]) => {
+        csv += `السن رقم ${tooth},${count} علاج\n`
+      })
+    } else {
+      csv += 'لا توجد بيانات متاحة\n'
+    }
+    csv += '\n'
+
+    // تفاصيل العلاجات الفردية (إذا كان العدد معقول)
+    if (data.treatments && data.treatments.length > 0 && data.treatments.length <= 100) {
+      csv += 'تفاصيل العلاجات الفردية\n'
+      csv += 'المريض,رقم السن,نوع العلاج,الفئة,الحالة,تاريخ البداية,تاريخ الإكمال,التكلفة,ملاحظات\n'
+      data.treatments.forEach(treatment => {
+        // البحث عن اسم المريض من قائمة المرضى
+        const patient = data.patients.find(p => p.id === treatment.patient_id)
+        const patientName = patient ? (patient.full_name || patient.name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim()) : 'غير محدد'
+
+        const startDate = treatment.start_date ? formatDate(treatment.start_date) : 'غير محدد'
+        const completionDate = treatment.completion_date ? formatDate(treatment.completion_date) : 'غير محدد'
+        const cost = treatment.cost ? formatCurrency(treatment.cost) : 'غير محدد'
+        const notes = (treatment.notes || '').replace(/,/g, '؛') // استبدال الفواصل لتجنب مشاكل CSV
+
+        // استخدام دوال الترجمة للعربية
+        const treatmentTypeArabic = this.getTreatmentNameInArabic(treatment.treatment_type || 'غير محدد')
+        const categoryArabic = this.getCategoryNameInArabic(treatment.treatment_category || 'غير محدد')
+        const statusArabic = this.getStatusLabelInArabic(treatment.treatment_status || 'غير محدد')
+
+        csv += `"${patientName}",${treatment.tooth_number || 'غير محدد'},"${treatmentTypeArabic}","${categoryArabic}","${statusArabic}",${startDate},${completionDate},${cost},"${notes}"\n`
+      })
+      csv += '\n'
+    }
+
+    // === تحليل الوصفات ===
+    csv += 'تحليل الوصفات\n'
+    csv += '===============\n'
+    csv += `إجمالي الوصفات,${data.stats.totalPrescriptions || 0}\n`
+    csv += `المرضى الذين لديهم وصفات,${data.stats.patientsWithPrescriptions || 0}\n`
+    csv += `متوسط الوصفات لكل مريض,${data.stats.averagePrescriptionsPerPatient || 0}\n\n`
+
+    // تفاصيل الوصفات الفردية (إذا كان العدد معقول)
+    if (data.prescriptions && data.prescriptions.length > 0 && data.prescriptions.length <= 50) {
+      csv += 'تفاصيل الوصفات الفردية\n'
+      csv += 'تاريخ الوصفة,المريض,الموعد,ملاحظات\n'
+      data.prescriptions.forEach(prescription => {
+        const prescriptionDate = prescription.prescription_date ? formatDate(prescription.prescription_date) : 'غير محدد'
+
+        // استخدام البيانات المجلبة من قاعدة البيانات أولاً، ثم البحث في القوائم كبديل
+        let patientName = (prescription as any).patient_name || 'غير محدد'
+        let appointmentInfo = (prescription as any).appointment_title || 'غير محدد'
+
+        // إذا لم تكن البيانات متوفرة، ابحث في القوائم
+        if (patientName === 'غير محدد') {
+          const patient = data.patients.find(p => p.id === prescription.patient_id)
+          patientName = patient ? (patient.full_name || patient.name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim()) : 'غير محدد'
+        }
+
+        if (appointmentInfo === 'غير محدد') {
+          const appointment = data.appointments.find(a => a.id === prescription.appointment_id)
+          appointmentInfo = appointment ? (appointment.title || appointment.description || 'موعد طبي') : 'غير محدد'
+        }
+
+        const notes = (prescription.notes || '').replace(/,/g, '؛')
+
+        csv += `${prescriptionDate},"${patientName}","${appointmentInfo}","${notes}"\n`
+      })
+      csv += '\n'
+    }
+
+    // === تحليل طلبات المخابر ===
+    csv += 'تحليل طلبات المخابر\n'
+    csv += '==================\n'
+    csv += `إجمالي طلبات المخابر,${data.stats.totalLabOrders || 0}\n`
+    csv += `الطلبات المعلقة,${data.stats.pendingLabOrders || 0}\n`
+    csv += `الطلبات المكتملة,${data.stats.completedLabOrders || 0}\n`
+    csv += `الطلبات الملغية,${data.stats.cancelledLabOrders || 0}\n`
+    csv += `معدل إنجاز طلبات المخابر,${data.stats.labOrdersCompletionRate || 0}%\n`
+    csv += `إجمالي تكلفة المخابر,${formatCurrency(data.stats.totalLabCost || 0)}\n`
+    csv += `إجمالي المدفوع للمخابر,${formatCurrency(data.stats.totalLabPaid || 0)}\n`
+    csv += `إجمالي المتبقي للمخابر,${formatCurrency(data.stats.totalLabRemaining || 0)}\n`
+    if (data.stats.mostUsedLab) {
+      csv += `أكثر المخابر استخداماً,${data.stats.mostUsedLab.lab} (${data.stats.mostUsedLab.count} طلب)\n`
+    }
+    csv += '\n'
+
+    // توزيع المخابر المستخدمة
+    csv += 'توزيع المخابر المستخدمة\n'
+    if (data.stats.labFrequency && typeof data.stats.labFrequency === 'object') {
+      Object.entries(data.stats.labFrequency).forEach(([lab, count]) => {
+        csv += `${lab},${count} طلب\n`
+      })
+    } else {
+      csv += 'لا توجد بيانات متاحة\n'
+    }
+    csv += '\n'
+
+    // تفاصيل طلبات المخابر الفردية (إذا كان العدد معقول)
+    if (data.labOrders && data.labOrders.length > 0 && data.labOrders.length <= 50) {
+      csv += 'تفاصيل طلبات المخابر الفردية\n'
+      csv += 'تاريخ الطلب,المختبر,المريض,الحالة,التكلفة,المدفوع,المتبقي,ملاحظات\n'
+      data.labOrders.forEach(order => {
+        const orderDate = order.order_date ? formatDate(order.order_date) : 'غير محدد'
+        const labName = order.lab_name || order.laboratory || 'غير محدد'
+
+        // البحث عن اسم المريض من قائمة المرضى
+        const patient = data.patients.find(p => p.id === order.patient_id)
+        const patientName = patient ? (patient.full_name || patient.name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim()) : 'غير محدد'
+
+        const status = order.status || 'غير محدد'
+        const cost = order.cost ? formatCurrency(order.cost) : 'غير محدد'
+        const paid = order.paid_amount ? formatCurrency(order.paid_amount) : 'غير محدد'
+        const remaining = order.remaining_balance ? formatCurrency(order.remaining_balance) : 'غير محدد'
+        const notes = (order.notes || '').replace(/,/g, '؛')
+
+        csv += `${orderDate},"${labName}","${patientName}",${status},${cost},${paid},${remaining},"${notes}"\n`
+      })
+      csv += '\n'
+    }
+
+    // === تحليل احتياجات العيادة ===
+    csv += 'تحليل احتياجات العيادة\n'
+    csv += '=====================\n'
+    csv += `إجمالي الاحتياجات,${data.stats.totalClinicNeeds || 0}\n`
+    csv += `الاحتياجات المعلقة,${data.stats.pendingNeeds || 0}\n`
+    csv += `الاحتياجات المطلوبة,${data.stats.orderedNeeds || 0}\n`
+    csv += `الاحتياجات المستلمة,${data.stats.receivedNeeds || 0}\n`
+    csv += `الاحتياجات الملغية,${data.stats.cancelledNeeds || 0}\n`
+    csv += `معدل إنجاز الاحتياجات,${data.stats.needsCompletionRate || 0}%\n`
+    csv += `إجمالي قيمة الاحتياجات,${formatCurrency(data.stats.totalNeedsValue || 0)}\n`
+    csv += `الاحتياجات العاجلة,${data.stats.urgentNeeds || 0}\n`
+    csv += `الاحتياجات عالية الأولوية,${data.stats.highPriorityNeeds || 0}\n\n`
+
+    // توزيع الأولويات
+    csv += 'توزيع الأولويات\n'
+    if (data.stats.priorityAnalysis && typeof data.stats.priorityAnalysis === 'object') {
+      Object.entries(data.stats.priorityAnalysis).forEach(([priority, count]) => {
+        const priorityText = priority === 'urgent' ? 'عاجل' :
+                           priority === 'high' ? 'عالي' :
+                           priority === 'medium' ? 'متوسط' :
+                           priority === 'low' ? 'منخفض' : priority
+        csv += `${priorityText},${count}\n`
+      })
+    } else {
+      csv += 'لا توجد بيانات متاحة\n'
+    }
+    csv += '\n'
+
+    // توزيع الفئات
+    csv += 'توزيع فئات الاحتياجات\n'
+    if (data.stats.categoryAnalysis && typeof data.stats.categoryAnalysis === 'object') {
+      Object.entries(data.stats.categoryAnalysis).forEach(([category, count]) => {
+        csv += `${category},${count}\n`
+      })
+    } else {
+      csv += 'لا توجد بيانات متاحة\n'
+    }
+    csv += '\n'
+
+    // تفاصيل احتياجات العيادة الفردية (إذا كان العدد معقول)
+    if (data.clinicNeeds && data.clinicNeeds.length > 0 && data.clinicNeeds.length <= 50) {
+      csv += 'تفاصيل احتياجات العيادة الفردية\n'
+      csv += 'تاريخ الطلب,اسم الصنف,الفئة,الكمية,السعر,القيمة الإجمالية,الأولوية,الحالة,ملاحظات\n'
+      data.clinicNeeds.forEach(need => {
+        const createdDate = need.created_at ? formatDate(need.created_at) : 'غير محدد'
+        const itemName = need.item_name || 'غير محدد'
+        const category = need.category || 'غير محدد'
+        const quantity = need.quantity || 0
+        const price = need.price ? formatCurrency(need.price) : 'غير محدد'
+        const totalValue = (need.quantity || 0) * (need.price || 0)
+        const totalValueFormatted = formatCurrency(totalValue)
+        const priority = need.priority === 'urgent' ? 'عاجل' :
+                        need.priority === 'high' ? 'عالي' :
+                        need.priority === 'medium' ? 'متوسط' :
+                        need.priority === 'low' ? 'منخفض' : (need.priority || 'غير محدد')
+        const status = need.status === 'pending' ? 'معلق' :
+                      need.status === 'ordered' ? 'مطلوب' :
+                      need.status === 'received' ? 'مستلم' :
+                      need.status === 'cancelled' ? 'ملغي' : (need.status || 'غير محدد')
+        const notes = (need.notes || '').replace(/,/g, '؛')
+
+        csv += `${createdDate},"${itemName}","${category}",${quantity},${price},${totalValueFormatted},"${priority}","${status}","${notes}"\n`
+      })
+      csv += '\n'
+    }
 
     // توزيع المواعيد حسب الحالة
     csv += 'توزيع المواعيد حسب الحالة\n'
-    Object.entries(data.stats.appointmentsByStatus).forEach(([status, count]) => {
-      csv += `${status},${count}\n`
-    })
+    if (data.stats.appointmentsByStatus && typeof data.stats.appointmentsByStatus === 'object') {
+      Object.entries(data.stats.appointmentsByStatus).forEach(([status, count]) => {
+        csv += `${status},${count}\n`
+      })
+    } else {
+      csv += 'لا توجد بيانات متاحة\n'
+    }
     csv += '\n'
 
     // توزيع المدفوعات حسب طريقة الدفع
     csv += 'توزيع المدفوعات حسب طريقة الدفع\n'
-    Object.entries(data.stats.paymentsByMethod).forEach(([method, count]) => {
-      csv += `${method},${count}\n`
-    })
+    if (data.stats.paymentsByMethod && typeof data.stats.paymentsByMethod === 'object') {
+      Object.entries(data.stats.paymentsByMethod).forEach(([method, count]) => {
+        csv += `${method},${count}\n`
+      })
+    } else {
+      csv += 'لا توجد بيانات متاحة\n'
+    }
     csv += '\n'
 
     // توزيع المخزون حسب الفئة
     csv += 'توزيع المخزون حسب الفئة\n'
-    Object.entries(data.stats.inventoryByCategory).forEach(([category, count]) => {
-      csv += `${category},${count}\n`
-    })
+    if (data.stats.inventoryByCategory && typeof data.stats.inventoryByCategory === 'object') {
+      Object.entries(data.stats.inventoryByCategory).forEach(([category, count]) => {
+        csv += `${category},${count}\n`
+      })
+    } else {
+      csv += 'لا توجد بيانات متاحة\n'
+    }
     csv += '\n'
 
     // تفاصيل المدفوعات
@@ -937,5 +1679,39 @@ export class ComprehensiveExportService {
     }
 
     return csv
+  }
+
+  /**
+   * دوال الترجمة للعربية
+   */
+  private static getTreatmentNameInArabic(treatmentType: string): string {
+    return getTreatmentNameInArabic(treatmentType)
+  }
+
+  private static getCategoryNameInArabic(category: string): string {
+    return getCategoryNameInArabic(category)
+  }
+
+  private static getStatusLabelInArabic(status: string): string {
+    return getStatusLabelInArabic(status)
+  }
+
+  private static getPaymentStatusInArabic(status: string): string {
+    return getPaymentStatusInArabic(status)
+  }
+
+  /**
+   * تنسيق التاريخ بالتقويم الميلادي
+   */
+  private static formatGregorianDate(date: Date): string {
+    if (!date || isNaN(date.getTime())) {
+      return 'غير محدد'
+    }
+
+    const day = date.getDate().toString().padStart(2, '0')
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const year = date.getFullYear()
+
+    return `${day}/${month}/${year}`
   }
 }

@@ -8,7 +8,7 @@ import {
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import { EnhancedPdfReports } from './enhancedPdfReports'
-import { getTreatmentNameInArabic, getCategoryNameInArabic } from '../data/teethData'
+import { getTreatmentNameInArabic, getCategoryNameInArabic, getStatusLabelInArabic, getPaymentStatusInArabic, getPriorityLabelInArabic, getClinicNeedStatusInArabic } from '@/utils/arabicTranslations'
 
 export class PdfService {
   // Enhanced color scheme optimized for print clarity
@@ -129,7 +129,7 @@ export class PdfService {
           <div class="report-info">
             <h3 class="report-title">${title}</h3>
             ${subtitle ? `<p class="report-subtitle">${subtitle}</p>` : ''}
-            <p class="report-date">📅 ${currentDate}</p>
+            <p class="report-date">📅 ${this.formatGregorianDate(new Date())}</p>
             <p class="report-time">🕐 ${new Date().toLocaleTimeString('ar-SA', {
               hour: '2-digit',
               minute: '2-digit'
@@ -2234,23 +2234,11 @@ export class PdfService {
     }
 
     const getStatusLabel = (status: string) => {
-      const labels = {
-        pending: 'معلق',
-        ordered: 'مطلوب',
-        received: 'مستلم',
-        cancelled: 'ملغي'
-      }
-      return labels[status] || status
+      return getClinicNeedStatusInArabic(status)
     }
 
     const getPriorityLabel = (priority: string) => {
-      const labels = {
-        urgent: 'عاجل',
-        high: 'عالي',
-        medium: 'متوسط',
-        low: 'منخفض'
-      }
-      return labels[priority] || priority
+      return getPriorityLabelInArabic(priority)
     }
 
     const getStatusColor = (status: string) => {
@@ -2657,24 +2645,25 @@ export class PdfService {
 
   // Helper methods for translations
   private static translateStatus(status: string): string {
-    const statusMap: { [key: string]: string } = {
-      'scheduled': 'مجدول',
-      'completed': 'مكتمل',
-      'cancelled': 'ملغي',
-      'no-show': 'عدم حضور',
-      'in-progress': 'قيد التنفيذ'
-    }
-    return statusMap[status] || status
+    return getStatusLabelInArabic(status)
   }
 
   private static translatePaymentMethod(method: string): string {
-    const methodMap: { [key: string]: string } = {
-      'cash': 'نقدي',
-      'card': 'بطاقة ائتمان',
-      'bank_transfer': 'تحويل بنكي',
-      'insurance': 'تأمين',
-      'installment': 'تقسيط'
+    return getPaymentStatusInArabic(method)
+  }
+
+  /**
+   * تنسيق التاريخ بالتقويم الميلادي
+   */
+  private static formatGregorianDate(date: Date): string {
+    if (!date || isNaN(date.getTime())) {
+      return 'غير محدد'
     }
-    return methodMap[method] || method
+
+    const day = date.getDate().toString().padStart(2, '0')
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const year = date.getFullYear()
+
+    return `${day}/${month}/${year}`
   }
 }

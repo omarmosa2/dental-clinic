@@ -14,11 +14,17 @@ import type {
   TreatmentReportData,
   ReportData
 } from '../types'
+import { getTreatmentNameInArabic as getArabicTreatmentName, getCategoryNameInArabic as getArabicCategoryName, getStatusLabelInArabic as getArabicStatusLabel, getPaymentStatusInArabic as getArabicPaymentStatus } from '@/utils/arabicTranslations'
 
 export class ReportsService {
 
   // Helper function to get Arabic treatment name
   private getTreatmentNameInArabic(treatmentType: string): string {
+    return getArabicTreatmentName(treatmentType)
+  }
+
+  // Legacy method - keeping for backward compatibility
+  private getTreatmentNameInArabicLegacy(treatmentType: string): string {
     const treatmentMap: { [key: string]: string } = {
       // Preventive treatments
       'healthy': 'سليم',
@@ -101,25 +107,7 @@ export class ReportsService {
 
   // Helper function to get Arabic category name
   private getCategoryNameInArabic(category: string): string {
-    // If category is already in Arabic, return it
-    if (category && (category.includes('العلاجات') || category.includes('علاج') || category.includes('التعويضات'))) {
-      return category
-    }
-
-    // Map English categories to Arabic
-    const categoryMap: { [key: string]: string } = {
-      'preventive': 'العلاجات الوقائية',
-      'restorative': 'الترميمية (المحافظة)',
-      'endodontic': 'علاج العصب',
-      'surgical': 'العلاجات الجراحية',
-      'cosmetic': 'العلاجات التجميلية',
-      'orthodontic': 'علاجات التقويم',
-      'periodontal': 'علاجات اللثة',
-      'pediatric': 'علاجات الأطفال',
-      'prosthetic': 'التعويضات'
-    }
-
-    return categoryMap[category] || category
+    return getArabicCategoryName(category)
   }
 
   // Helper function to filter data by date range
@@ -931,12 +919,6 @@ export class ReportsService {
 
   // Helper method to get status label in Arabic
   private getStatusLabel(status: string): string {
-    const statusLabels: { [key: string]: string } = {
-      'planned': 'مخطط',
-      'in_progress': 'قيد التنفيذ',
-      'completed': 'مكتمل',
-      'cancelled': 'ملغي'
-    }
-    return statusLabels[status] || status
+    return getArabicStatusLabel(status)
   }
 }

@@ -40,7 +40,7 @@ import TimeFilter from '@/components/ui/time-filter'
 import { PdfService } from '@/services/pdfService'
 import { ExportService } from '@/services/exportService'
 import { notify } from '@/services/notificationService'
-import { getTreatmentNameInArabic, getCategoryNameInArabic } from '@/data/teethData'
+import { getTreatmentNameInArabic, getCategoryNameInArabic, getStatusLabelInArabic } from '@/utils/arabicTranslations'
 import {
   Activity,
   TrendingUp,
@@ -154,7 +154,7 @@ export default function TreatmentReports() {
 
     // Group by status
     const statusGroups = filteredData.reduce((acc, treatment) => {
-      const status = treatment.status || 'غير محدد'
+      const status = getStatusLabelInArabic(treatment.status || 'غير محدد')
       acc[status] = (acc[status] || 0) + 1
       return acc
     }, {} as Record<string, number>)
@@ -697,7 +697,7 @@ export default function TreatmentReports() {
                           <TableCell className="text-right">{treatment.patient_name || `مريض ${treatment.patient_id}`}</TableCell>
                           <TableCell className="text-right">
                             <Badge variant={treatment.status === 'planned' ? 'secondary' : 'default'}>
-                              {treatment.status === 'planned' ? 'مخطط' : 'قيد التنفيذ'}
+                              {getStatusLabelInArabic(treatment.status || 'غير محدد')}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">

@@ -465,6 +465,53 @@ export interface FinancialReportData {
   recentTransactions: Payment[]
 }
 
+// تقرير شامل متكامل للأرباح والخسائر
+export interface ComprehensiveProfitLossReport {
+  // الإيرادات
+  revenue: {
+    completedPayments: number // المدفوعات المكتملة
+    totalRevenue: number // إجمالي الإيرادات
+    partialPayments: number // المدفوعات الجزئية
+    remainingBalances: number // المبالغ المتبقية من المدفوعات الجزئية
+  }
+
+  // المصروفات
+  expenses: {
+    labOrdersTotal: number // إجمالي المدفوعات للمخابر
+    labOrdersRemaining: number // إجمالي المتبقي للمخابر
+    clinicNeedsTotal: number // إجمالي المدفوعات للاحتياجات والمخزون
+    clinicNeedsRemaining: number // إجمالي المتبقي للاحتياجات
+    inventoryExpenses: number // مصروفات المخزون
+  }
+
+  // الحسابات النهائية
+  calculations: {
+    totalIncome: number // إجمالي الدخل
+    totalExpenses: number // إجمالي المصروفات
+    netProfit: number // صافي الربح
+    profitMargin: number // نسبة الربح (%)
+    lossAmount: number // مبلغ الخسارة (إذا كان سالب)
+    isProfit: boolean // هل هناك ربح أم خسارة
+  }
+
+  // تفاصيل إضافية
+  details: {
+    totalPatients: number
+    totalAppointments: number
+    totalLabOrders: number
+    totalClinicNeeds: number
+    averageRevenuePerPatient: number
+    averageRevenuePerAppointment: number
+  }
+
+  // معلومات الفلترة
+  filterInfo: {
+    dateRange: string
+    totalRecords: number
+    filteredRecords: number
+  }
+}
+
 export interface InventoryReportData {
   totalItems: number
   totalValue: number
