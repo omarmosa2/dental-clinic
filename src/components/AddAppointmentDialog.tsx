@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, Calendar, Clock, User, DollarSign } from 'lucide-react'
+import { X, Calendar, Clock, User } from 'lucide-react'
 import { Appointment, Patient, Treatment } from '../types'
 import { useThemeClasses } from '../contexts/ThemeContext'
 import {
@@ -52,8 +52,7 @@ export default function AddAppointmentDialog({
     description: '',
     start_time: '',
     end_time: '',
-    status: 'scheduled' as const,
-    cost: '',
+    status: 'scheduled' as 'scheduled' | 'completed' | 'cancelled' | 'no_show',
     notes: ''
   })
 
@@ -88,7 +87,6 @@ export default function AddAppointmentDialog({
         start_time: formatForInput(startDate),
         end_time: formatForInput(endDate),
         status: initialData.status || 'scheduled',
-        cost: initialData.cost?.toString() || '',
         notes: initialData.notes || ''
       })
     } else if (selectedDate && selectedTime) {
@@ -127,7 +125,6 @@ export default function AddAppointmentDialog({
         start_time: formatForInput(now),
         end_time: formatForInput(oneHourLater),
         status: 'scheduled',
-        cost: '',
         notes: ''
       })
     }
@@ -233,7 +230,6 @@ export default function AddAppointmentDialog({
       ...appointmentDataWithoutGender,
       // Add generated title
       title: generatedTitle,
-      cost: formData.cost ? parseFloat(formData.cost) : 0,
       start_time: startDate.toISOString(),
       end_time: endDate.toISOString()
     }
@@ -414,22 +410,7 @@ export default function AddAppointmentDialog({
               الحقول الاختيارية
             </h3>
 
-            {/* Cost */}
-            <div className="space-y-2">
-              <Label className="flex items-center">
-                <DollarSign className="w-4 h-4 ml-1" />
-                التكلفة ($)
-              </Label>
-              <Input
-                type="number"
-                name="cost"
-                value={formData.cost}
-                onChange={handleChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
+
 
             {/* Description */}
             <div className="space-y-2">
