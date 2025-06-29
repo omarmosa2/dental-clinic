@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { TimeFilterOptions } from '@/components/ui/time-filter'
+import { getWeekStart } from '@/lib/utils'
 
 export interface FilterableData {
   created_at?: string
@@ -80,28 +81,35 @@ export function useTimeFilteredStats<T extends FilterableData>({
     // Calculate period-based statistics
     const today = new Date()
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const weekStart = new Date(today)
-    weekStart.setDate(today.getDate() - today.getDay())
+    const weekStart = getWeekStart(today)
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
     const yearStart = new Date(today.getFullYear(), 0, 1)
 
     const todayCount = data.filter(item => {
-      const itemDate = new Date(item[dateField] as string)
+      const itemDateValue = item[dateField]
+      if (!itemDateValue) return false
+      const itemDate = new Date(itemDateValue as string)
       return itemDate >= todayStart
     }).length
 
     const weekCount = data.filter(item => {
-      const itemDate = new Date(item[dateField] as string)
-      return itemDate >= weekStart
+      const itemDateValue = item[dateField]
+      if (!itemDateValue) return false
+      const itemDate = new Date(itemDateValue as string)
+      return itemDate >= weekStart && itemDate <= today
     }).length
 
     const monthCount = data.filter(item => {
-      const itemDate = new Date(item[dateField] as string)
+      const itemDateValue = item[dateField]
+      if (!itemDateValue) return false
+      const itemDate = new Date(itemDateValue as string)
       return itemDate >= monthStart
     }).length
 
     const yearCount = data.filter(item => {
-      const itemDate = new Date(item[dateField] as string)
+      const itemDateValue = item[dateField]
+      if (!itemDateValue) return false
+      const itemDate = new Date(itemDateValue as string)
       return itemDate >= yearStart
     }).length
 

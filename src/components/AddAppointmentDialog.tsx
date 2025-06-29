@@ -66,16 +66,27 @@ export default function AddAppointmentDialog({
       // Populate form with existing appointment data for editing
       const selectedPatient = patients.find(p => p.id === initialData.patient_id)
 
-      // Safe date parsing
+      // Safe date parsing - use simple approach for editing
       const startDate = new Date(initialData.start_time)
       const endDate = new Date(initialData.end_time)
+
+      // Format dates for datetime-local input (YYYY-MM-DDTHH:MM)
+      const formatForInput = (date: Date) => {
+        if (isNaN(date.getTime())) return ''
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        const hours = String(date.getHours()).padStart(2, '0')
+        const minutes = String(date.getMinutes()).padStart(2, '0')
+        return `${year}-${month}-${day}T${hours}:${minutes}`
+      }
 
       setFormData({
         patient_id: initialData.patient_id || '',
         gender: selectedPatient?.gender === 'male' ? 'ذكر' : selectedPatient?.gender === 'female' ? 'أنثى' : '',
         description: initialData.description || '',
-        start_time: isNaN(startDate.getTime()) ? '' : startDate.toISOString().slice(0, 16),
-        end_time: isNaN(endDate.getTime()) ? '' : endDate.toTimeString().slice(0, 5), // Only time HH:MM
+        start_time: formatForInput(startDate),
+        end_time: formatForInput(endDate),
         status: initialData.status || 'scheduled',
         cost: initialData.cost?.toString() || '',
         notes: initialData.notes || ''
@@ -91,21 +102,30 @@ export default function AddAppointmentDialog({
       setFormData(prev => ({
         ...prev,
         start_time: startDateTime.toISOString().slice(0, 16),
-        end_time: endDateTime.toTimeString().slice(0, 5) // Only time HH:MM
+        end_time: endDateTime.toISOString().slice(0, 16) // Same format as start_time
       }))
     } else {
       // Reset form when opening for new appointment
-      // Set default time to current time + 1 hour
+      // Set default time to current time
       const now = new Date()
-      const defaultStart = new Date(now.getTime() + 60 * 60 * 1000) // +1 hour
-      const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000) // +1 hour from start
+      const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000) // +1 hour from start
+
+      // Format dates for datetime-local input (YYYY-MM-DDTHH:MM)
+      const formatForInput = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        const hours = String(date.getHours()).padStart(2, '0')
+        const minutes = String(date.getMinutes()).padStart(2, '0')
+        return `${year}-${month}-${day}T${hours}:${minutes}`
+      }
 
       setFormData({
         patient_id: '',
         gender: '',
         description: '',
-        start_time: defaultStart.toISOString().slice(0, 16),
-        end_time: defaultEnd.toTimeString().slice(0, 5), // Only time HH:MM
+        start_time: formatForInput(now),
+        end_time: formatForInput(oneHourLater),
         status: 'scheduled',
         cost: '',
         notes: ''
@@ -152,14 +172,12 @@ export default function AddAppointmentDialog({
     // Calculate end date/time
     let endDate: Date
     if (formData.end_time) {
-      // If end time is provided, combine it with start date
-      const [hours, minutes] = formData.end_time.split(':')
-      endDate = new Date(startDate)
-      endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+      // Parse end time as datetime-local format (YYYY-MM-DDTHH:MM)
+      endDate = new Date(formData.end_time)
 
-      // If end time is earlier than start time, assume it's next day
-      if (endDate <= startDate) {
-        endDate.setDate(endDate.getDate() + 1)
+      // If parsing failed or end time is invalid, default to 1 hour after start
+      if (isNaN(endDate.getTime())) {
+        endDate = new Date(startDate.getTime() + 60 * 60 * 1000)
       }
     } else {
       // Default to 1 hour after start time
@@ -240,12 +258,21 @@ export default function AddAppointmentDialog({
       const startDate = new Date(value)
       if (!isNaN(startDate.getTime())) {
         const endDate = new Date(startDate.getTime() + 60 * 60 * 1000) // +1 hour
-        const endTimeString = endDate.toTimeString().slice(0, 5) // HH:MM format
+
+        // Format end date for datetime-local input
+        const formatForInput = (date: Date) => {
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          const hours = String(date.getHours()).padStart(2, '0')
+          const minutes = String(date.getMinutes()).padStart(2, '0')
+          return `${year}-${month}-${day}T${hours}:${minutes}`
+        }
 
         setFormData(prev => ({
           ...prev,
           [name]: value,
-          end_time: endTimeString
+          end_time: formatForInput(endDate)
         }))
       } else {
         setFormData(prev => ({
@@ -347,7 +374,7 @@ export default function AddAppointmentDialog({
                   وقت النهاية
                 </Label>
                 <Input
-                  type="time"
+                  type="datetime-local"
                   name="end_time"
                   value={formData.end_time}
                   onChange={handleChange}

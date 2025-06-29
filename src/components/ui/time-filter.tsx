@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Calendar, Filter, X, ChevronDown, CalendarDays } from 'lucide-react'
+import { getWeekStart } from '@/lib/utils'
 
 export interface TimeFilterOptions {
   preset: 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'
@@ -53,8 +54,7 @@ export function TimeFilter({
         startDate = today.toISOString().split('T')[0]
         break
       case 'week':
-        const weekStart = new Date(today)
-        weekStart.setDate(today.getDate() - today.getDay())
+        const weekStart = getWeekStart(today)
         startDate = weekStart.toISOString().split('T')[0]
         break
       case 'month':

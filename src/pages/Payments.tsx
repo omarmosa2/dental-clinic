@@ -477,13 +477,108 @@ export default function Payments() {
 
         <Card className={getCardStyles("orange")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المبالغ المتبقية</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'المبالغ المتبقية' : 'المبالغ المتبقية المفلترة'}
+            </CardTitle>
             <AlertTriangle className={`h-4 w-4 ${getIconStyles("orange")}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{formatCurrency(totalRemainingBalance)}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {(() => {
+                // حساب المبالغ المتبقية للبيانات المفلترة
+                let dataToCalculate = [...payments]
+
+                // تطبيق الفلترة الزمنية
+                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                  const startDate = new Date(paymentStats.timeFilter.startDate)
+                  const endDate = new Date(paymentStats.timeFilter.endDate)
+                  endDate.setHours(23, 59, 59, 999)
+
+                  dataToCalculate = dataToCalculate.filter(payment => {
+                    const paymentDate = new Date(payment.payment_date)
+                    return paymentDate >= startDate && paymentDate <= endDate
+                  })
+                }
+
+                // تطبيق فلاتر البحث والحالة وطريقة الدفع
+                if (searchQuery) {
+                  dataToCalculate = dataToCalculate.filter(payment => {
+                    const patientName = patients.find(p => p.id === payment.patient_id)?.full_name || ''
+                    return (
+                      payment.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      payment.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      payment.amount.toString().includes(searchQuery) ||
+                      payment.payment_method.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      payment.status.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                  })
+                }
+
+                if (statusFilter !== 'all') {
+                  dataToCalculate = dataToCalculate.filter(payment => payment.status === statusFilter)
+                }
+
+                if (paymentMethodFilter !== 'all') {
+                  dataToCalculate = dataToCalculate.filter(payment => payment.payment_method === paymentMethodFilter)
+                }
+
+                // حساب المبالغ المتبقية من المدفوعات الجزئية
+                const partialPayments = dataToCalculate.filter(p => p.status === 'partial')
+                const filteredRemainingBalance = partialPayments.reduce((sum, payment) => {
+                  const totalDue = payment.total_amount_due || payment.appointment_total_cost || payment.amount || 0
+                  const paid = payment.amount_paid || payment.amount || 0
+                  return sum + Math.max(0, totalDue - paid)
+                }, 0)
+
+                return formatCurrency(filteredRemainingBalance)
+              })()}
+            </div>
             <p className="text-xs text-muted-foreground">
-              {partialPaymentsCount} دفعة جزئية
+              {(() => {
+                // حساب عدد المدفوعات الجزئية المفلترة
+                let dataToCalculate = [...payments]
+
+                // تطبيق نفس الفلاتر
+                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                  const startDate = new Date(paymentStats.timeFilter.startDate)
+                  const endDate = new Date(paymentStats.timeFilter.endDate)
+                  endDate.setHours(23, 59, 59, 999)
+
+                  dataToCalculate = dataToCalculate.filter(payment => {
+                    const paymentDate = new Date(payment.payment_date)
+                    return paymentDate >= startDate && paymentDate <= endDate
+                  })
+                }
+
+                if (searchQuery) {
+                  dataToCalculate = dataToCalculate.filter(payment => {
+                    const patientName = patients.find(p => p.id === payment.patient_id)?.full_name || ''
+                    return (
+                      payment.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      payment.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      payment.amount.toString().includes(searchQuery) ||
+                      payment.payment_method.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      payment.status.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                  })
+                }
+
+                if (statusFilter !== 'all') {
+                  dataToCalculate = dataToCalculate.filter(payment => payment.status === statusFilter)
+                }
+
+                if (paymentMethodFilter !== 'all') {
+                  dataToCalculate = dataToCalculate.filter(payment => payment.payment_method === paymentMethodFilter)
+                }
+
+                const filteredPartialCount = dataToCalculate.filter(p => p.status === 'partial').length
+
+                return paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                  ? `${partialPaymentsCount} دفعة جزئية`
+                  : `${filteredPartialCount} دفعة جزئية في الفترة المحددة`
+              })()}
             </p>
           </CardContent>
         </Card>

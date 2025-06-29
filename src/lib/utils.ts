@@ -194,6 +194,30 @@ export function getCurrentGregorianDate(): string {
   return formatDate(today)
 }
 
+/**
+ * حساب بداية الأسبوع (الأحد)
+ * Calculate start of week (Sunday)
+ */
+export function getWeekStart(date: Date = new Date()): Date {
+  const weekStart = new Date(date)
+  const dayOfWeek = weekStart.getDay() // 0 = الأحد، 1 = الاثنين، إلخ
+  weekStart.setDate(date.getDate() - dayOfWeek)
+  weekStart.setHours(0, 0, 0, 0) // تعيين بداية اليوم
+  return weekStart
+}
+
+/**
+ * حساب نهاية الأسبوع (السبت)
+ * Calculate end of week (Saturday)
+ */
+export function getWeekEnd(date: Date = new Date()): Date {
+  const weekEnd = new Date(date)
+  const dayOfWeek = weekEnd.getDay() // 0 = الأحد، 1 = الاثنين، إلخ
+  weekEnd.setDate(date.getDate() + (6 - dayOfWeek))
+  weekEnd.setHours(23, 59, 59, 999) // تعيين نهاية اليوم
+  return weekEnd
+}
+
 export function getGregorianMonthName(monthNumber: number): string {
   return gregorianMonths[monthNumber] || ''
 }
