@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS patients (
     address TEXT,
     notes TEXT,
     phone TEXT,
+    date_added DATETIME DEFAULT CURRENT_TIMESTAMP, -- تاريخ إضافة المريض
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

@@ -206,8 +206,27 @@ export class DatabaseService {
           console.log('✅ Migration 2 completed successfully')
         }
 
-        // Migration 3: Ensure all tables exist with proper structure
+        // Migration 3: Add date_added to patients
         if (!appliedMigrations.has(3)) {
+          console.log('🔄 Applying migration 3: Add date_added to patients')
+
+          const patientColumns = this.db.prepare("PRAGMA table_info(patients)").all() as any[]
+          const patientColumnNames = patientColumns.map(col => col.name)
+
+          if (!patientColumnNames.includes('date_added')) {
+            this.db.exec('ALTER TABLE patients ADD COLUMN date_added DATETIME DEFAULT CURRENT_TIMESTAMP')
+            // Update existing patients to have date_added = created_at
+            this.db.exec('UPDATE patients SET date_added = created_at WHERE date_added IS NULL')
+            // Create index for better performance
+            this.db.exec('CREATE INDEX IF NOT EXISTS idx_patients_date_added ON patients(date_added)')
+          }
+
+          this.db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(3, 'Add date_added to patients')
+          console.log('✅ Migration 3 completed successfully')
+        }
+
+        // Migration 4: Ensure all tables exist with proper structure
+        if (!appliedMigrations.has(4)) {
           console.log('🔄 Applying migration 3: Ensure all tables exist')
 
           // Check if installment_payments table exists
@@ -707,7 +726,7 @@ export class DatabaseService {
     return stmt.all() as Patient[]
   }
 
-  async createPatient(patient: Omit<Patient, 'id' | 'created_at' | 'updated_at'>): Promise<Patient> {
+  async createPatient(patient: Omit<Patient, 'id' | 'created_at' | 'updated_at'> & { date_added?: string }): Promise<Patient> {
     const id = uuidv4()
     const now = new Date().toISOString()
 
@@ -723,14 +742,16 @@ export class DatabaseService {
       const stmt = this.db.prepare(`
         INSERT INTO patients (
           id, serial_number, full_name, gender, age, patient_condition,
-          allergies, medical_conditions, email, address, notes, phone, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          allergies, medical_conditions, email, address, notes, phone,
+          date_added, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       const result = stmt.run(
         id, patient.serial_number, patient.full_name, patient.gender, patient.age,
         patient.patient_condition, patient.allergies, patient.medical_conditions,
-        patient.email, patient.address, patient.notes, patient.phone, now, now
+        patient.email, patient.address, patient.notes, patient.phone,
+        (patient as any).date_added || now, now, now
       )
 
       console.log('✅ Patient created successfully:', { id, changes: result.changes })
@@ -738,7 +759,7 @@ export class DatabaseService {
       // Force WAL checkpoint to ensure data is written
       this.db.pragma('wal_checkpoint(TRUNCATE)')
 
-      return { ...patient, id, created_at: now, updated_at: now }
+      return { ...patient, id, date_added: patient.date_added || now, created_at: now, updated_at: now }
     } catch (error) {
       console.error('❌ Failed to create patient:', error)
       throw error
@@ -761,6 +782,7 @@ export class DatabaseService {
         address = COALESCE(?, address),
         notes = COALESCE(?, notes),
         phone = COALESCE(?, phone),
+        date_added = COALESCE(?, date_added),
         updated_at = ?
       WHERE id = ?
     `)
@@ -768,7 +790,8 @@ export class DatabaseService {
     stmt.run(
       patient.serial_number, patient.full_name, patient.gender, patient.age,
       patient.patient_condition, patient.allergies, patient.medical_conditions,
-      patient.email, patient.address, patient.notes, patient.phone, now, id
+      patient.email, patient.address, patient.notes, patient.phone,
+      patient.date_added, now, id
     )
 
     const getStmt = this.db.prepare('SELECT * FROM patients WHERE id = ?')

@@ -38,6 +38,7 @@ interface PatientFormData {
   address?: string
   notes?: string
   phone?: string
+  date_added?: string
 }
 
 export default function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) {
@@ -63,7 +64,8 @@ export default function AddPatientDialog({ open, onOpenChange }: AddPatientDialo
       email: '',
       address: '',
       notes: '',
-      phone: ''
+      phone: '',
+      date_added: new Date().toISOString().slice(0, 16) // Set current local date and time
     }
   })
 
@@ -87,6 +89,7 @@ export default function AddPatientDialog({ open, onOpenChange }: AddPatientDialo
         ...data,
         serial_number: serialNumber,
         age: Number(data.age), // Ensure age is a number
+        date_added: data.date_added || new Date().toISOString(), // Ensure date_added is included
       }
 
       await createPatient(patientData)
@@ -181,6 +184,20 @@ export default function AddPatientDialog({ open, onOpenChange }: AddPatientDialo
                   <p className="text-sm text-destructive">{errors.age.message}</p>
                 )}
               </div>
+            </div>
+
+            {/* Date Added */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                تاريخ الإضافة *
+              </label>
+              <Input
+                type="datetime-local"
+                {...register('date_added', { required: 'تاريخ الإضافة مطلوب' })}
+              />
+              {errors.date_added && (
+                <p className="text-sm text-destructive">{errors.date_added.message}</p>
+              )}
             </div>
 
             {/* Patient Condition */}

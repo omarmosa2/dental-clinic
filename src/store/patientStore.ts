@@ -14,7 +14,7 @@ interface PatientState {
 interface PatientActions {
   // Data operations
   loadPatients: () => Promise<void>
-  createPatient: (patient: Omit<Patient, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  createPatient: (patient: Omit<Patient, 'id' | 'created_at' | 'updated_at'> & { date_added?: string }) => Promise<void>
   updatePatient: (id: string, patient: Partial<Patient>) => Promise<void>
   deletePatient: (id: string) => Promise<void>
 

@@ -11,6 +11,7 @@ export interface Patient {
   address?: string
   notes?: string
   phone?: string
+  date_added: string // تاريخ إضافة المريض
   created_at: string
   updated_at: string
 }

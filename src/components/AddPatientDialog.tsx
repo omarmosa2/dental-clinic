@@ -35,7 +35,8 @@ export default function AddPatientDialog({ isOpen, onClose, onSave }: AddPatient
     medical_history: '',
     allergies: '',
     insurance_info: '',
-    notes: ''
+    notes: '',
+    date_added: new Date().toISOString().slice(0, 16) // Set current local date and time
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -53,7 +54,8 @@ export default function AddPatientDialog({ isOpen, onClose, onSave }: AddPatient
       medical_history: '',
       allergies: '',
       insurance_info: '',
-      notes: ''
+      notes: '',
+      date_added: new Date().toISOString().slice(0, 16) // Reset to current time
     })
     onClose()
   }
@@ -139,6 +141,21 @@ export default function AddPatientDialog({ isOpen, onClose, onSave }: AddPatient
                   placeholder="05xxxxxxxx"
                 />
               </div>
+            </div>
+
+            {/* Date Added */}
+            <div className="space-y-2">
+              <Label className="flex items-center space-x-1 space-x-reverse">
+                <Calendar className="w-4 h-4" />
+                <span>تاريخ الإضافة *</span>
+              </Label>
+              <Input
+                type="datetime-local"
+                name="date_added"
+                value={formData.date_added}
+                onChange={handleChange}
+                required
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

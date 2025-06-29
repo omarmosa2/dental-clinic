@@ -72,6 +72,9 @@ class DatabaseService {
 
     // Create performance indexes
     this.createIndexes()
+
+    // Run migrations to ensure all fields exist
+    this.runMigrations()
   }
 
   initializeFallbackSchema() {
@@ -92,6 +95,7 @@ class DatabaseService {
         address TEXT,
         notes TEXT,
         phone TEXT,
+        date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         profile_image TEXT
@@ -671,6 +675,59 @@ class DatabaseService {
     }
   }
 
+  runMigrations() {
+    try {
+      console.log('🔄 Running additional migrations...')
+
+      // Check if date_added column exists in patients table
+      const patientColumns = this.db.prepare("PRAGMA table_info(patients)").all()
+      const patientColumnNames = patientColumns.map(col => col.name)
+
+      if (!patientColumnNames.includes('date_added')) {
+        console.log('🔄 Adding date_added column to patients table...')
+        // Add column without default value first
+        this.db.exec('ALTER TABLE patients ADD COLUMN date_added DATETIME')
+
+        // Update existing patients to have date_added = created_at
+        this.db.exec('UPDATE patients SET date_added = created_at WHERE date_added IS NULL')
+
+        // Create index for better performance
+        this.db.exec('CREATE INDEX IF NOT EXISTS idx_patients_date_added ON patients(date_added)')
+
+        console.log('✅ Added date_added column to patients table')
+      } else {
+        console.log('✅ date_added column already exists in patients table')
+      }
+
+    } catch (error) {
+      console.error('❌ Error running migrations:', error.message)
+    }
+  }
+
+  ensureDateAddedColumn() {
+    try {
+      // Check if date_added column exists in patients table
+      const patientColumns = this.db.prepare("PRAGMA table_info(patients)").all()
+      const patientColumnNames = patientColumns.map(col => col.name)
+
+      if (!patientColumnNames.includes('date_added')) {
+        console.log('🔄 Adding date_added column to patients table...')
+        // Add column without default value first
+        this.db.exec('ALTER TABLE patients ADD COLUMN date_added DATETIME')
+
+        // Update existing patients to have date_added = created_at
+        this.db.exec('UPDATE patients SET date_added = created_at WHERE date_added IS NULL')
+
+        // Create index for better performance
+        this.db.exec('CREATE INDEX IF NOT EXISTS idx_patients_date_added ON patients(date_added)')
+
+        console.log('✅ Added date_added column to patients table')
+      }
+    } catch (error) {
+      console.error('❌ Error ensuring date_added column:', error.message)
+    }
+  }
+
   ensureLabTablesExist() {
     try {
       console.log('🧪 [DEBUG] ensureLabTablesExist() called')
@@ -867,6 +924,7 @@ class DatabaseService {
             address TEXT,
             notes TEXT,
             phone TEXT,
+            date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
           )
@@ -957,6 +1015,9 @@ class DatabaseService {
   }
 
   async createPatient(patient) {
+    // Ensure date_added column exists before creating
+    this.ensureDateAddedColumn()
+
     const id = uuidv4()
     const now = new Date().toISOString()
 
@@ -965,14 +1026,16 @@ class DatabaseService {
     const stmt = this.db.prepare(`
       INSERT INTO patients (
         id, serial_number, full_name, gender, age, patient_condition,
-        allergies, medical_conditions, email, address, notes, phone, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        allergies, medical_conditions, email, address, notes, phone,
+        date_added, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     const result = stmt.run(
       id, patient.serial_number, patient.full_name, patient.gender, patient.age,
       patient.patient_condition, patient.allergies, patient.medical_conditions,
-      patient.email, patient.address, patient.notes, patient.phone, now, now
+      patient.email, patient.address, patient.notes, patient.phone,
+      patient.date_added || now, now, now
     )
 
     console.log('✅ Patient inserted, changes:', result.changes)
@@ -983,10 +1046,13 @@ class DatabaseService {
     console.log('💾 Checkpoint result:', checkpoint)
 
     console.log('✅ Patient created successfully:', id)
-    return { ...patient, id, created_at: now, updated_at: now }
+    return { ...patient, id, date_added: patient.date_added || now, created_at: now, updated_at: now }
   }
 
   async updatePatient(id, updates) {
+    // Ensure date_added column exists before updating
+    this.ensureDateAddedColumn()
+
     const now = new Date().toISOString()
     const fields = Object.keys(updates).filter(key => key !== 'id')
     const setClause = fields.map(field => `${field} = ?`).join(', ')

@@ -291,8 +291,8 @@ export default function PatientDetailsModal({
                       <span className="text-muted-foreground">العمر:</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm">{formatDate(patient.created_at)}</span>
-                      <span className="text-muted-foreground">تاريخ التسجيل:</span>
+                      <span className="text-sm">{formatDate(patient.date_added || patient.created_at)}</span>
+                      <span className="text-muted-foreground">تاريخ الإضافة:</span>
                     </div>
                   </CardContent>
                 </Card>

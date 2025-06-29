@@ -35,7 +35,7 @@ interface PatientTableProps {
   onViewDetails: (patient: Patient) => void
 }
 
-type SortField = 'full_name' | 'gender' | 'age' | 'phone' | 'patient_condition'
+type SortField = 'full_name' | 'gender' | 'age' | 'phone' | 'patient_condition' | 'date_added'
 type SortDirection = 'asc' | 'desc' | null
 
 export default function PatientTable({
@@ -140,14 +140,14 @@ export default function PatientTable({
               <TableHead className="text-center">العمر</TableHead>
               <TableHead className="text-center">رقم الهاتف</TableHead>
               <TableHead className="text-center">حالة المريض</TableHead>
-              <TableHead className="text-center">ملاحظات</TableHead>
+              <TableHead className="text-center">تاريخ الإضافة</TableHead>
               <TableHead className="text-center">الاجراءات</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {[...Array(5)].map((_, index) => (
               <TableRow key={index}>
-                {[...Array(7)].map((_, cellIndex) => (
+                {[...Array(8)].map((_, cellIndex) => (
                   <TableCell key={cellIndex}>
                     <div className="h-4 bg-muted animate-pulse rounded" />
                   </TableCell>
@@ -174,7 +174,7 @@ export default function PatientTable({
               <SortableHeader field="age">العمر</SortableHeader>
               <SortableHeader field="phone">رقم الهاتف</SortableHeader>
               <SortableHeader field="patient_condition">حالة المريض</SortableHeader>
-              <TableHead className="text-center">ملاحظات</TableHead>
+              <SortableHeader field="date_added">تاريخ الإضافة</SortableHeader>
               <TableHead className="text-center">الاجراءات</TableHead>
             </TableRow>
           </TableHeader>
@@ -231,6 +231,9 @@ export default function PatientTable({
                 </SortableHeader>
                 <SortableHeader field="patient_condition">
                   <span className="arabic-enhanced font-medium">حالة المريض</span>
+                </SortableHeader>
+                <SortableHeader field="date_added">
+                  <span className="arabic-enhanced font-medium">تاريخ الإضافة</span>
                 </SortableHeader>
                 <TableHead className="text-center">
                   <span className="arabic-enhanced font-medium">الاجراءات</span>
@@ -304,6 +307,11 @@ export default function PatientTable({
                 <Badge variant="outline" className="max-w-[150px] truncate arabic-enhanced" title={patient.patient_condition}>
                   {patient.patient_condition}
                 </Badge>
+              </TableCell>
+              <TableCell className="text-center">
+                <span className="text-sm arabic-enhanced">
+                  {formatDate(patient.date_added)}
+                </span>
               </TableCell>
               <TableCell className="min-w-[180px] text-center">
                 <div className="flex items-center justify-center space-x-1 space-x-reverse">

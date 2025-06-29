@@ -80,6 +80,7 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
   const [showFilters, setShowFilters] = useState(false)
   const [genderFilter, setGenderFilter] = useState('all')
   const [ageRangeFilter, setAgeRangeFilter] = useState('all')
+  const [dateAddedFilter, setDateAddedFilter] = useState<{start: string, end: string}>({start: '', end: ''})
 
   // Load patients on component mount
   useEffect(() => {
@@ -161,14 +162,28 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
       })
     }
 
+    // Date added filter
+    if (dateAddedFilter.start && dateAddedFilter.end) {
+      const startDate = new Date(dateAddedFilter.start)
+      const endDate = new Date(dateAddedFilter.end)
+      endDate.setHours(23, 59, 59, 999) // Include the entire end date
+
+      filtered = filtered.filter(patient => {
+        if (!patient.date_added) return false
+        const patientDate = new Date(patient.date_added)
+        return patientDate >= startDate && patientDate <= endDate
+      })
+    }
+
     return filtered
-  }, [filteredPatients, genderFilter, ageRangeFilter])
+  }, [filteredPatients, genderFilter, ageRangeFilter, dateAddedFilter])
 
   // Clear all filters
   const clearAllFilters = () => {
     setSearchQuery('')
     setGenderFilter('all')
     setAgeRangeFilter('all')
+    setDateAddedFilter({start: '', end: ''})
     setShowFilters(false)
   }
 
@@ -275,13 +290,13 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
                   <Button variant="outline" size="sm">
                     <Filter className="w-4 h-4 mr-2" />
                     تصفية
-                    {(genderFilter !== 'all' || ageRangeFilter !== 'all') && (
+                    {(genderFilter !== 'all' || ageRangeFilter !== 'all' || dateAddedFilter.start || dateAddedFilter.end) && (
                       <span className="mr-2 w-2 h-2 bg-primary rounded-full"></span>
                     )}
                   </Button>
                 </CollapsibleTrigger>
               </Collapsible>
-              {(searchQuery || genderFilter !== 'all' || ageRangeFilter !== 'all') && (
+              {(searchQuery || genderFilter !== 'all' || ageRangeFilter !== 'all' || dateAddedFilter.start || dateAddedFilter.end) && (
                 <Button variant="ghost" size="sm" onClick={clearAllFilters}>
                   <X className="w-4 h-4 mr-2" />
                   مسح الكل
@@ -292,7 +307,7 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
             {/* Advanced Filters */}
             <Collapsible open={showFilters} onOpenChange={setShowFilters}>
               <CollapsibleContent className="space-y-4" dir="rtl">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg" dir="rtl">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg" dir="rtl">
                   {/* Gender Filter */}
                   <div className="space-y-2 text-right">
                     <label className="text-sm font-medium">الجنس</label>
@@ -323,6 +338,29 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
                         <SelectItem value="unknown">غير محدد</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* Date Added Filter */}
+                  <div className="space-y-2 text-right">
+                    <label className="text-sm font-medium">تاريخ الإضافة</label>
+                    <div className="space-y-2">
+                      <Input
+                        type="date"
+                        placeholder="من تاريخ"
+                        value={dateAddedFilter.start}
+                        onChange={(e) => setDateAddedFilter(prev => ({...prev, start: e.target.value}))}
+                        className="text-right"
+                        dir="rtl"
+                      />
+                      <Input
+                        type="date"
+                        placeholder="إلى تاريخ"
+                        value={dateAddedFilter.end}
+                        onChange={(e) => setDateAddedFilter(prev => ({...prev, end: e.target.value}))}
+                        className="text-right"
+                        dir="rtl"
+                      />
+                    </div>
                   </div>
                 </div>
               </CollapsibleContent>

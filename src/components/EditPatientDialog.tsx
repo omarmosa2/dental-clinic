@@ -42,11 +42,19 @@ export default function EditPatientDialog({ isOpen, patient, onClose, onSave }: 
     email: '',
     address: '',
     notes: '',
-    phone: ''
+    phone: '',
+    date_added: ''
   })
 
   useEffect(() => {
     if (patient) {
+      // Format date_added for datetime-local input
+      const formatDateForInput = (dateString: string) => {
+        if (!dateString) return ''
+        const date = new Date(dateString)
+        return date.toISOString().slice(0, 16)
+      }
+
       setFormData({
         serial_number: patient.serial_number || '',
         full_name: patient.full_name || '',
@@ -58,7 +66,8 @@ export default function EditPatientDialog({ isOpen, patient, onClose, onSave }: 
         email: patient.email || '',
         address: patient.address || '',
         notes: patient.notes || '',
-        phone: patient.phone || ''
+        phone: patient.phone || '',
+        date_added: formatDateForInput(patient.date_added || patient.created_at || '')
       })
     }
   }, [patient])
@@ -158,6 +167,20 @@ export default function EditPatientDialog({ isOpen, patient, onClose, onSave }: 
                   placeholder="أدخل العمر"
                 />
               </div>
+            </div>
+
+            {/* Date Added */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                تاريخ الإضافة *
+              </Label>
+              <Input
+                type="datetime-local"
+                name="date_added"
+                value={formData.date_added}
+                onChange={handleChange}
+                required
+              />
             </div>
 
             {/* Patient Condition */}
