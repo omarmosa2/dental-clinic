@@ -1596,19 +1596,15 @@ export class ExportService {
 
   static async exportPaymentsToPDF(payments: Payment[], clinicName: string = 'عيادة الأسنان الحديثة'): Promise<void> {
     // Calculate statistics from the provided payments array (which should be filtered)
-    // Handle partial payments correctly by using amount_paid when available
+    // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
     const totalRevenue = payments.reduce((sum, p) => {
-      if (p.status === 'partial' && p.amount_paid !== undefined) {
-        return sum + Number(p.amount_paid)
-      }
       return sum + Number(p.amount)
     }, 0)
 
     const completedPayments = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0)
     const partialPayments = payments.filter(p => p.status === 'partial').reduce((sum, p) => {
-      // For partial payments, use amount_paid if available, otherwise use amount
-      const amount = p.amount_paid !== undefined ? Number(p.amount_paid) : Number(p.amount)
-      return sum + amount
+      // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
+      return sum + Number(p.amount)
     }, 0)
     const pendingPayments = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + Number(p.amount), 0)
     const overduePayments = payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + Number(p.amount), 0)
@@ -1622,10 +1618,8 @@ export class ExportService {
           acc[method] = { count: 0, amount: 0 }
         }
         acc[method].count++
-        // For partial payments, use amount_paid if available, otherwise use amount
-        const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-          ? Number(payment.amount_paid)
-          : Number(payment.amount)
+        // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
+        const amount = Number(payment.amount)
         acc[method].amount += amount
         return acc
       }, {} as Record<string, { count: number; amount: number }>)
@@ -1866,19 +1860,15 @@ export class ExportService {
 
   static async exportPaymentsToExcel(payments: Payment[]): Promise<void> {
     // Calculate statistics from the provided payments array (which should be filtered)
-    // Handle partial payments correctly by using amount_paid when available
+    // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
     const totalRevenue = payments.reduce((sum, p) => {
-      if (p.status === 'partial' && p.amount_paid !== undefined) {
-        return sum + Number(p.amount_paid)
-      }
       return sum + Number(p.amount)
     }, 0)
 
     const completedPayments = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0)
     const partialPayments = payments.filter(p => p.status === 'partial').reduce((sum, p) => {
-      // For partial payments, use amount_paid if available, otherwise use amount
-      const amount = p.amount_paid !== undefined ? Number(p.amount_paid) : Number(p.amount)
-      return sum + amount
+      // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
+      return sum + Number(p.amount)
     }, 0)
 
     // Calculate pending and overdue payments using the same logic as useTimeFilteredStats
@@ -1910,10 +1900,8 @@ export class ExportService {
           acc[method] = { count: 0, amount: 0 }
         }
         acc[method].count++
-        // For partial payments, use amount_paid if available, otherwise use amount
-        const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-          ? Number(payment.amount_paid)
-          : Number(payment.amount)
+        // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
+        const amount = Number(payment.amount)
         acc[method].amount += amount
         return acc
       }, {} as Record<string, { count: number; amount: number }>)
@@ -1924,16 +1912,41 @@ export class ExportService {
       amount: stats.amount
     }))
 
-    // حساب إجمالي المبالغ المتبقية من الدفعات الجزئية
-    const totalRemainingFromPartialPayments = payments
-      .filter(p => p.status === 'partial')
-      .reduce((sum, p) => {
-        // استخدم remaining_balance إذا كان متوفراً، وإلا احسب الفرق
-        const remaining = p.remaining_balance !== undefined
-          ? Number(p.remaining_balance)
-          : (Number(p.total_amount_due || p.amount) - Number(p.amount_paid || p.amount))
-        return sum + Math.max(0, remaining)
-      }, 0)
+    // حساب إجمالي المبالغ المتبقية من الدفعات الجزئية بشكل صحيح
+    // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
+    const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
+    let generalRemainingBalance = 0
+
+    payments.forEach(payment => {
+      if (payment.status === 'partial') {
+        if (payment.appointment_id) {
+          // مدفوعات مرتبطة بمواعيد
+          const appointmentId = payment.appointment_id
+          const totalDue = Number(payment.total_amount_due || payment.appointment_total_cost || 0)
+          const paidAmount = Number(payment.amount || 0)
+
+          if (!appointmentGroups.has(appointmentId)) {
+            appointmentGroups.set(appointmentId, { totalDue, totalPaid: 0 })
+          }
+
+          const group = appointmentGroups.get(appointmentId)!
+          group.totalPaid += paidAmount
+        } else {
+          // مدفوعات عامة غير مرتبطة بمواعيد
+          const totalDue = Number(payment.total_amount_due || payment.amount || 0)
+          const paid = Number(payment.amount_paid || payment.amount || 0)
+          generalRemainingBalance += Math.max(0, totalDue - paid)
+        }
+      }
+    })
+
+    // حساب إجمالي المبالغ المتبقية من المواعيد
+    const appointmentRemainingBalance = Array.from(appointmentGroups.values()).reduce((sum, group) => {
+      return sum + Math.max(0, group.totalDue - group.totalPaid)
+    }, 0)
+
+    // إجمالي المبالغ المتبقية
+    const totalRemainingFromPartialPayments = appointmentRemainingBalance + generalRemainingBalance
 
     const financialData: FinancialReportData = {
       totalRevenue: totalRevenue,
@@ -1961,19 +1974,15 @@ export class ExportService {
 
   static async exportPaymentsToCSV(payments: Payment[]): Promise<void> {
     // Calculate statistics from the provided payments array (which should be filtered)
-    // Handle partial payments correctly by using amount_paid when available
+    // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
     const totalRevenue = payments.reduce((sum, p) => {
-      if (p.status === 'partial' && p.amount_paid !== undefined) {
-        return sum + Number(p.amount_paid)
-      }
       return sum + Number(p.amount)
     }, 0)
 
     const completedPayments = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0)
     const partialPayments = payments.filter(p => p.status === 'partial').reduce((sum, p) => {
-      // For partial payments, use amount_paid if available, otherwise use amount
-      const amount = p.amount_paid !== undefined ? Number(p.amount_paid) : Number(p.amount)
-      return sum + amount
+      // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
+      return sum + Number(p.amount)
     }, 0)
 
     // Calculate pending and overdue payments using the same logic as useTimeFilteredStats
@@ -2005,10 +2014,8 @@ export class ExportService {
           acc[method] = { count: 0, amount: 0 }
         }
         acc[method].count++
-        // For partial payments, use amount_paid if available, otherwise use amount
-        const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-          ? Number(payment.amount_paid)
-          : Number(payment.amount)
+        // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
+        const amount = Number(payment.amount)
         acc[method].amount += amount
         return acc
       }, {} as Record<string, { count: number; amount: number }>)
@@ -2019,16 +2026,41 @@ export class ExportService {
       amount: stats.amount
     }))
 
-    // حساب إجمالي المبالغ المتبقية من الدفعات الجزئية
-    const totalRemainingFromPartialPayments = payments
-      .filter(p => p.status === 'partial')
-      .reduce((sum, p) => {
-        // استخدم remaining_balance إذا كان متوفراً، وإلا احسب الفرق
-        const remaining = p.remaining_balance !== undefined
-          ? Number(p.remaining_balance)
-          : (Number(p.total_amount_due || p.amount) - Number(p.amount_paid || p.amount))
-        return sum + Math.max(0, remaining)
-      }, 0)
+    // حساب إجمالي المبالغ المتبقية من الدفعات الجزئية بشكل صحيح
+    // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
+    const appointmentGroups2 = new Map<string, { totalDue: number, totalPaid: number }>()
+    let generalRemainingBalance2 = 0
+
+    payments.forEach(payment => {
+      if (payment.status === 'partial') {
+        if (payment.appointment_id) {
+          // مدفوعات مرتبطة بمواعيد
+          const appointmentId = payment.appointment_id
+          const totalDue = Number(payment.total_amount_due || payment.appointment_total_cost || 0)
+          const paidAmount = Number(payment.amount || 0)
+
+          if (!appointmentGroups2.has(appointmentId)) {
+            appointmentGroups2.set(appointmentId, { totalDue, totalPaid: 0 })
+          }
+
+          const group = appointmentGroups2.get(appointmentId)!
+          group.totalPaid += paidAmount
+        } else {
+          // مدفوعات عامة غير مرتبطة بمواعيد
+          const totalDue = Number(payment.total_amount_due || payment.amount || 0)
+          const paid = Number(payment.amount_paid || payment.amount || 0)
+          generalRemainingBalance2 += Math.max(0, totalDue - paid)
+        }
+      }
+    })
+
+    // حساب إجمالي المبالغ المتبقية من المواعيد
+    const appointmentRemainingBalance2 = Array.from(appointmentGroups2.values()).reduce((sum, group) => {
+      return sum + Math.max(0, group.totalDue - group.totalPaid)
+    }, 0)
+
+    // إجمالي المبالغ المتبقية
+    const totalRemainingFromPartialPayments = appointmentRemainingBalance2 + generalRemainingBalance2
 
     // Enhanced financial data with detailed payment information
     const financialData: FinancialReportData = {

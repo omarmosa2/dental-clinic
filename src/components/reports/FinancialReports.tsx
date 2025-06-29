@@ -599,7 +599,7 @@ export default function FinancialReports() {
       />
 
       {/* Stats Cards - RTL Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6" dir="rtl">
         <Card className={getCardStyles("green")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي الإيرادات</CardTitle>
@@ -676,6 +676,24 @@ export default function FinancialReports() {
             </div>
             <p className="text-xs text-muted-foreground text-right">
               تحتاج متابعة عاجلة
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={getCardStyles("orange")} dir="rtl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المبالغ المتبقية</CardTitle>
+            <AlertTriangle className={`h-4 w-4 ${getIconStyles("orange")}`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground text-right">
+              <CurrencyDisplay
+                amount={paymentStats.financialStats.totalRemainingBalance || 0}
+                currency={currency}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-right">
+              من الدفعات الجزئية
             </p>
           </CardContent>
         </Card>

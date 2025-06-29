@@ -150,11 +150,7 @@ export function useTimeFilteredStats<T extends FilterableData>({
     const totalRevenue = filteredData
       .filter((item: any) => item.status === 'completed' || item.status === 'partial')
       .reduce((sum, item) => {
-        // For partial payments, use amount_paid if available, otherwise use amount
-        if (item.status === 'partial' && item.amount_paid !== undefined) {
-          return sum + (typeof item.amount_paid === 'number' ? item.amount_paid : parseFloat(item.amount_paid) || 0)
-        }
-
+        // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
         const amount = (item as any).amount ||
                      (item as any).total_amount ||
                      (item as any).cost ||
@@ -191,11 +187,53 @@ export function useTimeFilteredStats<T extends FilterableData>({
         return sum + (typeof amount === 'number' ? amount : parseFloat(amount) || 0)
       }, 0)
 
+    // حساب المبالغ المتبقية من الدفعات الجزئية بشكل صحيح
+    // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
+    const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
+    let generalRemainingBalance = 0
+
+    filteredData.forEach((payment: any) => {
+      if (payment.status === 'partial') {
+        if (payment.appointment_id) {
+          // مدفوعات مرتبطة بمواعيد
+          const appointmentId = payment.appointment_id
+          const totalDue = payment.total_amount_due || payment.appointment_total_cost || 0
+          const paidAmount = payment.amount || 0
+
+          if (!appointmentGroups.has(appointmentId)) {
+            appointmentGroups.set(appointmentId, {
+              totalDue: typeof totalDue === 'number' ? totalDue : parseFloat(totalDue) || 0,
+              totalPaid: 0
+            })
+          }
+
+          const group = appointmentGroups.get(appointmentId)!
+          group.totalPaid += typeof paidAmount === 'number' ? paidAmount : parseFloat(paidAmount) || 0
+        } else {
+          // مدفوعات عامة غير مرتبطة بمواعيد
+          const totalDue = payment.total_amount_due || payment.amount || 0
+          const paid = payment.amount_paid || payment.amount || 0
+          const totalDueNum = typeof totalDue === 'number' ? totalDue : parseFloat(totalDue) || 0
+          const paidNum = typeof paid === 'number' ? paid : parseFloat(paid) || 0
+          generalRemainingBalance += Math.max(0, totalDueNum - paidNum)
+        }
+      }
+    })
+
+    // حساب إجمالي المبالغ المتبقية من المواعيد
+    const appointmentRemainingBalance = Array.from(appointmentGroups.values()).reduce((sum, group) => {
+      return sum + Math.max(0, group.totalDue - group.totalPaid)
+    }, 0)
+
+    // إجمالي المبالغ المتبقية
+    const totalRemainingBalance = appointmentRemainingBalance + generalRemainingBalance
+
     return {
       totalRevenue,
       pendingAmount,
       overdueAmount,
-      completedAmount: totalRevenue
+      completedAmount: totalRevenue,
+      totalRemainingBalance
     }
   }, [filteredData])
 

@@ -334,10 +334,8 @@ export const usePaymentStore = create<PaymentStore>()(
         const total = payments
           .filter(p => p.status === 'completed' || p.status === 'partial')
           .reduce((sum, payment) => {
-            // للدفعات الجزئية، استخدام amount_paid إذا كان متوفراً، وإلا استخدام amount
-            const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-              ? Number(payment.amount_paid)
-              : Number(payment.amount)
+            // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
+            const amount = Number(payment.amount)
 
             if (isNaN(amount) || !isFinite(amount)) {
               console.warn('Invalid payment amount:', payment.amount, 'for payment:', payment.id)

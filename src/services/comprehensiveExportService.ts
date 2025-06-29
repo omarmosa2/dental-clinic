@@ -21,10 +21,8 @@ export class ComprehensiveExportService {
     const totalRevenue = payments
       .filter(p => p.status === 'completed' || p.status === 'partial')
       .reduce((sum, payment) => {
-        // للمدفوعات الجزئية، استخدم amount_paid إذا كان متوفراً
-        const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-          ? validateAmount(payment.amount_paid)
-          : validateAmount(payment.amount)
+        // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
+        const amount = validateAmount(payment.amount)
         return sum + amount
       }, 0)
 
@@ -55,22 +53,46 @@ export class ComprehensiveExportService {
     const partialAmount = payments
       .filter(p => p.status === 'partial')
       .reduce((sum, payment) => {
-        const amount = payment.amount_paid !== undefined
-          ? validateAmount(payment.amount_paid)
-          : validateAmount(payment.amount)
+        // استخدام amount (مبلغ الدفعة الحالية) وليس amount_paid (إجمالي المدفوع للموعد)
+        const amount = validateAmount(payment.amount)
         return sum + amount
       }, 0)
 
-    // حساب إجمالي المبالغ المتبقية من الدفعات الجزئية
-    const totalRemainingFromPartialPayments = payments
-      .filter(p => p.status === 'partial')
-      .reduce((sum, p) => {
-        // استخدم remaining_balance إذا كان متوفراً، وإلا احسب الفرق
-        const remaining = p.remaining_balance !== undefined
-          ? validateAmount(p.remaining_balance)
-          : (validateAmount(p.total_amount_due || p.amount) - validateAmount(p.amount_paid || p.amount))
-        return sum + Math.max(0, remaining)
-      }, 0)
+    // حساب إجمالي المبالغ المتبقية من الدفعات الجزئية بشكل صحيح
+    // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
+    const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
+    let generalRemainingBalance = 0
+
+    payments.forEach(payment => {
+      if (payment.status === 'partial') {
+        if (payment.appointment_id) {
+          // مدفوعات مرتبطة بمواعيد
+          const appointmentId = payment.appointment_id
+          const totalDue = payment.total_amount_due || payment.appointment_total_cost || 0
+          const paidAmount = payment.amount || 0
+
+          if (!appointmentGroups.has(appointmentId)) {
+            appointmentGroups.set(appointmentId, { totalDue: validateAmount(totalDue), totalPaid: 0 })
+          }
+
+          const group = appointmentGroups.get(appointmentId)!
+          group.totalPaid += validateAmount(paidAmount)
+        } else {
+          // مدفوعات عامة غير مرتبطة بمواعيد
+          const totalDue = payment.total_amount_due || payment.amount || 0
+          const paid = payment.amount_paid || payment.amount || 0
+          generalRemainingBalance += Math.max(0, validateAmount(totalDue) - validateAmount(paid))
+        }
+      }
+    })
+
+    // حساب إجمالي المبالغ المتبقية من المواعيد
+    const appointmentRemainingBalance = Array.from(appointmentGroups.values()).reduce((sum, group) => {
+      return sum + Math.max(0, group.totalDue - group.totalPaid)
+    }, 0)
+
+    // إجمالي المبالغ المتبقية
+    const totalRemainingFromPartialPayments = appointmentRemainingBalance + generalRemainingBalance
 
     // إحصائيات طرق الدفع
     const paymentMethodStats: { [key: string]: { amount: number, count: number } } = {}

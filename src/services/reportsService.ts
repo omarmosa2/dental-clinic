@@ -511,18 +511,41 @@ export class ReportsService {
         return sum + amount
       }, 0)
 
-    // حساب إجمالي المبلغ المتبقي من جميع المدفوعات الجزئية
-    const totalRemaining = filteredPayments
-      .reduce((sum, p) => {
-        if (p.appointment_id && p.appointment_remaining_balance !== undefined) {
-          // للمدفوعات المرتبطة بمواعيد، استخدام الرصيد المتبقي للموعد
-          return sum + validateAmount(p.appointment_remaining_balance)
-        } else if (!p.appointment_id && p.remaining_balance !== undefined) {
-          // للمدفوعات العامة، استخدام الرصيد المتبقي العام
-          return sum + validateAmount(p.remaining_balance)
+    // حساب إجمالي المبلغ المتبقي من جميع المدفوعات الجزئية بشكل صحيح
+    // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
+    const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
+    let generalRemainingBalance = 0
+
+    filteredPayments.forEach(payment => {
+      if (payment.status === 'partial') {
+        if (payment.appointment_id) {
+          // مدفوعات مرتبطة بمواعيد
+          const appointmentId = payment.appointment_id
+          const totalDue = payment.total_amount_due || payment.appointment_total_cost || 0
+          const paidAmount = payment.amount || 0
+
+          if (!appointmentGroups.has(appointmentId)) {
+            appointmentGroups.set(appointmentId, { totalDue: validateAmount(totalDue), totalPaid: 0 })
+          }
+
+          const group = appointmentGroups.get(appointmentId)!
+          group.totalPaid += validateAmount(paidAmount)
+        } else {
+          // مدفوعات عامة غير مرتبطة بمواعيد
+          const totalDue = payment.total_amount_due || payment.amount || 0
+          const paid = payment.amount_paid || payment.amount || 0
+          generalRemainingBalance += Math.max(0, validateAmount(totalDue) - validateAmount(paid))
         }
-        return sum
-      }, 0)
+      }
+    })
+
+    // حساب إجمالي المبالغ المتبقية من المواعيد
+    const appointmentRemainingBalance = Array.from(appointmentGroups.values()).reduce((sum, group) => {
+      return sum + Math.max(0, group.totalDue - group.totalPaid)
+    }, 0)
+
+    // إجمالي المبالغ المتبقية
+    const totalRemaining = appointmentRemainingBalance + generalRemainingBalance
 
     const totalOverdue = 0 // لا يوجد مدفوعات متأخرة في النظام الحالي
 

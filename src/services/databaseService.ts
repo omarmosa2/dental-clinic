@@ -1481,13 +1481,13 @@ export class DatabaseService {
         return
       }
 
-      // احصل على جميع المدفوعات المرتبطة بهذا الموعد مرتبة حسب تاريخ الإنشاء
+      // احصل على جميع المدفوعات المرتبطة بهذا الموعد مرتبة حسب تاريخ الدفع
       const payments = this.db.prepare(`
-        SELECT id, amount, created_at
+        SELECT id, amount, payment_date, created_at
         FROM payments
         WHERE appointment_id = ?
-        ORDER BY created_at ASC
-      `).all(appointmentId) as { id: string; amount: number; created_at: string }[]
+        ORDER BY payment_date ASC, created_at ASC
+      `).all(appointmentId) as { id: string; amount: number; payment_date: string; created_at: string }[]
 
       let runningTotal = 0
       const appointmentCost = appointment.cost
@@ -1540,11 +1540,11 @@ export class DatabaseService {
   private updateAppointmentPaymentCalculationsSync(appointmentId: string, appointmentCost: number): void {
     console.log('🔄 Updating payment calculations (sync) for appointment:', appointmentId)
 
-    // احصل على جميع المدفوعات لهذا الموعد مرتبة حسب تاريخ الإنشاء
+    // احصل على جميع المدفوعات لهذا الموعد مرتبة حسب تاريخ الدفع
     const payments = this.db.prepare(`
       SELECT * FROM payments
       WHERE appointment_id = ?
-      ORDER BY created_at ASC
+      ORDER BY payment_date ASC, created_at ASC
     `).all(appointmentId) as Payment[]
 
     if (payments.length === 0) {

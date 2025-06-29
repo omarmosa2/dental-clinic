@@ -541,13 +541,41 @@ export default function Payments() {
                   dataToCalculate = dataToCalculate.filter(payment => payment.payment_method === paymentMethodFilter)
                 }
 
-                // حساب المبالغ المتبقية من المدفوعات الجزئية
-                const partialPayments = dataToCalculate.filter(p => p.status === 'partial')
-                const filteredRemainingBalance = partialPayments.reduce((sum, payment) => {
-                  const totalDue = payment.total_amount_due || payment.appointment_total_cost || payment.amount || 0
-                  const paid = payment.amount_paid || payment.amount || 0
-                  return sum + Math.max(0, totalDue - paid)
+                // حساب المبالغ المتبقية من المدفوعات الجزئية بشكل صحيح
+                // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
+                const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
+                let generalRemainingBalance = 0
+
+                dataToCalculate.forEach(payment => {
+                  if (payment.status === 'partial') {
+                    if (payment.appointment_id) {
+                      // مدفوعات مرتبطة بمواعيد
+                      const appointmentId = payment.appointment_id
+                      const totalDue = payment.total_amount_due || payment.appointment_total_cost || 0
+                      const paidAmount = payment.amount || 0
+
+                      if (!appointmentGroups.has(appointmentId)) {
+                        appointmentGroups.set(appointmentId, { totalDue, totalPaid: 0 })
+                      }
+
+                      const group = appointmentGroups.get(appointmentId)!
+                      group.totalPaid += paidAmount
+                    } else {
+                      // مدفوعات عامة غير مرتبطة بمواعيد
+                      const totalDue = payment.total_amount_due || payment.amount || 0
+                      const paid = payment.amount_paid || payment.amount || 0
+                      generalRemainingBalance += Math.max(0, totalDue - paid)
+                    }
+                  }
+                })
+
+                // حساب إجمالي المبالغ المتبقية من المواعيد
+                const appointmentRemainingBalance = Array.from(appointmentGroups.values()).reduce((sum, group) => {
+                  return sum + Math.max(0, group.totalDue - group.totalPaid)
                 }, 0)
+
+                // إجمالي المبالغ المتبقية
+                const filteredRemainingBalance = appointmentRemainingBalance + generalRemainingBalance
 
                 return formatCurrency(filteredRemainingBalance)
               })()}
