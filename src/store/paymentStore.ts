@@ -334,8 +334,10 @@ export const usePaymentStore = create<PaymentStore>()(
         const total = payments
           .filter(p => p.status === 'completed' || p.status === 'partial')
           .reduce((sum, payment) => {
-            // استخدام المبلغ الفعلي المدفوع في كل دفعة
-            const amount = Number(payment.amount)
+            // للدفعات الجزئية، استخدام amount_paid إذا كان متوفراً، وإلا استخدام amount
+            const amount = payment.status === 'partial' && payment.amount_paid !== undefined
+              ? Number(payment.amount_paid)
+              : Number(payment.amount)
 
             if (isNaN(amount) || !isFinite(amount)) {
               console.warn('Invalid payment amount:', payment.amount, 'for payment:', payment.id)
@@ -427,8 +429,10 @@ export const usePaymentStore = create<PaymentStore>()(
               }
 
               const month = paymentDate.toISOString().slice(0, 7) // YYYY-MM
-              // استخدام المبلغ الفعلي المدفوع في كل دفعة
-              const amount = Number(payment.amount)
+              // للدفعات الجزئية، استخدام amount_paid إذا كان متوفراً، وإلا استخدام amount
+              const amount = payment.status === 'partial' && payment.amount_paid !== undefined
+                ? Number(payment.amount_paid)
+                : Number(payment.amount)
 
               if (isNaN(amount) || !isFinite(amount)) {
                 console.warn('Invalid payment amount for monthly revenue:', payment.amount, 'for payment:', payment.id)
