@@ -90,6 +90,24 @@ export default function Appointments() {
     loadPatients()
   }, [loadAppointments, loadPatients])
 
+  // Check for search result navigation
+  useEffect(() => {
+    const searchResultData = localStorage.getItem('selectedAppointmentForDetails')
+    if (searchResultData) {
+      try {
+        const { appointment, openDetailsModal } = JSON.parse(searchResultData)
+        if (openDetailsModal && appointment) {
+          setSelectedAppointment(appointment)
+          setShowAddDialog(true) // Open edit dialog for appointment details
+          localStorage.removeItem('selectedAppointmentForDetails')
+        }
+      } catch (error) {
+        console.error('Error parsing search result data:', error)
+        localStorage.removeItem('selectedAppointmentForDetails')
+      }
+    }
+  }, [])
+
   // Apply advanced filters to appointments
   const filteredAppointments = React.useMemo(() => {
     let filtered = [...appointments]

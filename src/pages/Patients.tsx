@@ -89,6 +89,24 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
     loadPayments()
   }, [loadPatients, loadAppointments, loadPayments])
 
+  // Check for search result navigation
+  useEffect(() => {
+    const searchResultData = localStorage.getItem('selectedPatientForDetails')
+    if (searchResultData) {
+      try {
+        const { patient, openDetailsModal } = JSON.parse(searchResultData)
+        if (openDetailsModal && patient) {
+          setSelectedPatientForDetails(patient)
+          setShowDetailsModal(true)
+          localStorage.removeItem('selectedPatientForDetails')
+        }
+      } catch (error) {
+        console.error('Error parsing search result data:', error)
+        localStorage.removeItem('selectedPatientForDetails')
+      }
+    }
+  }, [])
+
   const handleDeletePatient = async (patientId: string) => {
     setPatientToDelete(patientId)
     setShowDeleteDialog(true)

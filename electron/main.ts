@@ -597,6 +597,25 @@ ipcMain.handle('db:prescriptions:search', async (_, query) => {
   }
 })
 
+// Search IPC Handlers
+ipcMain.handle('db:appointments:search', async (_, query) => {
+  try {
+    return await databaseService.searchAppointments(query)
+  } catch (error) {
+    console.error('Error searching appointments:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:treatments:search', async (_, query) => {
+  try {
+    return await databaseService.searchTreatments(query)
+  } catch (error) {
+    console.error('Error searching treatments:', error)
+    throw error
+  }
+})
+
 // Settings IPC Handlers
 ipcMain.handle('settings:get', async () => {
   return await databaseService.getSettings()

@@ -838,6 +838,31 @@ export class DatabaseService {
     return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm) as Patient[]
   }
 
+  async searchAppointments(query: string): Promise<Appointment[]> {
+    const stmt = this.db.prepare(`
+      SELECT
+        a.*,
+        p.full_name as patient_name,
+        p.first_name,
+        p.last_name,
+        p.phone,
+        p.email,
+        p.gender,
+        t.name as treatment_name
+      FROM appointments a
+      LEFT JOIN patients p ON a.patient_id = p.id
+      LEFT JOIN treatments t ON a.treatment_id = t.id
+      WHERE
+        p.full_name LIKE ? OR
+        a.title LIKE ? OR
+        a.description LIKE ? OR
+        a.notes LIKE ?
+      ORDER BY a.start_time DESC
+    `)
+    const searchTerm = `%${query}%`
+    return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm) as Appointment[]
+  }
+
   // Appointment operations
   async getAllAppointments(): Promise<Appointment[]> {
     const stmt = this.db.prepare(`
@@ -1657,6 +1682,26 @@ export class DatabaseService {
   async getAllTreatments(): Promise<Treatment[]> {
     const stmt = this.db.prepare('SELECT * FROM treatments ORDER BY name')
     return stmt.all() as Treatment[]
+  }
+
+  async searchTreatments(query: string): Promise<any[]> {
+    const stmt = this.db.prepare(`
+      SELECT
+        tt.*,
+        p.full_name as patient_name,
+        p.phone as patient_phone,
+        p.email as patient_email
+      FROM tooth_treatments tt
+      LEFT JOIN patients p ON tt.patient_id = p.id
+      WHERE
+        tt.treatment_type LIKE ? OR
+        tt.tooth_name LIKE ? OR
+        tt.notes LIKE ? OR
+        p.full_name LIKE ?
+      ORDER BY tt.created_at DESC
+    `)
+    const searchTerm = `%${query}%`
+    return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm) as any[]
   }
 
   async createTreatment(treatment: Omit<Treatment, 'id' | 'created_at' | 'updated_at'>): Promise<Treatment> {

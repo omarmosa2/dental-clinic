@@ -135,19 +135,48 @@ export default function EnhancedDashboard({
   const handleSearchResultSelect = (result: SearchResult) => {
     console.log('Selected search result:', result)
 
-    // Navigate based on result type
+    // Navigate based on result type and open details
     switch (result.type) {
       case 'patient':
+        // Store patient data for details modal
+        localStorage.setItem('selectedPatientForDetails', JSON.stringify({
+          patient: result.data,
+          openDetailsModal: true
+        }))
         onNavigateToPatients?.()
         break
       case 'appointment':
+        // Store appointment data for details
+        localStorage.setItem('selectedAppointmentForDetails', JSON.stringify({
+          appointment: result.data,
+          openDetailsModal: true
+        }))
         onNavigateToAppointments?.()
         break
       case 'payment':
+        // Store payment data for details
+        localStorage.setItem('selectedPaymentForDetails', JSON.stringify({
+          payment: result.data,
+          openDetailsModal: true
+        }))
         onNavigateToPayments?.()
         break
       case 'treatment':
+        // Store treatment data for details
+        localStorage.setItem('selectedTreatmentForDetails', JSON.stringify({
+          treatment: result.data,
+          patientId: result.relatedData?.patientId,
+          openDetailsModal: true
+        }))
         onNavigateToTreatments?.()
+        break
+      case 'prescription':
+        // Store prescription data for details
+        localStorage.setItem('selectedPrescriptionForDetails', JSON.stringify({
+          prescription: result.data,
+          openDetailsModal: true
+        }))
+        onNavigateToTreatments?.() // Prescriptions are handled in treatments page
         break
       default:
         break

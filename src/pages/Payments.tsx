@@ -116,6 +116,24 @@ export default function Payments() {
     checkPreSelectedPatient()
   }, [])
 
+  // Check for search result navigation
+  useEffect(() => {
+    const searchResultData = localStorage.getItem('selectedPaymentForDetails')
+    if (searchResultData) {
+      try {
+        const { payment, openDetailsModal } = JSON.parse(searchResultData)
+        if (openDetailsModal && payment) {
+          setSelectedPayment(payment)
+          setShowReceiptDialog(true) // Open receipt dialog for payment details
+          localStorage.removeItem('selectedPaymentForDetails')
+        }
+      } catch (error) {
+        console.error('Error parsing search result data:', error)
+        localStorage.removeItem('selectedPaymentForDetails')
+      }
+    }
+  }, [])
+
   useEffect(() => {
     if (error) {
       toast({

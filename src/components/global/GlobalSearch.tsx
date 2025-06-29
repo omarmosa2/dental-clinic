@@ -89,15 +89,11 @@ export default function GlobalSearch({
 
         // Show search feedback
         console.log('🔍 Search performed:', query.trim())
-
-        // If no real results, create demo results
-        if (!globalSearchResults || globalSearchResults.totalCount === 0) {
-          createDemoSearchResults(query.trim())
-        }
+        console.log('🔍 Search results:', globalSearchResults)
       } catch (error) {
         console.error('Search error:', error)
-        // Create demo results on error
-        createDemoSearchResults(query.trim())
+        // Show error message instead of demo results
+        setShowResults(true)
       }
     } else {
       setShowResults(false)
@@ -105,71 +101,7 @@ export default function GlobalSearch({
     }
   }
 
-  // Create demo search results for testing
-  const createDemoSearchResults = (query: string) => {
-    const demoResults = {
-      patients: [
-        {
-          id: 'demo_patient_1',
-          type: 'patient' as const,
-          title: 'أحمد محمد علي',
-          description: 'مريض منتظم - آخر زيارة: منذ أسبوع',
-          relevanceScore: 0.9,
-          metadata: {
-            phone: '0501234567',
-            lastVisit: '2024-01-15'
-          }
-        },
-        {
-          id: 'demo_patient_2',
-          type: 'patient' as const,
-          title: 'فاطمة أحمد',
-          description: 'مريضة جديدة - تحتاج متابعة',
-          relevanceScore: 0.8,
-          metadata: {
-            phone: '0507654321',
-            lastVisit: '2024-01-10'
-          }
-        }
-      ],
-      appointments: [
-        {
-          id: 'demo_apt_1',
-          type: 'appointment' as const,
-          title: 'موعد أحمد محمد - اليوم 2:00 PM',
-          description: 'فحص دوري - تنظيف أسنان',
-          relevanceScore: 0.95,
-          metadata: {
-            date: new Date().toISOString(),
-            status: 'scheduled'
-          }
-        }
-      ],
-      payments: [
-        {
-          id: 'demo_pay_1',
-          type: 'payment' as const,
-          title: 'دفعة معلقة - فاطمة أحمد',
-          description: 'مبلغ 500 $ - معلق منذ 5 أيام',
-          relevanceScore: 0.7,
-          metadata: {
-            amount: 500,
-            status: 'pending'
-          }
-        }
-      ],
-      treatments: [],
-      prescriptions: [],
-      totalCount: 4,
-      searchTime: 150,
-      query: query
-    }
 
-    // Update the global store with demo results
-    const store = useGlobalStore.getState()
-    store.globalSearchResults = demoResults
-    store.isSearching = false
-  }
 
   // Handle input change with debounce
   useEffect(() => {

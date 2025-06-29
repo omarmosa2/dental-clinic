@@ -118,18 +118,19 @@ export class GlobalSearchService {
    */
   private static async searchAppointments(criteria: SearchCriteria): Promise<SearchResult[]> {
     try {
+      // البحث في المواعيد باستخدام API الإلكتروني
       const appointments = await window.electronAPI?.appointments?.search?.(criteria.query) || []
 
       return appointments.map((appointment: Appointment) => ({
         id: appointment.id,
         type: 'appointment' as const,
         title: appointment.title,
-        subtitle: `${appointment.patient?.full_name || 'مريض غير محدد'} | ${this.formatDate(appointment.start_time)}`,
+        subtitle: `${appointment.patient_name || 'مريض غير محدد'} | ${this.formatDate(appointment.start_time)}`,
         description: `🕐 ${this.formatTime(appointment.start_time)} - ${this.formatTime(appointment.end_time)} | ${this.getStatusText(appointment.status)}`,
         relevanceScore: this.calculateRelevanceScore(criteria.query, [
           appointment.title,
           appointment.description || '',
-          appointment.patient?.full_name || '',
+          appointment.patient_name || '',
           appointment.notes || ''
         ]),
         data: appointment,
@@ -154,8 +155,8 @@ export class GlobalSearchService {
       return payments.map((payment: Payment) => ({
         id: payment.id,
         type: 'payment' as const,
-        title: `دفعة ${payment.patient?.full_name || 'مريض غير محدد'}`,
-        subtitle: `${payment.amount}$ | ${this.formatDate(payment.payment_date)}`,
+        title: `دفعة ${payment.amount}$ - ${payment.patient_name || 'مريض غير محدد'}`,
+        subtitle: `${this.formatDate(payment.payment_date)} | ${payment.receipt_number || 'بدون رقم إيصال'}`,
         description: `💳 ${payment.payment_method === 'cash' ? 'نقدي' : 'تحويل بنكي'} | ${this.getPaymentStatusText(payment.status)}`,
         relevanceScore: this.calculateRelevanceScore(criteria.query, [
           payment.patient?.full_name || '',
@@ -187,7 +188,7 @@ export class GlobalSearchService {
         id: treatment.id,
         type: 'treatment' as const,
         title: `${getTreatmentNameInArabic(treatment.treatment_type)} - السن ${treatment.tooth_number}`,
-        subtitle: `${treatment.patient?.full_name || 'مريض غير محدد'} | ${this.getTreatmentStatusText(treatment.treatment_status)}`,
+        subtitle: `${treatment.patient_name || 'مريض غير محدد'} | ${this.getTreatmentStatusText(treatment.treatment_status)}`,
         description: `🦷 ${treatment.tooth_name} | 💰 ${treatment.cost || 0}$`,
         relevanceScore: this.calculateRelevanceScore(criteria.query, [
           getTreatmentNameInArabic(treatment.treatment_type),
@@ -218,7 +219,7 @@ export class GlobalSearchService {
       return prescriptions.map((prescription: Prescription) => ({
         id: prescription.id,
         type: 'prescription' as const,
-        title: `وصفة ${prescription.patient?.full_name || 'مريض غير محدد'}`,
+        title: `وصفة ${prescription.patient_name || 'مريض غير محدد'}`,
         subtitle: `${this.formatDate(prescription.prescription_date)} | ${prescription.medications?.length || 0} دواء`,
         description: `💊 ${prescription.medications?.map(m => m.medication_name).join(', ') || 'لا توجد أدوية'}`,
         relevanceScore: this.calculateRelevanceScore(criteria.query, [

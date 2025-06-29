@@ -18,7 +18,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     create: (appointment) => ipcRenderer.invoke('db:appointments:create', appointment),
     update: (id, appointment) => ipcRenderer.invoke('db:appointments:update', id, appointment),
     delete: (id) => ipcRenderer.invoke('db:appointments:delete', id),
-    checkConflict: (startTime, endTime, excludeId) => ipcRenderer.invoke('db:appointments:checkConflict', startTime, endTime, excludeId)
+    checkConflict: (startTime, endTime, excludeId) => ipcRenderer.invoke('db:appointments:checkConflict', startTime, endTime, excludeId),
+    search: (query) => ipcRenderer.invoke('db:appointments:search', query)
   },
 
   // Payment operations
@@ -26,7 +27,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAll: () => ipcRenderer.invoke('db:payments:getAll'),
     create: (payment) => ipcRenderer.invoke('db:payments:create', payment),
     update: (id, payment) => ipcRenderer.invoke('db:payments:update', id, payment),
-    delete: (id) => ipcRenderer.invoke('db:payments:delete', id)
+    delete: (id) => ipcRenderer.invoke('db:payments:delete', id),
+    search: (query) => ipcRenderer.invoke('db:payments:search', query)
   },
 
   // Treatment operations
@@ -34,7 +36,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAll: () => ipcRenderer.invoke('db:treatments:getAll'),
     create: (treatment) => ipcRenderer.invoke('db:treatments:create', treatment),
     update: (id, treatment) => ipcRenderer.invoke('db:treatments:update', id, treatment),
-    delete: (id) => ipcRenderer.invoke('db:treatments:delete', id)
+    delete: (id) => ipcRenderer.invoke('db:treatments:delete', id),
+    search: (query) => ipcRenderer.invoke('db:treatments:search', query)
   },
 
   // Inventory operations

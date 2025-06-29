@@ -1617,6 +1617,39 @@ ipcMain.handle('db:prescriptions:search', async (_, query) => {
   }
 })
 
+// Search IPC Handlers for appointments and treatments
+ipcMain.handle('db:appointments:search', async (_, query) => {
+  try {
+    if (databaseService) {
+      const results = await databaseService.searchAppointments(query)
+      console.log('Searching appointments:', query, 'Results:', results.length)
+      return results
+    } else {
+      console.log('Searching appointments (mock):', query)
+      return []
+    }
+  } catch (error) {
+    console.error('Error searching appointments:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:treatments:search', async (_, query) => {
+  try {
+    if (databaseService) {
+      const results = await databaseService.searchTreatments(query)
+      console.log('Searching treatments:', query, 'Results:', results.length)
+      return results
+    } else {
+      console.log('Searching treatments (mock):', query)
+      return []
+    }
+  } catch (error) {
+    console.error('Error searching treatments:', error)
+    throw error
+  }
+})
+
 
 
 // NEW: Multiple Tooth Treatments IPC Handlers

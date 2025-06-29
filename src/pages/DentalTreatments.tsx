@@ -140,6 +140,45 @@ export default function DentalTreatments() {
     checkPreSelectedPatient()
   }, [patients.length])
 
+  // Check for search result navigation
+  useEffect(() => {
+    const searchResultData = localStorage.getItem('selectedTreatmentForDetails')
+    if (searchResultData) {
+      try {
+        const { treatment, patientId, openDetailsModal } = JSON.parse(searchResultData)
+        if (openDetailsModal && treatment && patientId) {
+          // Select the patient first
+          setSelectedPatientId(patientId)
+          loadToothTreatmentsByPatient(patientId)
+
+          // Set the tooth number and open dialog
+          setSelectedToothNumber(treatment.tooth_number)
+          setShowToothDialog(true)
+
+          localStorage.removeItem('selectedTreatmentForDetails')
+        }
+      } catch (error) {
+        console.error('Error parsing search result data:', error)
+        localStorage.removeItem('selectedTreatmentForDetails')
+      }
+    }
+
+    const prescriptionResultData = localStorage.getItem('selectedPrescriptionForDetails')
+    if (prescriptionResultData) {
+      try {
+        const { prescription, openDetailsModal } = JSON.parse(prescriptionResultData)
+        if (openDetailsModal && prescription) {
+          setSelectedPrescription(prescription)
+          setShowPrescriptionDialog(true)
+          localStorage.removeItem('selectedPrescriptionForDetails')
+        }
+      } catch (error) {
+        console.error('Error parsing prescription search result data:', error)
+        localStorage.removeItem('selectedPrescriptionForDetails')
+      }
+    }
+  }, [])
+
   // Filter patients based on search query
   const filteredPatients = patients.filter(patient =>
     patient.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -17,6 +17,7 @@ export interface ElectronAPI {
     create: (appointment: any) => Promise<any>
     update: (id: string, appointment: any) => Promise<any>
     delete: (id: string) => Promise<boolean>
+    search: (query: string) => Promise<any[]>
   }
 
   // Payment operations
@@ -49,6 +50,7 @@ export interface ElectronAPI {
   treatments: {
     getAll: () => Promise<any[]>
     create: (treatment: any) => Promise<any>
+    search: (query: string) => Promise<any[]>
   }
 
   // Backup operations
@@ -225,6 +227,7 @@ const electronAPI: ElectronAPI = {
     update: (id, appointment) => ipcRenderer.invoke('db:appointments:update', id, appointment),
     delete: (id) => ipcRenderer.invoke('db:appointments:delete', id),
     checkConflict: (startTime, endTime, excludeId) => ipcRenderer.invoke('db:appointments:checkConflict', startTime, endTime, excludeId),
+    search: (query) => ipcRenderer.invoke('db:appointments:search', query),
   },
 
   payments: {
@@ -238,6 +241,7 @@ const electronAPI: ElectronAPI = {
   treatments: {
     getAll: () => ipcRenderer.invoke('db:treatments:getAll'),
     create: (treatment) => ipcRenderer.invoke('db:treatments:create', treatment),
+    search: (query) => ipcRenderer.invoke('db:treatments:search', query),
   },
 
   inventory: {
