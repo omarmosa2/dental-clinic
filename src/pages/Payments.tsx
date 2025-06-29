@@ -210,23 +210,140 @@ export default function Payments() {
                 return statusLabels[status as keyof typeof statusLabels] || status
               }
 
-              // Use filtered data for export to ensure accuracy
-              const dataToExport = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+              // استخدام البيانات المفلترة (الزمنية + البحث + الفلاتر)
+              let dataToExport = [...payments]
 
-              const csvData = dataToExport.map(payment => {
-                // For partial payments, show amount_paid if available, otherwise show amount
+              // تطبيق الفلترة الزمنية
+              if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                const startDate = new Date(paymentStats.timeFilter.startDate)
+                const endDate = new Date(paymentStats.timeFilter.endDate)
+                endDate.setHours(23, 59, 59, 999)
+
+                dataToExport = dataToExport.filter(payment => {
+                  const paymentDate = new Date(payment.payment_date)
+                  return paymentDate >= startDate && paymentDate <= endDate
+                })
+              }
+
+              // تطبيق فلاتر البحث والحالة وطريقة الدفع
+              if (searchQuery) {
+                dataToExport = dataToExport.filter(payment => {
+                  const patientName = getPatientName(payment)
+                  return (
+                    payment.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    payment.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    payment.amount.toString().includes(searchQuery) ||
+                    payment.payment_method.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    payment.status.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                })
+              }
+
+              if (statusFilter !== 'all') {
+                dataToExport = dataToExport.filter(payment => payment.status === statusFilter)
+              }
+
+              if (paymentMethodFilter !== 'all') {
+                dataToExport = dataToExport.filter(payment => payment.payment_method === paymentMethodFilter)
+              }
+
+              // حساب الإحصائيات للبيانات المفلترة
+              const totalRevenue = dataToExport
+                .filter(p => p.status === 'completed' || p.status === 'partial')
+                .reduce((sum, payment) => {
+                  const amount = payment.status === 'partial' && payment.amount_paid !== undefined
+                    ? payment.amount_paid
+                    : payment.amount
+                  return sum + (amount || 0)
+                }, 0)
+
+              const pendingAmount = dataToExport
+                .filter(p => p.status === 'pending')
+                .reduce((sum, p) => sum + (p.amount || 0), 0)
+
+              const partialPayments = dataToExport.filter(p => p.status === 'partial')
+              const totalRemainingFromPartial = partialPayments.reduce((sum, payment) => {
+                const totalDue = payment.total_amount_due || payment.appointment_total_cost || payment.amount || 0
+                const paid = payment.amount_paid || payment.amount || 0
+                return sum + Math.max(0, totalDue - paid)
+              }, 0)
+
+              // إنشاء بيانات CSV مع تفاصيل شاملة
+              const csvData = dataToExport.map((payment, index) => {
                 const displayAmount = payment.status === 'partial' && payment.amount_paid !== undefined
                   ? payment.amount_paid
                   : payment.amount
 
+                const remainingBalance = payment.status === 'partial'
+                  ? Math.max(0, (payment.total_amount_due || payment.appointment_total_cost || payment.amount || 0) - (payment.amount_paid || payment.amount || 0))
+                  : 0
+
                 return {
+                  'الرقم التسلسلي': index + 1,
                   'رقم الإيصال': payment.receipt_number || `#${payment.id.slice(-6)}`,
                   'المريض': getPatientName(payment),
-                  'المبلغ': `$${Number(displayAmount).toFixed(2)}`,
+                  'المبلغ المدفوع': `$${Number(displayAmount).toFixed(2)}`,
+                  'المبلغ المتبقي': remainingBalance > 0 ? `$${remainingBalance.toFixed(2)}` : '-',
                   'طريقة الدفع': getPaymentMethodLabel(payment.payment_method),
                   'الحالة': getStatusLabel(payment.status),
-                  'تاريخ الدفع': formatDate(payment.payment_date)
+                  'تاريخ الدفع': formatDate(payment.payment_date),
+                  'الوصف': payment.description || '-',
+                  'ملاحظات': payment.notes || '-'
                 }
+              })
+
+              // إضافة ملخص إحصائي في نهاية التقرير
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': '--- ملخص إحصائي ---',
+                'المريض': '',
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': 'إجمالي الإيرادات',
+                'المريض': `$${totalRevenue.toFixed(2)}`,
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': 'المبالغ المعلقة',
+                'المريض': `$${pendingAmount.toFixed(2)}`,
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': 'المبالغ المتبقية من الجزئية',
+                'المريض': `$${totalRemainingFromPartial.toFixed(2)}`,
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
               })
 
               // Create CSV with BOM for Arabic support
@@ -244,21 +361,43 @@ export default function Payments() {
 
               // Generate descriptive filename with date and time
               const now = new Date()
-              const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-              const fileName = `تقرير_المدفوعات_${dateStr}_${timeStr}.csv`
+              const dateStr = now.toISOString().split('T')[0]
+              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-')
+
+              let fileName = `تقرير_المدفوعات_شامل_${dateStr}_${timeStr}`
+
+              // إضافة معلومات الفلترة لاسم الملف
+              if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                fileName += `_مفلتر`
+              }
+              if (statusFilter !== 'all') {
+                fileName += `_${getStatusLabel(statusFilter)}`
+              }
+              if (paymentMethodFilter !== 'all') {
+                fileName += `_${getPaymentMethodLabel(paymentMethodFilter)}`
+              }
+
+              fileName += '.csv'
 
                 link.download = fileName
                 document.body.appendChild(link)
                 link.click()
                 document.body.removeChild(link)
 
-                // Add filter information to success message
-                const filterInfo = paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
-                  ? ` (مفلترة من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate})`
-                  : ''
+                // رسالة نجاح مفصلة
+                let successMessage = `تم تصدير ${dataToExport.length} دفعة بنجاح!`
 
-                notify.exportSuccess(`تم تصدير ${dataToExport.length} دفعة بنجاح!${filterInfo}`)
+                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                  successMessage += ` (مفلترة من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate})`
+                }
+
+                if (statusFilter !== 'all' || paymentMethodFilter !== 'all' || searchQuery) {
+                  successMessage += ` مع فلاتر مطبقة`
+                }
+
+                successMessage += ` - إجمالي الإيرادات: $${totalRevenue.toFixed(2)}`
+
+                notify.exportSuccess(successMessage)
               } catch (error) {
                 console.error('Error exporting payments:', error)
                 notify.exportError('فشل في تصدير بيانات المدفوعات')

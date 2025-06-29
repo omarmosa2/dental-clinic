@@ -1,5 +1,5 @@
 import { Payment, Appointment, Patient, InventoryItem } from '@/types'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
 import { validateBeforeExport } from '@/utils/exportValidation'
 
 /**
@@ -698,7 +698,7 @@ export class ComprehensiveExportService {
   }
 
   /**
-   * تصدير التقرير الشامل
+   * تصدير التقرير الشامل المحسن
    */
   static async exportComprehensiveReport(data: {
     patients: Patient[]
@@ -723,23 +723,40 @@ export class ComprehensiveExportService {
       if (!isValid) {
         throw new Error('فشل في التحقق من صحة البيانات')
       }
-      const csvContent = this.generateComprehensiveCSV({
+
+      // حساب الإحصائيات الشاملة
+      const comprehensiveStats = this.calculateComprehensiveStats(data)
+
+      const csvContent = this.generateEnhancedComprehensiveCSV({
         patients: data.patients,
         appointments: data.filteredAppointments,
         payments: data.filteredPayments,
         inventory: data.filteredInventory,
-        filterInfo: data.filterInfo
+        filterInfo: data.filterInfo,
+        stats: comprehensiveStats
       })
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
 
-      // إنشاء اسم ملف وصفي مع التاريخ والوقت
+      // إنشاء اسم ملف وصفي مع التاريخ والوقت ومعلومات الفلترة
       const now = new Date()
-      const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-      const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-      const fileName = `التقرير_الشامل_المفلتر_${dateStr}_${timeStr}.csv`
+      const dateStr = now.toISOString().split('T')[0]
+      const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-')
+
+      let fileName = `التقرير_الشامل_المفصل_${dateStr}_${timeStr}`
+
+      // إضافة معلومات الفلترة لاسم الملف
+      const hasFilters = data.filterInfo.appointmentFilter !== 'جميع البيانات' ||
+                        data.filterInfo.paymentFilter !== 'جميع البيانات' ||
+                        data.filterInfo.inventoryFilter !== 'جميع البيانات'
+
+      if (hasFilters) {
+        fileName += '_مفلتر'
+      }
+
+      fileName += '.csv'
 
       link.download = fileName
       document.body.appendChild(link)
@@ -753,5 +770,150 @@ export class ComprehensiveExportService {
       console.error('Error exporting comprehensive report:', error)
       throw new Error('فشل في تصدير التقرير الشامل')
     }
+  }
+
+  /**
+   * حساب الإحصائيات الشاملة
+   */
+  private static calculateComprehensiveStats(data: {
+    patients: Patient[]
+    filteredAppointments: Appointment[]
+    filteredPayments: Payment[]
+    filteredInventory: InventoryItem[]
+  }) {
+    const financialStats = this.calculateFinancialStats(data.filteredPayments)
+
+    return {
+      totalPatients: data.patients.length,
+      totalAppointments: data.filteredAppointments.length,
+      totalPayments: data.filteredPayments.length,
+      totalInventoryItems: data.filteredInventory.length,
+      ...financialStats,
+      appointmentsByStatus: this.groupByStatus(data.filteredAppointments, 'status'),
+      paymentsByMethod: this.groupByMethod(data.filteredPayments),
+      inventoryByCategory: this.groupByCategory(data.filteredInventory)
+    }
+  }
+
+  /**
+   * تجميع حسب الحالة
+   */
+  private static groupByStatus(items: any[], statusField: string) {
+    return items.reduce((acc, item) => {
+      const status = item[statusField] || 'غير محدد'
+      acc[status] = (acc[status] || 0) + 1
+      return acc
+    }, {})
+  }
+
+  /**
+   * تجميع المدفوعات حسب طريقة الدفع
+   */
+  private static groupByMethod(payments: Payment[]) {
+    return payments.reduce((acc, payment) => {
+      const method = payment.payment_method || 'غير محدد'
+      acc[method] = (acc[method] || 0) + 1
+      return acc
+    }, {})
+  }
+
+  /**
+   * تجميع المخزون حسب الفئة
+   */
+  private static groupByCategory(inventory: InventoryItem[]) {
+    return inventory.reduce((acc, item) => {
+      const category = item.category || 'غير محدد'
+      acc[category] = (acc[category] || 0) + 1
+      return acc
+    }, {})
+  }
+
+  /**
+   * توليد CSV شامل محسن
+   */
+  private static generateEnhancedComprehensiveCSV(data: {
+    patients: Patient[]
+    appointments: Appointment[]
+    payments: Payment[]
+    inventory: InventoryItem[]
+    filterInfo: any
+    stats: any
+  }): string {
+    let csv = '\uFEFF' // BOM for Arabic support
+
+    // عنوان التقرير
+    csv += 'التقرير الشامل المفصل للعيادة\n'
+    csv += `تاريخ التقرير,${new Date().toLocaleDateString('ar-SA')}\n`
+    csv += `وقت التقرير,${new Date().toLocaleTimeString('ar-SA')}\n\n`
+
+    // معلومات الفلترة
+    csv += 'معلومات الفلترة المطبقة\n'
+    csv += `فلتر المواعيد,${data.filterInfo.appointmentFilter}\n`
+    csv += `فلتر المدفوعات,${data.filterInfo.paymentFilter}\n`
+    csv += `فلتر المخزون,${data.filterInfo.inventoryFilter}\n\n`
+
+    // الإحصائيات العامة
+    csv += 'الإحصائيات العامة\n'
+    csv += `إجمالي المرضى,${data.stats.totalPatients}\n`
+    csv += `إجمالي المواعيد المفلترة,${data.stats.totalAppointments}\n`
+    csv += `إجمالي المدفوعات المفلترة,${data.stats.totalPayments}\n`
+    csv += `إجمالي عناصر المخزون المفلترة,${data.stats.totalInventoryItems}\n`
+    csv += `إجمالي الإيرادات,${formatCurrency(data.stats.totalRevenue)}\n`
+    csv += `المبالغ المعلقة,${formatCurrency(data.stats.pendingAmount)}\n`
+    csv += `المبالغ المتبقية,${formatCurrency(data.stats.totalRemainingBalance)}\n\n`
+
+    // توزيع المواعيد حسب الحالة
+    csv += 'توزيع المواعيد حسب الحالة\n'
+    Object.entries(data.stats.appointmentsByStatus).forEach(([status, count]) => {
+      csv += `${status},${count}\n`
+    })
+    csv += '\n'
+
+    // توزيع المدفوعات حسب طريقة الدفع
+    csv += 'توزيع المدفوعات حسب طريقة الدفع\n'
+    Object.entries(data.stats.paymentsByMethod).forEach(([method, count]) => {
+      csv += `${method},${count}\n`
+    })
+    csv += '\n'
+
+    // توزيع المخزون حسب الفئة
+    csv += 'توزيع المخزون حسب الفئة\n'
+    Object.entries(data.stats.inventoryByCategory).forEach(([category, count]) => {
+      csv += `${category},${count}\n`
+    })
+    csv += '\n'
+
+    // تفاصيل المدفوعات
+    if (data.payments.length > 0) {
+      csv += 'تفاصيل المدفوعات المفلترة\n'
+      csv += 'رقم الإيصال,المريض,المبلغ,طريقة الدفع,الحالة,تاريخ الدفع,الوصف\n'
+      data.payments.forEach(payment => {
+        const patientName = data.patients.find(p => p.id === payment.patient_id)?.full_name || 'غير محدد'
+        csv += `"${payment.receipt_number || `#${payment.id.slice(-6)}`}","${patientName}","${formatCurrency(payment.amount)}","${payment.payment_method}","${payment.status}","${formatDate(payment.payment_date)}","${payment.description || '-'}"\n`
+      })
+      csv += '\n'
+    }
+
+    // تفاصيل المواعيد
+    if (data.appointments.length > 0) {
+      csv += 'تفاصيل المواعيد المفلترة\n'
+      csv += 'المريض,العنوان,التاريخ,الوقت,الحالة,التكلفة\n'
+      data.appointments.forEach(appointment => {
+        const patientName = data.patients.find(p => p.id === appointment.patient_id)?.full_name || 'غير محدد'
+        csv += `"${patientName}","${appointment.title || '-'}","${formatDate(appointment.start_time)}","${formatTime(appointment.start_time)}","${appointment.status}","${formatCurrency(appointment.cost || 0)}"\n`
+      })
+      csv += '\n'
+    }
+
+    // تفاصيل المخزون
+    if (data.inventory.length > 0) {
+      csv += 'تفاصيل المخزون المفلتر\n'
+      csv += 'اسم المنتج,الفئة,الكمية,السعر,تاريخ الانتهاء,الحالة\n'
+      data.inventory.forEach(item => {
+        csv += `"${item.name}","${item.category || '-'}","${item.quantity}","${formatCurrency(item.price || 0)}","${item.expiry_date ? formatDate(item.expiry_date) : '-'}","${item.status || '-'}"\n`
+      })
+    }
+
+    return csv
   }
 }

@@ -447,8 +447,20 @@ export default function FinancialReports() {
             size="sm"
             onClick={async () => {
               try {
-                // Use filtered data for export
-                const dataToExport = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+                // استخدام البيانات المفلترة مع تطبيق جميع الفلاتر
+                let dataToExport = [...payments]
+
+                // تطبيق الفلترة الزمنية
+                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                  const startDate = new Date(paymentStats.timeFilter.startDate)
+                  const endDate = new Date(paymentStats.timeFilter.endDate)
+                  endDate.setHours(23, 59, 59, 999)
+
+                  dataToExport = dataToExport.filter(payment => {
+                    const paymentDate = new Date(payment.payment_date)
+                    return paymentDate >= startDate && paymentDate <= endDate
+                  })
+                }
 
                 if (dataToExport.length === 0) {
                   notify.noDataToExport('لا توجد بيانات مالية للتصدير')
@@ -513,7 +525,7 @@ export default function FinancialReports() {
                   }
                 })
 
-                // Prepare financial report data
+                // إعداد بيانات التقرير المالي الشامل
                 const financialReportData = {
                   totalRevenue: totalRevenue,
                   totalPaid: totalRevenue,
@@ -530,14 +542,40 @@ export default function FinancialReports() {
                     percentage: totalRevenue > 0 ? (validateAmount(amount) / totalRevenue) * 100 : 0
                   })),
                   filterInfo: paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
-                    ? `البيانات من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
-                    : 'جميع البيانات',
-                  dataCount: dataToExport.length
+                    ? `البيانات المفلترة من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
+                    : 'جميع البيانات المالية',
+                  dataCount: dataToExport.length,
+                  totalTransactions: dataToExport.length,
+                  successRate: dataToExport.length > 0 ? ((completedPayments + partialPayments) / dataToExport.length * 100).toFixed(1) : '0.0',
+                  averageTransaction: dataToExport.length > 0 ? (totalRevenue / dataToExport.length).toFixed(2) : '0.00',
+                  // إضافة تفاصيل المدفوعات للتقرير المفصل
+                  payments: dataToExport.map(payment => ({
+                    id: payment.id,
+                    receipt_number: payment.receipt_number || `#${payment.id.slice(-6)}`,
+                    patient_name: payment.patient?.full_name || 'غير محدد',
+                    amount: payment.amount,
+                    amount_paid: payment.amount_paid,
+                    payment_method: payment.payment_method,
+                    status: payment.status,
+                    payment_date: payment.payment_date,
+                    description: payment.description,
+                    notes: payment.notes
+                  }))
                 }
 
                 // Use PdfService for enhanced PDF export
                 await PdfService.exportFinancialReport(financialReportData, settings)
-                notify.exportSuccess(`تم تصدير التقرير المالي كملف PDF بنجاح (${dataToExport.length} معاملة)`)
+
+                // رسالة نجاح مفصلة
+                let successMessage = `تم تصدير التقرير المالي كملف PDF بنجاح! (${dataToExport.length} معاملة)`
+
+                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                  successMessage += ` - مفلتر من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
+                }
+
+                successMessage += ` - إجمالي الإيرادات: $${totalRevenue.toFixed(2)}`
+
+                notify.exportSuccess(successMessage)
               } catch (error) {
                 console.error('Error exporting PDF:', error)
                 notify.exportError('فشل في تصدير التقرير كملف PDF')

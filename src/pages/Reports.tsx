@@ -335,7 +335,19 @@ onClick={async () => {
                                          paymentStats.filteredData.length +
                                          inventoryStats.filteredData.length
 
-                notify.exportSuccess(`تم تصدير التقرير الشامل بنجاح! (${totalFilteredItems} عنصر مفلتر، ${patients.length} مريض)`)
+                // رسالة نجاح مفصلة للتصدير الشامل
+                let successMessage = `تم تصدير التقرير الشامل بنجاح!`
+                successMessage += ` (${patients.length} مريض، ${appointmentStats.filteredData.length} موعد، ${paymentStats.filteredData.length} دفعة، ${inventoryStats.filteredData.length} عنصر مخزون)`
+
+                const hasFilters = appointmentFilterInfo !== 'جميع البيانات' ||
+                                 paymentFilterInfo !== 'جميع البيانات' ||
+                                 inventoryFilterInfo !== 'جميع البيانات'
+
+                if (hasFilters) {
+                  successMessage += ` - مع فلاتر مطبقة`
+                }
+
+                notify.exportSuccess(successMessage)
               } catch (error) {
                 console.error('Error exporting comprehensive report:', error)
                 notify.exportError('فشل في تصدير التقرير الشامل')
