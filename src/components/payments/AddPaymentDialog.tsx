@@ -74,11 +74,9 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     return appointmentPayments.reduce((total, payment) => total + payment.amount, 0)
   }
 
-  // جلب تكلفة الموعد تلقائياً
-  const getAppointmentCost = (appointmentId: string) => {
-    if (!appointmentId || appointmentId === 'none') return 0
-    const appointment = appointments.find(apt => apt.id === appointmentId)
-    return appointment?.cost || 0
+  // الحصول على المبلغ الإجمالي المطلوب (من الإدخال اليدوي)
+  const getTotalAmountDue = () => {
+    return parseFloat(formData.total_amount_due) || 0
   }
 
   // حساب إجمالي المبلغ المدفوع تلقائياً (المدفوعات السابقة + الدفعة الحالية)
@@ -92,6 +90,41 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     const totalAmountDue = parseFloat(formData.total_amount_due) || 0
     const totalPaid = calculateTotalAmountPaid()
     return Math.max(0, totalAmountDue - totalPaid)
+  }
+
+  // اقتراح الحالة تلقائياً بناءً على المبلغ
+  const getSuggestedStatus = (): 'completed' | 'partial' | 'pending' => {
+    const amount = parseFloat(formData.amount) || 0
+    const totalAmountDue = parseFloat(formData.total_amount_due) || 0
+
+    if (totalAmountDue > 0) {
+      if (formData.appointment_id && formData.appointment_id !== 'none') {
+        // للمدفوعات المرتبطة بموعد - استخدام المبلغ الإجمالي المدخل يدوياً
+        const previousPayments = autoCalculations.previousPayments
+        const newTotalPaid = previousPayments + amount
+
+        if (newTotalPaid >= totalAmountDue) {
+          return 'completed'
+        } else if (newTotalPaid > 0) {
+          return 'partial'
+        } else {
+          return 'pending'
+        }
+      } else {
+        // للمدفوعات العامة
+        const amountPaid = calculateTotalAmountPaid()
+
+        if (amountPaid >= totalAmountDue) {
+          return 'completed'
+        } else if (amountPaid > 0) {
+          return 'partial'
+        } else {
+          return 'pending'
+        }
+      }
+    }
+
+    return 'completed' // افتراضي
   }
 
   // حساب المبلغ الإجمالي للدفعة
@@ -130,18 +163,8 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     }
   }, [formData.appointment_id])
 
-  // تحديث المبلغ المطلوب عند تغيير الموعد
-  useEffect(() => {
-    if (formData.appointment_id && formData.appointment_id !== 'none') {
-      const appointmentCost = getAppointmentCost(formData.appointment_id)
-      if (appointmentCost > 0 && !formData.total_amount_due) {
-        setFormData(prev => ({
-          ...prev,
-          total_amount_due: appointmentCost.toString()
-        }))
-      }
-    }
-  }, [formData.appointment_id])
+  // ملاحظة: المبلغ الإجمالي المطلوب يتم إدخاله يدوياً بالكامل
+  // لا نحتاج لتحديثه تلقائياً من تكلفة الموعد
 
   // تحديث إجمالي المبلغ المدفوع تلقائياً
   useEffect(() => {
@@ -190,6 +213,17 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     }
   }, [open, preSelectedPatientId])
 
+  // تحديث الحالة تلقائياً عند تغيير المبلغ أو المبلغ الإجمالي
+  useEffect(() => {
+    if (formData.amount && parseFloat(formData.amount) > 0 && formData.total_amount_due && parseFloat(formData.total_amount_due) > 0) {
+      const suggestedStatus = getSuggestedStatus()
+      setFormData(prev => ({
+        ...prev,
+        status: suggestedStatus
+      }))
+    }
+  }, [formData.amount, formData.total_amount_due, formData.appointment_id, autoCalculations.previousPayments])
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
@@ -205,14 +239,30 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
       newErrors.payment_date = 'يرجى اختيار تاريخ الدفع'
     }
 
-    // التحقق من صحة المبلغ للمواعيد المرتبطة
-    if (formData.appointment_id && formData.appointment_id !== 'none') {
-      const appointmentCost = getAppointmentCost(formData.appointment_id)
-      const currentAmount = parseFloat(formData.amount) || 0
-      const remainingBeforeThisPayment = appointmentCost - autoCalculations.previousPayments
+    // التحقق من المبلغ الإجمالي المطلوب (اختياري)
+    // إذا تم إدخاله، يجب أن يكون أكبر من صفر
+    if (formData.total_amount_due && parseFloat(formData.total_amount_due) <= 0) {
+      newErrors.total_amount_due = 'المبلغ الإجمالي المطلوب يجب أن يكون أكبر من صفر'
+    }
 
-      if (appointmentCost > 0 && currentAmount > remainingBeforeThisPayment) {
-        newErrors.amount = `مبلغ هذه الدفعة لا يمكن أن يكون أكبر من المبلغ المتبقي للموعد (${remainingBeforeThisPayment.toFixed(2)} $)`
+    console.log('🔍 Validation check:', {
+      total_amount_due: formData.total_amount_due,
+      amount: formData.amount,
+      patient_id: formData.patient_id,
+      payment_method: formData.payment_method,
+      errors: newErrors
+    })
+
+    // التحقق من صحة المبلغ
+    const totalAmountDue = parseFloat(formData.total_amount_due) || 0
+    const currentAmount = parseFloat(formData.amount) || 0
+
+    if (formData.appointment_id && formData.appointment_id !== 'none') {
+      // للمدفوعات المرتبطة بموعد - استخدام المبلغ الإجمالي المدخل
+      const remainingBeforeThisPayment = totalAmountDue - autoCalculations.previousPayments
+
+      if (totalAmountDue > 0 && currentAmount > remainingBeforeThisPayment) {
+        newErrors.amount = `مبلغ هذه الدفعة لا يمكن أن يكون أكبر من المبلغ المتبقي (${remainingBeforeThisPayment.toFixed(2)} $)`
       }
 
       if (currentAmount <= 0) {
@@ -220,12 +270,14 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
       }
     } else {
       // للمدفوعات العامة غير المرتبطة بموعد
-      const totalAmountDue = parseFloat(formData.total_amount_due) || 0
-      const currentAmount = parseFloat(formData.amount) || 0
       const totalPaid = calculateTotalAmountPaid()
 
       if (totalAmountDue > 0 && totalPaid > totalAmountDue) {
         newErrors.amount = 'إجمالي المدفوعات لا يمكن أن يتجاوز المبلغ الإجمالي المطلوب'
+      }
+
+      if (currentAmount <= 0) {
+        newErrors.amount = 'يجب أن يكون مبلغ الدفعة أكبر من صفر'
       }
     }
 
@@ -236,15 +288,24 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    console.log('🚀 Starting form submission...')
+    console.log('📝 Current form data:', formData)
+
     if (!validateForm()) {
+      console.log('❌ Form validation failed')
       return
     }
+
+    console.log('✅ Form validation passed')
 
     try {
       const amount = parseFloat(formData.amount)
       const discountAmount = formData.discount_amount ? parseFloat(formData.discount_amount) : 0
       const taxAmount = formData.tax_amount ? parseFloat(formData.tax_amount) : 0
       const totalAmount = amount + taxAmount - discountAmount
+
+      // استخدام الحالة المحددة في النموذج (التي تم تحديدها تلقائياً أو يدوياً)
+      const finalStatus = formData.status
 
       const paymentData: Omit<Payment, 'id' | 'created_at' | 'updated_at'> = {
         patient_id: formData.patient_id,
@@ -254,41 +315,72 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
         payment_date: formData.payment_date,
         description: formData.description || undefined,
         receipt_number: formData.receipt_number || autoCalculations.suggestedReceiptNumber,
-        status: formData.status,
+        status: finalStatus, // استخدام الحالة المحددة في النموذج
         notes: formData.notes || undefined,
         discount_amount: discountAmount > 0 ? discountAmount : undefined,
         tax_amount: taxAmount > 0 ? taxAmount : undefined,
         total_amount: totalAmount,
       }
 
+      // إضافة المبلغ الإجمالي المطلوب لجميع المدفوعات
+      const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : totalAmount
+      paymentData.total_amount_due = totalAmountDue
+
       // إضافة البيانات الخاصة بالمواعيد أو المدفوعات العامة
       if (formData.appointment_id && formData.appointment_id !== 'none') {
-        // دفعة مرتبطة بموعد - سيتم حساب البيانات تلقائياً في قاعدة البيانات
-        const appointmentCost = getAppointmentCost(formData.appointment_id)
-        paymentData.appointment_total_cost = appointmentCost
+        // دفعة مرتبطة بموعد - استخدام المبلغ الإجمالي المدخل يدوياً
+        paymentData.appointment_total_cost = totalAmountDue
+
+        // حساب المبلغ المدفوع والمتبقي للموعد
+        const amountPaid = calculateTotalAmountPaid()
+        const remainingBalance = totalAmountDue - amountPaid
+        paymentData.amount_paid = amountPaid
+        paymentData.remaining_balance = remainingBalance
       } else {
         // دفعة عامة غير مرتبطة بموعد
-        const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : totalAmount
         const amountPaid = calculateTotalAmountPaid()
         const remainingBalance = totalAmountDue - amountPaid
 
-        paymentData.total_amount_due = totalAmountDue
         paymentData.amount_paid = amountPaid
         paymentData.remaining_balance = remainingBalance
       }
 
-      await createPayment(paymentData)
+      console.log('💰 Submitting payment data:', paymentData)
+      console.log('📊 Form data before submit:', formData)
+      console.log('🔍 Total amount due being sent:', totalAmountDue)
+      console.log('🔍 Payment data total_amount_due:', paymentData.total_amount_due)
+
+      const result = await createPayment(paymentData)
+      console.log('✅ Payment created successfully:', result)
 
       toast({
         title: 'تم بنجاح',
         description: 'تم تسجيل الدفعة بنجاح',
       })
 
+      // إعادة تعيين النموذج
+      setFormData({
+        patient_id: preSelectedPatientId || '',
+        appointment_id: 'none',
+        amount: '',
+        payment_method: 'cash' as 'cash' | 'bank_transfer',
+        payment_date: new Date().toISOString().split('T')[0],
+        description: '',
+        receipt_number: '',
+        status: 'completed' as 'completed' | 'partial' | 'pending',
+        notes: '',
+        discount_amount: '',
+        tax_amount: '',
+        total_amount_due: '',
+        amount_paid: '',
+      })
+
       onOpenChange(false)
     } catch (error) {
+      console.error('❌ Failed to submit payment:', error)
       toast({
         title: 'خطأ',
-        description: 'فشل في تسجيل الدفعة',
+        description: error instanceof Error ? error.message : 'فشل في تسجيل الدفعة',
         variant: 'destructive',
       })
     }
@@ -476,7 +568,15 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
 
                 {/* Status */}
                 <div className="space-y-2">
-                  <Label className="text-foreground font-medium">الحالة</Label>
+                  <Label className="text-foreground font-medium">
+                    الحالة
+                    {formData.amount && parseFloat(formData.amount) > 0 && (
+                      <span className="text-xs text-muted-foreground mr-2">
+                        (مقترح: {getSuggestedStatus() === 'completed' ? 'مكتمل' :
+                                getSuggestedStatus() === 'partial' ? 'جزئي' : 'معلق'})
+                      </span>
+                    )}
+                  </Label>
                   <Select
                     value={formData.status}
                     onValueChange={(value: 'completed' | 'partial' | 'pending') =>
@@ -487,9 +587,30 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                       <SelectValue placeholder="اختر الحالة" className="text-muted-foreground" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="completed">مكتمل</SelectItem>
-                      <SelectItem value="partial">جزئي</SelectItem>
-                      <SelectItem value="pending">معلق</SelectItem>
+                      <SelectItem value="completed">
+                        <div className="flex items-center gap-2">
+                          <span>مكتمل</span>
+                          {getSuggestedStatus() === 'completed' && (
+                            <span className="text-xs text-green-600">✓ مقترح</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="partial">
+                        <div className="flex items-center gap-2">
+                          <span>جزئي</span>
+                          {getSuggestedStatus() === 'partial' && (
+                            <span className="text-xs text-orange-600">✓ مقترح</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="pending">
+                        <div className="flex items-center gap-2">
+                          <span>معلق</span>
+                          {getSuggestedStatus() === 'pending' && (
+                            <span className="text-xs text-blue-600">✓ مقترح</span>
+                          )}
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -519,8 +640,8 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">تكلفة الموعد:</span>
-                        <span className="font-medium text-foreground">{getAppointmentCost(formData.appointment_id).toFixed(2)} $</span>
+                        <span className="text-muted-foreground">المبلغ الإجمالي المطلوب:</span>
+                        <span className="font-medium text-foreground">{getTotalAmountDue().toFixed(2)} $</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">المدفوع سابقاً:</span>
@@ -529,7 +650,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">المتبقي قبل هذه الدفعة:</span>
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                          {(getAppointmentCost(formData.appointment_id) - autoCalculations.previousPayments).toFixed(2)} $
+                          {(getTotalAmountDue() - autoCalculations.previousPayments).toFixed(2)} $
                         </span>
                       </div>
                     </div>
@@ -566,27 +687,26 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-foreground font-medium">
                     المبلغ الإجمالي المطلوب
-                    {formData.appointment_id !== 'none' && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Sparkles className="w-3 h-3 ml-1" />
-                        تلقائي
-                      </Badge>
-                    )}
+                    <Badge variant="secondary" className="text-xs">
+                      اختياري
+                    </Badge>
                   </Label>
                   <Input
                     type="number"
                     step="0.01"
-                    placeholder="0.00"
+                    placeholder="أدخل المبلغ الإجمالي المطلوب (اختياري)"
                     value={formData.total_amount_due}
                     onChange={(e) => setFormData(prev => ({ ...prev, total_amount_due: e.target.value }))}
-                    className="bg-background border-input text-foreground"
+                    className={`bg-background border-input text-foreground ${errors.total_amount_due ? 'border-destructive' : ''}`}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {formData.appointment_id !== 'none'
-                      ? 'تم جلب المبلغ من الموعد المحدد تلقائياً'
-                      : 'المبلغ الكامل المطلوب للعلاج أو الخدمة'
-                    }
-                  </p>
+                  {errors.total_amount_due && (
+                    <p className="text-sm text-destructive">{errors.total_amount_due}</p>
+                  )}
+                  {!errors.total_amount_due && (
+                    <p className="text-xs text-muted-foreground">
+                      💡 إدخال المبلغ الإجمالي يساعد في تتبع المدفوعات الجزئية
+                    </p>
+                  )}
                 </div>
 
                 {/* Amount Paid */}

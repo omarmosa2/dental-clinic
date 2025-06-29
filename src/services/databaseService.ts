@@ -1165,6 +1165,16 @@ export class DatabaseService {
 
     const payments = stmt.all() as any[]
 
+    console.log('🔍 Raw payments from DB:', payments.length > 0 ? {
+      first_payment: {
+        id: payments[0]?.id,
+        appointment_id: payments[0]?.appointment_id,
+        total_amount_due: payments[0]?.total_amount_due,
+        amount_paid: payments[0]?.amount_paid,
+        remaining_balance: payments[0]?.remaining_balance
+      }
+    } : 'No payments found')
+
     // Transform the data to include patient and appointment objects
     return payments.map(payment => ({
       ...payment,
@@ -1189,7 +1199,8 @@ export class DatabaseService {
     const id = uuidv4()
     const now = new Date().toISOString()
 
-    try {
+    // استخدام transaction لضمان الاتساق
+    const transaction = this.db.transaction(() => {
       console.log('💰 Creating payment:', {
         patient_id: payment.patient_id,
         appointment_id: payment.appointment_id,
@@ -1224,8 +1235,15 @@ export class DatabaseService {
             WHERE appointment_id = ?
           `).get(payment.appointment_id) as { total: number }
 
+          // حفظ المبلغ الإجمالي المطلوب للدفعات المرتبطة بالمواعيد
+          // استخدام المبلغ المرسل من النموذج أولاً، ثم تكلفة الموعد كبديل
+          totalAmountDue = payment.total_amount_due || (appointmentTotalCost > 0 ? appointmentTotalCost : totalAmount)
+
           appointmentTotalPaid = previousPayments.total + payment.amount
-          appointmentRemainingBalance = Math.max(0, appointmentTotalCost - appointmentTotalPaid)
+          appointmentRemainingBalance = Math.max(0, totalAmountDue - appointmentTotalPaid)
+
+          amountPaid = appointmentTotalPaid
+          remainingBalance = appointmentRemainingBalance
 
           // تحديد الحالة بناءً على الرصيد المتبقي للموعد
           if (appointmentRemainingBalance <= 0) {
@@ -1251,6 +1269,7 @@ export class DatabaseService {
         }
       }
 
+      // إدراج الدفعة الجديدة
       const stmt = this.db.prepare(`
         INSERT INTO payments (
           id, patient_id, appointment_id, amount, payment_method, payment_date,
@@ -1270,9 +1289,18 @@ export class DatabaseService {
       )
 
       console.log('✅ Payment created successfully:', { id, changes: result.changes })
+      console.log('🔍 Payment data saved to DB:', {
+        id,
+        appointment_id: payment.appointment_id,
+        total_amount_due: totalAmountDue,
+        amount_paid: amountPaid,
+        remaining_balance: remainingBalance
+      })
 
-      // Force WAL checkpoint to ensure data is written
-      this.db.pragma('wal_checkpoint(TRUNCATE)')
+      // إذا كانت الدفعة مرتبطة بموعد، حدث جميع المدفوعات الأخرى لنفس الموعد
+      if (payment.appointment_id && totalAmountDue) {
+        this.updateAppointmentPaymentCalculationsSync(payment.appointment_id, totalAmountDue)
+      }
 
       return {
         ...payment,
@@ -1288,6 +1316,15 @@ export class DatabaseService {
         created_at: now,
         updated_at: now
       }
+    })
+
+    try {
+      const result = transaction()
+
+      // Force WAL checkpoint to ensure data is written immediately
+      this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+      return result
     } catch (error) {
       console.error('❌ Failed to create payment:', error)
       throw error
@@ -1297,61 +1334,86 @@ export class DatabaseService {
   async updatePayment(id: string, payment: Partial<Payment>): Promise<Payment> {
     const now = new Date().toISOString()
 
-    // Get current payment data to calculate new values
-    const currentPayment = this.db.prepare('SELECT * FROM payments WHERE id = ?').get(id) as Payment
-    if (!currentPayment) {
-      throw new Error('Payment not found')
-    }
-
-    // Calculate updated amounts
-    const amount = payment.amount !== undefined ? payment.amount : currentPayment.amount
-    const discountAmount = payment.discount_amount !== undefined ? payment.discount_amount : (currentPayment.discount_amount || 0)
-    const taxAmount = payment.tax_amount !== undefined ? payment.tax_amount : (currentPayment.tax_amount || 0)
-    const totalAmount = amount + taxAmount - discountAmount
-    const totalAmountDue = payment.total_amount_due !== undefined ? payment.total_amount_due : (currentPayment.total_amount_due || totalAmount)
-    const amountPaid = payment.amount_paid !== undefined ? payment.amount_paid : (currentPayment.amount_paid || amount)
-    const remainingBalance = totalAmountDue - amountPaid
-
-    // Determine status based on remaining balance if not explicitly provided
-    let status = payment.status !== undefined ? payment.status : currentPayment.status
-    if (payment.amount !== undefined || payment.total_amount_due !== undefined || payment.amount_paid !== undefined) {
-      if (remainingBalance <= 0) {
-        status = 'completed'
-      } else if (amountPaid > 0 && remainingBalance > 0) {
-        status = 'partial'
-      } else if (amountPaid === 0) {
-        status = 'pending'
+    // استخدام transaction لضمان الاتساق
+    const transaction = this.db.transaction(() => {
+      // Get current payment data to calculate new values
+      const currentPayment = this.db.prepare('SELECT * FROM payments WHERE id = ?').get(id) as Payment
+      if (!currentPayment) {
+        throw new Error('Payment not found')
       }
+
+      // Calculate updated amounts
+      const amount = payment.amount !== undefined ? payment.amount : currentPayment.amount
+      const discountAmount = payment.discount_amount !== undefined ? payment.discount_amount : (currentPayment.discount_amount || 0)
+      const taxAmount = payment.tax_amount !== undefined ? payment.tax_amount : (currentPayment.tax_amount || 0)
+      const totalAmount = amount + taxAmount - discountAmount
+      const totalAmountDue = payment.total_amount_due !== undefined ? payment.total_amount_due : (currentPayment.total_amount_due || totalAmount)
+      const amountPaid = payment.amount_paid !== undefined ? payment.amount_paid : (currentPayment.amount_paid || amount)
+      const remainingBalance = totalAmountDue - amountPaid
+
+      // Determine status based on remaining balance if not explicitly provided
+      let status = payment.status !== undefined ? payment.status : currentPayment.status
+      if (payment.amount !== undefined || payment.total_amount_due !== undefined || payment.amount_paid !== undefined) {
+        if (remainingBalance <= 0) {
+          status = 'completed'
+        } else if (amountPaid > 0 && remainingBalance > 0) {
+          status = 'partial'
+        } else if (amountPaid === 0) {
+          status = 'pending'
+        }
+      }
+
+      const stmt = this.db.prepare(`
+        UPDATE payments SET
+          amount = ?,
+          payment_method = COALESCE(?, payment_method),
+          payment_date = COALESCE(?, payment_date),
+          description = COALESCE(?, description),
+          receipt_number = COALESCE(?, receipt_number),
+          status = ?,
+          notes = COALESCE(?, notes),
+          discount_amount = ?,
+          tax_amount = ?,
+          total_amount = ?,
+          total_amount_due = ?,
+          amount_paid = ?,
+          remaining_balance = ?,
+          updated_at = ?
+        WHERE id = ?
+      `)
+
+      stmt.run(
+        amount, payment.payment_method, payment.payment_date,
+        payment.description, payment.receipt_number, status,
+        payment.notes, discountAmount, taxAmount, totalAmount,
+        totalAmountDue, amountPaid, remainingBalance, now, id
+      )
+
+      // إذا كانت الدفعة مرتبطة بموعد وتم تغيير المبلغ، حدث جميع المدفوعات الأخرى
+      if (currentPayment.appointment_id && payment.amount !== undefined) {
+        // استخدام المبلغ الإجمالي المطلوب من الدفعة المحدثة أو من تكلفة الموعد
+        const appointment = this.db.prepare('SELECT cost FROM appointments WHERE id = ?').get(currentPayment.appointment_id) as { cost?: number }
+        const appointmentCost = totalAmountDue || appointment?.cost || 0
+        if (appointmentCost > 0) {
+          this.updateAppointmentPaymentCalculationsSync(currentPayment.appointment_id, appointmentCost)
+        }
+      }
+
+      const getStmt = this.db.prepare('SELECT * FROM payments WHERE id = ?')
+      return getStmt.get(id) as Payment
+    })
+
+    try {
+      const result = transaction()
+
+      // Force WAL checkpoint to ensure data is written immediately
+      this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+      return result
+    } catch (error) {
+      console.error('❌ Failed to update payment:', error)
+      throw error
     }
-
-    const stmt = this.db.prepare(`
-      UPDATE payments SET
-        amount = ?,
-        payment_method = COALESCE(?, payment_method),
-        payment_date = COALESCE(?, payment_date),
-        description = COALESCE(?, description),
-        receipt_number = COALESCE(?, receipt_number),
-        status = ?,
-        notes = COALESCE(?, notes),
-        discount_amount = ?,
-        tax_amount = ?,
-        total_amount = ?,
-        total_amount_due = ?,
-        amount_paid = ?,
-        remaining_balance = ?,
-        updated_at = ?
-      WHERE id = ?
-    `)
-
-    stmt.run(
-      amount, payment.payment_method, payment.payment_date,
-      payment.description, payment.receipt_number, status,
-      payment.notes, discountAmount, taxAmount, totalAmount,
-      totalAmountDue, amountPaid, remainingBalance, now, id
-    )
-
-    const getStmt = this.db.prepare('SELECT * FROM payments WHERE id = ?')
-    return getStmt.get(id) as Payment
   }
 
   async deletePayment(id: string): Promise<boolean> {
@@ -1424,6 +1486,65 @@ export class DatabaseService {
       console.error('❌ Failed to recalculate appointment payments:', error)
       throw error
     }
+  }
+
+  // نسخة متزامنة للاستخدام داخل transactions
+  private updateAppointmentPaymentCalculationsSync(appointmentId: string, appointmentCost: number): void {
+    console.log('🔄 Updating payment calculations (sync) for appointment:', appointmentId)
+
+    // احصل على جميع المدفوعات لهذا الموعد مرتبة حسب تاريخ الإنشاء
+    const payments = this.db.prepare(`
+      SELECT * FROM payments
+      WHERE appointment_id = ?
+      ORDER BY created_at ASC
+    `).all(appointmentId) as Payment[]
+
+    if (payments.length === 0) {
+      console.log('No payments found for appointment:', appointmentId)
+      return
+    }
+
+    let runningTotal = 0
+    const updateStmt = this.db.prepare(`
+      UPDATE payments SET
+        appointment_total_cost = ?,
+        appointment_total_paid = ?,
+        appointment_remaining_balance = ?,
+        total_amount_due = ?,
+        amount_paid = ?,
+        remaining_balance = ?,
+        status = ?,
+        updated_at = ?
+      WHERE id = ?
+    `)
+
+    payments.forEach(payment => {
+      runningTotal += payment.amount
+      const remainingBalance = Math.max(0, appointmentCost - runningTotal)
+
+      let status: 'completed' | 'partial' | 'pending'
+      if (remainingBalance <= 0) {
+        status = 'completed'
+      } else if (runningTotal > 0) {
+        status = 'partial'
+      } else {
+        status = 'pending'
+      }
+
+      updateStmt.run(
+        appointmentCost,
+        runningTotal,
+        remainingBalance,
+        appointmentCost, // total_amount_due
+        runningTotal,    // amount_paid
+        remainingBalance, // remaining_balance
+        status,
+        new Date().toISOString(),
+        payment.id
+      )
+    })
+
+    console.log('✅ Payment calculations updated successfully (sync) for appointment:', appointmentId)
   }
 
   // دالة للحصول على ملخص المدفوعات لموعد محدد

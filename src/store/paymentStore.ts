@@ -133,23 +133,12 @@ export const usePaymentStore = create<PaymentStore>()(
       createPayment: async (paymentData) => {
         set({ isLoading: true, error: null })
         try {
+          console.log('💰 Creating payment in store:', paymentData)
           const newPayment = await window.electronAPI.payments.create(paymentData)
-          const { payments } = get()
-          const updatedPayments = [...payments, newPayment]
+          console.log('✅ Payment created successfully in store:', newPayment)
 
-          set({
-            payments: updatedPayments,
-            isLoading: false
-          })
-
-          // Recalculate analytics and filter
-          get().calculateTotalRevenue()
-          get().calculatePendingAmount()
-          get().calculateTotalRemainingBalance()
-          get().calculatePartialPaymentsCount()
-          get().calculateMonthlyRevenue()
-          get().calculatePaymentMethodStats()
-          get().filterPayments()
+          // إعادة تحميل جميع المدفوعات لضمان الاتساق
+          await get().loadPayments()
 
           // Emit events for real-time sync
           if (typeof window !== 'undefined' && window.dispatchEvent) {
@@ -168,17 +157,23 @@ export const usePaymentStore = create<PaymentStore>()(
               }
             }))
           }
+
+          return newPayment
         } catch (error) {
+          console.error('❌ Failed to create payment in store:', error)
           set({
             error: error instanceof Error ? error.message : 'Failed to create payment',
             isLoading: false
           })
+          throw error
         }
       },
 
       updatePayment: async (id, paymentData) => {
         set({ isLoading: true, error: null })
         try {
+          console.log('🔄 Updating payment in store:', { id, paymentData })
+
           // حذف التنبيهات القديمة المرتبطة بهذه الدفعة قبل التحديث
           try {
             const { SmartAlertsService } = await import('@/services/smartAlertsService')
@@ -188,26 +183,10 @@ export const usePaymentStore = create<PaymentStore>()(
           }
 
           const updatedPayment = await window.electronAPI.payments.update(id, paymentData)
-          const { payments, selectedPayment } = get()
+          console.log('✅ Payment updated successfully in store:', updatedPayment)
 
-          const updatedPayments = payments.map(p =>
-            p.id === id ? updatedPayment : p
-          )
-
-          set({
-            payments: updatedPayments,
-            selectedPayment: selectedPayment?.id === id ? updatedPayment : selectedPayment,
-            isLoading: false
-          })
-
-          // Recalculate analytics and filter
-          get().calculateTotalRevenue()
-          get().calculatePendingAmount()
-          get().calculateTotalRemainingBalance()
-          get().calculatePartialPaymentsCount()
-          get().calculateMonthlyRevenue()
-          get().calculatePaymentMethodStats()
-          get().filterPayments()
+          // إعادة تحميل جميع المدفوعات لضمان الاتساق
+          await get().loadPayments()
 
           // Emit events for real-time sync
           if (typeof window !== 'undefined' && window.dispatchEvent) {
@@ -226,11 +205,15 @@ export const usePaymentStore = create<PaymentStore>()(
               }
             }))
           }
+
+          return updatedPayment
         } catch (error) {
+          console.error('❌ Failed to update payment in store:', error)
           set({
             error: error instanceof Error ? error.message : 'Failed to update payment',
             isLoading: false
           })
+          throw error
         }
       },
 
@@ -347,14 +330,12 @@ export const usePaymentStore = create<PaymentStore>()(
       // Analytics
       calculateTotalRevenue: () => {
         const { payments } = get()
-        // Count completed and partial payments for total revenue
+        // حساب إجمالي الإيرادات من جميع المدفوعات المكتملة والجزئية
         const total = payments
           .filter(p => p.status === 'completed' || p.status === 'partial')
           .reduce((sum, payment) => {
-            // For partial payments, use amount_paid instead of amount
-            const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-              ? Number(payment.amount_paid)
-              : Number(payment.amount)
+            // استخدام المبلغ الفعلي المدفوع في كل دفعة
+            const amount = Number(payment.amount)
 
             if (isNaN(amount) || !isFinite(amount)) {
               console.warn('Invalid payment amount:', payment.amount, 'for payment:', payment.id)
@@ -364,7 +345,7 @@ export const usePaymentStore = create<PaymentStore>()(
           }, 0)
 
         const validTotal = isNaN(total) || !isFinite(total) ? 0 : Math.round(total * 100) / 100
-        set({ totalRevenue: validTotal }) // Round to 2 decimal places
+        set({ totalRevenue: validTotal })
       },
 
       calculatePendingAmount: () => {
@@ -388,39 +369,36 @@ export const usePaymentStore = create<PaymentStore>()(
 
 
       calculateTotalRemainingBalance: () => {
-        // استخدام الطريقة المحسنة لحساب المبلغ المتبقي
-        // سنحسب المبلغ المتبقي بناءً على الفرق بين المطلوب والمدفوع لكل مريض
         const { payments } = get()
-
-        // تجميع المدفوعات حسب المريض
-        const patientPayments: { [patientId: string]: Payment[] } = {}
-        payments.forEach(payment => {
-          if (!patientPayments[payment.patient_id]) {
-            patientPayments[payment.patient_id] = []
-          }
-          patientPayments[payment.patient_id].push(payment)
-        })
-
         let totalRemaining = 0
 
-        // حساب المبلغ المتبقي لكل مريض
-        Object.keys(patientPayments).forEach(patientId => {
-          const patientPaymentsList = patientPayments[patientId]
+        // حساب المبلغ المتبقي من المدفوعات المرتبطة بالمواعيد
+        const appointmentPayments = payments.filter(p => p.appointment_id)
+        const appointmentGroups: { [appointmentId: string]: Payment[] } = {}
 
-          // حساب إجمالي المطلوب والمدفوع لهذا المريض
-          let totalDue = 0
-          let totalPaid = 0
+        appointmentPayments.forEach(payment => {
+          if (!appointmentGroups[payment.appointment_id!]) {
+            appointmentGroups[payment.appointment_id!] = []
+          }
+          appointmentGroups[payment.appointment_id!].push(payment)
+        })
 
-          patientPaymentsList.forEach(payment => {
-            totalPaid += payment.amount || 0
-            if (payment.total_amount_due) {
-              totalDue += payment.total_amount_due
-            }
-          })
+        // حساب المتبقي لكل موعد
+        Object.keys(appointmentGroups).forEach(appointmentId => {
+          const appointmentPaymentsList = appointmentGroups[appointmentId]
+          // استخدام آخر دفعة للحصول على المعلومات المحدثة
+          const latestPayment = appointmentPaymentsList[appointmentPaymentsList.length - 1]
+          if (latestPayment.appointment_remaining_balance !== undefined) {
+            totalRemaining += latestPayment.appointment_remaining_balance
+          }
+        })
 
-          // المبلغ المتبقي = المطلوب - المدفوع (لا يقل عن صفر)
-          const patientRemaining = Math.max(0, totalDue - totalPaid)
-          totalRemaining += patientRemaining
+        // حساب المبلغ المتبقي من المدفوعات العامة (غير المرتبطة بمواعيد)
+        const generalPayments = payments.filter(p => !p.appointment_id)
+        generalPayments.forEach(payment => {
+          if (payment.remaining_balance !== undefined && payment.remaining_balance > 0) {
+            totalRemaining += payment.remaining_balance
+          }
         })
 
         set({ totalRemainingBalance: Math.round(totalRemaining * 100) / 100 })
@@ -449,10 +427,8 @@ export const usePaymentStore = create<PaymentStore>()(
               }
 
               const month = paymentDate.toISOString().slice(0, 7) // YYYY-MM
-              // For partial payments, use amount_paid instead of amount
-              const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-                ? Number(payment.amount_paid)
-                : Number(payment.amount)
+              // استخدام المبلغ الفعلي المدفوع في كل دفعة
+              const amount = Number(payment.amount)
 
               if (isNaN(amount) || !isFinite(amount)) {
                 console.warn('Invalid payment amount for monthly revenue:', payment.amount, 'for payment:', payment.id)

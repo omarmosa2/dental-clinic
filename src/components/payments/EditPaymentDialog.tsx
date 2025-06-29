@@ -176,6 +176,56 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
     }))
   }
 
+  // اقتراح الحالة تلقائياً بناءً على المبلغ
+  const getSuggestedStatus = (): 'completed' | 'partial' | 'pending' => {
+    const amount = parseFloat(formData.amount) || 0
+    const totalAmountDue = parseFloat(formData.total_amount_due) || 0
+
+    if (totalAmountDue > 0) {
+      if (formData.appointment_id && formData.appointment_id !== 'none') {
+        // للمدفوعات المرتبطة بموعد - استخدام المبلغ الإجمالي المدخل يدوياً
+
+        // حساب المدفوعات السابقة (باستثناء الدفعة الحالية)
+        const otherPayments = getPaymentsByAppointment(formData.appointment_id)
+          .filter(p => p.id !== payment.id)
+        const previousPayments = otherPayments.reduce((sum, p) => sum + p.amount, 0)
+        const newTotalPaid = previousPayments + amount
+
+        if (newTotalPaid >= totalAmountDue) {
+          return 'completed'
+        } else if (newTotalPaid > 0) {
+          return 'partial'
+        } else {
+          return 'pending'
+        }
+      } else {
+        // للمدفوعات العامة
+        const amountPaid = parseFloat(formData.amount_paid) || amount
+
+        if (amountPaid >= totalAmountDue) {
+          return 'completed'
+        } else if (amountPaid > 0) {
+          return 'partial'
+        } else {
+          return 'pending'
+        }
+      }
+    }
+
+    return 'completed' // افتراضي
+  }
+
+  // تحديث الحالة تلقائياً عند تغيير المبلغ أو المبلغ الإجمالي
+  useEffect(() => {
+    if (formData.amount && parseFloat(formData.amount) > 0 && formData.total_amount_due && parseFloat(formData.total_amount_due) > 0) {
+      const suggestedStatus = getSuggestedStatus()
+      setFormData(prev => ({
+        ...prev,
+        status: suggestedStatus
+      }))
+    }
+  }, [formData.amount, formData.total_amount_due, formData.appointment_id])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -215,6 +265,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
         remaining_balance: remainingBalance,
       }
 
+      console.log('🔄 Submitting payment update:', paymentData)
       await updatePayment(payment.id, paymentData)
 
       toast({
@@ -224,9 +275,10 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
 
       onOpenChange(false)
     } catch (error) {
+      console.error('❌ Failed to update payment:', error)
       toast({
         title: 'خطأ',
-        description: 'فشل في تحديث الدفعة',
+        description: error instanceof Error ? error.message : 'فشل في تحديث الدفعة',
         variant: 'destructive',
       })
     }
@@ -359,7 +411,15 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="status" className="text-foreground font-medium">الحالة</Label>
+                  <Label htmlFor="status" className="text-foreground font-medium">
+                    الحالة
+                    {formData.amount && parseFloat(formData.amount) > 0 && (
+                      <span className="text-xs text-muted-foreground mr-2">
+                        (مقترح: {getSuggestedStatus() === 'completed' ? 'مكتمل' :
+                                getSuggestedStatus() === 'partial' ? 'جزئي' : 'معلق'})
+                      </span>
+                    )}
+                  </Label>
                   <Select
                     value={formData.status}
                     onValueChange={(value) => handleInputChange('status', value)}
@@ -368,9 +428,30 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                       <SelectValue placeholder="اختر الحالة" className="text-muted-foreground" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="completed">مكتمل</SelectItem>
-                      <SelectItem value="partial">جزئي</SelectItem>
-                      <SelectItem value="pending">معلق</SelectItem>
+                      <SelectItem value="completed">
+                        <div className="flex items-center gap-2">
+                          <span>مكتمل</span>
+                          {getSuggestedStatus() === 'completed' && (
+                            <span className="text-xs text-green-600">✓ مقترح</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="partial">
+                        <div className="flex items-center gap-2">
+                          <span>جزئي</span>
+                          {getSuggestedStatus() === 'partial' && (
+                            <span className="text-xs text-orange-600">✓ مقترح</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="pending">
+                        <div className="flex items-center gap-2">
+                          <span>معلق</span>
+                          {getSuggestedStatus() === 'pending' && (
+                            <span className="text-xs text-blue-600">✓ مقترح</span>
+                          )}
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

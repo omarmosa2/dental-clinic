@@ -1193,6 +1193,16 @@ class DatabaseService {
 
     const payments = stmt.all()
 
+    console.log('🔍 Raw payments from DB (JS):', payments.length > 0 ? {
+      first_payment: {
+        id: payments[0]?.id,
+        appointment_id: payments[0]?.appointment_id,
+        total_amount_due: payments[0]?.total_amount_due,
+        amount_paid: payments[0]?.amount_paid,
+        remaining_balance: payments[0]?.remaining_balance
+      }
+    } : 'No payments found')
+
     // Transform the data to include patient and appointment objects
     return payments.map(payment => ({
       ...payment,
@@ -1214,6 +1224,7 @@ class DatabaseService {
   }
 
   async createPayment(payment) {
+    console.log('🚀 DatabaseService.js createPayment called with:', payment)
     const id = uuidv4()
     const now = new Date().toISOString()
 
@@ -1221,17 +1232,31 @@ class DatabaseService {
       INSERT INTO payments (
         id, patient_id, appointment_id, amount, payment_method, payment_date,
         status, description, receipt_number, notes, discount_amount, tax_amount,
-        total_amount, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        total_amount, total_amount_due, amount_paid, remaining_balance, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
+
+    // حساب القيم المطلوبة
+    const totalAmount = payment.total_amount || payment.amount
+    const totalAmountDue = payment.total_amount_due || totalAmount
+    const amountPaid = payment.amount_paid || payment.amount
+    const remainingBalance = payment.remaining_balance || Math.max(0, totalAmountDue - amountPaid)
 
     const result = stmt.run(
       id, payment.patient_id, payment.appointment_id, payment.amount,
       payment.payment_method, payment.payment_date, payment.status || 'completed',
       payment.description, payment.receipt_number, payment.notes,
       payment.discount_amount || 0, payment.tax_amount || 0,
-      payment.total_amount || payment.amount, now, now
+      totalAmount, totalAmountDue, amountPaid, remainingBalance, now, now
     )
+
+    console.log('🔍 Payment data saved to DB (JS):', {
+      id,
+      appointment_id: payment.appointment_id,
+      total_amount_due: totalAmountDue,
+      amount_paid: amountPaid,
+      remaining_balance: remainingBalance
+    })
 
     console.log('✅ Payment inserted, changes:', result.changes)
 

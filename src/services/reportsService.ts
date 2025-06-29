@@ -490,40 +490,41 @@ export class ReportsService {
     const totalRevenue = filteredPayments
       .filter(p => p.status === 'completed' || p.status === 'partial')
       .reduce((sum, p) => {
-        // For partial payments, use amount_paid if available, otherwise use amount
-        const amount = p.status === 'partial' && p.amount_paid !== undefined
-          ? validateAmount(p.amount_paid)
-          : validateAmount(p.amount)
+        // استخدام المبلغ الفعلي المدفوع في كل دفعة
+        const amount = validateAmount(p.amount)
         return sum + amount
       }, 0)
 
     const totalPaid = filteredPayments
       .filter(p => p.status === 'completed' || p.status === 'partial')
       .reduce((sum, p) => {
-        // For partial payments, use amount_paid if available, otherwise use amount
-        const amount = p.status === 'partial' && p.amount_paid !== undefined
-          ? validateAmount(p.amount_paid)
-          : validateAmount(p.amount)
+        // استخدام المبلغ الفعلي المدفوع في كل دفعة
+        const amount = validateAmount(p.amount)
         return sum + amount
       }, 0)
 
     const totalPending = filteredPayments
       .filter(p => p.status === 'pending')
       .reduce((sum, p) => {
-        const remainingBalance = validateAmount(p.remaining_balance)
+        // للمدفوعات المعلقة، استخدام المبلغ الكامل
         const amount = validateAmount(p.amount)
-        const finalAmount = remainingBalance > 0 ? remainingBalance : amount
-        return sum + finalAmount
+        return sum + amount
       }, 0)
 
-    const totalOverdue = filteredPayments
-      .filter(p => p.status === 'overdue')
+    // حساب إجمالي المبلغ المتبقي من جميع المدفوعات الجزئية
+    const totalRemaining = filteredPayments
       .reduce((sum, p) => {
-        const remainingBalance = validateAmount(p.remaining_balance)
-        const amount = validateAmount(p.amount)
-        const finalAmount = remainingBalance > 0 ? remainingBalance : amount
-        return sum + finalAmount
+        if (p.appointment_id && p.appointment_remaining_balance !== undefined) {
+          // للمدفوعات المرتبطة بمواعيد، استخدام الرصيد المتبقي للموعد
+          return sum + validateAmount(p.appointment_remaining_balance)
+        } else if (!p.appointment_id && p.remaining_balance !== undefined) {
+          // للمدفوعات العامة، استخدام الرصيد المتبقي العام
+          return sum + validateAmount(p.remaining_balance)
+        }
+        return sum
       }, 0)
+
+    const totalOverdue = 0 // لا يوجد مدفوعات متأخرة في النظام الحالي
 
     // Revenue by payment method
     const paymentMethodCounts: { [key: string]: number } = {}
