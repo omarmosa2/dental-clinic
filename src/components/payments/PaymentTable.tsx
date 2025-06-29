@@ -358,11 +358,23 @@ export default function PaymentTable({
                       </div>
                       {payment.appointment_id ? (
                         // للمدفوعات المرتبطة بموعد
-                        payment.appointment_total_paid && (
-                          <div className="text-xs text-muted-foreground">
-                            إجمالي مدفوع: {formatCurrency(payment.appointment_total_paid)}
-                          </div>
-                        )
+                        <>
+                          {payment.total_amount_due && (
+                            <div className="text-xs text-muted-foreground">
+                              من أصل {formatCurrency(payment.total_amount_due)}
+                            </div>
+                          )}
+                          {payment.total_amount_due && payment.amount_paid && (
+                            <div className="text-xs text-blue-600 dark:text-blue-400">
+                              إجمالي مدفوع: {formatCurrency(payment.amount_paid)}
+                            </div>
+                          )}
+                          {payment.remaining_balance && payment.remaining_balance > 0 && (
+                            <div className="text-xs text-orange-600 dark:text-orange-400">
+                              متبقي: {formatCurrency(payment.remaining_balance)}
+                            </div>
+                          )}
+                        </>
                       ) : (
                         // للمدفوعات العامة
                         <>

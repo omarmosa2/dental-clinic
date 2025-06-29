@@ -143,6 +143,10 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
       const previousPayments = calculatePreviousPayments(formData.appointment_id)
       const suggestedReceiptNumber = generateReceiptNumber()
 
+      // جلب المبلغ الإجمالي من الدفعات السابقة للموعد
+      const appointmentPayments = getPaymentsByAppointment(formData.appointment_id)
+      const existingTotalAmountDue = appointmentPayments.find(p => p.total_amount_due)?.total_amount_due
+
       setAutoCalculations({
         previousPayments,
         suggestedReceiptNumber,
@@ -152,6 +156,14 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
       // تحديث رقم الإيصال إذا كان فارغاً
       if (!formData.receipt_number) {
         setFormData(prev => ({ ...prev, receipt_number: suggestedReceiptNumber }))
+      }
+
+      // تحديث المبلغ الإجمالي المطلوب إذا كان فارغاً ووُجد في الدفعات السابقة
+      if (!formData.total_amount_due && existingTotalAmountDue) {
+        setFormData(prev => ({
+          ...prev,
+          total_amount_due: existingTotalAmountDue.toString()
+        }))
       }
     } else {
       // إذا لم يتم اختيار موعد، اجعل المدفوعات السابقة = 0
