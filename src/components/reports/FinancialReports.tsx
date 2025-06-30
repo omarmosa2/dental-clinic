@@ -706,11 +706,13 @@ export default function FinancialReports() {
 
                 fileName += '.csv'
 
-                link.download = fileName
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-                URL.revokeObjectURL(link.href)
+                // تحويل إلى Excel مباشرة
+                await ExportService.convertCSVToExcel(csvContent, 'comprehensive-financial', {
+                  format: 'csv',
+                  includeCharts: false,
+                  includeDetails: true,
+                  language: 'ar'
+                })
 
                 notify.exportSuccess(`تم تصدير التقرير المالي الشامل بنجاح! (${dataToExport.length} معاملة)`)
               } catch (error) {
@@ -721,7 +723,7 @@ export default function FinancialReports() {
             disabled={isExporting}
           >
             <Download className="w-4 h-4 ml-2" />
-            تصدير CSV شامل
+            تصدير Excel شامل
           </Button>
           <Button
             variant="default"

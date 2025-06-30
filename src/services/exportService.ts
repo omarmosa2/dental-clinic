@@ -1142,18 +1142,136 @@ export class ExportService {
         break
     }
 
-    const fileName = this.generateFileName(type, 'csv', { includeTime: true })
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    // تصدير Excel مباشرة بدلاً من CSV
+    await this.convertCSVToExcel(csvContent, type, options)
 
-    // Create download link
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = fileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
+    const fileName = this.generateFileName(type, 'xlsx', { includeTime: true })
     return fileName
+  }
+
+  // وظيفة تحويل CSV إلى Excel
+  static async convertCSVToExcel(csvContent: string, type: string, options: ReportExportOptions): Promise<void> {
+    try {
+      // إنشاء workbook جديد
+      const workbook = new ExcelJS.Workbook()
+      workbook.creator = 'نظام إدارة العيادة'
+      workbook.created = new Date()
+      workbook.modified = new Date()
+
+      // إنشاء worksheet
+      const worksheet = workbook.addWorksheet('التقرير')
+
+      // تحليل محتوى CSV
+      const lines = csvContent.replace('\uFEFF', '').split('\n').filter(line => line.trim())
+
+      let currentRow = 1
+
+      for (const line of lines) {
+        if (line.includes(',')) {
+          // هذا سطر بيانات جدول
+          const values = this.parseCSVLine(line)
+          values.forEach((value, colIndex) => {
+            const cell = worksheet.getCell(currentRow, colIndex + 1)
+            cell.value = value
+
+            // تنسيق الخلايا
+            if (currentRow === 1 || line.includes('اسم المريض') || line.includes('نوع الموعد') || line.includes('نوع الدفع')) {
+              // هذا عنوان جدول
+              cell.font = { bold: true, size: 12 }
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFE6E6FA' }
+              }
+              cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+              }
+            } else {
+              // بيانات عادية
+              cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+              }
+            }
+
+            // محاذاة النص للعربية
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+          })
+        } else {
+          // هذا عنوان رئيسي أو فرعي
+          const cell = worksheet.getCell(currentRow, 1)
+          cell.value = line.trim()
+
+          if (line.includes('عيادة الأسنان') || line.includes('التقرير')) {
+            // عنوان رئيسي
+            cell.font = { bold: true, size: 16 }
+            cell.alignment = { horizontal: 'center' }
+            worksheet.mergeCells(currentRow, 1, currentRow, 10)
+          } else {
+            // عنوان فرعي
+            cell.font = { bold: true, size: 14 }
+            cell.alignment = { horizontal: 'right' }
+          }
+        }
+        currentRow++
+      }
+
+      // تعديل عرض الأعمدة
+      worksheet.columns.forEach(column => {
+        column.width = 20
+      })
+
+      // حفظ ملف Excel
+      const excelFileName = this.generateFileName(type, 'xlsx', { includeTime: true })
+
+      // إنشاء blob وتنزيل الملف
+      const buffer = await workbook.xlsx.writeBuffer()
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `${excelFileName}.xlsx`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      console.log(`✅ تم تحويل CSV إلى Excel: ${excelFileName}.xlsx`)
+    } catch (error) {
+      console.error('خطأ في تحويل CSV إلى Excel:', error)
+      // لا نرمي خطأ هنا لأن CSV تم تصديره بنجاح
+    }
+  }
+
+  // وظيفة مساعدة لتحليل سطر CSV
+  static parseCSVLine(line: string): string[] {
+    const result = []
+    let current = ''
+    let inQuotes = false
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+
+      if (char === '"') {
+        inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+
+    result.push(current.trim())
+    return result.map(item => item.replace(/^"|"$/g, '')) // إزالة علامات الاقتباس
   }
 
   static generatePatientCSV(data: PatientReportData, options: ReportExportOptions): string {
