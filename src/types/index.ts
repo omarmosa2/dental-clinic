@@ -284,6 +284,26 @@ export interface ToothTreatment {
   appointment?: Appointment
   images?: DentalTreatmentImage[]
   prescriptions?: Prescription[]
+  sessions?: TreatmentSession[] // جلسات العلاج
+}
+
+// Treatment sessions interface for managing multiple sessions per treatment
+export interface TreatmentSession {
+  id: string
+  tooth_treatment_id: string
+  session_number: number
+  session_type: string // نوع الجلسة من قائمة محددة
+  session_title: string // عنوان الجلسة
+  session_description?: string // وصف ما تم عمله في الجلسة
+  session_date: string
+  session_status: 'planned' | 'completed' | 'cancelled'
+  duration_minutes?: number
+  cost?: number
+  notes?: string
+  created_at: string
+  updated_at: string
+  // Populated fields
+  tooth_treatment?: ToothTreatment
 }
 
 export interface DentalTreatmentImage {
@@ -403,6 +423,7 @@ export interface DatabaseSchema {
   prescriptionMedications: PrescriptionMedication[]
   dentalTreatmentImages: DentalTreatmentImage[]
   toothTreatments: ToothTreatment[] // Multiple treatments per tooth
+  treatmentSessions: TreatmentSession[] // Treatment sessions
   clinicNeeds: ClinicNeed[]
   // New integrated tables
   patientTreatmentTimeline: PatientTreatmentTimeline[]

@@ -419,6 +419,26 @@ CREATE INDEX IF NOT EXISTS idx_prescriptions_tooth_treatment ON prescriptions(to
 CREATE INDEX IF NOT EXISTS idx_prescriptions_date ON prescriptions(prescription_date);
 CREATE INDEX IF NOT EXISTS idx_prescriptions_patient_date ON prescriptions(patient_id, prescription_date);
 
+-- Treatment sessions table for managing multiple sessions per treatment
+CREATE TABLE IF NOT EXISTS treatment_sessions (
+    id TEXT PRIMARY KEY,
+    tooth_treatment_id TEXT NOT NULL,
+    session_number INTEGER NOT NULL,
+    session_type TEXT NOT NULL, -- نوع الجلسة من قائمة محددة
+    session_title TEXT NOT NULL, -- عنوان الجلسة
+    session_description TEXT, -- وصف ما تم عمله في الجلسة
+    session_date DATE NOT NULL,
+    session_status TEXT DEFAULT 'planned', -- planned, completed, cancelled
+    duration_minutes INTEGER DEFAULT 30,
+    cost DECIMAL(10,2) DEFAULT 0,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tooth_treatment_id) REFERENCES tooth_treatments(id) ON DELETE CASCADE,
+    -- Ensure unique session number per treatment
+    UNIQUE(tooth_treatment_id, session_number)
+);
+
 -- Patient treatment timeline table for comprehensive treatment tracking
 CREATE TABLE IF NOT EXISTS patient_treatment_timeline (
     id TEXT PRIMARY KEY,
@@ -479,6 +499,12 @@ CREATE TABLE IF NOT EXISTS treatment_plan_items (
 );
 
 -- Indexes for new tables
+-- Treatment sessions indexes
+CREATE INDEX IF NOT EXISTS idx_treatment_sessions_treatment ON treatment_sessions(tooth_treatment_id);
+CREATE INDEX IF NOT EXISTS idx_treatment_sessions_date ON treatment_sessions(session_date);
+CREATE INDEX IF NOT EXISTS idx_treatment_sessions_status ON treatment_sessions(session_status);
+CREATE INDEX IF NOT EXISTS idx_treatment_sessions_number ON treatment_sessions(tooth_treatment_id, session_number);
+
 CREATE INDEX IF NOT EXISTS idx_patient_timeline_patient ON patient_treatment_timeline(patient_id);
 CREATE INDEX IF NOT EXISTS idx_patient_timeline_date ON patient_treatment_timeline(event_date);
 CREATE INDEX IF NOT EXISTS idx_patient_timeline_type ON patient_treatment_timeline(timeline_type);

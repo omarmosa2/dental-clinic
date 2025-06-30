@@ -3,6 +3,8 @@ import {
   Appointment,
   Payment,
   Treatment,
+  ToothTreatment,
+  TreatmentSession,
   ClinicSettings,
   DashboardStats,
   ReportFilter,
@@ -62,7 +64,26 @@ export interface ElectronAPI {
     getStats: () => Promise<DashboardStats>
   }
 
+  // Tooth Treatments operations
+  toothTreatments: {
+    getAll: () => Promise<ToothTreatment[]>
+    getByPatient: (patientId: string) => Promise<ToothTreatment[]>
+    getByTooth: (patientId: string, toothNumber: number) => Promise<ToothTreatment[]>
+    create: (treatment: Omit<ToothTreatment, 'id' | 'created_at' | 'updated_at'>) => Promise<ToothTreatment>
+    update: (id: string, treatment: Partial<ToothTreatment>) => Promise<ToothTreatment | null>
+    delete: (id: string) => Promise<boolean>
+    reorder: (patientId: string, toothNumber: number, treatmentIds: string[]) => Promise<void>
+  }
 
+  // Treatment Sessions operations
+  treatmentSessions: {
+    getAll: () => Promise<TreatmentSession[]>
+    getByTreatment: (treatmentId: string) => Promise<TreatmentSession[]>
+    create: (session: Omit<TreatmentSession, 'id' | 'created_at' | 'updated_at'>) => Promise<TreatmentSession>
+    update: (id: string, session: Partial<TreatmentSession>) => Promise<TreatmentSession | null>
+    delete: (id: string) => Promise<boolean>
+    getById: (id: string) => Promise<TreatmentSession | null>
+  }
 
   // Backup operations
   backup: {

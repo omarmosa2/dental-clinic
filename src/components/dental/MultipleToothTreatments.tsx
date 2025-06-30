@@ -25,7 +25,7 @@ import {
   PlayCircle,
   XCircle
 } from 'lucide-react'
-import { ToothTreatment } from '@/types'
+import { ToothTreatment, TreatmentSession } from '@/types'
 import {
   TREATMENT_TYPES,
   TREATMENT_CATEGORIES,
@@ -36,6 +36,7 @@ import {
 } from '@/data/teethData'
 import { formatDate } from '@/lib/utils'
 import { notify } from '@/services/notificationService'
+import TreatmentSessions from './TreatmentSessions'
 
 interface MultipleToothTreatmentsProps {
   patientId: string
@@ -70,6 +71,10 @@ export default function MultipleToothTreatments({
     cost: 0,
     priority: treatments.length + 1
   })
+
+  // Treatment Sessions state
+  const [treatmentSessions, setTreatmentSessions] = useState<{ [treatmentId: string]: TreatmentSession[] }>({})
+  const [selectedTreatmentForSessions, setSelectedTreatmentForSessions] = useState<string | null>(null)
 
   // Sort treatments by priority
   const sortedTreatments = [...treatments].sort((a, b) => a.priority - b.priority)
@@ -169,6 +174,57 @@ export default function MultipleToothTreatments({
     ? getTreatmentsByCategory(selectedCategory as any)
     : TREATMENT_TYPES
 
+  // Treatment Sessions functions
+  const loadTreatmentSessions = async (treatmentId: string) => {
+    try {
+      const sessions = await window.electronAPI.treatmentSessions.getByTreatment(treatmentId)
+      setTreatmentSessions(prev => ({ ...prev, [treatmentId]: sessions }))
+    } catch (error) {
+      console.error('Error loading treatment sessions:', error)
+      notify.error('فشل في تحميل جلسات العلاج')
+    }
+  }
+
+  const handleAddSession = async (treatmentId: string, sessionData: Omit<TreatmentSession, 'id' | 'created_at' | 'updated_at'>) => {
+    try {
+      await window.electronAPI.treatmentSessions.create(sessionData)
+      await loadTreatmentSessions(treatmentId)
+      notify.success('تم إضافة الجلسة بنجاح')
+    } catch (error) {
+      console.error('Error adding session:', error)
+      notify.error('فشل في إضافة الجلسة')
+    }
+  }
+
+  const handleUpdateSession = async (treatmentId: string, sessionId: string, updates: Partial<TreatmentSession>) => {
+    try {
+      await window.electronAPI.treatmentSessions.update(sessionId, updates)
+      await loadTreatmentSessions(treatmentId)
+      notify.success('تم تحديث الجلسة بنجاح')
+    } catch (error) {
+      console.error('Error updating session:', error)
+      notify.error('فشل في تحديث الجلسة')
+    }
+  }
+
+  const handleDeleteSession = async (treatmentId: string, sessionId: string) => {
+    try {
+      await window.electronAPI.treatmentSessions.delete(sessionId)
+      await loadTreatmentSessions(treatmentId)
+      notify.success('تم حذف الجلسة بنجاح')
+    } catch (error) {
+      console.error('Error deleting session:', error)
+      notify.error('فشل في حذف الجلسة')
+    }
+  }
+
+  // Load sessions when a treatment is selected
+  useEffect(() => {
+    if (selectedTreatmentForSessions) {
+      loadTreatmentSessions(selectedTreatmentForSessions)
+    }
+  }, [selectedTreatmentForSessions])
+
   return (
     <div className="space-y-4" dir="rtl">
       {/* Header */}
@@ -257,6 +313,24 @@ export default function MultipleToothTreatments({
                     </Badge>
 
                     <Button
+                      variant={selectedTreatmentForSessions === treatment.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedTreatmentForSessions(
+                        selectedTreatmentForSessions === treatment.id ? null : treatment.id
+                      )}
+                      className={cn(
+                        "transition-all duration-200 gap-1.5",
+                        selectedTreatmentForSessions === treatment.id
+                          ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                          : "border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                      )}
+                      title="إدارة جلسات العلاج"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      <span className="text-xs font-medium">الجلسات</span>
+                    </Button>
+
+                    <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingTreatment(treatment.id)}
@@ -338,6 +412,59 @@ export default function MultipleToothTreatments({
                   treatment={treatment}
                   onSave={handleUpdateTreatment}
                   onCancel={() => setEditingTreatment(null)}
+                />
+              )
+            })()}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Treatment Sessions Management */}
+      {selectedTreatmentForSessions && (
+        <Card className={cn(
+          "border-2 shadow-lg",
+          isDarkMode
+            ? "border-blue-800/50 bg-blue-950/20 shadow-blue-900/20"
+            : "border-blue-200 bg-blue-50/50 shadow-blue-100/50"
+        )}>
+          <CardHeader className={cn(
+            "border-b",
+            isDarkMode ? "border-blue-800/30" : "border-blue-200/50"
+          )}>
+            <div className="flex items-center justify-between">
+              <CardTitle className={cn(
+                "text-lg",
+                isDarkMode ? "text-blue-200" : "text-blue-900"
+              )}>
+                إدارة جلسات العلاج
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedTreatmentForSessions(null)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <CardDescription>
+              {(() => {
+                const treatment = treatments.find(t => t.id === selectedTreatmentForSessions)
+                return treatment ? `${getTreatmentByValue(treatment.treatment_type)?.label || treatment.treatment_type}` : ''
+              })()}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            {(() => {
+              const treatment = treatments.find(t => t.id === selectedTreatmentForSessions)
+              if (!treatment) return null
+
+              return (
+                <TreatmentSessions
+                  treatment={treatment}
+                  sessions={treatmentSessions[selectedTreatmentForSessions] || []}
+                  onAddSession={(sessionData) => handleAddSession(selectedTreatmentForSessions, sessionData)}
+                  onUpdateSession={(sessionId, updates) => handleUpdateSession(selectedTreatmentForSessions, sessionId, updates)}
+                  onDeleteSession={(sessionId) => handleDeleteSession(selectedTreatmentForSessions, sessionId)}
                 />
               )
             })()}

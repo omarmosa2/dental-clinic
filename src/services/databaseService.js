@@ -4101,6 +4101,178 @@ class DatabaseService {
 
     return result.changes
   }
+
+  // Treatment Sessions operations
+  ensureTreatmentSessionsTableExists() {
+    try {
+      const tableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='treatment_sessions'
+      `).get()
+
+      if (!tableExists) {
+        console.log('Creating treatment_sessions table...')
+        this.db.exec(`
+          CREATE TABLE treatment_sessions (
+            id TEXT PRIMARY KEY,
+            tooth_treatment_id TEXT NOT NULL,
+            session_number INTEGER NOT NULL,
+            session_type TEXT NOT NULL,
+            session_title TEXT NOT NULL,
+            session_description TEXT,
+            session_date DATE NOT NULL,
+            session_status TEXT DEFAULT 'planned',
+            duration_minutes INTEGER DEFAULT 30,
+            cost DECIMAL(10,2) DEFAULT 0,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (tooth_treatment_id) REFERENCES tooth_treatments(id) ON DELETE CASCADE,
+            UNIQUE(tooth_treatment_id, session_number)
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_treatment_sessions_treatment ON treatment_sessions(tooth_treatment_id);
+          CREATE INDEX IF NOT EXISTS idx_treatment_sessions_date ON treatment_sessions(session_date);
+          CREATE INDEX IF NOT EXISTS idx_treatment_sessions_status ON treatment_sessions(session_status);
+          CREATE INDEX IF NOT EXISTS idx_treatment_sessions_number ON treatment_sessions(tooth_treatment_id, session_number);
+        `)
+        console.log('✅ treatment_sessions table created successfully')
+      }
+    } catch (error) {
+      console.error('❌ Error ensuring treatment_sessions table exists:', error)
+      throw error
+    }
+  }
+
+  async getAllTreatmentSessions() {
+    this.ensureConnection()
+    this.ensureTreatmentSessionsTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT ts.*,
+             tt.tooth_name,
+             tt.treatment_type,
+             tt.treatment_category,
+             p.full_name as patient_name
+      FROM treatment_sessions ts
+      LEFT JOIN tooth_treatments tt ON ts.tooth_treatment_id = tt.id
+      LEFT JOIN patients p ON tt.patient_id = p.id
+      ORDER BY ts.session_date DESC, ts.session_number ASC
+    `)
+    return stmt.all()
+  }
+
+  async getTreatmentSessionsByTreatment(treatmentId) {
+    this.ensureConnection()
+    this.ensureTreatmentSessionsTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT ts.*,
+             tt.tooth_name,
+             tt.treatment_type,
+             tt.treatment_category,
+             p.full_name as patient_name
+      FROM treatment_sessions ts
+      LEFT JOIN tooth_treatments tt ON ts.tooth_treatment_id = tt.id
+      LEFT JOIN patients p ON tt.patient_id = p.id
+      WHERE ts.tooth_treatment_id = ?
+      ORDER BY ts.session_number ASC
+    `)
+    return stmt.all(treatmentId)
+  }
+
+  async createTreatmentSession(session) {
+    this.ensureConnection()
+    this.ensureTreatmentSessionsTableExists()
+
+    const { v4: uuidv4 } = require('uuid')
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    // Auto-assign session number if not provided
+    if (!session.session_number) {
+      const maxSessionStmt = this.db.prepare(`
+        SELECT COALESCE(MAX(session_number), 0) + 1 as next_session_number
+        FROM treatment_sessions
+        WHERE tooth_treatment_id = ?
+      `)
+      const result = maxSessionStmt.get(session.tooth_treatment_id)
+      session.session_number = result.next_session_number
+    }
+
+    const stmt = this.db.prepare(`
+      INSERT INTO treatment_sessions (
+        id, tooth_treatment_id, session_number, session_type, session_title,
+        session_description, session_date, session_status, duration_minutes,
+        cost, notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      id, session.tooth_treatment_id, session.session_number, session.session_type,
+      session.session_title, session.session_description, session.session_date,
+      session.session_status || 'planned', session.duration_minutes || 30,
+      session.cost || 0, session.notes, now, now
+    )
+
+    return { ...session, id, created_at: now, updated_at: now }
+  }
+
+  async updateTreatmentSession(id, updates) {
+    this.ensureConnection()
+    this.ensureTreatmentSessionsTableExists()
+
+    const now = new Date().toISOString()
+
+    const allowedColumns = [
+      'session_number', 'session_type', 'session_title', 'session_description',
+      'session_date', 'session_status', 'duration_minutes', 'cost', 'notes'
+    ]
+
+    const updateColumns = Object.keys(updates).filter(key => allowedColumns.includes(key))
+
+    if (updateColumns.length === 0) {
+      throw new Error('No valid columns to update')
+    }
+
+    const setClause = updateColumns.map(col => `${col} = ?`).join(', ')
+    const values = updateColumns.map(col => updates[col])
+
+    const stmt = this.db.prepare(`
+      UPDATE treatment_sessions
+      SET ${setClause}, updated_at = ?
+      WHERE id = ?
+    `)
+
+    stmt.run(...values, now, id)
+  }
+
+  async deleteTreatmentSession(id) {
+    this.ensureConnection()
+    this.ensureTreatmentSessionsTableExists()
+
+    const stmt = this.db.prepare('DELETE FROM treatment_sessions WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  async getTreatmentSessionById(id) {
+    this.ensureConnection()
+    this.ensureTreatmentSessionsTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT ts.*,
+             tt.tooth_name,
+             tt.treatment_type,
+             tt.treatment_category,
+             p.full_name as patient_name
+      FROM treatment_sessions ts
+      LEFT JOIN tooth_treatments tt ON ts.tooth_treatment_id = tt.id
+      LEFT JOIN patients p ON tt.patient_id = p.id
+      WHERE ts.id = ?
+    `)
+    return stmt.get(id)
+  }
 }
 
 module.exports = { DatabaseService }

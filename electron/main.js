@@ -1800,6 +1800,97 @@ ipcMain.handle('db:toothTreatmentImages:getByTooth', async (_, patientId, toothN
   }
 })
 
+// NEW: Treatment Sessions IPC Handlers
+ipcMain.handle('db:treatmentSessions:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllTreatmentSessions()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting all treatment sessions:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:treatmentSessions:getByTreatment', async (_, treatmentId) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getTreatmentSessionsByTreatment(treatmentId)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting treatment sessions by treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:treatmentSessions:create', async (_, session) => {
+  try {
+    if (databaseService) {
+      console.log('Creating treatment session:', session)
+      const result = await databaseService.createTreatmentSession(session)
+      console.log('Treatment session created successfully:', result.id)
+      return result
+    } else {
+      console.log('Creating treatment session (mock):', session)
+      return { ...session, id: 'mock-id', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+    }
+  } catch (error) {
+    console.error('Error creating treatment session:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:treatmentSessions:update', async (_, id, updates) => {
+  try {
+    if (databaseService) {
+      console.log('Updating treatment session:', id, updates)
+      await databaseService.updateTreatmentSession(id, updates)
+      console.log('Treatment session updated successfully:', id)
+      return true
+    } else {
+      console.log('Updating treatment session (mock):', id, updates)
+      return true
+    }
+  } catch (error) {
+    console.error('Error updating treatment session:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:treatmentSessions:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting treatment session:', id)
+      const result = await databaseService.deleteTreatmentSession(id)
+      console.log('Treatment session deleted successfully:', id)
+      return result
+    } else {
+      console.log('Deleting treatment session (mock):', id)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting treatment session:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:treatmentSessions:getById', async (_, id) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getTreatmentSessionById(id)
+    } else {
+      return null
+    }
+  } catch (error) {
+    console.error('Error getting treatment session by id:', error)
+    throw error
+  }
+})
+
 ipcMain.handle('db:toothTreatmentImages:create', async (_, image) => {
   try {
     if (databaseService) {

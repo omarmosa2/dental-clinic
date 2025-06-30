@@ -130,6 +130,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete: (id) => ipcRenderer.invoke('db:toothTreatmentImages:delete', id)
   },
 
+  // Treatment Sessions operations
+  treatmentSessions: {
+    getAll: () => ipcRenderer.invoke('db:treatmentSessions:getAll'),
+    getByTreatment: (treatmentId) => ipcRenderer.invoke('db:treatmentSessions:getByTreatment', treatmentId),
+    create: (session) => ipcRenderer.invoke('db:treatmentSessions:create', session),
+    update: (id, session) => ipcRenderer.invoke('db:treatmentSessions:update', id, session),
+    delete: (id) => ipcRenderer.invoke('db:treatmentSessions:delete', id),
+    getById: (id) => ipcRenderer.invoke('db:treatmentSessions:getById', id)
+  },
+
   // Dental Treatment Images operations
   dentalTreatmentImages: {
     getAll: () => ipcRenderer.invoke('db:dentalTreatmentImages:getAll'),
