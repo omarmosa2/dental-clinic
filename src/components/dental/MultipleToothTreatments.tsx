@@ -49,6 +49,7 @@ interface MultipleToothTreatmentsProps {
   onUpdateTreatment: (id: string, updates: Partial<ToothTreatment>) => Promise<void>
   onDeleteTreatment: (id: string) => Promise<void>
   onReorderTreatments: (treatmentIds: string[]) => Promise<void>
+  onSessionStatsUpdate?: () => void
 }
 
 export default function MultipleToothTreatments({
@@ -59,7 +60,8 @@ export default function MultipleToothTreatments({
   onAddTreatment,
   onUpdateTreatment,
   onDeleteTreatment,
-  onReorderTreatments
+  onReorderTreatments,
+  onSessionStatsUpdate
 }: MultipleToothTreatmentsProps) {
   const { isDarkMode } = useTheme()
   const { createPayment } = usePaymentStore()
@@ -234,6 +236,8 @@ export default function MultipleToothTreatments({
     try {
       await window.electronAPI.treatmentSessions.create(sessionData)
       await loadTreatmentSessions(treatmentId)
+      // تحديث إحصائيات الجلسات في الصفحة الرئيسية
+      onSessionStatsUpdate?.()
       notify.success('تم إضافة الجلسة بنجاح')
     } catch (error) {
       console.error('Error adding session:', error)
@@ -245,6 +249,8 @@ export default function MultipleToothTreatments({
     try {
       await window.electronAPI.treatmentSessions.update(sessionId, updates)
       await loadTreatmentSessions(treatmentId)
+      // تحديث إحصائيات الجلسات في الصفحة الرئيسية
+      onSessionStatsUpdate?.()
       notify.success('تم تحديث الجلسة بنجاح')
     } catch (error) {
       console.error('Error updating session:', error)
@@ -256,6 +262,8 @@ export default function MultipleToothTreatments({
     try {
       await window.electronAPI.treatmentSessions.delete(sessionId)
       await loadTreatmentSessions(treatmentId)
+      // تحديث إحصائيات الجلسات في الصفحة الرئيسية
+      onSessionStatsUpdate?.()
       notify.success('تم حذف الجلسة بنجاح')
     } catch (error) {
       console.error('Error deleting session:', error)

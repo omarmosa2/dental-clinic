@@ -221,8 +221,8 @@ export default function DentalTreatments() {
   // Get detailed session stats for patient
   const getPatientSessionStats = async (patientId: string) => {
     try {
-      // Get all treatment sessions for this patient's treatments
-      const patientTreatments = toothTreatments.filter(t => t.patient_id === patientId)
+      // Get all treatments for this patient directly from the database to ensure fresh data
+      const patientTreatments = await window.electronAPI.toothTreatments.getByPatient(patientId)
       let allSessions: any[] = []
 
       for (const treatment of patientTreatments) {
@@ -244,6 +244,14 @@ export default function DentalTreatments() {
         planned: 0,
         cancelled: 0
       }
+    }
+  }
+
+  // Update session statistics for the current patient
+  const updatePatientSessionStats = async () => {
+    if (selectedPatientId) {
+      const sessionStats = await getPatientSessionStats(selectedPatientId)
+      setPatientSessionStats(prev => ({ ...prev, [selectedPatientId]: sessionStats }))
     }
   }
 
@@ -269,10 +277,11 @@ export default function DentalTreatments() {
     setSelectedToothNumber(null)
     // تحميل العلاجات والصور للمريض المحدد
     if (patientId) {
-      loadToothTreatmentsByPatient(patientId) // النظام الجديد
+      // تحميل العلاجات أولاً وانتظار اكتمالها
+      await loadToothTreatmentsByPatient(patientId) // النظام الجديد
       loadAllToothTreatmentImagesByPatient(patientId) // تحميل الصور بالنظام الجديد
 
-      // تحميل إحصائيات الجلسات للمريض
+      // تحميل إحصائيات الجلسات للمريض بعد تحميل العلاجات
       const sessionStats = await getPatientSessionStats(patientId)
       setPatientSessionStats(prev => ({ ...prev, [patientId]: sessionStats }))
 
@@ -301,9 +310,8 @@ export default function DentalTreatments() {
     if (!open && selectedPatientId) {
       loadToothTreatmentsByPatient(selectedPatientId) // النظام الجديد
       loadAllToothTreatmentImagesByPatient(selectedPatientId) // إعادة تحميل الصور بالنظام الجديد
-      // تحديث إحصائيات الجلسات
-      const sessionStats = await getPatientSessionStats(selectedPatientId)
-      setPatientSessionStats(prev => ({ ...prev, [selectedPatientId]: sessionStats }))
+      // تحديث إحصائيات الجلسات (الآن يتم تحديثها تلقائياً عند إضافة/تعديل/حذف الجلسات)
+      await updatePatientSessionStats()
     }
   }
 
@@ -663,6 +671,7 @@ export default function DentalTreatments() {
         patientId={selectedPatientId}
         toothNumber={selectedToothNumber}
         isPrimaryTeeth={isPrimaryTeeth}
+        onSessionStatsUpdate={updatePatientSessionStats}
       />
 
       {selectedPrescription && (

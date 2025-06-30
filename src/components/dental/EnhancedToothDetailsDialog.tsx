@@ -45,6 +45,7 @@ interface EnhancedToothDetailsDialogProps {
   patientId: string
   toothNumber: number | null
   isPrimaryTeeth?: boolean
+  onSessionStatsUpdate?: () => void
 }
 
 export default function EnhancedToothDetailsDialog({
@@ -52,7 +53,8 @@ export default function EnhancedToothDetailsDialog({
   onOpenChange,
   patientId,
   toothNumber,
-  isPrimaryTeeth = false
+  isPrimaryTeeth = false,
+  onSessionStatsUpdate
 }: EnhancedToothDetailsDialogProps) {
   const { patients } = usePatientStore()
   const {
@@ -448,6 +450,7 @@ export default function EnhancedToothDetailsDialog({
               onUpdateTreatment={handleUpdateTreatment}
               onDeleteTreatment={handleDeleteTreatment}
               onReorderTreatments={handleReorderTreatments}
+              onSessionStatsUpdate={onSessionStatsUpdate}
             />
           </TabsContent>
 
