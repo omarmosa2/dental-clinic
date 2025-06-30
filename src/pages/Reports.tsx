@@ -57,14 +57,16 @@ import {
   ClipboardList,
   Clock,
   CheckCircle,
-  Calculator
+  Calculator,
+  Activity,
+  Building2
 
 } from 'lucide-react'
 import { notify } from '@/services/notificationService'
 
 export default function Reports() {
   const { currency } = useSettingsStore()
-  const { totalRevenue, pendingAmount, payments } = usePaymentStore()
+  const { totalRevenue, pendingAmount, overdueAmount, payments } = usePaymentStore()
   const { appointments } = useAppointmentStore()
   const { items: inventoryItems } = useInventoryStore()
   const { patients } = usePatientStore()
@@ -508,31 +510,27 @@ export default function Reports() {
 
         {/* Comprehensive Report Tab */}
         <TabsContent value="overview" className="space-y-6" dir="rtl">
-          {/* Comprehensive Report Section - Main Content */}
           <div className="space-y-6" dir="rtl">
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
-                  <Calculator className="w-6 h-6" />
+                  <BarChart3 className="w-6 h-6" />
                   التقرير الشامل المفصل
                 </h2>
-                <p className="text-muted-foreground mt-2 text-base">
-                  تقرير شامل يغطي جميع جوانب العيادة: المواعيد، المدفوعات، العلاجات، الوصفات، المخابر، الاحتياجات، والأرباح والخسائر
+                <p className="text-muted-foreground mt-1">
+                  نظرة شاملة على أداء العيادة
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleComprehensiveExport}
-                  disabled={isComprehensiveExporting}
-                  className="flex items-center gap-2"
-                >
-                  <Download className={`w-4 h-4 ${isComprehensiveExporting ? 'animate-bounce' : ''}`} />
-                  {isComprehensiveExporting ? 'جاري التصدير...' : 'تصدير التقرير'}
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                onClick={handleComprehensiveExport}
+                disabled={isComprehensiveExporting}
+                className="flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                {isComprehensiveExporting ? 'جاري التصدير...' : 'تصدير التقرير'}
+              </Button>
             </div>
 
             {/* Filter Section */}
@@ -592,51 +590,130 @@ export default function Reports() {
               </CardContent>
             </Card>
 
-            {/* Report Preview Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className={getCardStyles("green")}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <TrendingUp className={`w-8 h-8 ${getIconStyles("green")}`} />
-                    <div>
-                      <p className="text-sm text-muted-foreground">المرضى</p>
-                      <p className="text-xl font-bold">{patients.length}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
+            {/* Main Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
               <Card className={getCardStyles("blue")}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <Calendar className={`w-8 h-8 ${getIconStyles("blue")}`} />
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-lg ${getCardStyles("blue")}`}>
+                      <Users className={`w-6 h-6 ${getIconStyles("blue")}`} />
+                    </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">المواعيد</p>
-                      <p className="text-xl font-bold">{appointments.length}</p>
+                      <p className="text-sm text-muted-foreground">إجمالي المرضى</p>
+                      <p className="text-2xl font-bold">{patients.length}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className={getCardStyles("purple")}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <FileText className={`w-8 h-8 ${getIconStyles("purple")}`} />
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-lg ${getCardStyles("purple")}`}>
+                      <Calendar className={`w-6 h-6 ${getIconStyles("purple")}`} />
+                    </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">المدفوعات</p>
-                      <p className="text-xl font-bold">{payments.length}</p>
+                      <p className="text-sm text-muted-foreground">إجمالي المواعيد</p>
+                      <p className="text-2xl font-bold">{appointments.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={getCardStyles("green")}>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-lg ${getCardStyles("green")}`}>
+                      <DollarSign className={`w-6 h-6 ${getIconStyles("green")}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">إجمالي الإيرادات</p>
+                      <p className="text-xl font-bold">
+                        <CurrencyDisplay amount={totalRevenue || 0} currency={currency} />
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className={getCardStyles("orange")}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <Calculator className={`w-8 h-8 ${getIconStyles("orange")}`} />
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-lg ${getCardStyles("orange")}`}>
+                      <Package className={`w-6 h-6 ${getIconStyles("orange")}`} />
+                    </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">العلاجات</p>
-                      <p className="text-xl font-bold">{toothTreatments?.length || 0}</p>
+                      <p className="text-sm text-muted-foreground">عناصر المخزون</p>
+                      <p className="text-2xl font-bold">{inventoryItems.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-green-500" />
+                    الملخص المالي
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center p-4 bg-green-50/80 dark:bg-green-950/50 border border-green-200/50 dark:border-green-700/50 rounded-lg backdrop-blur-sm">
+                    <span className="text-sm font-medium text-green-800 dark:text-green-200">إجمالي الإيرادات</span>
+                    <span className="text-lg font-bold text-green-700 dark:text-green-100">
+                      <CurrencyDisplay amount={totalRevenue || 0} currency={currency} />
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-yellow-50/80 dark:bg-yellow-950/50 border border-yellow-200/50 dark:border-yellow-700/50 rounded-lg backdrop-blur-sm">
+                    <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">المبالغ المعلقة</span>
+                    <span className="text-lg font-bold text-yellow-700 dark:text-yellow-100">
+                      <CurrencyDisplay amount={pendingAmount || 0} currency={currency} />
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-red-50/80 dark:bg-red-950/50 border border-red-200/50 dark:border-red-700/50 rounded-lg backdrop-blur-sm">
+                    <span className="text-sm font-medium text-red-800 dark:text-red-200">المبالغ المتأخرة</span>
+                    <span className="text-lg font-bold text-red-700 dark:text-red-100">
+                      <CurrencyDisplay amount={overdueAmount || 0} currency={currency} />
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-blue-500" />
+                    إحصائيات سريعة
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-4 bg-blue-50/80 dark:bg-blue-950/50 border border-blue-200/50 dark:border-blue-700/50 rounded-lg backdrop-blur-sm">
+                      <div className="text-2xl font-bold text-blue-700 dark:text-blue-100">
+                        {appointmentReports?.completedAppointments || 0}
+                      </div>
+                      <div className="text-xs text-blue-600 dark:text-blue-200 mt-1 font-medium">مواعيد مكتملة</div>
+                    </div>
+                    <div className="text-center p-4 bg-purple-50/80 dark:bg-purple-950/50 border border-purple-200/50 dark:border-purple-700/50 rounded-lg backdrop-blur-sm">
+                      <div className="text-2xl font-bold text-purple-700 dark:text-purple-100">
+                        {appointmentReports?.pendingAppointments || 0}
+                      </div>
+                      <div className="text-xs text-purple-600 dark:text-purple-200 mt-1 font-medium">مواعيد معلقة</div>
+                    </div>
+                    <div className="text-center p-4 bg-emerald-50/80 dark:bg-emerald-950/50 border border-emerald-200/50 dark:border-emerald-700/50 rounded-lg backdrop-blur-sm">
+                      <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-100">
+                        {patientReports?.activePatients || 0}
+                      </div>
+                      <div className="text-xs text-emerald-600 dark:text-emerald-200 mt-1 font-medium">مرضى نشطون</div>
+                    </div>
+                    <div className="text-center p-4 bg-orange-50/80 dark:bg-orange-950/50 border border-orange-200/50 dark:border-orange-700/50 rounded-lg backdrop-blur-sm">
+                      <div className="text-2xl font-bold text-orange-700 dark:text-orange-100">
+                        {inventoryReports?.lowStockItems || 0}
+                      </div>
+                      <div className="text-xs text-orange-600 dark:text-orange-200 mt-1 font-medium">مخزون منخفض</div>
                     </div>
                   </div>
                 </CardContent>
@@ -648,7 +725,19 @@ export default function Reports() {
               <Card className={getCardStyles("cyan")}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <FileText className={`w-8 h-8 ${getIconStyles("cyan")}`} />
+                    <FileText className={`w-6 h-6 ${getIconStyles("cyan")}`} />
+                    <div>
+                      <p className="text-sm text-muted-foreground">العلاجات</p>
+                      <p className="text-xl font-bold">{toothTreatments?.length || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={getCardStyles("indigo")}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <FileText className={`w-6 h-6 ${getIconStyles("indigo")}`} />
                     <div>
                       <p className="text-sm text-muted-foreground">الوصفات</p>
                       <p className="text-xl font-bold">{prescriptions?.length || 0}</p>
@@ -657,10 +746,10 @@ export default function Reports() {
                 </CardContent>
               </Card>
 
-              <Card className={getCardStyles("indigo")}>
+              <Card className={getCardStyles("purple")}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <FileText className={`w-8 h-8 ${getIconStyles("indigo")}`} />
+                    <Building2 className={`w-6 h-6 ${getIconStyles("purple")}`} />
                     <div>
                       <p className="text-sm text-muted-foreground">طلبات المخابر</p>
                       <p className="text-xl font-bold">{labOrders?.length || 0}</p>
@@ -669,10 +758,10 @@ export default function Reports() {
                 </CardContent>
               </Card>
 
-              <Card className={getCardStyles("indigo")}>
+              <Card className={getCardStyles("gray")}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <ClipboardList className={`w-8 h-8 ${getIconStyles("indigo")}`} />
+                    <ClipboardList className={`w-6 h-6 ${getIconStyles("gray")}`} />
                     <div>
                       <p className="text-sm text-muted-foreground">احتياجات العيادة</p>
                       <p className="text-xl font-bold">{clinicNeeds?.length || 0}</p>
@@ -680,395 +769,12 @@ export default function Reports() {
                   </div>
                 </CardContent>
               </Card>
-
-              <Card className={getCardStyles("gray")}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <FileText className={`w-8 h-8 ${getIconStyles("gray")}`} />
-                    <div>
-                      <p className="text-sm text-muted-foreground">عناصر المخزون</p>
-                      <p className="text-xl font-bold">{inventoryItems.length}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Report Description */}
-            <Card>
-              <CardHeader>
-                <CardTitle>محتويات التقرير الشامل</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                  <div>
-                    <h4 className="font-semibold mb-2">التحليل المالي:</h4>
-                    <ul className="space-y-1 text-muted-foreground">
-                      <li>• المدفوعات المكتملة والجزئية</li>
-                      <li>• إجمالي الإيرادات والمصروفات</li>
-                      <li>• تحليل الأرباح والخسائر</li>
-                      <li>• المبالغ المتبقية والمعلقة</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">التحليل الطبي:</h4>
-                    <ul className="space-y-1 text-muted-foreground">
-                      <li>• إحصائيات المواعيد والحضور</li>
-                      <li>• تفاصيل العلاجات والإنجاز</li>
-                      <li>• الوصفات والأدوية</li>
-                      <li>• طلبات المخابر والنتائج</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">إدارة العيادة:</h4>
-                    <ul className="space-y-1 text-muted-foreground">
-                      <li>• احتياجات العيادة والأولويات</li>
-                      <li>• إدارة المخزون والمستلزمات</li>
-                      <li>• تحليل الأداء والكفاءة</li>
-                      <li>• التوقيتات والذروات</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">تحليلات متقدمة:</h4>
-                    <ul className="space-y-1 text-muted-foreground">
-                      <li>• أكثر العلاجات طلباً</li>
-                      <li>• أكثر المخابر استخداماً</li>
-                      <li>• توزيع الأوقات والأيام</li>
-                      <li>• معدلات الإنجاز والنجاح</li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Time Filters Section - Secondary */}
-          <div className="space-y-4" dir="rtl">
-            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <Filter className="w-5 h-5" />
-              فلاتر البيانات التفصيلية
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <TimeFilter
-                value={appointmentStats.timeFilter}
-                onChange={appointmentStats.handleFilterChange}
-                onClear={appointmentStats.resetFilter}
-                title="فلترة المواعيد"
-                defaultOpen={false}
-              />
-              <TimeFilter
-                value={paymentStats.timeFilter}
-                onChange={paymentStats.handleFilterChange}
-                onClear={paymentStats.resetFilter}
-                title="فلترة المدفوعات"
-                defaultOpen={false}
-              />
-              <TimeFilter
-                value={inventoryStats.timeFilter}
-                onChange={inventoryStats.handleFilterChange}
-                onClear={inventoryStats.resetFilter}
-                title="فلترة المخزون"
-                defaultOpen={false}
-              />
-              <TimeFilter
-                value={clinicNeedsStats.timeFilter}
-                onChange={clinicNeedsStats.handleFilterChange}
-                onClear={clinicNeedsStats.resetFilter}
-                title="فلترة احتياجات العيادة"
-                defaultOpen={false}
-              />
             </div>
           </div>
 
-          {/* Stats Cards with Filtered Data */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6" dir="rtl">
-            <StatCard
-              title="إجمالي المرضى"
-              value={patientReports?.totalPatients || 0}
-              icon={Users}
-              color="blue"
-              description="العدد الكلي للمرضى المسجلين"
-            />
-            <StatCard
-              title="المواعيد"
-              value={appointmentStats.filteredData.length}
-              icon={Calendar}
-              color="purple"
-              trend={appointmentStats.trend}
-              description={`من إجمالي ${appointmentReports?.totalAppointments || 0} موعد`}
-            />
-            <StatCard
-              title="الإيرادات"
-              value={<CurrencyDisplay amount={paymentStats.financialStats.totalRevenue || 0} currency={currency} />}
-              icon={DollarSign}
-              color="green"
-              trend={paymentStats.trend}
-              description={`من إجمالي ${formatCurrency(totalRevenue || 0, currency)}`}
-            />
-            <StatCard
-              title="عناصر المخزون"
-              value={inventoryStats.filteredData.length}
-              icon={Package}
-              color="orange"
-              trend={inventoryStats.trend}
-              description={`من إجمالي ${inventoryReports?.totalItems || 0} عنصر`}
-            />
-            <StatCard
-              title="احتياجات العيادة"
-              value={clinicNeedsStats.filteredData.length}
-              icon={ClipboardList}
-              color="indigo"
-              trend={clinicNeedsStats.trend}
-              description={`من إجمالي ${clinicNeedsReports?.totalNeeds || 0} احتياج`}
-            />
-          </div>
 
-          {/* Quick Stats Table */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
-            <Card dir="rtl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-primary" />
-                  ملخص البيانات المفلترة
-                </CardTitle>
-                <CardDescription>الإحصائيات المفلترة حسب الفترة الزمنية المحددة</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="border rounded-lg overflow-hidden" dir="rtl">
-                  <Table dir="rtl">
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead className="text-right">
-                          <span className="arabic-enhanced font-medium">البيان</span>
-                        </TableHead>
-                        <TableHead className="text-center">
-                          <span className="arabic-enhanced font-medium">القيمة</span>
-                        </TableHead>
-                        <TableHead className="text-center">
-                          <span className="arabic-enhanced font-medium">الحالة</span>
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
-                          <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">إجمالي المرضى</span>
-                            <Users className="h-4 w-4 text-blue-500" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center font-bold">
-                          {patientReports?.totalPatients || 0}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="secondary" className="arabic-enhanced">
-                            {(patientReports?.totalPatients || 0) > 0 ? 'نشط' : 'منخفض'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
-                          <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">المواعيد</span>
-                            <Calendar className="h-4 w-4 text-purple-500" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center font-bold">
-                          {appointmentStats.filteredData.length}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={appointmentStats.filteredData.length > 0 ? "default" : "secondary"}
-                            className="arabic-enhanced"
-                          >
-                            {appointmentStats.filteredData.length > 0 ? 'نشط' : 'لا توجد مواعيد'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
-                          <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">الإيرادات المفلترة</span>
-                            <DollarSign className="h-4 w-4 text-green-500" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center font-bold table-cell-wrap-truncate-sm">
-                          <CurrencyDisplay amount={paymentStats.financialStats.totalRevenue || 0} currency={currency} />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={(paymentStats.financialStats.totalRevenue || 0) > 0 ? "default" : "secondary"}
-                            className="arabic-enhanced"
-                          >
-                            {(paymentStats.financialStats.totalRevenue || 0) > 0 ? 'إيرادات متاحة' : 'لا توجد إيرادات'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
-                          <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">المدفوعات المعلقة المفلترة</span>
-                            <DollarSign className="h-4 w-4 text-red-500" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center font-bold table-cell-wrap-truncate-sm">
-                          <CurrencyDisplay amount={paymentStats.financialStats.pendingAmount || 0} currency={currency} />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={(paymentStats.financialStats.pendingAmount || 0) > 0 ? "destructive" : "default"}
-                            className="arabic-enhanced"
-                          >
-                            {(paymentStats.financialStats.pendingAmount || 0) > 0 ? 'يتطلب متابعة' : 'مكتمل'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
-                          <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">عناصر المخزون</span>
-                            <Package className="h-4 w-4 text-orange-500" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center font-bold">
-                          {inventoryStats.filteredData.length}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={inventoryStats.filteredData.length > 0 ? "default" : "secondary"}
-                            className="arabic-enhanced"
-                          >
-                            {inventoryStats.filteredData.length > 0 ? 'متوفر' : 'لا توجد عناصر'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
-                          <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">احتياجات العيادة</span>
-                            <ClipboardList className="h-4 w-4 text-indigo-500" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center font-bold">
-                          {clinicNeedsStats.filteredData.length}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={clinicNeedsStats.filteredData.length > 0 ? "default" : "secondary"}
-                            className="arabic-enhanced"
-                          >
-                            {clinicNeedsStats.filteredData.length > 0 ? 'يوجد احتياجات' : 'لا توجد احتياجات'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow className="hover:bg-muted/50">
-                        <TableCell className="font-medium text-right table-cell-wrap-truncate-md">
-                          <div className="flex items-center gap-2 justify-end">
-                            <span className="arabic-enhanced">قيمة احتياجات العيادة</span>
-                            <DollarSign className="h-4 w-4 text-indigo-500" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center font-bold table-cell-wrap-truncate-sm">
-                          <CurrencyDisplay
-                            amount={clinicNeedsStats.filteredData.reduce((total, need) => total + (need.total_cost || 0), 0)}
-                            currency={currency}
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={clinicNeedsStats.filteredData.reduce((total, need) => total + (need.total_cost || 0), 0) > 0 ? "default" : "secondary"}
-                            className="arabic-enhanced"
-                          >
-                            {clinicNeedsStats.filteredData.reduce((total, need) => total + (need.total_cost || 0), 0) > 0 ? 'قيمة متاحة' : 'لا توجد قيمة'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Clinic Needs Summary Card */}
-            <Card className={getCardStyles("indigo")} dir="rtl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ClipboardList className={`h-5 w-5 ${getIconStyles("indigo")}`} />
-                  ملخص احتياجات العيادة
-                </CardTitle>
-                <CardDescription>إحصائيات مفصلة عن احتياجات العيادة المفلترة</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className={`text-center p-4 ${getCardStyles('blue')} transition-all duration-200`}>
-                      <div className="flex items-center justify-center gap-2 mb-2">
-                        <Clock className={`h-4 w-4 ${getIconStyles('blue')}`} />
-                      </div>
-                      <div className="text-2xl font-bold text-foreground">
-                        {clinicNeedsStats.filteredData.filter(need => need.status === 'pending').length}
-                      </div>
-                      <div className="text-xs font-medium text-muted-foreground mt-1">معلقة</div>
-                    </div>
-                    <div className={`text-center p-4 ${getCardStyles('green')} transition-all duration-200`}>
-                      <div className="flex items-center justify-center gap-2 mb-2">
-                        <CheckCircle className={`h-4 w-4 ${getIconStyles('green')}`} />
-                      </div>
-                      <div className="text-2xl font-bold text-foreground">
-                        {clinicNeedsStats.filteredData.filter(need => need.status === 'received').length}
-                      </div>
-                      <div className="text-xs font-medium text-muted-foreground mt-1">مستلمة</div>
-                    </div>
-                    <div className={`text-center p-4 ${getCardStyles('red')} transition-all duration-200`}>
-                      <div className="flex items-center justify-center gap-2 mb-2">
-                        <AlertTriangle className={`h-4 w-4 ${getIconStyles('red')}`} />
-                      </div>
-                      <div className="text-2xl font-bold text-foreground">
-                        {clinicNeedsStats.filteredData.filter(need => need.priority === 'urgent').length}
-                      </div>
-                      <div className="text-xs font-medium text-muted-foreground mt-1">عاجلة</div>
-                    </div>
-                    <div className={`text-center p-4 ${getCardStyles('emerald')} transition-all duration-200`}>
-                      <div className="flex items-center justify-center gap-2 mb-2">
-                        <DollarSign className={`h-4 w-4 ${getIconStyles('emerald')}`} />
-                      </div>
-                      <div className="text-lg font-bold text-foreground">
-                        <CurrencyDisplay
-                          amount={clinicNeedsStats.filteredData.reduce((total, need) => total + (need.total_cost || 0), 0)}
-                          currency={currency}
-                          className="text-lg font-bold"
-                        />
-                      </div>
-                      <div className="text-xs font-medium text-muted-foreground mt-1">القيمة الإجمالية</div>
-                    </div>
-                  </div>
 
-                  {/* Progress indicators */}
-                  <div className={`space-y-3 p-4 ${getCardStyles('gray')} transition-all duration-200`}>
-                    <div className="flex justify-between items-center text-sm font-medium">
-                      <span className="text-foreground">معدل الإنجاز</span>
-                      <span className={`font-bold ${getIconStyles('green')}`}>
-                        {clinicNeedsStats.filteredData.length > 0 ? Math.round((clinicNeedsStats.filteredData.filter(need => need.status === 'received').length / clinicNeedsStats.filteredData.length) * 100) : 0}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-3 shadow-inner">
-                      <div
-                        className={`bg-gradient-to-r from-green-500 to-green-600 dark:from-green-400 dark:to-green-500 h-3 rounded-full transition-all duration-500 ease-out shadow-sm`}
-                        style={{
-                          width: `${clinicNeedsStats.filteredData.length > 0 ? (clinicNeedsStats.filteredData.filter(need => need.status === 'received').length / clinicNeedsStats.filteredData.length) * 100 : 0}%`
-                        }}
-                      ></div>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>مستلمة: {clinicNeedsStats.filteredData.filter(need => need.status === 'received').length}</span>
-                      <span>الإجمالي: {clinicNeedsStats.filteredData.length}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-          </div>
 
         </TabsContent>
 

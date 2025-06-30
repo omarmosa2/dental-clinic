@@ -427,10 +427,9 @@ export const usePaymentStore = create<PaymentStore>()(
               }
 
               const month = paymentDate.toISOString().slice(0, 7) // YYYY-MM
-              // للدفعات الجزئية، استخدام amount_paid إذا كان متوفراً، وإلا استخدام amount
-              const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-                ? Number(payment.amount_paid)
-                : Number(payment.amount)
+              // للمدفوعات المكتملة والجزئية: استخدم amount (المبلغ المدفوع في هذه الدفعة)
+              // هذا يتطابق مع منطق التصدير ويعكس القيم الحقيقية المدفوعة
+              const amount = Number(payment.amount)
 
               if (isNaN(amount) || !isFinite(amount)) {
                 console.warn('Invalid payment amount for monthly revenue:', payment.amount, 'for payment:', payment.id)

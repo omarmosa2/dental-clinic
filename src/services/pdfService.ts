@@ -1307,6 +1307,17 @@ export class PdfService {
     }
   }
 
+  static async exportComprehensiveFinancialReport(data: any, settings?: ClinicSettings | null): Promise<void> {
+    try {
+      const htmlContent = this.createComprehensiveFinancialReportHTML(data, settings)
+      const fileName = this.generatePDFFileName('comprehensive_financial')
+      await this.convertHTMLToPDF(htmlContent, fileName)
+    } catch (error) {
+      console.error('Error exporting comprehensive financial report:', error)
+      throw new Error('فشل في تصدير التقرير المالي الشامل')
+    }
+  }
+
   // Create enhanced HTML report for patients
   private static createEnhancedPatientReportHTML(data: PatientReportData, settings?: ClinicSettings | null): string {
     const header = this.createEnhancedHeader('تقرير المرضى', settings, 'تقرير شامل عن إحصائيات المرضى والتوزيعات')
@@ -2618,6 +2629,312 @@ export class PdfService {
                   <td>${need.supplier || 'غير محدد'}</td>
                   <td>${formatCurrency(need.price * need.quantity)}</td>
                   <td>${formatDate(need.created_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <div class="footer">
+          <p>تم إنشاء هذا التقرير بواسطة نظام إدارة العيادة | ${(() => {
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            const time = date.toLocaleTimeString('ar-SA', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+            return `${day}/${month}/${year} - ${time}`
+          })()}</p>
+        </div>
+      </body>
+      </html>
+    `
+  }
+
+  // Create comprehensive financial report HTML
+  private static createComprehensiveFinancialReportHTML(data: any, settings?: ClinicSettings | null): string {
+    const formatCurrency = (amount: number) => `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return 'غير محدد'
+      const date = new Date(dateStr)
+      if (isNaN(date.getTime())) return 'غير محدد'
+      return date.toLocaleDateString('ar-SA')
+    }
+
+    return `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>التقرير المالي الشامل - ${settings?.clinic_name || 'عيادة الأسنان'}</title>
+        <style>
+          body {
+            font-family: 'Tajawal', Arial, sans-serif;
+            direction: rtl;
+            margin: 20px;
+            line-height: 1.6;
+            color: #1e293b;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #0ea5e9;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .clinic-name {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin-bottom: 10px;
+          }
+          .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 5px;
+          }
+          .report-subtitle {
+            font-size: 16px;
+            color: #64748b;
+            margin-bottom: 10px;
+          }
+          .report-date {
+            font-size: 14px;
+            color: #64748b;
+          }
+          .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+          }
+          .summary-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          }
+          .summary-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 600;
+          }
+          .summary-card .number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #0ea5e9;
+          }
+          .profit { color: #10b981 !important; }
+          .loss { color: #ef4444 !important; }
+          .warning { color: #f59e0b !important; }
+          .section {
+            margin: 40px 0;
+            page-break-inside: avoid;
+          }
+          .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+          }
+          .subsection-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1e293b;
+            margin: 20px 0 10px 0;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          }
+          th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          th {
+            background: #f8fafc;
+            font-weight: bold;
+            color: #1e293b;
+            font-size: 14px;
+          }
+          td {
+            font-size: 13px;
+          }
+          .profit-loss-section {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #0ea5e9;
+            margin: 30px 0;
+          }
+          .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 20px 0;
+          }
+          .info-box {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #0ea5e9;
+            margin: 15px 0;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 12px;
+          }
+          @media print {
+            body { margin: 0; }
+            .section { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="clinic-name">${settings?.clinic_name || 'عيادة الأسنان الحديثة'}</div>
+          <div class="report-title">التقرير المالي الشامل</div>
+          <div class="report-subtitle">تحليل شامل للأرباح والخسائر والإيرادات والمصروفات</div>
+          <div class="report-date">${(() => {
+            const date = new Date()
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = (date.getMonth() + 1).toString().padStart(2, '0')
+            const year = date.getFullYear()
+            const time = date.toLocaleTimeString('ar-SA', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+            return `${day}/${month}/${year} - ${time}`
+          })()}</div>
+          ${data.filterInfo ? `<div class="info-box">${data.filterInfo}</div>` : ''}
+        </div>
+
+        <!-- الإحصائيات المالية الرئيسية -->
+        <div class="section">
+          <div class="section-title">الإحصائيات المالية الرئيسية</div>
+          <div class="summary-grid">
+            <div class="summary-card">
+              <h3>إجمالي الإيرادات</h3>
+              <div class="number profit">${formatCurrency(data.totalRevenue || 0)}</div>
+            </div>
+            <div class="summary-card">
+              <h3>إجمالي المصروفات</h3>
+              <div class="number">${formatCurrency(data.totalExpenses || 0)}</div>
+            </div>
+            <div class="summary-card">
+              <h3>صافي ${data.isProfit ? 'الربح' : 'الخسارة'}</h3>
+              <div class="number ${data.isProfit ? 'profit' : 'loss'}">
+                ${formatCurrency(data.isProfit ? (data.netProfit || 0) : (data.lossAmount || 0))}
+              </div>
+            </div>
+            <div class="summary-card">
+              <h3>هامش الربح</h3>
+              <div class="number ${data.profitMargin >= 0 ? 'profit' : 'loss'}">
+                ${(data.profitMargin || 0).toFixed(2)}%
+              </div>
+            </div>
+            <div class="summary-card">
+              <h3>المبالغ المعلقة</h3>
+              <div class="number warning">${formatCurrency(data.totalPending || 0)}</div>
+            </div>
+            <div class="summary-card">
+              <h3>المبالغ المتبقية</h3>
+              <div class="number warning">${formatCurrency(data.totalOverdue || 0)}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- تحليل الأرباح والخسائر -->
+        <div class="profit-loss-section">
+          <div class="section-title">تحليل الأرباح والخسائر التفصيلي</div>
+          <div class="two-column">
+            <div>
+              <div class="subsection-title">الإيرادات</div>
+              <table>
+                <tr><td>المدفوعات المكتملة</td><td>${formatCurrency(data.totalPaid || 0)}</td></tr>
+                <tr><td>المدفوعات الجزئية</td><td>${formatCurrency((data.totalRevenue || 0) - (data.totalPaid || 0))}</td></tr>
+                <tr><td><strong>إجمالي الإيرادات</strong></td><td><strong>${formatCurrency(data.totalRevenue || 0)}</strong></td></tr>
+              </table>
+            </div>
+            <div>
+              <div class="subsection-title">المصروفات</div>
+              <table>
+                <tr><td>مصروفات المخابر</td><td>${formatCurrency(data.labOrdersTotal || 0)}</td></tr>
+                <tr><td>مصروفات الاحتياجات</td><td>${formatCurrency(data.clinicNeedsTotal || 0)}</td></tr>
+                <tr><td>مصروفات المخزون</td><td>${formatCurrency(data.inventoryExpenses || 0)}</td></tr>
+                <tr><td><strong>إجمالي المصروفات</strong></td><td><strong>${formatCurrency(data.totalExpenses || 0)}</strong></td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- إحصائيات المعاملات -->
+        <div class="section">
+          <div class="section-title">إحصائيات المعاملات</div>
+          <div class="summary-grid">
+            <div class="summary-card">
+              <h3>إجمالي المعاملات</h3>
+              <div class="number">${data.totalTransactions || 0}</div>
+            </div>
+            <div class="summary-card">
+              <h3>المعاملات المكتملة</h3>
+              <div class="number profit">${data.completedPayments || 0}</div>
+            </div>
+            <div class="summary-card">
+              <h3>المعاملات الجزئية</h3>
+              <div class="number warning">${data.partialPayments || 0}</div>
+            </div>
+            <div class="summary-card">
+              <h3>المعاملات المعلقة</h3>
+              <div class="number">${data.pendingPayments || 0}</div>
+            </div>
+            <div class="summary-card">
+              <h3>معدل النجاح</h3>
+              <div class="number profit">${data.successRate || '0.0'}%</div>
+            </div>
+            <div class="summary-card">
+              <h3>متوسط المعاملة</h3>
+              <div class="number">${formatCurrency(parseFloat(data.averageTransaction || '0'))}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- توزيع طرق الدفع -->
+        ${data.revenueByPaymentMethod && data.revenueByPaymentMethod.length > 0 ? `
+        <div class="section">
+          <div class="section-title">توزيع الإيرادات حسب طريقة الدفع</div>
+          <table>
+            <thead>
+              <tr>
+                <th>طريقة الدفع</th>
+                <th>المبلغ</th>
+                <th>النسبة المئوية</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.revenueByPaymentMethod.map(method => `
+                <tr>
+                  <td>${method.method}</td>
+                  <td>${formatCurrency(method.amount)}</td>
+                  <td>${method.percentage.toFixed(2)}%</td>
                 </tr>
               `).join('')}
             </tbody>

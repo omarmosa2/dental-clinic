@@ -266,42 +266,150 @@ export default function Payments() {
                 dataToExport = dataToExport.filter(payment => payment.payment_method === paymentMethodFilter)
               }
 
-              // حساب الإحصائيات للبيانات المفلترة
-              const totalRevenue = dataToExport
-                .filter(p => p.status === 'completed' || p.status === 'partial')
-                .reduce((sum, payment) => {
-                  const amount = payment.status === 'partial' && payment.amount_paid !== undefined
-                    ? payment.amount_paid
-                    : payment.amount
-                  return sum + (amount || 0)
-                }, 0)
+              // دالة مساعدة للتحقق من صحة المبالغ
+              const validateAmount = (amount: any): number => {
+                const num = Number(amount)
+                return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+              }
 
-              const pendingAmount = dataToExport
-                .filter(p => p.status === 'pending')
-                .reduce((sum, p) => sum + (p.amount || 0), 0)
+              // حساب الإحصائيات المالية مع تطبيق الفلاتر بدقة عالية
+              const totalRevenue = validateAmount(
+                dataToExport
+                  .filter(p => p.status === 'completed' || p.status === 'partial')
+                  .reduce((sum, payment) => {
+                    // للمدفوعات المكتملة: استخدم amount
+                    // للمدفوعات الجزئية: استخدم amount (المبلغ المدفوع في هذه الدفعة)
+                    const amount = validateAmount(payment.amount)
+                    return sum + amount
+                  }, 0)
+              )
 
-              const partialPayments = dataToExport.filter(p => p.status === 'partial')
-              const totalRemainingFromPartial = partialPayments.reduce((sum, payment) => {
-                const totalDue = payment.total_amount_due || payment.appointment_total_cost || payment.amount || 0
-                const paid = payment.amount_paid || payment.amount || 0
-                return sum + Math.max(0, totalDue - paid)
+              const pendingAmount = validateAmount(
+                dataToExport
+                  .filter(p => p.status === 'pending')
+                  .reduce((sum, p) => sum + validateAmount(p.amount), 0)
+              )
+
+              // حساب المبالغ المتبقية من المدفوعات الجزئية بدقة
+              // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
+              const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
+              let generalRemainingBalance = 0
+
+              dataToExport.forEach(payment => {
+                if (payment.status === 'partial') {
+                  if (payment.appointment_id) {
+                    // مدفوعات مرتبطة بمواعيد
+                    const appointmentId = payment.appointment_id
+                    const totalDue = validateAmount(payment.total_amount_due || payment.appointment_total_cost || 0)
+                    const paidAmount = validateAmount(payment.amount)
+
+                    if (!appointmentGroups.has(appointmentId)) {
+                      appointmentGroups.set(appointmentId, { totalDue, totalPaid: 0 })
+                    }
+
+                    const group = appointmentGroups.get(appointmentId)!
+                    group.totalPaid += paidAmount
+                  } else {
+                    // مدفوعات عامة غير مرتبطة بمواعيد
+                    const totalDue = validateAmount(payment.total_amount_due || payment.amount)
+                    const paid = validateAmount(payment.amount_paid || payment.amount)
+                    generalRemainingBalance += Math.max(0, totalDue - paid)
+                  }
+                }
+              })
+
+              // حساب إجمالي المبالغ المتبقية من المواعيد
+              const appointmentRemainingBalance = Array.from(appointmentGroups.values()).reduce((sum, group) => {
+                return sum + Math.max(0, group.totalDue - group.totalPaid)
               }, 0)
 
-              // إنشاء بيانات CSV مع تفاصيل شاملة
-              const csvData = dataToExport.map((payment, index) => {
-                const displayAmount = payment.status === 'partial' && payment.amount_paid !== undefined
-                  ? payment.amount_paid
-                  : payment.amount
+              // إجمالي المبالغ المتبقية
+              const totalRemainingFromPartial = validateAmount(appointmentRemainingBalance + generalRemainingBalance)
 
-                const remainingBalance = payment.status === 'partial'
-                  ? Math.max(0, (payment.total_amount_due || payment.appointment_total_cost || payment.amount || 0) - (payment.amount_paid || payment.amount || 0))
-                  : 0
+              // إنشاء بيانات CSV مع تفاصيل شاملة ودقيقة
+              const csvData: any[] = []
+
+              // إضافة معلومات التقرير في البداية
+              csvData.push({
+                'الرقم التسلسلي': 'تقرير المدفوعات الشامل',
+                'رقم الإيصال': '',
+                'المريض': '',
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              csvData.push({
+                'الرقم التسلسلي': `تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')}`,
+                'رقم الإيصال': '',
+                'المريض': '',
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                csvData.push({
+                  'الرقم التسلسلي': `الفترة: من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`,
+                  'رقم الإيصال': '',
+                  'المريض': '',
+                  'المبلغ المدفوع': '',
+                  'المبلغ المتبقي': '',
+                  'طريقة الدفع': '',
+                  'الحالة': '',
+                  'تاريخ الدفع': '',
+                  'الوصف': '',
+                  'ملاحظات': ''
+                })
+              }
+
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': '',
+                'المريض': '',
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              // إضافة بيانات المدفوعات
+              const paymentRows = dataToExport.map((payment, index) => {
+                // حساب المبلغ المعروض بدقة
+                const displayAmount = validateAmount(payment.amount)
+
+                // حساب المبلغ المتبقي بدقة
+                let remainingBalance = 0
+                if (payment.status === 'partial') {
+                  if (payment.appointment_id) {
+                    // للمدفوعات المرتبطة بمواعيد، احسب من إجمالي المدفوعات للموعد
+                    const totalDue = validateAmount(payment.total_amount_due || payment.appointment_total_cost || 0)
+                    const totalPaid = validateAmount(payment.amount_paid || payment.amount)
+                    remainingBalance = Math.max(0, totalDue - totalPaid)
+                  } else {
+                    // للمدفوعات العامة
+                    const totalDue = validateAmount(payment.total_amount_due || payment.amount)
+                    const paid = validateAmount(payment.amount_paid || payment.amount)
+                    remainingBalance = Math.max(0, totalDue - paid)
+                  }
+                }
 
                 return {
                   'الرقم التسلسلي': index + 1,
                   'رقم الإيصال': payment.receipt_number || `#${payment.id.slice(-6)}`,
                   'المريض': getPatientName(payment),
-                  'المبلغ المدفوع': `$${Number(displayAmount).toFixed(2)}`,
+                  'المبلغ المدفوع': `$${displayAmount.toFixed(2)}`,
                   'المبلغ المتبقي': remainingBalance > 0 ? `$${remainingBalance.toFixed(2)}` : '-',
                   'طريقة الدفع': getPaymentMethodLabel(payment.payment_method),
                   'الحالة': getStatusLabel(payment.status),
@@ -310,6 +418,9 @@ export default function Payments() {
                   'ملاحظات': payment.notes || '-'
                 }
               })
+
+              // إضافة بيانات المدفوعات إلى المصفوفة الرئيسية
+              csvData.push(...paymentRows)
 
               // إضافة ملخص إحصائي في نهاية التقرير
               csvData.push({
@@ -364,6 +475,140 @@ export default function Payments() {
                 'ملاحظات': ''
               })
 
+              // إضافة إحصائيات إضافية
+              const completedPayments = dataToExport.filter(p => p.status === 'completed')
+              const partialPayments = dataToExport.filter(p => p.status === 'partial')
+              const pendingPayments = dataToExport.filter(p => p.status === 'pending')
+
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': '',
+                'المريض': '',
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': '--- إحصائيات تفصيلية ---',
+                'المريض': '',
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': 'عدد المدفوعات المكتملة',
+                'المريض': completedPayments.length.toString(),
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': 'عدد المدفوعات الجزئية',
+                'المريض': partialPayments.length.toString(),
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': 'عدد المدفوعات المعلقة',
+                'المريض': pendingPayments.length.toString(),
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              csvData.push({
+                'الرقم التسلسلي': '',
+                'رقم الإيصال': 'إجمالي عدد المدفوعات',
+                'المريض': dataToExport.length.toString(),
+                'المبلغ المدفوع': '',
+                'المبلغ المتبقي': '',
+                'طريقة الدفع': '',
+                'الحالة': '',
+                'تاريخ الدفع': '',
+                'الوصف': '',
+                'ملاحظات': ''
+              })
+
+              // إضافة إحصائيات طرق الدفع
+              const paymentMethodBreakdown = dataToExport.reduce((acc, payment) => {
+                const method = payment.payment_method
+                const amount = validateAmount(payment.amount)
+                acc[method] = (acc[method] || 0) + amount
+                return acc
+              }, {} as Record<string, number>)
+
+              if (Object.keys(paymentMethodBreakdown).length > 0) {
+                csvData.push({
+                  'الرقم التسلسلي': '',
+                  'رقم الإيصال': '',
+                  'المريض': '',
+                  'المبلغ المدفوع': '',
+                  'المبلغ المتبقي': '',
+                  'طريقة الدفع': '',
+                  'الحالة': '',
+                  'تاريخ الدفع': '',
+                  'الوصف': '',
+                  'ملاحظات': ''
+                })
+
+                csvData.push({
+                  'الرقم التسلسلي': '',
+                  'رقم الإيصال': '--- توزيع طرق الدفع ---',
+                  'المريض': '',
+                  'المبلغ المدفوع': '',
+                  'المبلغ المتبقي': '',
+                  'طريقة الدفع': '',
+                  'الحالة': '',
+                  'تاريخ الدفع': '',
+                  'الوصف': '',
+                  'ملاحظات': ''
+                })
+
+                Object.entries(paymentMethodBreakdown).forEach(([method, amount]) => {
+                  csvData.push({
+                    'الرقم التسلسلي': '',
+                    'رقم الإيصال': getPaymentMethodLabel(method),
+                    'المريض': `$${amount.toFixed(2)}`,
+                    'المبلغ المدفوع': '',
+                    'المبلغ المتبقي': '',
+                    'طريقة الدفع': '',
+                    'الحالة': '',
+                    'تاريخ الدفع': '',
+                    'الوصف': '',
+                    'ملاحظات': ''
+                  })
+                })
+              }
+
               // Create CSV with BOM for Arabic support
               const headers = Object.keys(csvData[0]).join(',')
               const rows = csvData.map(row =>
@@ -402,7 +647,7 @@ export default function Payments() {
                 link.click()
                 document.body.removeChild(link)
 
-                // رسالة نجاح مفصلة
+                // رسالة نجاح مفصلة ودقيقة
                 let successMessage = `تم تصدير ${dataToExport.length} دفعة بنجاح!`
 
                 if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
@@ -414,6 +659,14 @@ export default function Payments() {
                 }
 
                 successMessage += ` - إجمالي الإيرادات: $${totalRevenue.toFixed(2)}`
+
+                if (totalRemainingFromPartial > 0) {
+                  successMessage += ` - المبالغ المتبقية: $${totalRemainingFromPartial.toFixed(2)}`
+                }
+
+                if (pendingAmount > 0) {
+                  successMessage += ` - المبالغ المعلقة: $${pendingAmount.toFixed(2)}`
+                }
 
                 notify.exportSuccess(successMessage)
               } catch (error) {
@@ -541,7 +794,13 @@ export default function Payments() {
                   dataToCalculate = dataToCalculate.filter(payment => payment.payment_method === paymentMethodFilter)
                 }
 
-                // حساب المبالغ المتبقية من المدفوعات الجزئية بشكل صحيح
+                // دالة مساعدة للتحقق من صحة المبالغ (نفس المستخدمة في التصدير)
+                const validateAmount = (amount: any): number => {
+                  const num = Number(amount)
+                  return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+                }
+
+                // حساب المبالغ المتبقية من المدفوعات الجزئية بدقة (نفس منطق التصدير)
                 // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
                 const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
                 let generalRemainingBalance = 0
@@ -551,8 +810,8 @@ export default function Payments() {
                     if (payment.appointment_id) {
                       // مدفوعات مرتبطة بمواعيد
                       const appointmentId = payment.appointment_id
-                      const totalDue = payment.total_amount_due || payment.appointment_total_cost || 0
-                      const paidAmount = payment.amount || 0
+                      const totalDue = validateAmount(payment.total_amount_due || payment.appointment_total_cost || 0)
+                      const paidAmount = validateAmount(payment.amount)
 
                       if (!appointmentGroups.has(appointmentId)) {
                         appointmentGroups.set(appointmentId, { totalDue, totalPaid: 0 })
@@ -562,8 +821,8 @@ export default function Payments() {
                       group.totalPaid += paidAmount
                     } else {
                       // مدفوعات عامة غير مرتبطة بمواعيد
-                      const totalDue = payment.total_amount_due || payment.amount || 0
-                      const paid = payment.amount_paid || payment.amount || 0
+                      const totalDue = validateAmount(payment.total_amount_due || payment.amount)
+                      const paid = validateAmount(payment.amount_paid || payment.amount)
                       generalRemainingBalance += Math.max(0, totalDue - paid)
                     }
                   }
@@ -575,7 +834,7 @@ export default function Payments() {
                 }, 0)
 
                 // إجمالي المبالغ المتبقية
-                const filteredRemainingBalance = appointmentRemainingBalance + generalRemainingBalance
+                const filteredRemainingBalance = validateAmount(appointmentRemainingBalance + generalRemainingBalance)
 
                 return formatCurrency(filteredRemainingBalance)
               })()}

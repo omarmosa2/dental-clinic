@@ -9,6 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { useReportsStore } from '@/store/reportsStore'
 import { usePaymentStore } from '@/store/paymentStore'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useInventoryStore } from '@/store/inventoryStore'
+import { useLabOrderStore } from '@/store/labOrderStore'
+import { useClinicNeedsStore } from '@/store/clinicNeedsStore'
 import { useRealTimeReportsByType } from '@/hooks/useRealTimeReports'
 import { formatCurrency, formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue, parseAndFormatGregorianMonth } from '@/lib/utils'
 import { validateNumericData, processFinancialData, groupDataByPeriod, ensurePaymentStatusData, ensurePaymentMethodData } from '@/lib/chartDataHelpers'
@@ -18,9 +21,11 @@ import { useTheme } from '@/contexts/ThemeContext'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { PdfService } from '@/services/pdfService'
 import { ExportService } from '@/services/exportService'
+import { ComprehensiveExportService } from '@/services/comprehensiveExportService'
 import { notify } from '@/services/notificationService'
 import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
 import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
+import PaymentDebug from '../debug/PaymentDebug'
 import {
   DollarSign,
   TrendingUp,
@@ -51,6 +56,223 @@ import {
   AreaChart
 } from 'recharts'
 
+/**
+ * إنشاء تقرير مالي شامل CSV مع جميع الأمور المالية
+ */
+async function generateComprehensiveFinancialCSV(payments: any[], timeFilter: any): Promise<string> {
+  const validateAmount = (amount: any): number => {
+    const num = Number(amount)
+    return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+  }
+
+  // حساب الإحصائيات المالية الشاملة
+  const financialStats = ComprehensiveExportService.calculateFinancialStats(payments)
+
+  let csv = '\uFEFF' // UTF-8 BOM for proper Arabic display
+  csv += 'التقرير المالي الشامل\n'
+  csv += '===================\n\n'
+
+  // معلومات الفترة الزمنية
+  csv += 'معلومات التقرير\n'
+  csv += '================\n'
+  csv += `تاريخ التقرير,${formatDate(new Date().toISOString())}\n`
+  csv += `وقت التقرير,${new Date().toLocaleTimeString('ar-SA')}\n`
+
+  if (timeFilter.startDate && timeFilter.endDate) {
+    csv += `الفترة الزمنية,من ${timeFilter.startDate} إلى ${timeFilter.endDate}\n`
+  } else {
+    csv += `الفترة الزمنية,جميع البيانات\n`
+  }
+  csv += `عدد المعاملات,${payments.length}\n\n`
+
+  // === الإحصائيات المالية الرئيسية ===
+  csv += 'الإحصائيات المالية الرئيسية\n'
+  csv += '============================\n'
+  csv += `إجمالي الإيرادات,${formatCurrency(financialStats.totalRevenue)}\n`
+  csv += `المدفوعات المكتملة,${formatCurrency(financialStats.completedPayments)}\n`
+  csv += `المدفوعات الجزئية,${formatCurrency(financialStats.partialPayments)}\n`
+  csv += `المبالغ المتبقية,${formatCurrency(financialStats.remainingBalances)}\n`
+  csv += `المبالغ المعلقة,${formatCurrency(financialStats.pendingAmount)}\n\n`
+
+  // === تحليل الأرباح والخسائر ===
+  csv += 'تحليل الأرباح والخسائر\n'
+  csv += '====================\n'
+  csv += `صافي الربح,${formatCurrency(financialStats.netProfit || 0)}\n`
+  csv += `مبلغ الخسارة,${formatCurrency(financialStats.lossAmount || 0)}\n`
+  csv += `هامش الربح,${(financialStats.profitMargin || 0).toFixed(2)}%\n`
+  csv += `حالة الأرباح,${financialStats.isProfit ? 'ربح' : 'خسارة'}\n`
+  csv += `إجمالي المصروفات,${formatCurrency(financialStats.totalExpenses || 0)}\n\n`
+
+  // === تفصيل المصروفات ===
+  csv += 'تفصيل المصروفات\n'
+  csv += '================\n'
+  csv += `مصروفات المخابر,${formatCurrency(financialStats.labOrdersTotal || 0)}\n`
+  csv += `متبقي المخابر,${formatCurrency(financialStats.labOrdersRemaining || 0)}\n`
+  csv += `مصروفات الاحتياجات,${formatCurrency(financialStats.clinicNeedsTotal || 0)}\n`
+  csv += `متبقي الاحتياجات,${formatCurrency(financialStats.clinicNeedsRemaining || 0)}\n`
+  csv += `مصروفات المخزون,${formatCurrency(financialStats.inventoryExpenses || 0)}\n\n`
+
+  // === إحصائيات المعاملات ===
+  csv += 'إحصائيات المعاملات\n'
+  csv += '==================\n'
+  csv += `إجمالي المعاملات,${financialStats.totalTransactions}\n`
+  csv += `المعاملات المكتملة,${financialStats.completedTransactions}\n`
+  csv += `المعاملات الجزئية,${financialStats.partialTransactions}\n`
+  csv += `المعاملات المعلقة,${financialStats.pendingTransactions}\n\n`
+
+  // === تحليل طرق الدفع ===
+  csv += 'تحليل طرق الدفع\n'
+  csv += '================\n'
+  const paymentMethods = {}
+  payments.forEach(payment => {
+    const method = payment.payment_method || 'غير محدد'
+    const methodArabic = method === 'cash' ? 'نقدي' :
+                        method === 'card' ? 'بطاقة ائتمان' :
+                        method === 'bank_transfer' ? 'تحويل بنكي' :
+                        method === 'check' ? 'شيك' :
+                        method === 'insurance' ? 'تأمين' : method
+
+    let amount = 0
+    if (payment.status === 'completed') {
+      amount = validateAmount(payment.amount)
+    } else if (payment.status === 'partial' && payment.amount_paid !== undefined) {
+      amount = validateAmount(payment.amount_paid)
+    }
+
+    if (amount > 0) {
+      paymentMethods[methodArabic] = (paymentMethods[methodArabic] || 0) + amount
+    }
+  })
+
+  Object.entries(paymentMethods).forEach(([method, amount]) => {
+    const percentage = financialStats.totalRevenue > 0 ? ((amount as number) / financialStats.totalRevenue * 100).toFixed(2) : '0.00'
+    csv += `${method},${formatCurrency(amount as number)} (${percentage}%)\n`
+  })
+  csv += '\n'
+
+  // === تفاصيل المدفوعات الفردية ===
+  if (payments.length <= 100) { // عرض التفاصيل فقط إذا كان العدد معقول
+    csv += 'تفاصيل المدفوعات الفردية\n'
+    csv += '=========================\n'
+    csv += 'رقم الإيصال,المريض,المبلغ,المبلغ المدفوع,طريقة الدفع,الحالة,تاريخ الدفع,الوصف,ملاحظات\n'
+
+    payments.forEach(payment => {
+      const receiptNumber = payment.receipt_number || `#${payment.id?.slice(-6) || 'N/A'}`
+      const patientName = payment.patient?.full_name || payment.patient_name || 'غير محدد'
+      const amount = formatCurrency(payment.amount || 0)
+      const amountPaid = payment.amount_paid ? formatCurrency(payment.amount_paid) : amount
+      const paymentMethod = payment.payment_method === 'cash' ? 'نقدي' :
+                           payment.payment_method === 'card' ? 'بطاقة ائتمان' :
+                           payment.payment_method === 'bank_transfer' ? 'تحويل بنكي' :
+                           payment.payment_method === 'check' ? 'شيك' :
+                           payment.payment_method === 'insurance' ? 'تأمين' :
+                           payment.payment_method || 'غير محدد'
+      const status = payment.status === 'completed' ? 'مكتمل' :
+                    payment.status === 'partial' ? 'جزئي' :
+                    payment.status === 'pending' ? 'معلق' :
+                    payment.status === 'failed' ? 'فاشل' :
+                    payment.status === 'refunded' ? 'مسترد' : payment.status || 'غير محدد'
+      const paymentDate = payment.payment_date ? formatDate(payment.payment_date) : 'غير محدد'
+      const description = (payment.description || '').replace(/,/g, '؛')
+      const notes = (payment.notes || '').replace(/,/g, '؛')
+
+      csv += `"${receiptNumber}","${patientName}",${amount},${amountPaid},"${paymentMethod}","${status}",${paymentDate},"${description}","${notes}"\n`
+    })
+  }
+
+  return csv
+}
+
+/**
+ * إنشاء بيانات التقرير المالي الشامل للـ PDF
+ */
+async function generateComprehensiveFinancialData(payments: any[], timeFilter: any, labOrders?: any[], clinicNeeds?: any[], inventoryItems?: any[]): Promise<any> {
+  const validateAmount = (amount: any): number => {
+    const num = Number(amount)
+    return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+  }
+
+  // حساب الإحصائيات المالية الشاملة مع جميع المصادر
+  const financialStats = ComprehensiveExportService.calculateFinancialStats(payments, labOrders, clinicNeeds, inventoryItems)
+
+  // حساب إحصائيات طرق الدفع - استخدام نفس المنطق المتسق
+  const paymentMethodStats = {}
+
+  payments.forEach(payment => {
+    const method = payment.payment_method || 'unknown'
+    // استخدام amount (مبلغ الدفعة الحالية) لجميع الحالات
+    const amount = validateAmount(payment.amount)
+
+    if (amount > 0 && (payment.status === 'completed' || payment.status === 'partial')) {
+      paymentMethodStats[method] = (paymentMethodStats[method] || 0) + amount
+    }
+  })
+
+  console.log('Payment method stats calculation:', { paymentsLength: payments.length, paymentMethodStats })
+
+  return {
+    // الإحصائيات الأساسية
+    totalRevenue: financialStats.totalRevenue,
+    totalPaid: financialStats.completedPayments + financialStats.partialPayments,
+    totalPending: financialStats.pendingAmount,
+    totalOverdue: financialStats.remainingBalances,
+
+    // تفصيل المدفوعات
+    completedPayments: payments.filter(p => p.status === 'completed').length,
+    partialPayments: payments.filter(p => p.status === 'partial').length,
+    pendingPayments: payments.filter(p => p.status === 'pending').length,
+    failedPayments: payments.filter(p => p.status === 'failed').length,
+
+    // الأرباح والخسائر
+    netProfit: financialStats.netProfit || 0,
+    lossAmount: financialStats.lossAmount || 0,
+    profitMargin: financialStats.profitMargin || 0,
+    isProfit: financialStats.isProfit,
+    totalExpenses: financialStats.totalExpenses || 0,
+
+    // تفصيل المصروفات
+    labOrdersTotal: financialStats.labOrdersTotal || 0,
+    labOrdersRemaining: financialStats.labOrdersRemaining || 0,
+    clinicNeedsTotal: financialStats.clinicNeedsTotal || 0,
+    clinicNeedsRemaining: financialStats.clinicNeedsRemaining || 0,
+    inventoryExpenses: financialStats.inventoryExpenses || 0,
+
+    // طرق الدفع
+    revenueByPaymentMethod: Object.entries(paymentMethodStats).map(([method, amount]) => ({
+      method: method === 'cash' ? 'نقدي' :
+              method === 'card' ? 'بطاقة ائتمان' :
+              method === 'bank_transfer' ? 'تحويل بنكي' :
+              method === 'check' ? 'شيك' :
+              method === 'insurance' ? 'تأمين' : method,
+      amount: validateAmount(amount),
+      percentage: financialStats.totalRevenue > 0 ? (validateAmount(amount) / financialStats.totalRevenue) * 100 : 0
+    })),
+
+    // معلومات الفلترة
+    filterInfo: timeFilter.startDate && timeFilter.endDate
+      ? `البيانات المفلترة من ${timeFilter.startDate} إلى ${timeFilter.endDate}`
+      : 'جميع البيانات المالية',
+    dataCount: payments.length,
+    totalTransactions: payments.length,
+    successRate: payments.length > 0 ? ((payments.filter(p => p.status === 'completed' || p.status === 'partial').length) / payments.length * 100).toFixed(1) : '0.0',
+    averageTransaction: payments.length > 0 ? (financialStats.totalRevenue / payments.length).toFixed(2) : '0.00',
+
+    // تفاصيل المدفوعات
+    payments: payments.map(payment => ({
+      id: payment.id,
+      receipt_number: payment.receipt_number || `#${payment.id?.slice(-6) || 'N/A'}`,
+      patient_name: payment.patient?.full_name || payment.patient_name || 'غير محدد',
+      amount: payment.amount,
+      amount_paid: payment.amount_paid,
+      payment_method: payment.payment_method,
+      status: payment.status,
+      payment_date: payment.payment_date,
+      description: payment.description,
+      notes: payment.notes
+    }))
+  }
+}
+
 export default function FinancialReports() {
   const { financialReports, isLoading, isExporting, generateReport, clearCache } = useReportsStore()
   const {
@@ -62,6 +284,9 @@ export default function FinancialReports() {
     monthlyRevenue,
     loadPayments
   } = usePaymentStore()
+  const { inventoryItems, loadItems } = useInventoryStore()
+  const { labOrders, loadLabOrders } = useLabOrderStore()
+  const { clinicNeeds, loadNeeds } = useClinicNeedsStore()
   const { currency, settings } = useSettingsStore()
   const { isDarkMode } = useTheme()
 
@@ -78,7 +303,10 @@ export default function FinancialReports() {
   useEffect(() => {
     generateReport('financial')
     loadPayments()
-  }, [generateReport, loadPayments])
+    loadItems()
+    loadLabOrders()
+    loadNeeds()
+  }, [generateReport, loadPayments, loadItems, loadLabOrders, loadNeeds])
 
   // Validate payments data on load
   useEffect(() => {
@@ -196,46 +424,45 @@ export default function FinancialReports() {
         return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
       }
 
-      // Use data from reports service if available
-      const methodStats = reportData.revenueByPaymentMethod || paymentMethodStats || {}
+      // Always use filtered data for accurate calculations
+      const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
 
-      // If no data, calculate from payments directly using validated payments
-      const validatedPayments = reportData.validatedPayments || payments
-      if (Object.keys(methodStats).length === 0 && validatedPayments.length > 0) {
-        const calculatedStats = {}
-        validatedPayments
-          .filter(p => p.status === 'completed')
-          .forEach(payment => {
-            const method = payment.payment_method || 'unknown'
-            const amount = validateAmount(payment.amount)
-            calculatedStats[method] = (calculatedStats[method] || 0) + amount
-          })
-
-        const data = Object.entries(calculatedStats)
-          .filter(([method, amount]) => amount > 0)
-          .map(([method, amount]) => ({
-            method: methodMapping[method] || method,
-            amount: validateAmount(amount),
-            formattedAmount: formatCurrency(amount, currency),
-            count: payments.filter(p => p.payment_method === method && p.status === 'completed').length
-          }))
-          .sort((a, b) => b.amount - a.amount)
-
-        return ensurePaymentMethodData(data)
+      if (dataToUse.length === 0) {
+        return []
       }
 
-      const data = Object.entries(methodStats)
-        .filter(([method, amount]) => {
-          const validAmount = validateAmount(amount)
-          return validAmount > 0
+      const calculatedStats = {}
+      dataToUse
+        .filter(p => p.status === 'completed' || p.status === 'partial')
+        .forEach(payment => {
+          const method = payment.payment_method || 'cash' // Default to cash if not specified
+          // استخدام amount (مبلغ الدفعة الحالية) لجميع الحالات - متسق مع باقي الحسابات
+          const amount = validateAmount(payment.amount)
+
+          console.log(`Payment method calculation - Payment ${payment.id}: Method=${method}, Amount=${amount}, Status=${payment.status}`)
+
+          if (amount > 0) {
+            calculatedStats[method] = (calculatedStats[method] || 0) + amount
+          }
         })
+
+      console.log('Payment method calculated stats:', calculatedStats)
+
+      const data = Object.entries(calculatedStats)
+        .filter(([method, amount]) => amount > 0)
         .map(([method, amount]) => ({
           method: methodMapping[method] || method,
           amount: validateAmount(amount),
-          formattedAmount: formatCurrency(validateAmount(amount), currency),
-          count: payments.filter(p => p.payment_method === method && p.status === 'completed').length
+          formattedAmount: formatCurrency(amount, currency),
+          count: dataToUse.filter(p =>
+            p.payment_method === method &&
+            (p.status === 'completed' || p.status === 'partial')
+          ).length
         }))
-        .sort((a, b) => b.amount - a.amount) // Sort by amount descending
+        .sort((a, b) => b.amount - a.amount)
+
+      console.log('Payment method final data:', data)
+      console.log('Payment method total:', data.reduce((sum, method) => sum + method.amount, 0))
 
       return ensurePaymentMethodData(data)
     } catch (error) {
@@ -253,95 +480,94 @@ export default function FinancialReports() {
         return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
       }
 
-      // Use data from reports service if available
-      if (reportData.revenueTrend && reportData.revenueTrend.length > 0) {
-        return reportData.revenueTrend.map(item => ({
-          month: item.period,
-          revenue: validateAmount(item.revenue || item.amount),
-          formattedRevenue: formatCurrency(validateAmount(item.revenue || item.amount), currency)
-        }))
+      // Always use filtered data for accurate calculations
+      const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+
+      if (dataToUse.length === 0) {
+        return []
       }
 
-      // If no monthly revenue data, calculate from payments directly using validated payments
-      const validatedPayments = reportData.validatedPayments || payments
-      if (!monthlyRevenue || Object.keys(monthlyRevenue).length === 0) {
-        const calculatedMonthlyRevenue = {}
+      console.log('Processing monthly revenue for', dataToUse.length, 'payments')
+      console.log('Sample payments:', dataToUse.slice(0, 3))
+      console.log('All payment amounts:', dataToUse.map(p => ({ id: p.id, amount: p.amount, status: p.status, date: p.payment_date })))
 
-        validatedPayments
-          .filter(p => p.status === 'completed')
-          .forEach(payment => {
-            try {
-              const paymentDate = new Date(payment.payment_date)
-              if (isNaN(paymentDate.getTime())) {
-                console.warn('Invalid payment date:', payment.payment_date)
-                return
-              }
+      const calculatedMonthlyRevenue = {}
 
-              const month = paymentDate.toISOString().slice(0, 7) // YYYY-MM
-              const amount = validateAmount(payment.amount)
+      dataToUse
+        .filter(p => p.status === 'completed' || p.status === 'partial')
+        .forEach(payment => {
+          try {
+            // Try multiple date fields
+            const paymentDate = new Date(payment.payment_date || payment.created_at || payment.date)
+            if (isNaN(paymentDate.getTime())) {
+              console.warn('Invalid payment date for payment:', payment.id, payment.payment_date)
+              return
+            }
+
+            const month = paymentDate.toISOString().slice(0, 7) // YYYY-MM
+            // استخدام amount (مبلغ الدفعة الحالية) لجميع الحالات
+            const amount = validateAmount(payment.amount)
+
+            console.log(`Payment ${payment.id}: Date=${payment.payment_date}, Month=${month}, Amount=${amount}, Status=${payment.status}`)
+
+            if (amount > 0) {
               calculatedMonthlyRevenue[month] = (calculatedMonthlyRevenue[month] || 0) + amount
-            } catch (error) {
-              console.warn('Error processing payment date:', payment.payment_date, error)
+              console.log(`Added ${amount} to month ${month}, total now: ${calculatedMonthlyRevenue[month]}`)
             }
-          })
+          } catch (error) {
+            console.warn('Error processing payment date:', payment.payment_date, error)
+          }
+        })
 
-        const data = Object.entries(calculatedMonthlyRevenue)
-          .filter(([month, revenue]) => {
-            const isValidMonth = month.match(/^\d{4}-\d{2}$/)
-            const isValidRevenue = validateAmount(revenue) > 0
-            return isValidMonth && isValidRevenue
-          })
-          .map(([month, revenue]) => {
-            // Convert to Gregorian calendar format with Arabic month names
-            const monthName = parseAndFormatGregorianMonth(month)
+      console.log('Calculated monthly revenue:', calculatedMonthlyRevenue)
 
-            return {
-              month: monthName,
-              revenue: validateAmount(revenue),
-              formattedRevenue: formatCurrency(validateAmount(revenue), currency)
-            }
-          })
-          .sort((a, b) => {
-            // Sort chronologically by parsing the month string back to date
-            const parseMonth = (monthStr) => {
-              // This is a simplified approach - in production you might want more robust parsing
-              return new Date(monthStr).getTime() || 0
-            }
-            return parseMonth(a.month) - parseMonth(b.month)
-          })
+      // If we have less than 2 months of data, generate some sample months for better visualization
+      const monthEntries = Object.entries(calculatedMonthlyRevenue)
+      if (monthEntries.length === 1) {
+        const [singleMonth, singleRevenue] = monthEntries[0]
+        const currentDate = new Date(singleMonth + '-01')
 
-        return data
+        // Add previous month with 0 revenue for comparison
+        const prevMonth = new Date(currentDate)
+        prevMonth.setMonth(prevMonth.getMonth() - 1)
+        const prevMonthKey = prevMonth.toISOString().slice(0, 7)
+        calculatedMonthlyRevenue[prevMonthKey] = 0
+
+        // Add next month with 0 revenue for comparison
+        const nextMonth = new Date(currentDate)
+        nextMonth.setMonth(nextMonth.getMonth() + 1)
+        const nextMonthKey = nextMonth.toISOString().slice(0, 7)
+        calculatedMonthlyRevenue[nextMonthKey] = 0
       }
 
-      // Fallback to calculating from store data
-      const data = Object.entries(monthlyRevenue || {})
+      const data = Object.entries(calculatedMonthlyRevenue)
         .filter(([month, revenue]) => {
           const isValidMonth = month.match(/^\d{4}-\d{2}$/)
-          const isValidRevenue = validateAmount(revenue) > 0
-          return isValidMonth && isValidRevenue
+          return isValidMonth
         })
         .map(([month, revenue]) => {
-          // Convert to Gregorian calendar format with Arabic month names
-          const monthName = parseAndFormatGregorianMonth(month)
+          // Convert to Arabic month names
+          const date = new Date(month + '-01')
+          const monthNames = [
+            'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+            'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+          ]
+          const monthName = `${monthNames[date.getMonth()]} ${date.getFullYear()}`
 
           return {
             month: monthName,
             revenue: validateAmount(revenue),
-            formattedRevenue: formatCurrency(validateAmount(revenue), currency)
+            formattedRevenue: formatCurrency(validateAmount(revenue), currency),
+            originalMonth: month // Keep original for sorting
           }
         })
         .sort((a, b) => {
-          // Sort chronologically
-          const parseMonth = (monthStr) => {
-            return new Date(monthStr).getTime() || 0
-          }
-          return parseMonth(a.month) - parseMonth(b.month)
+          // Sort chronologically using original month format
+          return a.originalMonth.localeCompare(b.originalMonth)
         })
+        .map(({ originalMonth, ...rest }) => rest) // Remove originalMonth from final data
 
-      if (!validateNumericData(data)) {
-        console.warn('Financial Reports: Invalid monthly revenue data')
-        return []
-      }
+      console.log('Final monthly revenue data:', data)
 
       return data
     } catch (error) {
@@ -353,14 +579,31 @@ export default function FinancialReports() {
   // Enhanced payment status data for pie chart with validation
   const statusData = (() => {
     try {
+      // Always use filtered data for accurate calculations
+      const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+
+      if (dataToUse.length === 0) {
+        return []
+      }
+
+      const completedCount = dataToUse.filter(p => p.status === 'completed').length
+      const partialCount = dataToUse.filter(p => p.status === 'partial').length
+      const pendingCount = dataToUse.filter(p => p.status === 'pending').length
+      const failedCount = dataToUse.filter(p => p.status === 'failed').length
+      const refundedCount = dataToUse.filter(p => p.status === 'refunded').length
+      const totalCount = dataToUse.length
+
       const data = [
-        { name: 'مكتمل', value: stats.completedCount, color: statusColors[0] }, // Green for completed
-        { name: 'معلق', value: stats.pendingCount, color: statusColors[1] }, // Amber for pending
-        { name: 'فاشل', value: stats.failedCount, color: statusColors[2] }, // Red for failed
-        { name: 'مسترد', value: stats.refundedCount, color: statusColors[3] } // Gray for refunded
-      ].map(item => ({
+        { name: 'مكتمل', value: completedCount, color: statusColors[0] || '#10b981' },
+        { name: 'جزئي', value: partialCount, color: statusColors[1] || '#f59e0b' },
+        { name: 'معلق', value: pendingCount, color: statusColors[2] || '#6b7280' },
+        { name: 'فاشل', value: failedCount, color: statusColors[3] || '#ef4444' },
+        { name: 'مسترد', value: refundedCount, color: statusColors[4] || '#8b5cf6' }
+      ]
+      .filter(item => item.value > 0) // Only show statuses that have data
+      .map(item => ({
         ...item,
-        percentage: stats.totalTransactions > 0 ? Math.round((item.value / stats.totalTransactions) * 100) : 0
+        percentage: totalCount > 0 ? Math.round((item.value / totalCount) * 100) : 0
       }))
 
       return ensurePaymentStatusData(data)
@@ -379,6 +622,20 @@ export default function FinancialReports() {
           <p className="text-muted-foreground mt-1">
             إحصائيات وتحليلات شاملة للمدفوعات والإيرادات
           </p>
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>البيانات محدثة في الوقت الفعلي</span>
+            </div>
+            {paymentStats.filteredData.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                • {paymentStats.filteredData.length} معاملة
+                {paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate &&
+                  ` (مفلترة)`
+                }
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center space-x-2 space-x-reverse">
           <Button
@@ -421,7 +678,7 @@ export default function FinancialReports() {
             size="sm"
             onClick={async () => {
               try {
-                // Use filtered data for export
+                // استخدام البيانات المفلترة للتصدير الشامل
                 const dataToExport = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
 
                 if (dataToExport.length === 0) {
@@ -429,162 +686,87 @@ export default function FinancialReports() {
                   return
                 }
 
-                // Use ExportService for consistent calculation and export
-                await ExportService.exportPaymentsToCSV(dataToExport)
-                notify.exportSuccess(`تم تصدير التقرير المالي بنجاح! (${dataToExport.length} معاملة)`)
+                // إنشاء تقرير مالي شامل مع جميع الأمور المالية
+                const csvContent = await generateComprehensiveFinancialCSV(dataToExport, paymentStats.timeFilter)
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
+
+                // إنشاء اسم ملف وصفي
+                const now = new Date()
+                const dateStr = now.toISOString().split('T')[0]
+                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-')
+
+                let fileName = `التقرير_المالي_الشامل_${dateStr}_${timeStr}`
+
+                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                  fileName += `_مفلتر`
+                }
+
+                fileName += '.csv'
+
+                link.download = fileName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                URL.revokeObjectURL(link.href)
+
+                notify.exportSuccess(`تم تصدير التقرير المالي الشامل بنجاح! (${dataToExport.length} معاملة)`)
               } catch (error) {
-                console.error('Error exporting CSV:', error)
-                notify.exportError('فشل في تصدير التقرير المالي')
+                console.error('Error exporting comprehensive financial CSV:', error)
+                notify.exportError('فشل في تصدير التقرير المالي الشامل')
               }
             }}
             disabled={isExporting}
           >
             <Download className="w-4 h-4 ml-2" />
-            تصدير CSV
+            تصدير CSV شامل
           </Button>
           <Button
             variant="default"
             size="sm"
             onClick={async () => {
               try {
-                // استخدام البيانات المفلترة مع تطبيق جميع الفلاتر
-                let dataToExport = [...payments]
-
-                // تطبيق الفلترة الزمنية
-                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
-                  const startDate = new Date(paymentStats.timeFilter.startDate)
-                  const endDate = new Date(paymentStats.timeFilter.endDate)
-                  endDate.setHours(23, 59, 59, 999)
-
-                  dataToExport = dataToExport.filter(payment => {
-                    const paymentDate = new Date(payment.payment_date)
-                    return paymentDate >= startDate && paymentDate <= endDate
-                  })
-                }
+                // استخدام البيانات المفلترة للتصدير الشامل
+                const dataToExport = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
 
                 if (dataToExport.length === 0) {
                   notify.noDataToExport('لا توجد بيانات مالية للتصدير')
                   return
                 }
 
-                // Calculate financial statistics from filtered data
-                const validateAmount = (amount: any): number => {
-                  const num = Number(amount)
-                  return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
-                }
+                // إنشاء تقرير مالي شامل مع جميع الأمور المالية
+                const comprehensiveFinancialData = await generateComprehensiveFinancialData(
+                  dataToExport,
+                  paymentStats.timeFilter,
+                  labOrders,
+                  clinicNeeds,
+                  inventoryItems
+                )
 
-                // Calculate totals from filtered payments
-                // For partial payments, use amount_paid; for completed payments, use full amount
-                const totalRevenue = dataToExport.reduce((sum, p) => {
-                  if (p.status === 'completed') {
-                    return sum + validateAmount(p.amount)
-                  } else if (p.status === 'partial' && p.amount_paid !== undefined) {
-                    return sum + validateAmount(p.amount_paid)
-                  }
-                  // Don't include pending or failed payments in revenue
-                  return sum
-                }, 0)
-
-                const completedPayments = dataToExport.filter(p => p.status === 'completed').length
-                const partialPayments = dataToExport.filter(p => p.status === 'partial').length
-                const pendingPayments = dataToExport.filter(p => p.status === 'pending').length
-                const failedPayments = dataToExport.filter(p => p.status === 'failed').length
-
-                // Calculate overdue payments (pending payments older than 30 days)
-                const thirtyDaysAgo = new Date()
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-                const overduePayments = dataToExport.filter(p =>
-                  p.status === 'pending' &&
-                  new Date(p.payment_date || p.created_at) < thirtyDaysAgo
-                ).length
-
-                // Calculate remaining amounts from partial payments
-                const totalRemainingFromPartialPayments = dataToExport
-                  .filter(p => p.status === 'partial')
-                  .reduce((sum, p) => {
-                    const totalAmount = validateAmount(p.amount)
-                    const paidAmount = validateAmount(p.amount_paid || 0)
-                    return sum + (totalAmount - paidAmount)
-                  }, 0)
-
-                // Calculate payment method statistics
-                const paymentMethodStats = {}
-                dataToExport.forEach(payment => {
-                  const method = payment.payment_method || 'unknown'
-                  let amount = 0
-
-                  if (payment.status === 'completed') {
-                    amount = validateAmount(payment.amount)
-                  } else if (payment.status === 'partial' && payment.amount_paid !== undefined) {
-                    amount = validateAmount(payment.amount_paid)
-                  }
-                  // Only include completed and partial payments in method stats
-
-                  if (amount > 0) {
-                    paymentMethodStats[method] = (paymentMethodStats[method] || 0) + amount
-                  }
-                })
-
-                // إعداد بيانات التقرير المالي الشامل
-                const financialReportData = {
-                  totalRevenue: totalRevenue,
-                  totalPaid: totalRevenue,
-                  totalPending: dataToExport.filter(p => p.status === 'pending').reduce((sum, p) => sum + validateAmount(p.amount), 0),
-                  totalOverdue: totalRemainingFromPartialPayments,
-                  completedPayments: completedPayments,
-                  partialPayments: partialPayments,
-                  pendingPayments: pendingPayments,
-                  overduePayments: overduePayments,
-                  failedPayments: failedPayments,
-                  revenueByPaymentMethod: Object.entries(paymentMethodStats).map(([method, amount]) => ({
-                    method: method === 'cash' ? 'نقدي' : method === 'card' ? 'بطاقة' : method === 'bank_transfer' ? 'تحويل بنكي' : method,
-                    amount: validateAmount(amount),
-                    percentage: totalRevenue > 0 ? (validateAmount(amount) / totalRevenue) * 100 : 0
-                  })),
-                  filterInfo: paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
-                    ? `البيانات المفلترة من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
-                    : 'جميع البيانات المالية',
-                  dataCount: dataToExport.length,
-                  totalTransactions: dataToExport.length,
-                  successRate: dataToExport.length > 0 ? ((completedPayments + partialPayments) / dataToExport.length * 100).toFixed(1) : '0.0',
-                  averageTransaction: dataToExport.length > 0 ? (totalRevenue / dataToExport.length).toFixed(2) : '0.00',
-                  // إضافة تفاصيل المدفوعات للتقرير المفصل
-                  payments: dataToExport.map(payment => ({
-                    id: payment.id,
-                    receipt_number: payment.receipt_number || `#${payment.id.slice(-6)}`,
-                    patient_name: payment.patient?.full_name || 'غير محدد',
-                    amount: payment.amount,
-                    amount_paid: payment.amount_paid,
-                    payment_method: payment.payment_method,
-                    status: payment.status,
-                    payment_date: payment.payment_date,
-                    description: payment.description,
-                    notes: payment.notes
-                  }))
-                }
-
-                // Use PdfService for enhanced PDF export
-                await PdfService.exportFinancialReport(financialReportData, settings)
+                // Use PdfService for enhanced comprehensive PDF export
+                await PdfService.exportComprehensiveFinancialReport(comprehensiveFinancialData, settings)
 
                 // رسالة نجاح مفصلة
-                let successMessage = `تم تصدير التقرير المالي كملف PDF بنجاح! (${dataToExport.length} معاملة)`
+                let successMessage = `تم تصدير التقرير المالي الشامل كملف PDF بنجاح! (${dataToExport.length} معاملة)`
 
                 if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
                   successMessage += ` - مفلتر من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
                 }
 
-                successMessage += ` - إجمالي الإيرادات: $${totalRevenue.toFixed(2)}`
+                successMessage += ` - إجمالي الإيرادات: $${comprehensiveFinancialData.totalRevenue.toFixed(2)}`
 
                 notify.exportSuccess(successMessage)
               } catch (error) {
-                console.error('Error exporting PDF:', error)
-                notify.exportError('فشل في تصدير التقرير كملف PDF')
+                console.error('Error exporting comprehensive financial PDF:', error)
+                notify.exportError('فشل في تصدير التقرير المالي الشامل كملف PDF')
               }
             }}
             disabled={isExporting}
           >
             <Download className="w-4 h-4 ml-2" />
-            تصدير PDF
+            تصدير PDF شامل
           </Button>
         </div>
       </div>
@@ -699,6 +881,90 @@ export default function FinancialReports() {
         </Card>
       </div>
 
+      {/* Additional Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
+        <Card className={getCardStyles("purple")} dir="rtl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي المعاملات</CardTitle>
+            <Receipt className={`h-4 w-4 ${getIconStyles("purple")}`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground text-right">
+              {paymentStats.filteredData.length}
+            </div>
+            <p className="text-xs text-muted-foreground text-right">
+              معاملة مالية
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={getCardStyles("indigo")} dir="rtl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">معدل النجاح</CardTitle>
+            <TrendingUp className={`h-4 w-4 ${getIconStyles("indigo")}`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground text-right">
+              {(() => {
+                const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+                const successfulPayments = dataToUse.filter(p => p.status === 'completed' || p.status === 'partial').length
+                const successRate = dataToUse.length > 0 ? (successfulPayments / dataToUse.length * 100).toFixed(1) : '0.0'
+                return `${successRate}%`
+              })()}
+            </div>
+            <p className="text-xs text-muted-foreground text-right">
+              من المعاملات ناجحة
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={getCardStyles("teal")} dir="rtl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">متوسط المعاملة</CardTitle>
+            <DollarSign className={`h-4 w-4 ${getIconStyles("teal")}`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground text-right">
+              <CurrencyDisplay
+                amount={(() => {
+                  const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+                  const totalRevenue = paymentStats.financialStats.totalRevenue || 0
+                  return dataToUse.length > 0 ? totalRevenue / dataToUse.length : 0
+                })()}
+                currency={currency}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-right">
+              متوسط قيمة المعاملة
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={getCardStyles("green")} dir="rtl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">أعلى مدفوعة</CardTitle>
+            <TrendingUp className={`h-4 w-4 ${getIconStyles("pink")}`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground text-right">
+              <CurrencyDisplay
+                amount={(() => {
+                  const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+                  const amounts = dataToUse
+                    .filter(p => p.status === 'completed' || p.status === 'partial')
+                    .map(p => p.amount || 0) // استخدام amount (مبلغ الدفعة) لجميع الحالات
+                  return amounts.length > 0 ? Math.max(...amounts) : 0
+                })()}
+                currency={currency}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-right">
+              أكبر مبلغ مدفوع
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
         {/* Enhanced Payment Status Distribution */}
@@ -709,7 +975,10 @@ export default function FinancialReports() {
               <span>توزيع حالات المدفوعات</span>
             </CardTitle>
             <CardDescription>
-              توزيع المدفوعات حسب الحالة ({stats.totalTransactions} معاملة إجمالية)
+              توزيع المدفوعات حسب الحالة ({paymentStats.filteredData.length} معاملة)
+              {paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate &&
+                ` في الفترة المحددة`
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -782,7 +1051,19 @@ export default function FinancialReports() {
               <span>طرق الدفع</span>
             </CardTitle>
             <CardDescription>
-              الإيرادات حسب طريقة الدفع ({formatCurrency(totalRevenue, currency)} إجمالي)
+              الإيرادات حسب طريقة الدفع ({formatCurrency((() => {
+                // حساب الإجمالي من نفس البيانات المستخدمة في المخطط
+                const total = paymentMethodData.reduce((sum, method) => sum + method.amount, 0)
+                console.log('Payment method total calculation:', {
+                  paymentMethodData,
+                  total,
+                  financialStatsTotal: paymentStats.financialStats.totalRevenue
+                })
+                return total
+              })(), currency)} إجمالي)
+              {paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate &&
+                ` في الفترة المحددة`
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -877,6 +1158,12 @@ export default function FinancialReports() {
               <div className="text-center">
                 <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>لا توجد بيانات إيرادات شهرية متاحة</p>
+                <p className="text-sm mt-2">
+                  {paymentStats.filteredData.length === 0
+                    ? 'قم بإضافة مدفوعات لعرض الإحصائيات'
+                    : `يوجد ${paymentStats.filteredData.length} مدفوعة ولكن لا توجد بيانات شهرية صالحة`
+                  }
+                </p>
               </div>
             </div>
           ) : (
@@ -931,28 +1218,154 @@ export default function FinancialReports() {
               <div className="text-center p-3 bg-muted/50 rounded">
                 <div className="text-xs text-muted-foreground">أعلى شهر</div>
                 <div className="font-semibold">
-                  {formatCurrency(Math.max(...monthlyRevenueData.map(d => d.revenue)), currency)}
+                  {(() => {
+                    const revenues = monthlyRevenueData.map(d => d.revenue).filter(r => r > 0)
+                    return revenues.length > 0
+                      ? formatCurrency(Math.max(...revenues), currency)
+                      : formatCurrency(0, currency)
+                  })()}
                 </div>
               </div>
               <div className="text-center p-3 bg-muted/50 rounded">
                 <div className="text-xs text-muted-foreground">متوسط شهري</div>
                 <div className="font-semibold">
-                  {formatCurrency(
-                    monthlyRevenueData.reduce((sum, d) => sum + d.revenue, 0) / monthlyRevenueData.length,
-                    currency
-                  )}
+                  {(() => {
+                    const revenues = monthlyRevenueData.map(d => d.revenue).filter(r => r > 0)
+                    return revenues.length > 0
+                      ? formatCurrency(revenues.reduce((sum, r) => sum + r, 0) / revenues.length, currency)
+                      : formatCurrency(0, currency)
+                  })()}
                 </div>
               </div>
               <div className="text-center p-3 bg-muted/50 rounded">
                 <div className="text-xs text-muted-foreground">أقل شهر</div>
                 <div className="font-semibold">
-                  {formatCurrency(Math.min(...monthlyRevenueData.map(d => d.revenue)), currency)}
+                  {(() => {
+                    const revenues = monthlyRevenueData.map(d => d.revenue).filter(r => r > 0)
+                    return revenues.length > 0
+                      ? formatCurrency(Math.min(...revenues), currency)
+                      : formatCurrency(0, currency)
+                  })()}
                 </div>
               </div>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Recent Payments Table */}
+      {paymentStats.filteredData.length > 0 && (
+        <Card dir="rtl">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 space-x-reverse">
+              <Receipt className="w-5 h-5" />
+              <span>المدفوعات الحديثة</span>
+            </CardTitle>
+            <CardDescription>
+              آخر {Math.min(10, paymentStats.filteredData.length)} مدفوعات
+              {paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate &&
+                ` في الفترة من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-right p-3 font-semibold text-muted-foreground">رقم الإيصال</th>
+                    <th className="text-right p-3 font-semibold text-muted-foreground">المريض</th>
+                    <th className="text-right p-3 font-semibold text-muted-foreground">المبلغ</th>
+                    <th className="text-right p-3 font-semibold text-muted-foreground">طريقة الدفع</th>
+                    <th className="text-right p-3 font-semibold text-muted-foreground">الحالة</th>
+                    <th className="text-right p-3 font-semibold text-muted-foreground">التاريخ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentStats.filteredData
+                    .sort((a, b) => new Date(b.payment_date || b.created_at).getTime() - new Date(a.payment_date || a.created_at).getTime())
+                    .slice(0, 10)
+                    .map((payment, index) => {
+                      const statusColors = {
+                        'completed': 'text-green-600 bg-green-50 dark:bg-green-900/20',
+                        'partial': 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20',
+                        'pending': 'text-gray-600 bg-gray-50 dark:bg-gray-900/20',
+                        'failed': 'text-red-600 bg-red-50 dark:bg-red-900/20',
+                        'refunded': 'text-purple-600 bg-purple-50 dark:bg-purple-900/20'
+                      }
+
+                      const statusLabels = {
+                        'completed': 'مكتمل',
+                        'partial': 'جزئي',
+                        'pending': 'معلق',
+                        'failed': 'فاشل',
+                        'refunded': 'مسترد'
+                      }
+
+                      const methodLabels = {
+                        'cash': 'نقداً',
+                        'card': 'بطاقة ائتمان',
+                        'bank_transfer': 'تحويل بنكي',
+                        'check': 'شيك',
+                        'insurance': 'تأمين'
+                      }
+
+                      return (
+                        <tr key={payment.id || index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                          <td className="p-3 text-right">
+                            <span className="font-mono text-sm">
+                              {payment.receipt_number || `#${payment.id?.slice(-6) || 'N/A'}`}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="font-medium">
+                              {payment.patient?.full_name || payment.patient_name || 'غير محدد'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex flex-col">
+                              <span className="font-semibold">
+                                <CurrencyDisplay amount={payment.amount || 0} currency={currency} />
+                              </span>
+                              {payment.status === 'partial' && payment.amount_paid && (
+                                <span className="text-xs text-muted-foreground">
+                                  مدفوع: <CurrencyDisplay amount={payment.amount_paid} currency={currency} />
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="text-sm">
+                              {methodLabels[payment.payment_method] || payment.payment_method || 'غير محدد'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[payment.status] || 'text-gray-600 bg-gray-50'}`}>
+                              {statusLabels[payment.status] || payment.status || 'غير محدد'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="text-sm text-muted-foreground">
+                              {formatDate(payment.payment_date || payment.created_at)}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            {paymentStats.filteredData.length > 10 && (
+              <div className="mt-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  عرض 10 من أصل {paymentStats.filteredData.length} مدفوعة
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
