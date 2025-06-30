@@ -57,6 +57,25 @@ export default function PaymentReceiptDialog({ open, onOpenChange, payment }: Pa
     const formattedDate = formatDate(payment.payment_date)
     const amount = formatCurrency(payment.amount)
 
+    // حساب المبلغ المتبقي للمدفوعات الجزئية
+    let remainingBalanceText = ''
+    if (payment.status === 'partial') {
+      let remainingBalance = 0
+      if (payment.appointment_id) {
+        const totalDue = payment.total_amount_due || payment.appointment_total_cost || 0
+        const totalPaid = payment.amount_paid || payment.amount || 0
+        remainingBalance = Math.max(0, totalDue - totalPaid)
+      } else {
+        const totalDue = payment.total_amount_due || payment.amount || 0
+        const paid = payment.amount_paid || payment.amount || 0
+        remainingBalance = Math.max(0, totalDue - paid)
+      }
+
+      if (remainingBalance > 0) {
+        remainingBalanceText = `⚠️ المبلغ المتبقي: ${formatCurrency(remainingBalance)}`
+      }
+    }
+
     return `🏥 ${clinicName}
 ${doctorName ? `👨‍⚕️ ${doctorName}` : ''}
 
@@ -64,6 +83,9 @@ ${doctorName ? `👨‍⚕️ ${doctorName}` : ''}
 👤 المريض: ${patientName}
 💰 المبلغ المدفوع: ${amount}
 📅 التاريخ: ${formattedDate}
+🔄 حالة الدفعة: ${getStatusLabel(payment.status)}
+${payment.appointment_id ? '📅 مرتبطة بموعد: نعم' : ''}
+${remainingBalanceText ? `\n${remainingBalanceText}` : ''}
 
 ✅ هذا إيصال رسمي معتمد
 🔒 معرف التحقق: ${payment.id.slice(-12)}
@@ -749,6 +771,17 @@ ${address ? `📍 العنوان: ${address}` : ''}
               </div>
 
               <div className="info-row">
+                <span className="label">الوقت:</span>
+                <span className="value">
+                  {new Date(payment.payment_date).toLocaleTimeString('ar-SA', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </span>
+              </div>
+
+              <div className="info-row">
                 <span className="label">المريض:</span>
                 <span className="value">
                   {payment.patient
@@ -775,14 +808,28 @@ ${address ? `📍 العنوان: ${address}` : ''}
                   <span className="value">{payment.description}</span>
                 </div>
               )}
+
+              <div className="info-row">
+                <span className="label">حالة الدفعة:</span>
+                <span className="value">{getStatusLabel(payment.status)}</span>
+              </div>
+
+              {/* معلومات الموعد المرتبط */}
+              {payment.appointment_id && (
+                <div className="info-row">
+                  <span className="label">مرتبطة بموعد:</span>
+                  <span className="value">نعم</span>
+                </div>
+              )}
             </div>
 
             <div className="separator">- - - - - - - - - - - - - - - -</div>
 
             {/* Amount Section */}
             <div className="amount-section">
+              {/* معلومات الدفعة الحالية */}
               <div className="amount-row">
-                <span>المبلغ المدفوع:</span>
+                <span>المبلغ المدفوع في هذه الدفعة:</span>
                 <span>{formatCurrency(payment.amount)}</span>
               </div>
 
@@ -800,10 +847,56 @@ ${address ? `📍 العنوان: ${address}` : ''}
                 </div>
               )}
 
+              {/* معلومات إضافية للمدفوعات الجزئية */}
+              {payment.status === 'partial' && (
+                <>
+                  <div className="separator">- - - - - - - - - - - - - - - -</div>
+
+                  {/* إجمالي المبلغ المطلوب */}
+                  {(payment.total_amount_due || payment.appointment_total_cost) && (
+                    <div className="amount-row">
+                      <span>إجمالي المبلغ المطلوب:</span>
+                      <span>{formatCurrency(payment.total_amount_due || payment.appointment_total_cost || 0)}</span>
+                    </div>
+                  )}
+
+                  {/* إجمالي المبلغ المدفوع */}
+                  {payment.amount_paid && (
+                    <div className="amount-row">
+                      <span>إجمالي المبلغ المدفوع:</span>
+                      <span>{formatCurrency(payment.amount_paid)}</span>
+                    </div>
+                  )}
+
+                  {/* المبلغ المتبقي */}
+                  {(() => {
+                    let remainingBalance = 0
+                    if (payment.appointment_id) {
+                      // للمدفوعات المرتبطة بمواعيد
+                      const totalDue = payment.total_amount_due || payment.appointment_total_cost || 0
+                      const totalPaid = payment.amount_paid || payment.amount || 0
+                      remainingBalance = Math.max(0, totalDue - totalPaid)
+                    } else {
+                      // للمدفوعات العامة
+                      const totalDue = payment.total_amount_due || payment.amount || 0
+                      const paid = payment.amount_paid || payment.amount || 0
+                      remainingBalance = Math.max(0, totalDue - paid)
+                    }
+
+                    return remainingBalance > 0 ? (
+                      <div className="amount-row" style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                        <span>المبلغ المتبقي:</span>
+                        <span>{formatCurrency(remainingBalance)}</span>
+                      </div>
+                    ) : null
+                  })()}
+                </>
+              )}
+
               <div className="separator">═══════════════════</div>
 
               <div className="total-amount">
-                المبلغ الإجمالي: {formatCurrency(
+                المبلغ الإجمالي لهذه الدفعة: {formatCurrency(
                   payment.total_amount ||
                   (payment.amount + (payment.tax_amount || 0) - (payment.discount_amount || 0))
                 )}
@@ -881,6 +974,23 @@ ${address ? `📍 العنوان: ${address}` : ''}
                 </div>
               </div>
             )}
+
+            {/* معلومات إضافية مفيدة */}
+            <div className="section">
+              <div className="separator">- - - - - - - - - - - - - - - -</div>
+              <div style={{ fontSize: '9px', color: '#666', textAlign: 'center', margin: '4px 0' }}>
+                <div>معرف الدفعة: {payment.id.slice(-8)}</div>
+                <div>طريقة الدفع: {getPaymentMethodLabel(payment.payment_method)}</div>
+                {payment.status === 'partial' && (
+                  <div style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                    ⚠️ دفعة جزئية - يرجى الاحتفاظ بالإيصال
+                  </div>
+                )}
+                <div style={{ marginTop: '4px' }}>
+                  تاريخ الطباعة: {new Date().toLocaleDateString('ar-SA')} - {new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Footer */}
