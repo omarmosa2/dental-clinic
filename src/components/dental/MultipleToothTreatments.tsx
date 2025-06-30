@@ -464,7 +464,8 @@ export default function MultipleToothTreatments({
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              {/* حقل التكلفة مخفي مؤقتاً - يمكن إظهاره لاحقاً */}
+              <div className="space-y-2" style={{ display: 'none' }}>
                 <Label className={cn(
                   "font-medium",
                   isDarkMode ? "text-blue-200" : "text-blue-800"
@@ -487,7 +488,7 @@ export default function MultipleToothTreatments({
                 <Label className={cn(
                   "font-medium",
                   isDarkMode ? "text-blue-200" : "text-blue-800"
-                )}>تاريخ البدء</Label>
+                )}>تاريخ العلاج</Label>
                 <Input
                   type="date"
                   value={newTreatment.start_date || ''}
@@ -691,7 +692,8 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
           </Select>
         </div>
 
-        <div className="space-y-2">
+        {/* حقل التكلفة مخفي مؤقتاً - يمكن إظهاره لاحقاً */}
+        <div className="space-y-2" style={{ display: 'none' }}>
           <Label>التكلفة ($)</Label>
           <Input
             type="number"
@@ -702,7 +704,7 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
         </div>
 
         <div className="space-y-2">
-          <Label>تاريخ البدء</Label>
+          <Label>تاريخ العلاج</Label>
           <Input
             type="date"
             value={editData.start_date || ''}
