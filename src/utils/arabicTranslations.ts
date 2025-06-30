@@ -25,12 +25,11 @@ export const getTreatmentNameInArabic = (treatmentType: string): string => {
     'onlay': 'حشو خارجي',
 
     // Endodontic treatments - علاج العصب
-    'nerve_extraction': 'استئصال عصب',
     'pulp_therapy': 'مداولة لبية',
-    'direct_pulp_cap': 'ضغطية مباشرة',
-    'indirect_pulp_cap': 'ضغطية غير مباشرة',
+    'direct_pulp_cap': 'تغطية مباشرة',
+    'indirect_pulp_cap': 'تغطية غير مباشرة',
     'retreatment': 'إعادة معالجة',
-    'deep_pulp_treatment': 'معالجة لبية عميقة',
+    'deep_pulp_treatment': 'معالجة لبية عفنة',
 
     // Surgical treatments - العلاجات الجراحية
     'extraction': 'قلع',
@@ -74,7 +73,7 @@ export const getTreatmentNameInArabic = (treatmentType: string): string => {
 
     // Legacy treatments
     'preventive': 'علاج وقائي',
-    'pulp_cap': 'ضغطية لب',
+    'pulp_cap': 'تغطية لب',
     'extraction_simple': 'قلع بسيط',
 
     // Additional common treatments

@@ -106,7 +106,7 @@ export default function ComprehensiveProfitLossReport() {
           </Button>
           <Button variant="outline" size="sm">
             <FileText className="w-4 h-4 ml-2" />
-            تصدير CSV
+            تصدير اكسل
           </Button>
         </div>
       </div>

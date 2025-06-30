@@ -37,6 +37,7 @@ import {
 } from 'lucide-react'
 import type { Payment } from '@/types'
 import { notify } from '@/services/notificationService'
+import { ExportService } from '@/services/exportService'
 
 export default function Payments() {
   // Enable real-time synchronization for automatic updates
@@ -189,7 +190,7 @@ export default function Payments() {
         <div className="flex items-center space-x-2 space-x-reverse">
           <Button
             variant="outline"
-            onClick={() => {
+            onClick={async () => {
               // Export payments data
               if (payments.length === 0) {
                 notify.noDataToExport('لا توجد بيانات مدفوعات للتصدير')
@@ -197,56 +198,55 @@ export default function Payments() {
               }
 
               try {
-
-              // Helper functions for export
-              const getPatientName = (payment: Payment) => {
-                const patient = patients.find(p => p.id === payment.patient_id)
-                return patient?.full_name || 'غير محدد'
-              }
-
-              const getPaymentMethodLabel = (method: string) => {
-                const methods = {
-                  cash: 'نقداً',
-                  card: 'بطاقة ائتمان',
-                  bank_transfer: 'تحويل بنكي',
-                  check: 'شيك',
-                  insurance: 'تأمين'
+                // Helper functions for export
+                const getPatientName = (payment: Payment) => {
+                  const patient = patients.find(p => p.id === payment.patient_id)
+                  return patient?.full_name || 'غير محدد'
                 }
-                return methods[method as keyof typeof methods] || method
-              }
 
-              // Match the table columns exactly
-              const getStatusLabel = (status: string) => {
-                const statusLabels = {
-                  completed: 'مكتمل',
-                  pending: 'معلق',
-                  partial: 'جزئي',
-                  overdue: 'متأخر',
-                  failed: 'فاشل',
-                  refunded: 'مسترد'
+                const getPaymentMethodLabel = (method: string) => {
+                  const methods = {
+                    cash: 'نقداً',
+                    card: 'بطاقة ائتمان',
+                    bank_transfer: 'تحويل بنكي',
+                    check: 'شيك',
+                    insurance: 'تأمين'
+                  }
+                  return methods[method as keyof typeof methods] || method
                 }
-                return statusLabels[status as keyof typeof statusLabels] || status
-              }
 
-              // استخدام البيانات المفلترة (الزمنية + البحث + الفلاتر)
-              let dataToExport = [...payments]
+                // Match the table columns exactly
+                const getStatusLabel = (status: string) => {
+                  const statusLabels = {
+                    completed: 'مكتمل',
+                    pending: 'معلق',
+                    partial: 'جزئي',
+                    overdue: 'متأخر',
+                    failed: 'فاشل',
+                    refunded: 'مسترد'
+                  }
+                  return statusLabels[status as keyof typeof statusLabels] || status
+                }
 
-              // تطبيق الفلترة الزمنية
-              if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
-                const startDate = new Date(paymentStats.timeFilter.startDate)
-                const endDate = new Date(paymentStats.timeFilter.endDate)
-                endDate.setHours(23, 59, 59, 999)
+                // استخدام البيانات المفلترة (الزمنية + البحث + الفلاتر)
+                let dataToExport = [...payments]
 
-                dataToExport = dataToExport.filter(payment => {
-                  const paymentDate = new Date(payment.payment_date)
-                  return paymentDate >= startDate && paymentDate <= endDate
-                })
-              }
+                // تطبيق الفلترة الزمنية
+                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                  const startDate = new Date(paymentStats.timeFilter.startDate)
+                  const endDate = new Date(paymentStats.timeFilter.endDate)
+                  endDate.setHours(23, 59, 59, 999)
 
-              // تطبيق فلاتر البحث والحالة وطريقة الدفع
-              if (searchQuery) {
-                dataToExport = dataToExport.filter(payment => {
-                  const patientName = getPatientName(payment)
+                  dataToExport = dataToExport.filter(payment => {
+                    const paymentDate = new Date(payment.payment_date)
+                    return paymentDate >= startDate && paymentDate <= endDate
+                  })
+                }
+
+                // تطبيق فلاتر البحث والحالة وطريقة الدفع
+                if (searchQuery) {
+                  dataToExport = dataToExport.filter(payment => {
+                    const patientName = getPatientName(payment)
                   return (
                     payment.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     payment.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -266,409 +266,21 @@ export default function Payments() {
                 dataToExport = dataToExport.filter(payment => payment.payment_method === paymentMethodFilter)
               }
 
-              // دالة مساعدة للتحقق من صحة المبالغ
-              const validateAmount = (amount: any): number => {
-                const num = Number(amount)
-                return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
-              }
+              // استخدام ExportService لتصدير Excel مباشرة
+              await ExportService.exportPaymentsToExcel(dataToExport)
 
-              // حساب الإحصائيات المالية مع تطبيق الفلاتر بدقة عالية
-              const totalRevenue = validateAmount(
-                dataToExport
-                  .filter(p => p.status === 'completed' || p.status === 'partial')
-                  .reduce((sum, payment) => {
-                    // للمدفوعات المكتملة: استخدم amount
-                    // للمدفوعات الجزئية: استخدم amount (المبلغ المدفوع في هذه الدفعة)
-                    const amount = validateAmount(payment.amount)
-                    return sum + amount
-                  }, 0)
-              )
-
-              const pendingAmount = validateAmount(
-                dataToExport
-                  .filter(p => p.status === 'pending')
-                  .reduce((sum, p) => sum + validateAmount(p.amount), 0)
-              )
-
-              // حساب المبالغ المتبقية من المدفوعات الجزئية بدقة
-              // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
-              const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
-              let generalRemainingBalance = 0
-
-              dataToExport.forEach(payment => {
-                if (payment.status === 'partial') {
-                  if (payment.appointment_id) {
-                    // مدفوعات مرتبطة بمواعيد
-                    const appointmentId = payment.appointment_id
-                    const totalDue = validateAmount(payment.total_amount_due || payment.appointment_total_cost || 0)
-                    const paidAmount = validateAmount(payment.amount)
-
-                    if (!appointmentGroups.has(appointmentId)) {
-                      appointmentGroups.set(appointmentId, { totalDue, totalPaid: 0 })
-                    }
-
-                    const group = appointmentGroups.get(appointmentId)!
-                    group.totalPaid += paidAmount
-                  } else {
-                    // مدفوعات عامة غير مرتبطة بمواعيد
-                    const totalDue = validateAmount(payment.total_amount_due || payment.amount)
-                    const paid = validateAmount(payment.amount_paid || payment.amount)
-                    generalRemainingBalance += Math.max(0, totalDue - paid)
-                  }
-                }
-              })
-
-              // حساب إجمالي المبالغ المتبقية من المواعيد
-              const appointmentRemainingBalance = Array.from(appointmentGroups.values()).reduce((sum, group) => {
-                return sum + Math.max(0, group.totalDue - group.totalPaid)
-              }, 0)
-
-              // إجمالي المبالغ المتبقية
-              const totalRemainingFromPartial = validateAmount(appointmentRemainingBalance + generalRemainingBalance)
-
-              // إنشاء بيانات CSV مع تفاصيل شاملة ودقيقة
-              const csvData: any[] = []
-
-              // إضافة معلومات التقرير في البداية
-              csvData.push({
-                'الرقم التسلسلي': 'تقرير المدفوعات الشامل',
-                'رقم الإيصال': '',
-                'المريض': '',
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              csvData.push({
-                'الرقم التسلسلي': `تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')}`,
-                'رقم الإيصال': '',
-                'المريض': '',
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
+              // رسالة نجاح مفصلة ودقيقة
+              let successMessage = `تم تصدير ${dataToExport.length} دفعة بنجاح إلى ملف Excel!`
 
               if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
-                csvData.push({
-                  'الرقم التسلسلي': `الفترة: من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate}`,
-                  'رقم الإيصال': '',
-                  'المريض': '',
-                  'المبلغ المدفوع': '',
-                  'المبلغ المتبقي': '',
-                  'طريقة الدفع': '',
-                  'الحالة': '',
-                  'تاريخ الدفع': '',
-                  'الوصف': '',
-                  'ملاحظات': ''
-                })
+                successMessage += ` (مفلترة من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate})`
               }
 
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': '',
-                'المريض': '',
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              // إضافة بيانات المدفوعات
-              const paymentRows = dataToExport.map((payment, index) => {
-                // حساب المبلغ المعروض بدقة
-                const displayAmount = validateAmount(payment.amount)
-
-                // حساب المبلغ المتبقي بدقة
-                let remainingBalance = 0
-                if (payment.status === 'partial') {
-                  if (payment.appointment_id) {
-                    // للمدفوعات المرتبطة بمواعيد، احسب من إجمالي المدفوعات للموعد
-                    const totalDue = validateAmount(payment.total_amount_due || payment.appointment_total_cost || 0)
-                    const totalPaid = validateAmount(payment.amount_paid || payment.amount)
-                    remainingBalance = Math.max(0, totalDue - totalPaid)
-                  } else {
-                    // للمدفوعات العامة
-                    const totalDue = validateAmount(payment.total_amount_due || payment.amount)
-                    const paid = validateAmount(payment.amount_paid || payment.amount)
-                    remainingBalance = Math.max(0, totalDue - paid)
-                  }
-                }
-
-                return {
-                  'الرقم التسلسلي': index + 1,
-                  'رقم الإيصال': payment.receipt_number || `#${payment.id.slice(-6)}`,
-                  'المريض': getPatientName(payment),
-                  'المبلغ المدفوع': `$${displayAmount.toFixed(2)}`,
-                  'المبلغ المتبقي': remainingBalance > 0 ? `$${remainingBalance.toFixed(2)}` : '-',
-                  'طريقة الدفع': getPaymentMethodLabel(payment.payment_method),
-                  'الحالة': getStatusLabel(payment.status),
-                  'تاريخ الدفع': formatDate(payment.payment_date),
-                  'الوصف': payment.description || '-',
-                  'ملاحظات': payment.notes || '-'
-                }
-              })
-
-              // إضافة بيانات المدفوعات إلى المصفوفة الرئيسية
-              csvData.push(...paymentRows)
-
-              // إضافة ملخص إحصائي في نهاية التقرير
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': '--- ملخص إحصائي ---',
-                'المريض': '',
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': 'إجمالي الإيرادات',
-                'المريض': `$${totalRevenue.toFixed(2)}`,
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': 'المبالغ المعلقة',
-                'المريض': `$${pendingAmount.toFixed(2)}`,
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': 'المبالغ المتبقية من الجزئية',
-                'المريض': `$${totalRemainingFromPartial.toFixed(2)}`,
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              // إضافة إحصائيات إضافية
-              const completedPayments = dataToExport.filter(p => p.status === 'completed')
-              const partialPayments = dataToExport.filter(p => p.status === 'partial')
-              const pendingPayments = dataToExport.filter(p => p.status === 'pending')
-
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': '',
-                'المريض': '',
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': '--- إحصائيات تفصيلية ---',
-                'المريض': '',
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': 'عدد المدفوعات المكتملة',
-                'المريض': completedPayments.length.toString(),
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': 'عدد المدفوعات الجزئية',
-                'المريض': partialPayments.length.toString(),
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': 'عدد المدفوعات المعلقة',
-                'المريض': pendingPayments.length.toString(),
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              csvData.push({
-                'الرقم التسلسلي': '',
-                'رقم الإيصال': 'إجمالي عدد المدفوعات',
-                'المريض': dataToExport.length.toString(),
-                'المبلغ المدفوع': '',
-                'المبلغ المتبقي': '',
-                'طريقة الدفع': '',
-                'الحالة': '',
-                'تاريخ الدفع': '',
-                'الوصف': '',
-                'ملاحظات': ''
-              })
-
-              // إضافة إحصائيات طرق الدفع
-              const paymentMethodBreakdown = dataToExport.reduce((acc, payment) => {
-                const method = payment.payment_method
-                const amount = validateAmount(payment.amount)
-                acc[method] = (acc[method] || 0) + amount
-                return acc
-              }, {} as Record<string, number>)
-
-              if (Object.keys(paymentMethodBreakdown).length > 0) {
-                csvData.push({
-                  'الرقم التسلسلي': '',
-                  'رقم الإيصال': '',
-                  'المريض': '',
-                  'المبلغ المدفوع': '',
-                  'المبلغ المتبقي': '',
-                  'طريقة الدفع': '',
-                  'الحالة': '',
-                  'تاريخ الدفع': '',
-                  'الوصف': '',
-                  'ملاحظات': ''
-                })
-
-                csvData.push({
-                  'الرقم التسلسلي': '',
-                  'رقم الإيصال': '--- توزيع طرق الدفع ---',
-                  'المريض': '',
-                  'المبلغ المدفوع': '',
-                  'المبلغ المتبقي': '',
-                  'طريقة الدفع': '',
-                  'الحالة': '',
-                  'تاريخ الدفع': '',
-                  'الوصف': '',
-                  'ملاحظات': ''
-                })
-
-                Object.entries(paymentMethodBreakdown).forEach(([method, amount]) => {
-                  csvData.push({
-                    'الرقم التسلسلي': '',
-                    'رقم الإيصال': getPaymentMethodLabel(method),
-                    'المريض': `$${amount.toFixed(2)}`,
-                    'المبلغ المدفوع': '',
-                    'المبلغ المتبقي': '',
-                    'طريقة الدفع': '',
-                    'الحالة': '',
-                    'تاريخ الدفع': '',
-                    'الوصف': '',
-                    'ملاحظات': ''
-                  })
-                })
+              if (statusFilter !== 'all' || paymentMethodFilter !== 'all' || searchQuery) {
+                successMessage += ` مع فلاتر مطبقة`
               }
 
-              // Create CSV with BOM for Arabic support
-              const headers = Object.keys(csvData[0]).join(',')
-              const rows = csvData.map(row =>
-                Object.values(row).map(value =>
-                  `"${String(value).replace(/"/g, '""')}"`
-                ).join(',')
-              )
-              const csvContent = '\uFEFF' + [headers, ...rows].join('\n')
-
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-              const link = document.createElement('a')
-              link.href = URL.createObjectURL(blob)
-
-              // Generate descriptive filename with date and time
-              const now = new Date()
-              const dateStr = now.toISOString().split('T')[0]
-              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-')
-
-              let fileName = `تقرير_المدفوعات_شامل_${dateStr}_${timeStr}`
-
-              // إضافة معلومات الفلترة لاسم الملف
-              if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
-                fileName += `_مفلتر`
-              }
-              if (statusFilter !== 'all') {
-                fileName += `_${getStatusLabel(statusFilter)}`
-              }
-              if (paymentMethodFilter !== 'all') {
-                fileName += `_${getPaymentMethodLabel(paymentMethodFilter)}`
-              }
-
-              fileName += '.csv'
-
-                link.download = fileName
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-
-                // رسالة نجاح مفصلة ودقيقة
-                let successMessage = `تم تصدير ${dataToExport.length} دفعة بنجاح!`
-
-                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
-                  successMessage += ` (مفلترة من ${paymentStats.timeFilter.startDate} إلى ${paymentStats.timeFilter.endDate})`
-                }
-
-                if (statusFilter !== 'all' || paymentMethodFilter !== 'all' || searchQuery) {
-                  successMessage += ` مع فلاتر مطبقة`
-                }
-
-                successMessage += ` - إجمالي الإيرادات: $${totalRevenue.toFixed(2)}`
-
-                if (totalRemainingFromPartial > 0) {
-                  successMessage += ` - المبالغ المتبقية: $${totalRemainingFromPartial.toFixed(2)}`
-                }
-
-                if (pendingAmount > 0) {
-                  successMessage += ` - المبالغ المعلقة: $${pendingAmount.toFixed(2)}`
-                }
-
-                notify.exportSuccess(successMessage)
+              notify.exportSuccess(successMessage)
               } catch (error) {
                 console.error('Error exporting payments:', error)
                 notify.exportError('فشل في تصدير بيانات المدفوعات')

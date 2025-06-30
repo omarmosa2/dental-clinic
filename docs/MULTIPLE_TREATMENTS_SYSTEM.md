@@ -93,12 +93,11 @@ reorderToothTreatments(patientId, toothNumber, treatmentIds)
 - `filling_cosmetic` - حشو تجميلي (#f97316)
 
 #### علاج العصب
-- `nerve_extraction` - استئصال عصب (#ef4444)
 - `pulp_therapy` - مداولة لبية (#dc2626)
-- `direct_pulp_cap` - ضغطية مباشرة (#f87171)
-- `indirect_pulp_cap` - ضغطية غير مباشرة (#fca5a5)
+- `direct_pulp_cap` - تغطية مباشرة (#f87171)
+- `indirect_pulp_cap` - تغطية غير مباشرة (#fca5a5)
 - `retreatment` - إعادة معالجة (#b91c1c)
-- `deep_pulp_treatment` - معالجة لبية عميقة (#991b1b)
+- `deep_pulp_treatment` - معالجة لبية عفنة (#991b1b)
 
 #### العلاجات الجراحية
 - `extraction_simple` - قلع بسيط (#6b7280)

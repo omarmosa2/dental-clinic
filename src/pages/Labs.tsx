@@ -25,6 +25,7 @@ import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
 import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import { notify } from '@/services/notificationService'
+import { ExportService } from '@/services/exportService'
 import LabTable from '@/components/labs/LabTable'
 import AddLabDialog from '@/components/labs/AddLabDialog'
 import DeleteLabDialog from '@/components/labs/DeleteLabDialog'
@@ -134,7 +135,6 @@ export default function Labs() {
   const handleExportCSV = async () => {
     try {
       let csvContent = ''
-      let filename = ''
 
       if (activeTab === 'orders') {
         // Export lab orders
@@ -168,8 +168,6 @@ export default function Labs() {
           ]
           csvContent += row.join(',') + '\n'
         })
-
-        filename = `lab-orders-${new Date().toISOString().split('T')[0]}.csv`
       } else {
         // Export labs
         const headers = [
@@ -193,22 +191,16 @@ export default function Labs() {
           ]
           csvContent += row.join(',') + '\n'
         })
-
-        filename = `labs-${new Date().toISOString().split('T')[0]}.csv`
       }
 
-      // Create and download file
-      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', filename)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      // تصدير إلى Excel مع التنسيق الجميل والمقروء
+      if (activeTab === 'orders') {
+        await ExportService.exportLabsToExcel(labs, filteredLabOrders)
+      } else {
+        await ExportService.exportLabsToExcel(labs, labOrders)
+      }
 
-      notify.success('تم تصدير البيانات بنجاح')
+      notify.success('تم تصدير البيانات بنجاح إلى ملف Excel مع التنسيق الجميل')
     } catch (error) {
       console.error('Export error:', error)
       notify.error('فشل في تصدير البيانات')
@@ -336,7 +328,7 @@ export default function Labs() {
             onClick={handleExportCSV}
           >
             <Download className="w-4 h-4 mr-2" />
-            تصدير CSV
+            تصدير اكسل
           </Button>
         </div>
       </div>

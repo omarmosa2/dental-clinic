@@ -18,6 +18,7 @@ import { useRealTimeTableSync } from '@/hooks/useRealTimeTableSync'
 import { Calendar, Plus, ChevronLeft, ChevronRight, Clock, User, RefreshCw, Download, Table, Search, Filter, X, CalendarDays } from 'lucide-react'
 import AppointmentTable from '@/components/appointments/AppointmentTable'
 import { notify } from '@/services/notificationService'
+import { ExportService } from '@/services/exportService'
 import AddAppointmentDialog from '@/components/AddAppointmentDialog'
 import DeleteAppointmentDialog from '@/components/appointments/DeleteAppointmentDialog'
 import PatientDetailsModal from '@/components/patients/PatientDetailsModal'
@@ -367,7 +368,7 @@ export default function Appointments() {
         <div className="flex items-center space-x-2 space-x-reverse">
           <Button
             variant="outline"
-            onClick={() => {
+            onClick={async () => {
               // Export appointments data
               if (filteredAppointments.length === 0) {
                 notify.noDataToExport('لا توجد بيانات مواعيد للتصدير')
@@ -375,44 +376,10 @@ export default function Appointments() {
               }
 
               try {
+                // تصدير إلى Excel مع التنسيق الجميل والمقروء
+                await ExportService.exportAppointmentsToExcel(filteredAppointments)
 
-              // Match the table columns exactly
-              const csvData = filteredAppointments.map((appointment, index) => ({
-                'الرقم التسلسلي': index + 1,
-                'اسم المريض': appointment.patient ? appointment.patient.full_name : 'غير محدد',
-                'تاريخ ووقت البداية': formatDateTime(appointment.start_time),
-                'تاريخ ووقت النهاية': formatDateTime(appointment.end_time),
-                'حالة الموعد': appointment.status === 'scheduled' ? 'مجدول' :
-                              appointment.status === 'completed' ? 'مكتمل' :
-                              appointment.status === 'cancelled' ? 'ملغي' :
-                              appointment.status === 'no-show' ? 'لم يحضر' : appointment.status || ''
-              }))
-
-              // Create CSV with BOM for Arabic support
-              const headers = Object.keys(csvData[0]).join(',')
-              const rows = csvData.map(row =>
-                Object.values(row).map(value =>
-                  `"${String(value).replace(/"/g, '""')}"`
-                ).join(',')
-              )
-              const csvContent = '\uFEFF' + [headers, ...rows].join('\n')
-
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-              const link = document.createElement('a')
-              link.href = URL.createObjectURL(blob)
-
-              // Generate descriptive filename with date and time
-              const now = new Date()
-              const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-              const fileName = `تقرير_المواعيد_${dateStr}_${timeStr}.csv`
-
-                link.download = fileName
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-
-                notify.exportSuccess(`تم تصدير ${filteredAppointments.length} موعد بنجاح!`)
+                notify.exportSuccess(`تم تصدير ${filteredAppointments.length} موعد بنجاح إلى ملف Excel مع التنسيق الجميل!`)
               } catch (error) {
                 console.error('Error exporting appointments:', error)
                 notify.exportError('فشل في تصدير بيانات المواعيد')

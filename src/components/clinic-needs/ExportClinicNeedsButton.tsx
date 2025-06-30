@@ -9,6 +9,7 @@ import {
 import { Download, FileText, FileSpreadsheet } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { formatCurrency } from '../../lib/utils'
+import { ExportService } from '../../services/exportService'
 import type { ClinicNeed } from '../../types'
 
 interface ExportClinicNeedsButtonProps {
@@ -25,86 +26,19 @@ const ExportClinicNeedsButton: React.FC<ExportClinicNeedsButtonProps> = ({
   const [isExporting, setIsExporting] = useState(false)
   const { toast } = useToast()
 
-  const exportToCSV = (data: ClinicNeed[], filename: string) => {
+  const exportToExcel = async (data: ClinicNeed[], filename: string) => {
     try {
       setIsExporting(true)
 
-      // CSV Headers in Arabic
-      const headers = [
-        'الرقم التسلسلي',
-        'اسم الاحتياج',
-        'الكمية',
-        'السعر',
-        'الإجمالي',
-        'الوصف',
-        'الفئة',
-        'الأولوية',
-        'الحالة',
-        'المورد',
-        'الملاحظات',
-        'تاريخ الإنشاء'
-      ]
-
-      // Helper function for Gregorian date formatting
-      const formatGregorianDate = (dateString: string) => {
-        try {
-          const date = new Date(dateString)
-          if (isNaN(date.getTime())) {
-            return '--'
-          }
-
-          // Format as DD/MM/YYYY (Gregorian format)
-          const day = date.getDate().toString().padStart(2, '0')
-          const month = (date.getMonth() + 1).toString().padStart(2, '0')
-          const year = date.getFullYear()
-
-          return `${day}/${month}/${year}`
-        } catch (error) {
-          return '--'
-        }
-      }
-
-      // Convert data to CSV format
-      const csvData = data.map(need => [
-        need.serial_number,
-        need.need_name,
-        need.quantity.toString(),
-        need.price.toString(),
-        (need.price * need.quantity).toString(),
-        need.description || '',
-        need.category || '',
-        getPriorityLabel(need.priority),
-        getStatusLabel(need.status),
-        need.supplier || '',
-        need.notes || '',
-        formatGregorianDate(need.created_at)
-      ])
-
-      // Combine headers and data
-      const csvContent = [headers, ...csvData]
-        .map(row => row.map(field => `"${field}"`).join(','))
-        .join('\n')
-
-      // Add BOM for proper Arabic display in Excel
-      const BOM = '\uFEFF'
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
-
-      // Create download link
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', `${filename}.csv`)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      // تصدير إلى Excel مع التنسيق الجميل والمقروء
+      await ExportService.exportClinicNeedsToExcel(data)
 
       toast({
         title: "تم التصدير بنجاح",
-        description: `تم تصدير ${data.length} احتياج إلى ملف CSV`,
+        description: `تم تصدير ${data.length} احتياج إلى ملف Excel مع التنسيق الجميل`,
       })
     } catch (error) {
-      console.error('Error exporting to CSV:', error)
+      console.error('Error exporting to Excel:', error)
       toast({
         title: "خطأ في التصدير",
         description: "حدث خطأ أثناء تصدير البيانات",
@@ -288,19 +222,19 @@ const ExportClinicNeedsButton: React.FC<ExportClinicNeedsButtonProps> = ({
     return labels[status as keyof typeof labels] || status
   }
 
-  const handleExportAll = (format: 'csv' | 'pdf') => {
+  const handleExportAll = (format: 'excel' | 'pdf') => {
     const filename = `احتياجات_العيادة_${new Date().toISOString().split('T')[0]}`
-    if (format === 'csv') {
-      exportToCSV(needs, filename)
+    if (format === 'excel') {
+      exportToExcel(needs, filename)
     } else {
       exportToPDF(needs, filename)
     }
   }
 
-  const handleExportFiltered = (format: 'csv' | 'pdf') => {
+  const handleExportFiltered = (format: 'excel' | 'pdf') => {
     const filename = `احتياجات_العيادة_مفلترة_${new Date().toISOString().split('T')[0]}`
-    if (format === 'csv') {
-      exportToCSV(filteredNeeds, filename)
+    if (format === 'excel') {
+      exportToExcel(filteredNeeds, filename)
     } else {
       exportToPDF(filteredNeeds, filename)
     }
@@ -315,9 +249,9 @@ const ExportClinicNeedsButton: React.FC<ExportClinicNeedsButtonProps> = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={() => handleExportAll('csv')}>
+        <DropdownMenuItem onClick={() => handleExportAll('excel')}>
           <FileSpreadsheet className="w-4 h-4 mr-2" />
-          تصدير الكل (CSV)
+          تصدير الكل (Excel)
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleExportAll('pdf')}>
           <FileText className="w-4 h-4 mr-2" />
@@ -325,9 +259,9 @@ const ExportClinicNeedsButton: React.FC<ExportClinicNeedsButtonProps> = ({
         </DropdownMenuItem>
         {filteredNeeds.length !== needs.length && (
           <>
-            <DropdownMenuItem onClick={() => handleExportFiltered('csv')}>
+            <DropdownMenuItem onClick={() => handleExportFiltered('excel')}>
               <FileSpreadsheet className="w-4 h-4 mr-2" />
-              تصدير المفلتر ({filteredNeeds.length}) (CSV)
+              تصدير المفلتر ({filteredNeeds.length}) (Excel)
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleExportFiltered('pdf')}>
               <FileText className="w-4 h-4 mr-2" />

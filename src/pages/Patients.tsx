@@ -11,6 +11,7 @@ import { formatDate, getInitials, calculateAge } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import { notify } from '@/services/notificationService'
+import { ExportService } from '@/services/exportService'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -229,7 +230,7 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
         <div className="flex items-center space-x-2 space-x-reverse">
           <Button
             variant="outline"
-            onClick={() => {
+            onClick={async () => {
               // Export patients data
               if (filteredPatientsWithAdvancedFilters.length === 0) {
                 notify.noDataToExport('لا توجد بيانات مرضى للتصدير')
@@ -237,41 +238,10 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
               }
 
               try {
-                // Match the table columns exactly
-                const csvData = filteredPatientsWithAdvancedFilters.map(patient => ({
-                  'الاسم الكامل للمريض': patient.full_name || '',
-                  'الجنس': patient.gender === 'male' ? 'ذكر' : 'أنثى',
-                  'العمر': patient.age || '',
-                  'رقم الهاتف': patient.phone || '',
-                  'حالة المريض': patient.patient_condition || '',
-                  'ملاحظات': patient.notes || ''
-                }))
+                // تصدير إلى Excel مع التنسيق الجميل والمقروء
+                await ExportService.exportPatientsToExcel(filteredPatientsWithAdvancedFilters)
 
-                // Create CSV with BOM for Arabic support
-                const headers = Object.keys(csvData[0]).join(',')
-                const rows = csvData.map(row =>
-                  Object.values(row).map(value =>
-                    `"${String(value).replace(/"/g, '""')}"`
-                  ).join(',')
-                )
-                const csvContent = '\uFEFF' + [headers, ...rows].join('\n')
-
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-                const link = document.createElement('a')
-                link.href = URL.createObjectURL(blob)
-
-                // Generate descriptive filename with date and time
-                const now = new Date()
-                const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-                const fileName = `تقرير_المرضى_${dateStr}_${timeStr}.csv`
-
-                link.download = fileName
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-
-                notify.exportSuccess(`تم تصدير ${filteredPatientsWithAdvancedFilters.length} مريض بنجاح!`)
+                notify.exportSuccess(`تم تصدير ${filteredPatientsWithAdvancedFilters.length} مريض بنجاح إلى ملف Excel مع التنسيق الجميل!`)
               } catch (error) {
                 console.error('Error exporting patients:', error)
                 notify.exportError('فشل في تصدير بيانات المرضى')

@@ -2,6 +2,7 @@ import { Payment, Appointment, Patient, InventoryItem, ToothTreatment, Prescript
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
 import { validateBeforeExport } from '@/utils/exportValidation'
 import { getTreatmentNameInArabic, getCategoryNameInArabic, getStatusLabelInArabic, getPaymentStatusInArabic } from '@/utils/arabicTranslations'
+import { ExportService } from './exportService'
 
 // أنواع الفترات الزمنية المتاحة
 export const TIME_PERIODS = {
@@ -1217,32 +1218,13 @@ export class ComprehensiveExportService {
         stats: comprehensiveStats
       })
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-
-      // إنشاء اسم ملف وصفي مع التاريخ والوقت ومعلومات الفلترة
-      const now = new Date()
-      const dateStr = now.toISOString().split('T')[0]
-      const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-')
-
-      let fileName = `التقرير_الشامل_المفصل_${dateStr}_${timeStr}`
-
-      // إضافة معلومات الفترة الزمنية لاسم الملف
-      const periodText = TIME_PERIODS[data.timePeriod]
-      if (data.timePeriod !== 'all') {
-        fileName += `_${periodText.replace(/\s+/g, '_')}`
-      }
-
-      fileName += '.csv'
-
-      link.download = fileName
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      // تنظيف الذاكرة
-      URL.revokeObjectURL(link.href)
+      // تحويل إلى Excel مباشرة مع التنسيقات والألوان
+      await ExportService.convertCSVToExcel(csvContent, 'comprehensive', {
+        format: 'excel',
+        includeCharts: false,
+        includeDetails: true,
+        language: 'ar'
+      })
 
     } catch (error) {
       console.error('Error exporting comprehensive report:', error)

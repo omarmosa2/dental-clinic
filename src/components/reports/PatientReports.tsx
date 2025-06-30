@@ -14,6 +14,7 @@ import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
 import { ensureGenderDistribution, ensureAgeDistribution, formatChartData } from '@/lib/chartDataHelpers'
 import { PdfService } from '@/services/pdfService'
+import { ExportService } from '@/services/exportService'
 // Time filtering removed as requested
 import { usePatientStore } from '@/store/patientStore'
 import {
@@ -200,7 +201,7 @@ export default function PatientReports() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
+            onClick={async () => {
               // Use actual patients data for export to ensure accuracy
               if (!patients || patients.length === 0) {
                 toast({
@@ -212,85 +213,15 @@ export default function PatientReports() {
               }
 
               try {
-                // Calculate statistics from actual patients data
-                const totalPatients = patients.length
-                const today = new Date()
-                const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-
-                const newPatientsThisMonth = patients.filter(p =>
-                  new Date(p.created_at) >= thisMonth
-                ).length
-
-                // Calculate age distribution from actual data
-                const ageGroups = { children: 0, teens: 0, adults: 0, seniors: 0 }
-                const genderGroups = { male: 0, female: 0 }
-                let totalAge = 0
-                let patientsWithAge = 0
-
-                patients.forEach(patient => {
-                  // Age calculation - use the age field directly from database
-                  if (patient.age && typeof patient.age === 'number' && patient.age > 0) {
-                    const age = patient.age
-                    totalAge += age
-                    patientsWithAge++
-
-                    if (age < 13) ageGroups.children++
-                    else if (age < 20) ageGroups.teens++
-                    else if (age < 60) ageGroups.adults++
-                    else ageGroups.seniors++
-                  }
-
-                  // Gender calculation
-                  if (patient.gender === 'male') genderGroups.male++
-                  else if (patient.gender === 'female') genderGroups.female++
-                })
-
-                const averageAge = patientsWithAge > 0 ? Math.round(totalAge / patientsWithAge) : 0
-
-                const reportData = {
-                  'نطاق البيانات': 'جميع المرضى المسجلين',
-                  'إجمالي المرضى': totalPatients,
-                  'المرضى الجدد هذا الشهر': newPatientsThisMonth,
-                  'متوسط العمر': averageAge,
-                  'توزيع الأعمار - أطفال (0-12)': ageGroups.children,
-                  'توزيع الأعمار - مراهقون (13-19)': ageGroups.teens,
-                  'توزيع الأعمار - بالغون (20-59)': ageGroups.adults,
-                  'توزيع الأعمار - كبار السن (60+)': ageGroups.seniors,
-                  'توزيع الجنس - ذكور': genderGroups.male,
-                  'توزيع الجنس - إناث': genderGroups.female,
-                  'عدد المرضى المصدرين': totalPatients,
-                  'تاريخ التقرير': formatDate(new Date())
-                }
-
-                // Create CSV with BOM for Arabic support
-                const csvContent = '\uFEFF' + [
-                  'المؤشر,القيمة',
-                  ...Object.entries(reportData).map(([key, value]) =>
-                    `"${key}","${value}"`
-                  )
-                ].join('\n')
-
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-                const link = document.createElement('a')
-                link.href = URL.createObjectURL(blob)
-
-                // Generate descriptive filename with date and time
-                const now = new Date()
-                const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-                const fileName = `تقرير_إحصائيات_المرضى_${dateStr}_${timeStr}.csv`
-
-                link.download = fileName
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
+                // تصدير إلى Excel مع التنسيق الجميل والمقروء
+                await ExportService.exportPatientsToExcel(patients)
 
                 toast({
                   title: "تم التصدير بنجاح",
-                  description: `تم تصدير تقرير المرضى كملف CSV (${totalPatients} مريض)`,
+                  description: `تم تصدير تقرير المرضى كملف Excel مع التنسيق الجميل (${patients.length} مريض)`,
                 })
               } catch (error) {
-                console.error('Error exporting CSV:', error)
+                console.error('Error exporting Excel:', error)
                 toast({
                   title: "خطأ في التصدير",
                   description: "فشل في تصدير التقرير. يرجى المحاولة مرة أخرى.",
@@ -301,7 +232,7 @@ export default function PatientReports() {
             disabled={isExporting}
           >
             <Download className="w-4 h-4 ml-2" />
-            تصدير CSV
+            تصدير اكسل
           </Button>
           <Button
             variant="default"

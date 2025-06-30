@@ -330,7 +330,7 @@ export default function AppointmentReports() {
             disabled={isExporting}
           >
             <Download className="w-4 h-4 ml-2" />
-            تصدير CSV
+            تصدير اكسل
           </Button>
           <Button
             variant="default"

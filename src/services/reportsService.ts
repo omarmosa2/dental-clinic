@@ -41,12 +41,11 @@ export class ReportsService {
       'onlay': 'حشو خارجي',
 
       // Endodontic treatments
-      'nerve_extraction': 'استئصال عصب',
       'pulp_therapy': 'مداولة لبية',
-      'direct_pulp_cap': 'ضغطية مباشرة',
-      'indirect_pulp_cap': 'ضغطية غير مباشرة',
+      'direct_pulp_cap': 'تغطية مباشرة',
+      'indirect_pulp_cap': 'تغطية غير مباشرة',
       'retreatment': 'إعادة معالجة',
-      'deep_pulp_treatment': 'معالجة لبية عميقة',
+      'deep_pulp_treatment': 'معالجة لبية عفنة',
 
       // Surgical treatments
       'extraction_simple': 'قلع بسيط',
@@ -97,7 +96,7 @@ export class ReportsService {
 
       // Legacy treatments
       'preventive': 'علاج وقائي',
-      'pulp_cap': 'ضغطية لب',
+      'pulp_cap': 'تغطية لب',
       'orthodontic_metal': 'تقويم معدني',
       'extraction_simple': 'قلع بسيط'
     }

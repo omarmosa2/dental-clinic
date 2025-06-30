@@ -131,12 +131,11 @@ export const TREATMENT_TYPES = [
   { value: 'onlay', label: 'حشو خارجي', color: '#8b5cf6', category: 'الترميمية (المحافظة)' },
 
   // ===== ENDODONTIC TREATMENTS (علاج العصب) =====
-  { value: 'nerve_extraction', label: 'استئصال عصب', color: '#ef4444', category: 'علاج العصب' },
   { value: 'pulp_therapy', label: 'مداولة لبية', color: '#dc2626', category: 'علاج العصب' },
-  { value: 'direct_pulp_cap', label: 'ضغطية مباشرة', color: '#f87171', category: 'علاج العصب' },
-  { value: 'indirect_pulp_cap', label: 'ضغطية غير مباشرة', color: '#fca5a5', category: 'علاج العصب' },
+  { value: 'direct_pulp_cap', label: 'تغطية مباشرة', color: '#f87171', category: 'علاج العصب' },
+  { value: 'indirect_pulp_cap', label: 'تغطية غير مباشرة', color: '#fca5a5', category: 'علاج العصب' },
   { value: 'retreatment', label: 'إعادة معالجة', color: '#b91c1c', category: 'علاج العصب' },
-  { value: 'deep_pulp_treatment', label: 'معالجة لبية عميقة', color: '#991b1b', category: 'علاج العصب' },
+  { value: 'deep_pulp_treatment', label: 'معالجة لبية عفنة', color: '#991b1b', category: 'علاج العصب' },
 
   // ===== SURGICAL TREATMENTS (العلاجات الجراحية) =====
   { value: 'extraction_simple', label: 'قلع بسيط', color: '#6b7280', category: 'العلاجات الجراحية' },

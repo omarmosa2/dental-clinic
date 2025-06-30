@@ -23,7 +23,9 @@ export class ExportService {
       'financial': 'التقرير_المالي',
       'inventory': 'تقرير_المخزون',
       'analytics': 'تقرير_التحليلات',
-      'overview': 'التقرير_الشامل'
+      'overview': 'التقرير_الشامل',
+      'comprehensive': 'التقرير_الشامل_المفصل',
+      'treatments': 'تقرير_العلاجات'
     }
 
     const reportName = reportNames[type] || `تقرير_${type}`
@@ -931,13 +933,34 @@ export class ExportService {
       case 'inventory':
         await this.addInventoryReportToExcel(workbook, data, options)
         break
+      case 'labs':
+        await this.addLabReportToExcel(workbook, data, options)
+        break
+      case 'clinic-needs':
+        await this.addClinicNeedsReportToExcel(workbook, data, options)
+        break
       case 'overview':
         await this.addOverviewReportToExcel(workbook, data, options)
         break
     }
 
     const fileName = this.generateFileName(type, 'xlsx', { includeTime: true })
-    await workbook.xlsx.writeFile(fileName)
+
+    // Use browser-compatible approach instead of writeFile
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    })
+
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `${fileName}.xlsx`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
     return fileName
   }
 
@@ -1105,6 +1128,419 @@ export class ExportService {
     })
   }
 
+  static async addLabReportToExcel(workbook: ExcelJS.Workbook, data: any, options: ReportExportOptions): Promise<void> {
+    const worksheet = workbook.addWorksheet('تقرير المختبرات')
+
+    // Header
+    worksheet.mergeCells('A1:F1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'تقرير المختبرات - عيادة الأسنان الحديثة'
+    headerCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
+    headerCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF2E8B57' }
+    }
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    headerCell.border = {
+      top: { style: 'thick' },
+      left: { style: 'thick' },
+      bottom: { style: 'thick' },
+      right: { style: 'thick' }
+    }
+
+    // Date and time
+    worksheet.getCell('A2').value = `تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}`
+    worksheet.getCell('A2').font = { size: 12, italic: true }
+    worksheet.getCell('A2').alignment = { horizontal: 'right' }
+
+    let currentRow = 4
+
+    // Summary statistics if available
+    if (data.summary) {
+      worksheet.getCell(`A${currentRow}`).value = 'ملخص الإحصائيات'
+      worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FF2E8B57' } }
+      currentRow += 2
+
+      Object.entries(data.summary).forEach(([key, value]) => {
+        worksheet.getCell(`A${currentRow}`).value = key
+        worksheet.getCell(`B${currentRow}`).value = value
+        worksheet.getCell(`A${currentRow}`).font = { bold: true }
+        worksheet.getCell(`B${currentRow}`).font = { size: 11 }
+
+        // Add borders and background
+        ['A', 'B'].forEach(col => {
+          const cell = worksheet.getCell(`${col}${currentRow}`)
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8F9FA' }
+          }
+          cell.alignment = { horizontal: 'right', vertical: 'middle' }
+        })
+        currentRow++
+      })
+      currentRow += 2
+    }
+
+    // Labs data table
+    if (data.labs && data.labs.length > 0) {
+      worksheet.getCell(`A${currentRow}`).value = 'بيانات المختبرات'
+      worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FF2E8B57' } }
+      currentRow += 2
+
+      // Table headers
+      const headers = ['اسم المختبر', 'معلومات الاتصال', 'العنوان', 'عدد الطلبات', 'تاريخ الإضافة']
+      headers.forEach((header, index) => {
+        const cell = worksheet.getCell(currentRow, index + 1)
+        cell.value = header
+        cell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF4472C4' }
+        }
+        cell.border = {
+          top: { style: 'medium' },
+          left: { style: 'medium' },
+          bottom: { style: 'medium' },
+          right: { style: 'medium' }
+        }
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      })
+      currentRow++
+
+      // Table data
+      data.labs.forEach((lab: any, index: number) => {
+        const rowData = [
+          lab.name,
+          lab.contact_info || '',
+          lab.address || '',
+          lab.ordersCount || 0,
+          new Date(lab.created_at).toLocaleDateString('ar-SA')
+        ]
+
+        rowData.forEach((value, colIndex) => {
+          const cell = worksheet.getCell(currentRow, colIndex + 1)
+          cell.value = value
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+          cell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+          // Alternating row colors
+          if (index % 2 === 0) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF8F9FA' }
+            }
+          }
+        })
+        currentRow++
+      })
+    }
+
+    // Lab orders data table
+    if (data.labOrders && data.labOrders.length > 0) {
+      currentRow += 2
+      worksheet.getCell(`A${currentRow}`).value = 'بيانات طلبات المختبرات'
+      worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FF2E8B57' } }
+      currentRow += 2
+
+      // Table headers
+      const orderHeaders = ['رقم الطلب', 'اسم المختبر', 'اسم الخدمة', 'اسم المريض', 'التكلفة', 'المبلغ المدفوع', 'المبلغ المتبقي', 'تاريخ الطلب', 'الحالة', 'الملاحظات']
+      orderHeaders.forEach((header, index) => {
+        const cell = worksheet.getCell(currentRow, index + 1)
+        cell.value = header
+        cell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF4472C4' }
+        }
+        cell.border = {
+          top: { style: 'medium' },
+          left: { style: 'medium' },
+          bottom: { style: 'medium' },
+          right: { style: 'medium' }
+        }
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      })
+      currentRow++
+
+      // Table data
+      data.labOrders.forEach((order: any, index: number) => {
+        const rowData = [
+          index + 1,
+          order.lab?.name || 'غير محدد',
+          order.service_name,
+          order.patient?.full_name || 'غير محدد',
+          `$${order.cost}`,
+          `$${order.paid_amount || 0}`,
+          `$${order.remaining_balance || 0}`,
+          new Date(order.order_date).toLocaleDateString('ar-SA'),
+          order.status,
+          order.notes || ''
+        ]
+
+        rowData.forEach((value, colIndex) => {
+          const cell = worksheet.getCell(currentRow, colIndex + 1)
+          cell.value = value
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+          cell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+          // Alternating row colors
+          if (index % 2 === 0) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF8F9FA' }
+            }
+          }
+
+          // Highlight financial columns
+          if (colIndex >= 4 && colIndex <= 6) {
+            cell.font = { bold: true }
+            if (!cell.fill) {
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFFFF2CC' }
+              }
+            }
+          }
+        })
+        currentRow++
+      })
+    }
+
+    // Auto-fit columns
+    worksheet.columns.forEach(column => {
+      column.width = 15
+    })
+
+    // Set specific column widths
+    worksheet.getColumn(1).width = 20 // Lab name
+    worksheet.getColumn(2).width = 25 // Contact info
+    worksheet.getColumn(3).width = 30 // Address
+    worksheet.getColumn(4).width = 15 // Orders count
+    worksheet.getColumn(5).width = 20 // Date
+  }
+
+  static async addClinicNeedsReportToExcel(workbook: ExcelJS.Workbook, data: any, options: ReportExportOptions): Promise<void> {
+    const worksheet = workbook.addWorksheet('تقرير احتياجات العيادة')
+
+    // Header
+    worksheet.mergeCells('A1:H1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'تقرير احتياجات العيادة - عيادة الأسنان الحديثة'
+    headerCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
+    headerCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF2E8B57' }
+    }
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    headerCell.border = {
+      top: { style: 'thick' },
+      left: { style: 'thick' },
+      bottom: { style: 'thick' },
+      right: { style: 'thick' }
+    }
+
+    // Date and time
+    worksheet.getCell('A2').value = `تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}`
+    worksheet.getCell('A2').font = { size: 12, italic: true }
+    worksheet.getCell('A2').alignment = { horizontal: 'right' }
+
+    let currentRow = 4
+
+    // Summary statistics if available
+    if (data.summary) {
+      worksheet.getCell(`A${currentRow}`).value = 'ملخص الإحصائيات'
+      worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FF2E8B57' } }
+      currentRow += 2
+
+      Object.entries(data.summary).forEach(([key, value]) => {
+        worksheet.getCell(`A${currentRow}`).value = key
+        worksheet.getCell(`B${currentRow}`).value = value
+        worksheet.getCell(`A${currentRow}`).font = { bold: true }
+        worksheet.getCell(`B${currentRow}`).font = { size: 11 }
+
+        // Add borders and background
+        ['A', 'B'].forEach(col => {
+          const cell = worksheet.getCell(`${col}${currentRow}`)
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8F9FA' }
+          }
+          cell.alignment = { horizontal: 'right', vertical: 'middle' }
+        })
+        currentRow++
+      })
+      currentRow += 2
+    }
+
+    // Clinic needs data table
+    if (data.needs && data.needs.length > 0) {
+      worksheet.getCell(`A${currentRow}`).value = 'بيانات احتياجات العيادة'
+      worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FF2E8B57' } }
+      currentRow += 2
+
+      // Table headers
+      const headers = ['الرقم التسلسلي', 'اسم العنصر', 'الكمية المطلوبة', 'الأولوية', 'الحالة', 'تاريخ الطلب', 'تاريخ الاستلام', 'الملاحظات']
+      headers.forEach((header, index) => {
+        const cell = worksheet.getCell(currentRow, index + 1)
+        cell.value = header
+        cell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF4472C4' }
+        }
+        cell.border = {
+          top: { style: 'medium' },
+          left: { style: 'medium' },
+          bottom: { style: 'medium' },
+          right: { style: 'medium' }
+        }
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      })
+      currentRow++
+
+      // Table data
+      data.needs.forEach((need: any, index: number) => {
+        const priorityLabels = {
+          urgent: 'عاجل',
+          high: 'عالي',
+          medium: 'متوسط',
+          low: 'منخفض'
+        }
+
+        const statusLabels = {
+          pending: 'معلق',
+          ordered: 'تم الطلب',
+          received: 'تم الاستلام'
+        }
+
+        const rowData = [
+          index + 1,
+          need.item_name,
+          need.quantity_needed,
+          priorityLabels[need.priority] || need.priority,
+          statusLabels[need.status] || need.status,
+          new Date(need.date_needed).toLocaleDateString('ar-SA'),
+          need.date_received ? new Date(need.date_received).toLocaleDateString('ar-SA') : '',
+          need.notes || ''
+        ]
+
+        rowData.forEach((value, colIndex) => {
+          const cell = worksheet.getCell(currentRow, colIndex + 1)
+          cell.value = value
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+          cell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+          // Alternating row colors
+          if (index % 2 === 0) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF8F9FA' }
+            }
+          }
+
+          // Priority color coding
+          if (colIndex === 3) { // Priority column
+            let priorityColor = 'FFF8F9FA'
+            switch (need.priority) {
+              case 'urgent':
+                priorityColor = 'FFFFE6E6'
+                break
+              case 'high':
+                priorityColor = 'FFFFF2CC'
+                break
+              case 'medium':
+                priorityColor = 'FFFFFFE6'
+                break
+              case 'low':
+                priorityColor = 'FFE6F7FF'
+                break
+            }
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: priorityColor }
+            }
+          }
+
+          // Status color coding
+          if (colIndex === 4) { // Status column
+            let statusColor = 'FFF8F9FA'
+            switch (need.status) {
+              case 'pending':
+                statusColor = 'FFFFE6E6'
+                break
+              case 'ordered':
+                statusColor = 'FFFFF2CC'
+                break
+              case 'received':
+                statusColor = 'FFE6F7E6'
+                break
+            }
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: statusColor }
+            }
+          }
+        })
+        currentRow++
+      })
+    }
+
+    // Auto-fit columns
+    worksheet.columns.forEach(column => {
+      column.width = 15
+    })
+
+    // Set specific column widths
+    worksheet.getColumn(1).width = 12 // Serial number
+    worksheet.getColumn(2).width = 25 // Item name
+    worksheet.getColumn(3).width = 15 // Quantity
+    worksheet.getColumn(4).width = 12 // Priority
+    worksheet.getColumn(5).width = 15 // Status
+    worksheet.getColumn(6).width = 18 // Date needed
+    worksheet.getColumn(7).width = 18 // Date received
+    worksheet.getColumn(8).width = 30 // Notes
+  }
+
   static async addOverviewReportToExcel(workbook: ExcelJS.Workbook, data: any, options: ReportExportOptions): Promise<void> {
     if (data.patients) {
       await this.addPatientReportToExcel(workbook, data.patients, options)
@@ -1117,6 +1553,12 @@ export class ExportService {
     }
     if (data.inventory) {
       await this.addInventoryReportToExcel(workbook, data.inventory, options)
+    }
+    if (data.labs) {
+      await this.addLabReportToExcel(workbook, data.labs, options)
+    }
+    if (data.clinicNeeds) {
+      await this.addClinicNeedsReportToExcel(workbook, data.clinicNeeds, options)
     }
   }
 
@@ -1149,6 +1591,33 @@ export class ExportService {
     return fileName
   }
 
+  // دوال مساعدة للتنسيق
+  private static isTableHeader(line: string, currentRow: number): boolean {
+    return line.includes('اسم المريض') ||
+           line.includes('نوع الموعد') ||
+           line.includes('نوع الدفع') ||
+           line.includes('تاريخ الدفع') ||
+           line.includes('اسم الصنف') ||
+           line.includes('التاريخ,الوقت') ||
+           line.includes('رقم الإيصال') ||
+           line.includes('الرقم التسلسلي') ||
+           line.includes('اسم العلاج') ||
+           line.includes('اسم المنتج') ||
+           (currentRow === 1 && line.includes(','))
+  }
+
+  private static isFinancialData(line: string): boolean {
+    return line.includes('إجمالي') ||
+           line.includes('صافي') ||
+           line.includes('الربح') ||
+           line.includes('الخسارة') ||
+           line.includes('المدفوعات') ||
+           line.includes('الإيرادات') ||
+           line.includes('المصروفات') ||
+           line.includes('القيمة الإجمالية') ||
+           line.includes('المبلغ الإجمالي')
+  }
+
   // وظيفة تحويل CSV إلى Excel
   static async convertCSVToExcel(csvContent: string, type: string, options: ReportExportOptions): Promise<void> {
     try {
@@ -1174,14 +1643,28 @@ export class ExportService {
             const cell = worksheet.getCell(currentRow, colIndex + 1)
             cell.value = value
 
-            // تنسيق الخلايا
-            if (currentRow === 1 || line.includes('اسم المريض') || line.includes('نوع الموعد') || line.includes('نوع الدفع')) {
+            // تنسيق الخلايا حسب نوع التقرير
+            if (this.isTableHeader(line, currentRow)) {
               // هذا عنوان جدول
-              cell.font = { bold: true, size: 12 }
+              cell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
               cell.fill = {
                 type: 'pattern',
                 pattern: 'solid',
-                fgColor: { argb: 'FFE6E6FA' }
+                fgColor: { argb: type === 'comprehensive' ? 'FF2E8B57' : 'FF4472C4' } // أخضر للشامل، أزرق للباقي
+              }
+              cell.border = {
+                top: { style: 'medium' },
+                left: { style: 'medium' },
+                bottom: { style: 'medium' },
+                right: { style: 'medium' }
+              }
+            } else if (this.isFinancialData(line)) {
+              // بيانات مالية مهمة
+              cell.font = { bold: true, size: 11 }
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFFFF2CC' } // أصفر فاتح
               }
               cell.border = {
                 top: { style: 'thin' },
@@ -1197,6 +1680,14 @@ export class ExportService {
                 bottom: { style: 'thin' },
                 right: { style: 'thin' }
               }
+              // تلوين الصفوف بالتناوب
+              if (currentRow % 2 === 0) {
+                cell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFF8F9FA' } // رمادي فاتح جداً
+                }
+              }
             }
 
             // محاذاة النص للعربية
@@ -1207,23 +1698,55 @@ export class ExportService {
           const cell = worksheet.getCell(currentRow, 1)
           cell.value = line.trim()
 
-          if (line.includes('عيادة الأسنان') || line.includes('التقرير')) {
+          if (line.includes('عيادة الأسنان') || line.includes('التقرير الشامل') || line.includes('التقرير المالي')) {
             // عنوان رئيسي
-            cell.font = { bold: true, size: 16 }
-            cell.alignment = { horizontal: 'center' }
-            worksheet.mergeCells(currentRow, 1, currentRow, 10)
+            cell.font = { bold: true, size: 18, color: { argb: 'FF1F4E79' } }
+            cell.alignment = { horizontal: 'center', vertical: 'middle' }
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE7F3FF' }
+            }
+            worksheet.mergeCells(currentRow, 1, currentRow, 12)
+          } else if (line.includes('===') || line.includes('تحليل') || line.includes('ملخص')) {
+            // عنوان قسم
+            cell.font = { bold: true, size: 14, color: { argb: 'FF2E8B57' } }
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF0FFF0' }
+            }
+            worksheet.mergeCells(currentRow, 1, currentRow, 8)
           } else {
             // عنوان فرعي
-            cell.font = { bold: true, size: 14 }
-            cell.alignment = { horizontal: 'right' }
+            cell.font = { bold: true, size: 12 }
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
           }
         }
         currentRow++
       }
 
-      // تعديل عرض الأعمدة
-      worksheet.columns.forEach(column => {
-        column.width = 20
+      // تعديل عرض الأعمدة وتحسين التنسيق
+      worksheet.columns.forEach((column, index) => {
+        if (index === 0) {
+          column.width = 25 // العمود الأول أوسع للأسماء
+        } else {
+          column.width = 18
+        }
+      })
+
+      // إضافة تجميد للصف الأول إذا كان يحتوي على عناوين
+      if (lines.length > 0 && lines[0].includes(',')) {
+        worksheet.views = [{ state: 'frozen', ySplit: 1 }]
+      }
+
+      // تحسين ارتفاع الصفوف
+      worksheet.eachRow((row, rowNumber) => {
+        row.height = 25
+        if (rowNumber === 1) {
+          row.height = 30 // الصف الأول أطول
+        }
       })
 
       // حفظ ملف Excel
@@ -2205,5 +2728,109 @@ export class ExportService {
     }
 
     await this.exportToCSV('financial', financialData, options)
+  }
+
+  static async exportLabsToExcel(labs: Lab[], labOrders: LabOrder[]): Promise<void> {
+    // Calculate statistics from the provided data
+    const totalLabs = labs.length
+    const totalOrders = labOrders.length
+    const totalCost = labOrders.reduce((sum, order) => sum + Number(order.cost), 0)
+    const totalPaid = labOrders.reduce((sum, order) => sum + Number(order.paid_amount || 0), 0)
+    const totalRemaining = labOrders.reduce((sum, order) => sum + Number(order.remaining_balance || 0), 0)
+
+    const labData = {
+      summary: {
+        'إجمالي المختبرات': totalLabs,
+        'إجمالي الطلبات': totalOrders,
+        'إجمالي التكلفة': formatCurrency(totalCost),
+        'إجمالي المدفوع': formatCurrency(totalPaid),
+        'إجمالي المتبقي': formatCurrency(totalRemaining),
+        'تاريخ التقرير': formatDate(new Date())
+      },
+      labs: labs.map(lab => ({
+        ...lab,
+        ordersCount: labOrders.filter(order => order.lab_id === lab.id).length
+      })),
+      labOrders: labOrders,
+      filterInfo: `البيانات المصدرة: ${labs.length} مختبر، ${labOrders.length} طلب`,
+      dataCount: labs.length + labOrders.length
+    }
+
+    const options: ReportExportOptions = {
+      format: 'excel',
+      includeCharts: false,
+      includeDetails: true,
+      language: 'ar'
+    }
+
+    await this.exportToExcel('labs', labData, options)
+  }
+
+  static async exportClinicNeedsToExcel(needs: ClinicNeed[]): Promise<void> {
+    // Calculate statistics from the provided data
+    const totalNeeds = needs.length
+    const pendingNeeds = needs.filter(need => need.status === 'pending').length
+    const orderedNeeds = needs.filter(need => need.status === 'ordered').length
+    const receivedNeeds = needs.filter(need => need.status === 'received').length
+    const urgentNeeds = needs.filter(need => need.priority === 'urgent').length
+    const highPriorityNeeds = needs.filter(need => need.priority === 'high').length
+
+    const needsData = {
+      summary: {
+        'إجمالي الاحتياجات': totalNeeds,
+        'احتياجات معلقة': pendingNeeds,
+        'احتياجات مطلوبة': orderedNeeds,
+        'احتياجات مستلمة': receivedNeeds,
+        'احتياجات عاجلة': urgentNeeds,
+        'احتياجات عالية الأولوية': highPriorityNeeds,
+        'تاريخ التقرير': formatDate(new Date())
+      },
+      needs: needs,
+      filterInfo: `البيانات المصدرة: ${needs.length} احتياج`,
+      dataCount: needs.length
+    }
+
+    const options: ReportExportOptions = {
+      format: 'excel',
+      includeCharts: false,
+      includeDetails: true,
+      language: 'ar'
+    }
+
+    await this.exportToExcel('clinic-needs', needsData, options)
+  }
+
+  static async exportInventoryToExcel(items: InventoryItem[]): Promise<void> {
+    // Calculate statistics from the provided data
+    const totalItems = items.length
+    const totalValue = items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price || 0)), 0)
+    const lowStockItems = items.filter(item => Number(item.quantity) <= Number(item.min_quantity || 0)).length
+    const outOfStockItems = items.filter(item => Number(item.quantity) === 0).length
+    const expiredItems = items.filter(item =>
+      item.expiry_date && new Date(item.expiry_date) < new Date()
+    ).length
+
+    const inventoryData = {
+      summary: {
+        'إجمالي العناصر': totalItems,
+        'القيمة الإجمالية': formatCurrency(totalValue),
+        'عناصر منخفضة المخزون': lowStockItems,
+        'عناصر نفدت من المخزون': outOfStockItems,
+        'عناصر منتهية الصلاحية': expiredItems,
+        'تاريخ التقرير': formatDate(new Date())
+      },
+      items: items,
+      filterInfo: `البيانات المصدرة: ${items.length} عنصر`,
+      dataCount: items.length
+    }
+
+    const options: ReportExportOptions = {
+      format: 'excel',
+      includeCharts: false,
+      includeDetails: true,
+      language: 'ar'
+    }
+
+    await this.exportToExcel('inventory', inventoryData, options)
   }
 }

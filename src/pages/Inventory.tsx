@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import { notify } from '@/services/notificationService'
+import { ExportService } from '@/services/exportService'
 import {
   Package,
   Plus,
@@ -212,7 +213,7 @@ export default function Inventory() {
         <div className="flex items-center space-x-2 space-x-reverse">
           <Button
             variant="outline"
-            onClick={() => {
+            onClick={async () => {
               // Export inventory data
               if (filteredItems.length === 0) {
                 notify.noDataToExport('لا توجد بيانات مخزون للتصدير')
@@ -220,53 +221,10 @@ export default function Inventory() {
               }
 
               try {
+                // تصدير إلى Excel مع التنسيق الجميل والمقروء
+                await ExportService.exportInventoryToExcel(filteredItems)
 
-              // Match the table columns exactly
-              const csvData = filteredItems.map((item, index) => {
-                const totalValue = (item.quantity || 0) * (item.cost_per_unit || 0)
-                const getStatusText = (item) => {
-                  if (item.quantity <= item.minimum_stock) return 'مخزون منخفض'
-                  if (item.expiry_date && new Date(item.expiry_date) < new Date()) return 'منتهي الصلاحية'
-                  if (item.expiry_date && new Date(item.expiry_date) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)) return 'ينتهي قريباً'
-                  return 'متوفر'
-                }
-
-                return {
-                  'الرقم التسلسلي': index + 1,
-                  'اسم العنصر': item.name || '',
-                  'الفئة': item.category || '',
-                  'الكمية': item.quantity || 0,
-                  'سعر الوحدة': `$${(item.cost_per_unit || 0).toFixed(2)}`,
-                  'القيمة الإجمالية': `$${totalValue.toFixed(2)}`,
-                  'الحالة': getStatusText(item)
-                }
-              })
-
-              // Create CSV with BOM for Arabic support
-              const headers = Object.keys(csvData[0]).join(',')
-              const rows = csvData.map(row =>
-                Object.values(row).map(value =>
-                  `"${String(value).replace(/"/g, '""')}"`
-                ).join(',')
-              )
-              const csvContent = '\uFEFF' + [headers, ...rows].join('\n')
-
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-              const link = document.createElement('a')
-              link.href = URL.createObjectURL(blob)
-
-              // Generate descriptive filename with date and time
-              const now = new Date()
-              const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-              const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-              const fileName = `تقرير_المخزون_${dateStr}_${timeStr}.csv`
-
-                link.download = fileName
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-
-                notify.exportSuccess(`تم تصدير ${filteredItems.length} عنصر مخزون بنجاح!`)
+                notify.exportSuccess(`تم تصدير ${filteredItems.length} عنصر مخزون بنجاح إلى ملف Excel مع التنسيق الجميل!`)
               } catch (error) {
                 console.error('Error exporting inventory:', error)
                 notify.exportError('فشل في تصدير بيانات المخزون')
