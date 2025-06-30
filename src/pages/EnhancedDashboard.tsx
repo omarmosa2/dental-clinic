@@ -10,7 +10,6 @@ import {
   RefreshCw,
   LayoutDashboard,
   Zap,
-  BarChart3,
   Users,
   Calendar,
   DollarSign
@@ -19,7 +18,7 @@ import GlobalSearch from '@/components/global/GlobalSearch'
 import SmartAlerts from '@/components/global/SmartAlerts'
 import QuickAccessDashboard from '@/components/global/QuickAccessDashboard'
 import ElegantShortcutsDisplay from '@/components/help/ElegantShortcutsDisplay'
-import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
+
 import { useGlobalStore } from '@/store/globalStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useStableClinicName } from '@/hooks/useStableSettings'
@@ -315,7 +314,7 @@ export default function EnhancedDashboard({
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <LayoutDashboard className="w-4 h-4" />
             نظرة عامة
@@ -332,10 +331,6 @@ export default function EnhancedDashboard({
                 {unreadAlertsCount}
               </span>
             )}
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            التحليلات
           </TabsTrigger>
         </TabsList>
 
@@ -395,15 +390,7 @@ export default function EnhancedDashboard({
           />
         </TabsContent>
 
-        {/* Analytics Tab */}
-        <TabsContent value="analytics" className="space-y-6">
-          <DashboardAnalytics
-            onNavigateToPatients={onNavigateToPatients}
-            onNavigateToAppointments={onNavigateToAppointments}
-            onNavigateToPayments={onNavigateToPayments}
-            onNavigateToTreatments={onNavigateToTreatments}
-          />
-        </TabsContent>
+
       </Tabs>
 
       {/* Elegant Shortcuts Display */}
