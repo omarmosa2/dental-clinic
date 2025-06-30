@@ -306,20 +306,13 @@ export default function AppointmentReports() {
                   language: 'ar'
                 })
 
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-                const link = document.createElement('a')
-                link.href = URL.createObjectURL(blob)
-
-                // Generate descriptive filename with date and time
-                const now = new Date()
-                const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-                const fileName = `تقرير_إحصائيات_المواعيد_${dateStr}_${timeStr}.csv`
-
-                link.download = fileName
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
+                // تحويل إلى Excel مباشرة
+                await ExportService.convertCSVToExcel(csvContent, 'appointments', {
+                  format: 'csv',
+                  includeCharts: false,
+                  includeDetails: true,
+                  language: 'ar'
+                })
 
                 notify.exportSuccess(`تم تصدير تقرير المواعيد بنجاح! (${dataToExport.length} موعد)`)
               } catch (error) {

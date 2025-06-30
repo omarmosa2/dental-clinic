@@ -689,23 +689,6 @@ export default function FinancialReports() {
                 // إنشاء تقرير مالي شامل مع جميع الأمور المالية
                 const csvContent = await generateComprehensiveFinancialCSV(dataToExport, paymentStats.timeFilter)
 
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-                const link = document.createElement('a')
-                link.href = URL.createObjectURL(blob)
-
-                // إنشاء اسم ملف وصفي
-                const now = new Date()
-                const dateStr = now.toISOString().split('T')[0]
-                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-')
-
-                let fileName = `التقرير_المالي_الشامل_${dateStr}_${timeStr}`
-
-                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
-                  fileName += `_مفلتر`
-                }
-
-                fileName += '.csv'
-
                 // تحويل إلى Excel مباشرة
                 await ExportService.convertCSVToExcel(csvContent, 'comprehensive-financial', {
                   format: 'csv',

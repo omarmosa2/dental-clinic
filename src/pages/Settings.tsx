@@ -247,16 +247,18 @@ export default function Settings() {
                 'تاريخ التصدير': formatDate(new Date())
               }
 
-              const csvContent = [
+              const csvContent = '\uFEFF' + [
                 'الإعداد,القيمة',
-                ...Object.entries(settingsData).map(([key, value]) => `${key},${value}`)
+                ...Object.entries(settingsData).map(([key, value]) => `"${key}","${value}"`)
               ].join('\n')
 
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-              const link = document.createElement('a')
-              link.href = URL.createObjectURL(blob)
-              link.download = `settings_${new Date().toISOString().split('T')[0]}.csv`
-              link.click()
+              // تحويل إلى Excel مباشرة
+              await ExportService.convertCSVToExcel(csvContent, 'settings', {
+                format: 'csv',
+                includeCharts: false,
+                includeDetails: true,
+                language: 'ar'
+              })
             }}
             className="flex items-center space-x-2 space-x-reverse px-4 py-2 border border-input bg-background text-foreground rounded-lg hover:bg-accent"
           >

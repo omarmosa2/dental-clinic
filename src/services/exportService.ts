@@ -2081,19 +2081,18 @@ export class ExportService {
 
       // Add BOM for proper Arabic display in Excel
       const BOM = '\uFEFF'
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const fullCsvContent = BOM + csvContent
 
-      // Create download link
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', `${filename}.csv`)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      console.log(`✅ Clinic needs exported to Excel: ${filename}.xlsx`)
 
-      console.log(`✅ Clinic needs exported to CSV: ${filename}.csv`)
+      // تحويل إلى Excel مباشرة
+      const options: ReportExportOptions = {
+        format: 'csv',
+        includeCharts: false,
+        includeDetails: true,
+        language: 'ar'
+      }
+      await this.convertCSVToExcel(fullCsvContent, 'clinic-needs', options)
     } catch (error) {
       console.error('Error exporting clinic needs to CSV:', error)
       throw new Error('فشل في تصدير احتياجات العيادة إلى CSV')
@@ -2487,16 +2486,14 @@ export class ExportService {
     // Add BOM for Arabic support
     const csvWithBOM = '\uFEFF' + csvContent
 
-    // Create and download file
-    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `تقرير_العلاجات_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // تحويل إلى Excel مباشرة
+    const options: ReportExportOptions = {
+      format: 'csv',
+      includeCharts: false,
+      includeDetails: true,
+      language: 'ar'
+    }
+    await this.convertCSVToExcel(csvWithBOM, 'treatments', options)
   }
 
   static async exportPaymentsToExcel(payments: Payment[]): Promise<void> {
