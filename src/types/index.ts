@@ -364,6 +364,71 @@ export interface ClinicNeed {
   updated_at: string
 }
 
+// Pending Payments Comprehensive Invoice Types
+export interface PendingPaymentItem {
+  id: string
+  patient_id: string
+  appointment_id?: string
+  appointment_date?: string
+  appointment_title?: string
+  treatment_type?: string
+  tooth_number?: number
+  tooth_name?: string
+  amount: number
+  description?: string
+  payment_date: string
+  notes?: string
+  discount_amount?: number
+  tax_amount?: number
+  total_amount?: number
+}
+
+export interface PendingPaymentsSummary {
+  patient_id: string
+  patient_name: string
+  total_pending_amount: number
+  total_items: number
+  items: PendingPaymentItem[]
+  subtotal: number
+  total_discount: number
+  total_tax: number
+  final_total: number
+  date_range: {
+    from: string
+    to: string
+  }
+}
+
+export interface PendingPaymentsFilter {
+  date_range: 'last_month' | 'last_3_months' | 'last_6_months' | 'last_year' | 'custom'
+  custom_start_date?: string
+  custom_end_date?: string
+}
+
+export interface ComprehensiveInvoiceSettings {
+  apply_discount: boolean
+  discount_type: 'percentage' | 'fixed'
+  discount_value: number
+  discount_reason?: string
+  include_tax: boolean
+  tax_rate: number
+  include_clinic_logo: boolean
+  include_patient_details: boolean
+  include_payment_terms: boolean
+  payment_terms_text?: string
+  footer_notes?: string
+}
+
+export interface ComprehensiveInvoiceData {
+  invoice_number: string
+  invoice_date: string
+  patient: Patient
+  summary: PendingPaymentsSummary
+  settings: ComprehensiveInvoiceSettings
+  clinic_info: ClinicSettings
+  generated_at: string
+}
+
 // Database schema for lowdb
 // Treatment Reports Data Interface
 export interface TreatmentReportData {

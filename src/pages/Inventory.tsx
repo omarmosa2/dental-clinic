@@ -1,38 +1,23 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useInventoryStore } from '../store/inventoryStore'
 import { useAppointmentStore } from '../store/appointmentStore'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/hooks/use-toast'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import { notify } from '@/services/notificationService'
-import { ExportService } from '@/services/exportService'
 import {
   Package,
   Plus,
-  Search,
   AlertTriangle,
   Calendar,
   TrendingDown,
   TrendingUp,
   DollarSign,
-  Edit,
-  Trash2,
-  Activity,
   Bell,
-  RefreshCw,
   Download
 } from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Tabs,
   TabsContent,
@@ -51,7 +36,6 @@ export default function Inventory() {
   // Enable real-time synchronization for automatic updates
   useRealTimeSync()
 
-  const { toast } = useToast()
   const [showAddItem, setShowAddItem] = useState(false)
   const [showEditItem, setShowEditItem] = useState(false)
   const [showDeleteItem, setShowDeleteItem] = useState(false)
@@ -65,11 +49,8 @@ export default function Inventory() {
     filteredItems,
     isLoading,
     error,
-    searchQuery,
-    filters,
     categories,
     suppliers,
-    totalItems,
     totalValue,
     lowStockCount,
     expiredCount,
@@ -79,11 +60,6 @@ export default function Inventory() {
     updateItem,
     deleteItem,
     recordUsage,
-    setSearchQuery,
-    setFilters,
-    getLowStockItems,
-    getExpiredItems,
-    getExpiringSoonItems,
     clearError
   } = useInventoryStore()
 
@@ -143,32 +119,7 @@ export default function Inventory() {
     }).format(amount)
   }
 
-  const getStatusBadge = (item: any) => {
-    const today = new Date()
 
-    // Check if expired
-    if (item.expiry_date && new Date(item.expiry_date) < today) {
-      return <Badge variant="destructive">منتهي الصلاحية</Badge>
-    }
-
-    // Check if expiring soon (within 30 days)
-    if (item.expiry_date) {
-      const expiryDate = new Date(item.expiry_date)
-      const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-      if (daysUntilExpiry <= 30 && daysUntilExpiry > 0) {
-        return <Badge variant="secondary">ينتهي قريباً</Badge>
-      }
-    }
-
-    // Check stock levels
-    if (item.quantity === 0) {
-      return <Badge variant="destructive">نفد المخزون</Badge>
-    } else if (item.quantity <= item.minimum_stock) {
-      return <Badge variant="secondary">مخزون منخفض</Badge>
-    }
-
-    return <Badge variant="default">متوفر</Badge>
-  }
 
 
 
@@ -213,7 +164,7 @@ export default function Inventory() {
         <div className="flex items-center space-x-2 space-x-reverse">
           <Button
             variant="outline"
-            onClick={async () => {
+            onClick={() => {
               // Export inventory data
               if (filteredItems.length === 0) {
                 notify.noDataToExport('لا توجد بيانات مخزون للتصدير')
@@ -221,10 +172,25 @@ export default function Inventory() {
               }
 
               try {
-                // تصدير إلى Excel مع التنسيق الجميل والمقروء
-                await ExportService.exportInventoryToExcel(filteredItems)
+                // تصدير بسيط للبيانات
+                const csvData = filteredItems.map(item => ({
+                  'اسم المنتج': item.name,
+                  'الفئة': item.category || '-',
+                  'الكمية': item.quantity,
+                  'السعر': item.cost_per_unit || 0,
+                  'تاريخ الانتهاء': item.expiry_date || '-'
+                }))
 
-                notify.exportSuccess(`تم تصدير ${filteredItems.length} عنصر مخزون بنجاح إلى ملف Excel مع التنسيق الجميل!`)
+                const csvContent = 'data:text/csv;charset=utf-8,' +
+                  Object.keys(csvData[0]).join(',') + '\n' +
+                  csvData.map(row => Object.values(row).join(',')).join('\n')
+
+                const link = document.createElement('a')
+                link.href = encodeURI(csvContent)
+                link.download = `inventory-${new Date().toISOString().split('T')[0]}.csv`
+                link.click()
+
+                notify.exportSuccess(`تم تصدير ${filteredItems.length} عنصر مخزون بنجاح!`)
               } catch (error) {
                 console.error('Error exporting inventory:', error)
                 notify.exportError('فشل في تصدير بيانات المخزون')

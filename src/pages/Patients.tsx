@@ -26,6 +26,7 @@ import AddPatientDialog from '@/components/patients/AddPatientDialog'
 import PatientTable from '@/components/patients/PatientTable'
 import PatientDetailsModal from '@/components/patients/PatientDetailsModal'
 import EditPatientDialog from '@/components/EditPatientDialog'
+import ComprehensivePendingInvoiceDialog from '@/components/payments/ComprehensivePendingInvoiceDialog'
 import { Patient } from '@/types'
 import {
   Plus,
@@ -72,8 +73,10 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showPendingInvoiceDialog, setShowPendingInvoiceDialog] = useState(false)
   const [selectedPatientForDetails, setSelectedPatientForDetails] = useState<Patient | null>(null)
   const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<Patient | null>(null)
+  const [selectedPatientForPendingInvoice, setSelectedPatientForPendingInvoice] = useState<Patient | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [patientToDelete, setPatientToDelete] = useState<string | null>(null)
 
@@ -135,6 +138,11 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
   const handleEditPatient = (patient: Patient) => {
     setSelectedPatientForEdit(patient)
     setShowEditDialog(true)
+  }
+
+  const handleViewPendingInvoice = (patient: Patient) => {
+    setSelectedPatientForPendingInvoice(patient)
+    setShowPendingInvoiceDialog(true)
   }
 
   const handleUpdatePatient = async (id: string, patientData: Partial<Patient>) => {
@@ -365,6 +373,7 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
           onEdit={handleEditPatient}
           onDelete={handleDeletePatient}
           onViewDetails={handleViewDetails}
+          onViewPendingInvoice={handleViewPendingInvoice}
         />
       </div>
 
@@ -395,6 +404,18 @@ export default function Patients({ onNavigateToTreatments, onNavigateToPayments 
           setSelectedPatientForEdit(null)
         }}
         onSave={handleUpdatePatient}
+      />
+
+      {/* Comprehensive Pending Invoice Dialog */}
+      <ComprehensivePendingInvoiceDialog
+        patient={selectedPatientForPendingInvoice}
+        open={showPendingInvoiceDialog}
+        onOpenChange={(open) => {
+          setShowPendingInvoiceDialog(open)
+          if (!open) {
+            setSelectedPatientForPendingInvoice(null)
+          }
+        }}
       />
 
       {/* Delete Confirmation Dialog */}

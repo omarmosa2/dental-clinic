@@ -113,6 +113,11 @@ export interface ElectronAPI {
     openExternal: (url: string) => Promise<void>
   }
 
+  // Shell operations (for compatibility)
+  shell?: {
+    openExternal?: (url: string) => Promise<void>
+  }
+
   // Dialog operations
   dialog: {
     showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>

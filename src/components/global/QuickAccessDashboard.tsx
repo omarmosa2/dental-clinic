@@ -400,7 +400,12 @@ export default function QuickAccessDashboard({
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="destructive" className="text-xs">
-                        {formatAmount(payment.remaining_balance || 0)}
+                        {formatAmount(
+                          payment.total_amount_due ||
+                          payment.remaining_balance ||
+                          payment.amount ||
+                          0
+                        )}
                       </Badge>
                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                         <Eye className="w-3 h-3" />

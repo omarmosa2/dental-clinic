@@ -1291,6 +1291,440 @@ export class PdfService {
     }
   }
 
+  /**
+   * تصدير فاتورة المدفوعات المعلقة الشاملة كـ PDF
+   */
+  static async exportComprehensivePendingInvoice(invoiceData: any): Promise<void> {
+    try {
+      const htmlContent = this.createComprehensivePendingInvoiceHTML(invoiceData)
+      const fileName = this.generatePDFFileName(`pending-invoice-${invoiceData.patient.full_name}`)
+      await this.convertHTMLToPDF(htmlContent, fileName)
+    } catch (error) {
+      console.error('Error exporting comprehensive pending invoice:', error)
+      throw new Error('فشل في تصدير فاتورة المدفوعات المعلقة')
+    }
+  }
+
+  /**
+   * إنشاء HTML لفاتورة المدفوعات المعلقة الشاملة
+   */
+  private static createComprehensivePendingInvoiceHTML(invoiceData: any): string {
+    const { patient, summary, settings: invoiceSettings, clinic_info } = invoiceData
+
+    // دوال مساعدة لتنسيق التاريخ والعملة
+    const formatDate = (dateString: string) => {
+      try {
+        const date = new Date(dateString)
+        if (isNaN(date.getTime())) {
+          return 'غير محدد'
+        }
+        const day = date.getDate().toString().padStart(2, '0')
+        const month = (date.getMonth() + 1).toString().padStart(2, '0')
+        const year = date.getFullYear()
+        return `${day}/${month}/${year}`
+      } catch (error) {
+        return 'غير محدد'
+      }
+    }
+
+    const formatDateTime = (dateTimeString: string) => {
+      try {
+        const date = new Date(dateTimeString)
+        if (isNaN(date.getTime())) {
+          return 'غير محدد'
+        }
+        const day = date.getDate().toString().padStart(2, '0')
+        const month = (date.getMonth() + 1).toString().padStart(2, '0')
+        const year = date.getFullYear()
+        const time = date.toLocaleTimeString('ar-SA', {
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+        return `${day}/${month}/${year} - ${time}`
+      } catch (error) {
+        return 'غير محدد'
+      }
+    }
+
+    const formatCurrency = (amount: number) => {
+      try {
+        // استخدام إعدادات العملة من العيادة إذا كانت متوفرة
+        if (clinic_info?.currency) {
+          const currencySymbols = {
+            'USD': '$',
+            'EUR': '€',
+            'SYP': 'ل.س',
+            'TRY': '₺',
+            'SAR': 'ر.س'
+          }
+          const symbol = currencySymbols[clinic_info.currency] || clinic_info.currency
+          return `${amount.toLocaleString('ar-SA')} ${symbol}`
+        }
+        return `${amount.toLocaleString('ar-SA')} ل.س`
+      } catch (error) {
+        return `${amount} ل.س`
+      }
+    }
+
+    return `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>فاتورة المدفوعات المعلقة - ${patient.full_name}</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: 'Arial', 'Tahoma', sans-serif;
+          direction: rtl;
+          background: white;
+          color: #333;
+          line-height: 1.6;
+          font-size: 14px;
+        }
+
+        .invoice-container {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 20px;
+          background: white;
+        }
+
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+          border-bottom: 3px solid #2563eb;
+          padding-bottom: 20px;
+        }
+
+        .header h1 {
+          color: #2563eb;
+          font-size: 28px;
+          margin-bottom: 10px;
+          font-weight: bold;
+        }
+
+        .header .invoice-info {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 15px;
+          font-size: 12px;
+          color: #666;
+        }
+
+        .info-section {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px;
+          margin-bottom: 30px;
+        }
+
+        .info-card {
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 15px;
+          background: #f9fafb;
+        }
+
+        .info-card h3 {
+          color: #2563eb;
+          font-size: 16px;
+          margin-bottom: 10px;
+          border-bottom: 1px solid #e5e7eb;
+          padding-bottom: 5px;
+        }
+
+        .info-card p {
+          margin: 5px 0;
+          font-size: 13px;
+        }
+
+        .items-section {
+          margin-bottom: 30px;
+        }
+
+        .items-header {
+          background: #2563eb;
+          color: white;
+          padding: 15px;
+          border-radius: 8px 8px 0 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .items-header h3 {
+          font-size: 18px;
+        }
+
+        .items-badge {
+          background: rgba(255, 255, 255, 0.2);
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+        }
+
+        .items-list {
+          border: 1px solid #e5e7eb;
+          border-top: none;
+          border-radius: 0 0 8px 8px;
+        }
+
+        .item-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 15px;
+          border-bottom: 1px solid #e5e7eb;
+          transition: background-color 0.2s;
+        }
+
+        .item-row:last-child {
+          border-bottom: none;
+        }
+
+        .item-row:hover {
+          background: #f9fafb;
+        }
+
+        .item-details {
+          flex: 1;
+        }
+
+        .item-title {
+          font-weight: bold;
+          color: #1f2937;
+          margin-bottom: 5px;
+        }
+
+        .item-meta {
+          font-size: 11px;
+          color: #6b7280;
+          display: flex;
+          gap: 15px;
+          flex-wrap: wrap;
+        }
+
+        .item-amount {
+          text-align: left;
+          font-weight: bold;
+          font-size: 16px;
+          color: #059669;
+        }
+
+        .summary-section {
+          background: #f9fafb;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 20px;
+          margin-bottom: 30px;
+        }
+
+        .summary-title {
+          color: #2563eb;
+          font-size: 18px;
+          margin-bottom: 15px;
+          text-align: center;
+          border-bottom: 1px solid #e5e7eb;
+          padding-bottom: 10px;
+        }
+
+        .summary-row {
+          display: flex;
+          justify-content: space-between;
+          margin: 10px 0;
+          padding: 5px 0;
+        }
+
+        .summary-row.discount {
+          color: #dc2626;
+        }
+
+        .summary-row.tax {
+          color: #2563eb;
+        }
+
+        .summary-row.total {
+          border-top: 2px solid #2563eb;
+          padding-top: 15px;
+          margin-top: 15px;
+          font-size: 20px;
+          font-weight: bold;
+          color: #2563eb;
+        }
+
+        .footer {
+          text-align: center;
+          margin-top: 40px;
+          padding-top: 20px;
+          border-top: 1px solid #e5e7eb;
+          color: #6b7280;
+          font-size: 12px;
+        }
+
+        .date-range {
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: 6px;
+          padding: 10px;
+          margin-bottom: 20px;
+          text-align: center;
+          font-size: 12px;
+          color: #1e40af;
+        }
+
+        @media print {
+          body {
+            margin: 0;
+            padding: 0;
+          }
+
+          .invoice-container {
+            max-width: none;
+            margin: 0;
+            padding: 15px;
+          }
+
+          .item-row:hover {
+            background: transparent;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="invoice-container">
+        <!-- رأس الفاتورة -->
+        <div class="header">
+          <h1>فاتورة المدفوعات المعلقة الشاملة</h1>
+          <div class="invoice-info">
+            <div>رقم الفاتورة: ${invoiceData.invoice_number}</div>
+            <div>تاريخ الإصدار: ${formatDate(invoiceData.invoice_date)}</div>
+            <div>وقت الإنشاء: ${formatDateTime(invoiceData.generated_at)}</div>
+          </div>
+        </div>
+
+        <!-- نطاق التاريخ -->
+        <div class="date-range">
+          <strong>فترة الفاتورة:</strong> من ${formatDate(summary.date_range.from)} إلى ${formatDate(summary.date_range.to)}
+        </div>
+
+        <!-- معلومات المريض والعيادة -->
+        <div class="info-section">
+          <div class="info-card">
+            <h3>معلومات المريض</h3>
+            <p><strong>الاسم الكامل:</strong> ${patient.full_name}</p>
+            <p><strong>رقم الهاتف:</strong> ${patient.phone || 'غير محدد'}</p>
+            ${patient.email ? `<p><strong>البريد الإلكتروني:</strong> ${patient.email}</p>` : ''}
+            ${patient.address ? `<p><strong>العنوان:</strong> ${patient.address}</p>` : ''}
+            <p><strong>تاريخ الميلاد:</strong> ${patient.date_of_birth ? formatDate(patient.date_of_birth) : 'غير محدد'}</p>
+          </div>
+
+          <div class="info-card">
+            <h3>معلومات العيادة</h3>
+            <p><strong>اسم العيادة:</strong> ${clinic_info.clinic_name || 'عيادة الأسنان'}</p>
+            ${clinic_info.clinic_phone ? `<p><strong>هاتف العيادة:</strong> ${clinic_info.clinic_phone}</p>` : ''}
+            ${clinic_info.clinic_address ? `<p><strong>عنوان العيادة:</strong> ${clinic_info.clinic_address}</p>` : ''}
+            ${clinic_info.clinic_email ? `<p><strong>إيميل العيادة:</strong> ${clinic_info.clinic_email}</p>` : ''}
+          </div>
+        </div>
+
+        <!-- تفاصيل المدفوعات المعلقة -->
+        <div class="items-section">
+          <div class="items-header">
+            <h3>تفاصيل المدفوعات المعلقة</h3>
+            <div class="items-badge">${summary.total_items} عنصر</div>
+          </div>
+
+          <div class="items-list">
+            ${summary.items.map((item: any, index: number) => `
+              <div class="item-row">
+                <div class="item-details">
+                  <div class="item-title">
+                    ${index + 1}. ${item.appointment_title || item.treatment_type || item.description || 'عنصر غير محدد'}
+                  </div>
+                  <div class="item-meta">
+                    ${item.appointment_date ? `<span>📅 ${formatDate(item.appointment_date)}</span>` : ''}
+                    ${item.tooth_name ? `<span>🦷 ${item.tooth_name} (${item.tooth_number})</span>` : ''}
+                    ${item.treatment_type ? `<span>🔧 ${item.treatment_type}</span>` : ''}
+                    ${item.notes ? `<span>📝 ${item.notes}</span>` : ''}
+                  </div>
+                </div>
+                <div class="item-amount">
+                  ${formatCurrency(item.amount)}
+                  ${item.discount_amount && item.discount_amount > 0 ?
+                    `<div style="font-size: 11px; color: #dc2626;">خصم: ${formatCurrency(item.discount_amount)}</div>` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- ملخص المبالغ -->
+        <div class="summary-section">
+          <h3 class="summary-title">ملخص المبالغ</h3>
+
+          <div class="summary-row">
+            <span>المجموع الفرعي:</span>
+            <span>${formatCurrency(summary.subtotal)}</span>
+          </div>
+
+          ${summary.total_discount > 0 ? `
+            <div class="summary-row discount">
+              <span>الخصم (${invoiceSettings.discount_type === 'percentage' ? `${invoiceSettings.discount_value}%` : 'مبلغ ثابت'}):</span>
+              <span>-${formatCurrency(summary.total_discount)}</span>
+            </div>
+            ${invoiceSettings.discount_reason ? `
+              <div style="font-size: 11px; color: #6b7280; text-align: center; margin: 5px 0;">
+                سبب الخصم: ${invoiceSettings.discount_reason}
+              </div>
+            ` : ''}
+          ` : ''}
+
+          ${summary.total_tax > 0 ? `
+            <div class="summary-row tax">
+              <span>الضريبة (${invoiceSettings.tax_rate}%):</span>
+              <span>+${formatCurrency(summary.total_tax)}</span>
+            </div>
+          ` : ''}
+
+          <div class="summary-row total">
+            <span>المجموع النهائي:</span>
+            <span>${formatCurrency(summary.final_total)}</span>
+          </div>
+        </div>
+
+        <!-- شروط الدفع -->
+        ${invoiceSettings.include_payment_terms && invoiceSettings.payment_terms_text ? `
+          <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 15px; margin-bottom: 20px;">
+            <h4 style="color: #92400e; margin-bottom: 8px;">شروط الدفع:</h4>
+            <p style="color: #92400e; font-size: 13px;">${invoiceSettings.payment_terms_text}</p>
+          </div>
+        ` : ''}
+
+        <!-- الملاحظات -->
+        ${invoiceSettings.footer_notes ? `
+          <div class="footer">
+            <p>${invoiceSettings.footer_notes}</p>
+          </div>
+        ` : ''}
+
+        <!-- معلومات إضافية -->
+        <div class="footer">
+          <p>تم إنشاء هذه الفاتورة إلكترونياً في ${formatDateTime(invoiceData.generated_at)}</p>
+          <p>للاستفسارات، يرجى التواصل مع العيادة</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `
+  }
+
   static async exportComprehensiveReport(
     patientData: PatientReportData,
     appointmentData: AppointmentReportData,

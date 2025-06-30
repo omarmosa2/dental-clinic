@@ -42,6 +42,7 @@ import { useToast } from '@/hooks/use-toast'
 import AddAppointmentDialog from '@/components/AddAppointmentDialog'
 import AddPaymentDialog from '@/components/payments/AddPaymentDialog'
 import AddPrescriptionDialog from '@/components/medications/AddPrescriptionDialog'
+import ComprehensivePendingInvoiceDialog from '@/components/payments/ComprehensivePendingInvoiceDialog'
 import { TREATMENT_STATUS_OPTIONS, getTreatmentNameInArabic } from '@/data/teethData'
 
 interface PatientDetailsModalProps {
@@ -76,6 +77,7 @@ export default function PatientDetailsModal({
   const [showAddAppointmentDialog, setShowAddAppointmentDialog] = useState(false)
   const [showAddPaymentDialog, setShowAddPaymentDialog] = useState(false)
   const [showAddPrescriptionDialog, setShowAddPrescriptionDialog] = useState(false)
+  const [showPendingInvoiceDialog, setShowPendingInvoiceDialog] = useState(false)
 
   const { appointments } = useAppointmentStore()
   const { payments } = usePaymentStore()
@@ -221,6 +223,15 @@ export default function PatientDetailsModal({
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPendingInvoiceDialog(true)}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              >
+                <FileText className="w-4 h-4" />
+                فاتورة المعلقات
+              </Button>
               {onEdit && (
                 <Button
                   variant="outline"
@@ -1007,6 +1018,13 @@ export default function PatientDetailsModal({
           }
         }}
         preSelectedPatientId={patient.id}
+      />
+
+      {/* Comprehensive Pending Invoice Dialog */}
+      <ComprehensivePendingInvoiceDialog
+        patient={patient}
+        open={showPendingInvoiceDialog}
+        onOpenChange={setShowPendingInvoiceDialog}
       />
     </Dialog>
   )

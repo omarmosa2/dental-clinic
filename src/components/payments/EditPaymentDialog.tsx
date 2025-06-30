@@ -240,7 +240,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.patient_id || !formData.amount || !formData.payment_date) {
+    if (!formData.patient_id || !formData.payment_date) {
       toast({
         title: 'خطأ',
         description: 'يرجى ملء جميع الحقول المطلوبة',
@@ -250,7 +250,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
     }
 
     try {
-      const amount = parseFloat(formData.amount)
+      const amount = formData.amount ? parseFloat(formData.amount) : 0
       const discountAmount = formData.discount_amount ? parseFloat(formData.discount_amount) : 0
       const taxAmount = formData.tax_amount ? parseFloat(formData.tax_amount) : 0
       const totalAmount = amount + taxAmount - discountAmount
@@ -378,7 +378,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="space-y-2">
-                  <Label htmlFor="amount" className="text-foreground font-medium">المبلغ *</Label>
+                  <Label htmlFor="amount" className="text-foreground font-medium">المبلغ</Label>
                   <Input
                     id="amount"
                     type="number"
@@ -386,7 +386,6 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     value={formData.amount}
                     onChange={(e) => handleInputChange('amount', e.target.value)}
                     placeholder="0.00"
-                    required
                     className="bg-background border-input text-foreground"
                   />
                 </div>

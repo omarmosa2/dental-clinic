@@ -23,7 +23,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  MessageCircle
+  MessageCircle,
+  FileText
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
@@ -33,6 +34,7 @@ interface PatientTableProps {
   onEdit: (patient: Patient) => void
   onDelete: (patientId: string) => void
   onViewDetails: (patient: Patient) => void
+  onViewPendingInvoice?: (patient: Patient) => void
 }
 
 type SortField = 'full_name' | 'gender' | 'age' | 'phone' | 'patient_condition' | 'date_added'
@@ -43,7 +45,8 @@ export default function PatientTable({
   isLoading,
   onEdit,
   onDelete,
-  onViewDetails
+  onViewDetails,
+  onViewPendingInvoice
 }: PatientTableProps) {
   const [sortField, setSortField] = useState<SortField | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
@@ -313,7 +316,7 @@ export default function PatientTable({
                   {formatDate(patient.date_added)}
                 </span>
               </TableCell>
-              <TableCell className="min-w-[180px] text-center">
+              <TableCell className="min-w-[220px] text-center">
                 <div className="flex items-center justify-center space-x-1 space-x-reverse">
                   <Button
                     variant="ghost"
@@ -324,6 +327,18 @@ export default function PatientTable({
                     <Eye className="w-4 h-4 ml-1" />
                     <span className="text-xs arabic-enhanced">عرض</span>
                   </Button>
+                  {onViewPendingInvoice && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="action-btn-invoice text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      onClick={() => onViewPendingInvoice(patient)}
+                      title="فاتورة المعلقات"
+                    >
+                      <FileText className="w-4 h-4 ml-1" />
+                      <span className="text-xs arabic-enhanced">معلقات</span>
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
