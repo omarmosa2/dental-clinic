@@ -60,6 +60,7 @@ export default function DentalTreatments() {
   const [isPrimaryTeeth, setIsPrimaryTeeth] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [showTestMode, setShowTestMode] = useState(false)
+  const [patientSessionStats, setPatientSessionStats] = useState<{[key: string]: any}>({})
 
 
   // Enable real-time synchronization
@@ -89,7 +90,7 @@ export default function DentalTreatments() {
           localStorage.removeItem('selectedPatientForTreatment')
 
           // Wait for patients to load, then select the patient
-          const selectPatient = () => {
+          const selectPatient = async () => {
             console.log('Attempting to select patient:', preSelectedPatientId)
             console.log('Available patients:', patients.length)
 
@@ -114,6 +115,10 @@ export default function DentalTreatments() {
             // Load treatments for the pre-selected patient
             loadToothTreatmentsByPatient(preSelectedPatientId)
             loadImages()
+
+            // Load session statistics for the pre-selected patient
+            const sessionStats = await getPatientSessionStats(preSelectedPatientId)
+            setPatientSessionStats(prev => ({ ...prev, [preSelectedPatientId]: sessionStats }))
 
             // Scroll to dental chart after a short delay
             setTimeout(() => {
@@ -150,6 +155,11 @@ export default function DentalTreatments() {
           // Select the patient first
           setSelectedPatientId(patientId)
           loadToothTreatmentsByPatient(patientId)
+
+          // Load session statistics for the patient
+          getPatientSessionStats(patientId).then(sessionStats => {
+            setPatientSessionStats(prev => ({ ...prev, [patientId]: sessionStats }))
+          })
 
           // Set the tooth number and open dialog
           setSelectedToothNumber(treatment.tooth_number)
@@ -208,6 +218,35 @@ export default function DentalTreatments() {
     }
   }
 
+  // Get detailed session stats for patient
+  const getPatientSessionStats = async (patientId: string) => {
+    try {
+      // Get all treatment sessions for this patient's treatments
+      const patientTreatments = toothTreatments.filter(t => t.patient_id === patientId)
+      let allSessions: any[] = []
+
+      for (const treatment of patientTreatments) {
+        const sessions = await window.electronAPI.treatmentSessions.getByTreatment(treatment.id)
+        allSessions = [...allSessions, ...sessions]
+      }
+
+      return {
+        total: allSessions.length,
+        completed: allSessions.filter(s => s.session_status === 'completed').length,
+        planned: allSessions.filter(s => s.session_status === 'planned').length,
+        cancelled: allSessions.filter(s => s.session_status === 'cancelled').length
+      }
+    } catch (error) {
+      console.error('Error getting patient session stats:', error)
+      return {
+        total: 0,
+        completed: 0,
+        planned: 0,
+        cancelled: 0
+      }
+    }
+  }
+
   // Get last treatment date for patient
   const getLastTreatmentDate = (patientId: string) => {
     const newSystemTreatments = toothTreatments.filter(t => t.patient_id === patientId)
@@ -225,13 +264,18 @@ export default function DentalTreatments() {
     return toothTreatmentImages.filter(img => img.patient_id === patientId).length
   }
 
-  const handlePatientSelect = (patientId: string) => {
+  const handlePatientSelect = async (patientId: string) => {
     setSelectedPatientId(patientId)
     setSelectedToothNumber(null)
     // تحميل العلاجات والصور للمريض المحدد
     if (patientId) {
       loadToothTreatmentsByPatient(patientId) // النظام الجديد
       loadAllToothTreatmentImagesByPatient(patientId) // تحميل الصور بالنظام الجديد
+
+      // تحميل إحصائيات الجلسات للمريض
+      const sessionStats = await getPatientSessionStats(patientId)
+      setPatientSessionStats(prev => ({ ...prev, [patientId]: sessionStats }))
+
       // Scroll to dental chart after selection
       setTimeout(() => {
         const dentalChartElement = document.getElementById('dental-chart-section')
@@ -251,12 +295,15 @@ export default function DentalTreatments() {
     setShowToothDialog(true)
   }
 
-  const handleToothDialogClose = (open: boolean) => {
+  const handleToothDialogClose = async (open: boolean) => {
     setShowToothDialog(open)
     // إعادة تحميل البيانات عند إغلاق الحوار
     if (!open && selectedPatientId) {
       loadToothTreatmentsByPatient(selectedPatientId) // النظام الجديد
       loadAllToothTreatmentImagesByPatient(selectedPatientId) // إعادة تحميل الصور بالنظام الجديد
+      // تحديث إحصائيات الجلسات
+      const sessionStats = await getPatientSessionStats(selectedPatientId)
+      setPatientSessionStats(prev => ({ ...prev, [selectedPatientId]: sessionStats }))
     }
   }
 
@@ -280,6 +327,9 @@ export default function DentalTreatments() {
           loadToothTreatmentsByPatient(selectedPatientId),
           loadAllToothTreatmentImagesByPatient(selectedPatientId)
         ])
+        // تحديث إحصائيات الجلسات للمريض المحدد
+        const sessionStats = await getPatientSessionStats(selectedPatientId)
+        setPatientSessionStats(prev => ({ ...prev, [selectedPatientId]: sessionStats }))
       }
       notify.success('تم تحديث البيانات بنجاح')
     } catch (error) {
@@ -446,37 +496,69 @@ export default function DentalTreatments() {
                 {(() => {
                   const stats = getPatientTreatmentStats(selectedPatientId)
                   const imagesCount = getPatientImagesCount(selectedPatientId)
+                  const sessionStats = patientSessionStats[selectedPatientId] || { total: 0, completed: 0, planned: 0, cancelled: 0 }
 
                   return (
-                    <div className="border-t border-border pt-4">
-                      <h4 className="text-sm font-medium text-foreground mb-3">إحصائيات العلاجات</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                            <Activity className="w-3 h-3 ml-1" />
-                            {stats.total} إجمالي
-                          </Badge>
+                    <div className="border-t border-border pt-4 space-y-4">
+                      {/* Treatment Statistics */}
+                      <div>
+                        <h4 className="text-sm font-medium text-foreground mb-3">إحصائيات العلاجات</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                              <Activity className="w-3 h-3 ml-1" />
+                              {stats.total} إجمالي
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300">
+                              ✓ {stats.completed} مكتمل
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-orange-50 dark:bg-orange-900 text-orange-700 dark:text-orange-300">
+                              ⏳ {stats.inProgress} قيد التنفيذ
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
+                              📋 {stats.planned} مخطط
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
+                              <Camera className="w-3 h-3 ml-1" />
+                              {imagesCount} صورة
+                            </Badge>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300">
-                            ✓ {stats.completed} مكتمل
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="bg-orange-50 dark:bg-orange-900 text-orange-700 dark:text-orange-300">
-                            ⏳ {stats.inProgress} قيد التنفيذ
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
-                            📋 {stats.planned} مخطط
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
-                            <Camera className="w-3 h-3 ml-1" />
-                            {imagesCount} صورة
-                          </Badge>
+                      </div>
+
+                      {/* Session Statistics */}
+                      <div>
+                        <h4 className="text-sm font-medium text-foreground mb-3">إحصائيات الجلسات</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">
+                              <Calendar className="w-3 h-3 ml-1" />
+                              {sessionStats.total} إجمالي
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">
+                              ✅ {sessionStats.completed} مكتملة
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-amber-50 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
+                              📅 {sessionStats.planned} مخططة
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300">
+                              ❌ {sessionStats.cancelled} ملغية
+                            </Badge>
+                          </div>
                         </div>
                       </div>
                     </div>
