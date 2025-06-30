@@ -8,16 +8,18 @@ import {
   Package,
   DollarSign,
   AlertTriangle,
-  Clock
+  Clock,
+  Download
 } from 'lucide-react'
 import { formatCurrency } from '../lib/utils'
 import { getCardStyles, getIconStyles } from '../lib/cardStyles'
 import AddClinicNeedDialog from '../components/clinic-needs/AddClinicNeedDialog'
 import DeleteClinicNeedDialog from '../components/clinic-needs/DeleteClinicNeedDialog'
 import ClinicNeedsTable from '../components/clinic-needs/ClinicNeedsTable'
-import ExportClinicNeedsButton from '../components/clinic-needs/ExportClinicNeedsButton'
 import ClinicNeedsFilters from '../components/clinic-needs/ClinicNeedsFilters'
 import { useToast } from '@/hooks/use-toast'
+import { ExportService } from '../services/exportService'
+import { notify } from '../services/notificationService'
 import type { ClinicNeed } from '../types'
 
 const ClinicNeeds: React.FC = () => {
@@ -173,11 +175,29 @@ const ClinicNeeds: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportClinicNeedsButton
-            needs={needs}
-            filteredNeeds={filteredNeeds}
-            title="احتياجات العيادة"
-          />
+          <Button
+            variant="outline"
+            onClick={async () => {
+              // Export clinic needs data
+              if (filteredNeeds.length === 0) {
+                notify.noDataToExport('لا توجد بيانات احتياجات للتصدير')
+                return
+              }
+
+              try {
+                // تصدير إلى Excel مع التنسيق الجميل والمقروء باستخدام دالة CSV
+                await ExportService.exportClinicNeedsToCSV(filteredNeeds, `احتياجات_العيادة_${new Date().toISOString().split('T')[0]}`)
+
+                notify.exportSuccess(`تم تصدير ${filteredNeeds.length} احتياج بنجاح إلى ملف Excel مع التنسيق الجميل!`)
+              } catch (error) {
+                console.error('Error exporting clinic needs:', error)
+                notify.exportError('فشل في تصدير بيانات الاحتياجات')
+              }
+            }}
+          >
+            <Download className="w-4 h-4 ml-2" />
+            تصدير
+          </Button>
           <Button onClick={handleAddNew} className="flex items-center gap-2">
             <Plus className="w-4 h-4" />
             إضافة احتياج جديد

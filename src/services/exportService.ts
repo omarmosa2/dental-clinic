@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import ExcelJS from 'exceljs'
-import type { Patient, Appointment, Payment, ReportExportOptions, PatientReportData, AppointmentReportData, FinancialReportData, InventoryReportData } from '../types'
+import type { Patient, Appointment, Payment, Lab, LabOrder, ReportExportOptions, PatientReportData, AppointmentReportData, FinancialReportData, InventoryReportData } from '../types'
 import { formatCurrency, formatDate } from '../lib/utils'
 import { getTreatmentNameInArabic, getCategoryNameInArabic } from '../data/teethData'
 
@@ -1133,6 +1133,12 @@ export class ExportService {
   }
 
   static async addLabReportToExcel(workbook: ExcelJS.Workbook, data: any, options: ReportExportOptions): Promise<void> {
+    // Safety check for data parameter
+    if (!data) {
+      console.error('No data provided to addLabReportToExcel')
+      return
+    }
+
     const worksheet = workbook.addWorksheet('تقرير المختبرات')
 
     // Header
@@ -1161,35 +1167,55 @@ export class ExportService {
     let currentRow = 4
 
     // Summary statistics if available
-    if (data.summary) {
+    if (data && data.summary && typeof data.summary === 'object') {
       worksheet.getCell(`A${currentRow}`).value = 'ملخص الإحصائيات'
       worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FF2E8B57' } }
       currentRow += 2
 
-      Object.entries(data.summary).forEach(([key, value]) => {
-        worksheet.getCell(`A${currentRow}`).value = key
-        worksheet.getCell(`B${currentRow}`).value = value
-        worksheet.getCell(`A${currentRow}`).font = { bold: true }
-        worksheet.getCell(`B${currentRow}`).font = { size: 11 }
+      try {
+        const summaryEntries = Object.entries(data.summary)
+        for (const [key, value] of summaryEntries) {
+          // Set cell values
+          worksheet.getCell(`A${currentRow}`).value = key
+          worksheet.getCell(`B${currentRow}`).value = value
+          worksheet.getCell(`A${currentRow}`).font = { bold: true }
+          worksheet.getCell(`B${currentRow}`).font = { size: 11 }
 
-        // Add borders and background
-        ['A', 'B'].forEach(col => {
-          const cell = worksheet.getCell(`${col}${currentRow}`)
-          cell.border = {
+          // Add borders and background for column A
+          const cellA = worksheet.getCell(`A${currentRow}`)
+          cellA.border = {
             top: { style: 'thin' },
             left: { style: 'thin' },
             bottom: { style: 'thin' },
             right: { style: 'thin' }
           }
-          cell.fill = {
+          cellA.fill = {
             type: 'pattern',
             pattern: 'solid',
             fgColor: { argb: 'FFF8F9FA' }
           }
-          cell.alignment = { horizontal: 'right', vertical: 'middle' }
-        })
-        currentRow++
-      })
+          cellA.alignment = { horizontal: 'right', vertical: 'middle' }
+
+          // Add borders and background for column B
+          const cellB = worksheet.getCell(`B${currentRow}`)
+          cellB.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+          cellB.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8F9FA' }
+          }
+          cellB.alignment = { horizontal: 'right', vertical: 'middle' }
+
+          currentRow++
+        }
+      } catch (error) {
+        console.error('Error processing summary data:', error)
+      }
       currentRow += 2
     }
 
@@ -1221,7 +1247,8 @@ export class ExportService {
       currentRow++
 
       // Table data
-      data.labs.forEach((lab: any, index: number) => {
+      try {
+        data.labs.forEach((lab: any, index: number) => {
         const rowData = [
           lab.name,
           lab.contact_info || '',
@@ -1252,6 +1279,9 @@ export class ExportService {
         })
         currentRow++
       })
+      } catch (error) {
+        console.error('Error processing labs data:', error)
+      }
     }
 
     // Lab orders data table
@@ -1283,7 +1313,8 @@ export class ExportService {
       currentRow++
 
       // Table data
-      data.labOrders.forEach((order: any, index: number) => {
+      try {
+        data.labOrders.forEach((order: any, index: number) => {
         const rowData = [
           index + 1,
           order.lab?.name || 'غير محدد',
@@ -1331,6 +1362,9 @@ export class ExportService {
         })
         currentRow++
       })
+      } catch (error) {
+        console.error('Error processing lab orders data:', error)
+      }
     }
 
     // Auto-fit columns
@@ -2756,6 +2790,8 @@ export class ExportService {
       filterInfo: `البيانات المصدرة: ${labs.length} مختبر، ${labOrders.length} طلب`,
       dataCount: labs.length + labOrders.length
     }
+
+
 
     const options: ReportExportOptions = {
       format: 'excel',
