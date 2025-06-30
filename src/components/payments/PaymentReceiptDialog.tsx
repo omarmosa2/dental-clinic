@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useSettingsStore } from '@/store/settingsStore'
 import { useStableClinicName, useStableDoctorName, useStableClinicLogo, useStableContactInfo } from '@/hooks/useStableSettings'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { useCurrency } from '@/contexts/CurrencyContext'
 import { Printer, Download, Receipt, Building2, Phone, MapPin, QrCode, Settings, Eye } from 'lucide-react'
 import QRCode from 'qrcode'
 import JsBarcode from 'jsbarcode'
@@ -21,6 +22,7 @@ interface PaymentReceiptDialogProps {
 
 export default function PaymentReceiptDialog({ open, onOpenChange, payment }: PaymentReceiptDialogProps) {
   const { settings, loadSettings } = useSettingsStore()
+  const { formatAmount } = useCurrency()
   const clinicName = useStableClinicName()
   const doctorName = useStableDoctorName()
   const clinicLogo = useStableClinicLogo()
@@ -55,7 +57,7 @@ export default function PaymentReceiptDialog({ open, onOpenChange, payment }: Pa
     const receiptNumber = payment.receipt_number || `RCP-${payment.id.slice(-6)}`
     const patientName = payment.patient?.full_name || 'غير محدد'
     const formattedDate = formatDate(payment.payment_date)
-    const amount = formatCurrency(payment.amount)
+    const amount = formatAmount(payment.amount)
 
     // حساب المبلغ المتبقي للمدفوعات الجزئية
     let remainingBalanceText = ''
@@ -72,7 +74,7 @@ export default function PaymentReceiptDialog({ open, onOpenChange, payment }: Pa
       }
 
       if (remainingBalance > 0) {
-        remainingBalanceText = `⚠️ المبلغ المتبقي: ${formatCurrency(remainingBalance)}`
+        remainingBalanceText = `⚠️ المبلغ المتبقي: ${formatAmount(remainingBalance)}`
       }
     }
 
@@ -830,20 +832,20 @@ ${address ? `📍 العنوان: ${address}` : ''}
               {/* معلومات الدفعة الحالية */}
               <div className="amount-row">
                 <span>المبلغ المدفوع في هذه الدفعة:</span>
-                <span>{formatCurrency(payment.amount)}</span>
+                <span>{formatAmount(payment.amount)}</span>
               </div>
 
               {payment.discount_amount && payment.discount_amount > 0 && (
                 <div className="amount-row">
                   <span>الخصم:</span>
-                  <span>-{formatCurrency(payment.discount_amount)}</span>
+                  <span>-{formatAmount(payment.discount_amount)}</span>
                 </div>
               )}
 
               {payment.tax_amount && payment.tax_amount > 0 && (
                 <div className="amount-row">
                   <span>الضريبة:</span>
-                  <span>+{formatCurrency(payment.tax_amount)}</span>
+                  <span>+{formatAmount(payment.tax_amount)}</span>
                 </div>
               )}
 
@@ -856,7 +858,7 @@ ${address ? `📍 العنوان: ${address}` : ''}
                   {(payment.total_amount_due || payment.appointment_total_cost) && (
                     <div className="amount-row">
                       <span>إجمالي المبلغ المطلوب:</span>
-                      <span>{formatCurrency(payment.total_amount_due || payment.appointment_total_cost || 0)}</span>
+                      <span>{formatAmount(payment.total_amount_due || payment.appointment_total_cost || 0)}</span>
                     </div>
                   )}
 
@@ -864,7 +866,7 @@ ${address ? `📍 العنوان: ${address}` : ''}
                   {payment.amount_paid && (
                     <div className="amount-row">
                       <span>إجمالي المبلغ المدفوع:</span>
-                      <span>{formatCurrency(payment.amount_paid)}</span>
+                      <span>{formatAmount(payment.amount_paid)}</span>
                     </div>
                   )}
 
@@ -886,7 +888,7 @@ ${address ? `📍 العنوان: ${address}` : ''}
                     return remainingBalance > 0 ? (
                       <div className="amount-row" style={{ color: '#dc3545', fontWeight: 'bold' }}>
                         <span>المبلغ المتبقي:</span>
-                        <span>{formatCurrency(remainingBalance)}</span>
+                        <span>{formatAmount(remainingBalance)}</span>
                       </div>
                     ) : null
                   })()}
@@ -896,7 +898,7 @@ ${address ? `📍 العنوان: ${address}` : ''}
               <div className="separator">═══════════════════</div>
 
               <div className="total-amount">
-                المبلغ الإجمالي لهذه الدفعة: {formatCurrency(
+                المبلغ الإجمالي لهذه الدفعة: {formatAmount(
                   payment.total_amount ||
                   (payment.amount + (payment.tax_amount || 0) - (payment.discount_amount || 0))
                 )}

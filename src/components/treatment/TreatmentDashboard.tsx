@@ -18,6 +18,7 @@ import {
   Plus
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { useCurrency } from '@/contexts/CurrencyContext'
 import { PatientIntegrationService } from '@/services/patientIntegrationService'
 import { TreatmentWorkflowService } from '@/services/treatmentWorkflowService'
 import type { PatientIntegratedData } from '@/types'
@@ -40,6 +41,7 @@ export default function TreatmentDashboard({
   const [integratedData, setIntegratedData] = useState<PatientIntegratedData | null>(null)
   const [treatmentProgress, setTreatmentProgress] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const { formatAmount } = useCurrency()
 
   useEffect(() => {
     loadPatientData()
@@ -52,7 +54,7 @@ export default function TreatmentDashboard({
         PatientIntegrationService.getPatientIntegratedData(patientId),
         TreatmentWorkflowService.getTreatmentProgress(patientId)
       ])
-      
+
       setIntegratedData(data)
       setTreatmentProgress(progress)
     } catch (error) {
@@ -140,7 +142,7 @@ export default function TreatmentDashboard({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">إجمالي المدفوع</p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.totalPaid)}</p>
+                <p className="text-2xl font-bold">{formatAmount(stats.totalPaid)}</p>
               </div>
               <DollarSign className="w-8 h-8 text-green-500" />
             </div>
@@ -152,7 +154,7 @@ export default function TreatmentDashboard({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">المتبقي</p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.remainingBalance)}</p>
+                <p className="text-2xl font-bold">{formatAmount(stats.remainingBalance)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-orange-500" />
             </div>

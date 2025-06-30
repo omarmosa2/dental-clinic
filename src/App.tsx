@@ -3,6 +3,7 @@ import { usePatientStore } from './store/patientStore'
 import { useAppointmentStore } from './store/appointmentStore'
 import { useSettingsStore } from './store/settingsStore'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
+import { CurrencyProvider } from './contexts/CurrencyContext'
 import { useRealTimeSync } from './hooks/useRealTimeSync'
 import { useRealTimeTableSync } from './hooks/useRealTimeTableSync'
 import { useAuth } from './hooks/useAuth'
@@ -602,7 +603,9 @@ function AppContent() {
 function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <CurrencyProvider>
+        <AppContent />
+      </CurrencyProvider>
     </ThemeProvider>
   );
 }

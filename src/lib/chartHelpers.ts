@@ -36,12 +36,12 @@ export function getResponsiveHeight(size: 'mobile' | 'tablet' | 'desktop' | 'lar
 // Get professional axis styling
 export function getAxisStyles(isDarkMode: boolean) {
   return {
-    tick: { 
-      fontSize: 12, 
+    tick: {
+      fontSize: 12,
       fill: isDarkMode ? '#9ca3af' : '#6b7280',
       fontFamily: 'Tajawal, system-ui, sans-serif'
     },
-    axisLine: { 
+    axisLine: {
       stroke: isDarkMode ? '#4b5563' : '#d1d5db',
       strokeWidth: 1
     },
@@ -68,8 +68,8 @@ export function getTooltipStyles(isDarkMode: boolean) {
     backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
     border: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
     borderRadius: '8px',
-    boxShadow: isDarkMode 
-      ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)' 
+    boxShadow: isDarkMode
+      ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
       : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
     fontSize: '14px',
     fontWeight: '500',
@@ -139,7 +139,7 @@ export const CHART_COLOR_SCHEMES = {
     noShow: '#6b7280',       // Gray
     refunded: '#6b7280'      // Gray
   },
-  
+
   // Financial colors for money-related data
   financial: {
     revenue: '#059669',      // Green
@@ -148,7 +148,7 @@ export const CHART_COLOR_SCHEMES = {
     pending: '#d97706',      // Amber
     cashFlow: '#0891b2'      // Cyan
   },
-  
+
   // Medical colors for health-related data
   medical: {
     healthy: '#10b981',      // Green
@@ -156,7 +156,7 @@ export const CHART_COLOR_SCHEMES = {
     critical: '#ef4444',     // Red
     normal: '#3b82f6'        // Blue
   },
-  
+
   // Inventory colors for stock-related data
   inventory: {
     inStock: '#10b981',      // Green
@@ -169,7 +169,7 @@ export const CHART_COLOR_SCHEMES = {
 // Get semantic colors for specific data types
 export function getSemanticColors(type: keyof typeof CHART_COLOR_SCHEMES, isDarkMode: boolean = false) {
   const colors = CHART_COLOR_SCHEMES[type]
-  
+
   if (isDarkMode) {
     // Brighten colors for dark mode
     const brightenedColors: Record<string, string> = {}
@@ -178,34 +178,32 @@ export function getSemanticColors(type: keyof typeof CHART_COLOR_SCHEMES, isDark
       const r = parseInt(color.slice(1, 3), 16)
       const g = parseInt(color.slice(3, 5), 16)
       const b = parseInt(color.slice(5, 7), 16)
-      
+
       // Increase brightness by 15%
       const brightenedR = Math.min(255, Math.round(r * 1.15))
       const brightenedG = Math.min(255, Math.round(g * 1.15))
       const brightenedB = Math.min(255, Math.round(b * 1.15))
-      
+
       brightenedColors[key] = `#${brightenedR.toString(16).padStart(2, '0')}${brightenedG.toString(16).padStart(2, '0')}${brightenedB.toString(16).padStart(2, '0')}`
     })
     return brightenedColors
   }
-  
+
   return colors
 }
 
 // Format numbers for chart display
-export function formatChartNumber(value: number, type: 'currency' | 'percentage' | 'count' = 'count', currency: string = 'USD'): string {
+export function formatChartNumber(value: number, type: 'currency' | 'percentage' | 'count' = 'count', currency?: string): string {
   switch (type) {
     case 'currency':
-      return new Intl.NumberFormat('ar-SA', {
-        style: 'currency',
-        currency: currency,
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2
-      }).format(value)
-    
+      // Import formatCurrency dynamically to avoid circular dependencies
+      const { formatCurrency } = require('@/lib/utils')
+      // Use dynamic currency formatting without hardcoded currency
+      return formatCurrency(value)
+
     case 'percentage':
       return `${value.toFixed(1)}%`
-    
+
     case 'count':
     default:
       return new Intl.NumberFormat('ar-SA').format(value)
@@ -218,7 +216,7 @@ export function createLabelFormatter(prefix: string = '', suffix: string = '') {
 }
 
 // Create professional value formatter for tooltips
-export function createValueFormatter(type: 'currency' | 'percentage' | 'count' = 'count', currency: string = 'USD') {
+export function createValueFormatter(type: 'currency' | 'percentage' | 'count' = 'count', currency?: string) {
   return (value: number, name?: string) => [
     formatChartNumber(value, type, currency),
     name || ''

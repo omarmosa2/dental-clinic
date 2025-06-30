@@ -17,6 +17,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import type { InventoryItem } from '../types'
+import { useCurrency } from '@/contexts/CurrencyContext'
 
 interface InventoryAlertsProps {
   items: InventoryItem[]
@@ -55,12 +56,8 @@ export default function InventoryAlerts({
     return daysUntilExpiry <= 30 && daysUntilExpiry > 0
   })
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount)
-  }
+  // Use centralized currency formatting
+  const { formatAmount } = useCurrency()
 
   const getDaysUntilExpiry = (expiryDate: string) => {
     const expiry = new Date(expiryDate)
@@ -174,7 +171,7 @@ export default function InventoryAlerts({
 
                       {item.cost_per_unit && (
                         <div className="text-xs text-muted-foreground mt-1">
-                          القيمة الإجمالية: {formatCurrency(item.quantity * item.cost_per_unit)}
+                          القيمة الإجمالية: {formatAmount(item.quantity * item.cost_per_unit)}
                         </div>
                       )}
                     </div>

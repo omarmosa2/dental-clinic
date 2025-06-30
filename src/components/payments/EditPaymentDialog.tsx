@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { Edit, CreditCard, DollarSign, Receipt, Calculator, Sparkles, AlertCircle } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { useCurrency } from '@/contexts/CurrencyContext'
 import type { Payment } from '@/types'
 
 interface EditPaymentDialogProps {
@@ -32,6 +33,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
   const { updatePayment, isLoading, getPaymentsByPatient, getPaymentsByAppointment } = usePaymentStore()
   const { patients } = usePatientStore()
   const { appointments } = useAppointmentStore()
+  const { formatAmount } = useCurrency()
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -592,7 +594,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     placeholder="0.00"
                   />
                   <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                    ✓ محسوب تلقائياً: المدفوعات السابقة (${autoCalculations.previousPayments.toFixed(2)}) + هذه الدفعة (${(parseFloat(formData.amount) || 0).toFixed(2)})
+                    ✓ محسوب تلقائياً: المدفوعات السابقة ({formatAmount(autoCalculations.previousPayments)}) + هذه الدفعة ({formatAmount(parseFloat(formData.amount) || 0)})
                   </p>
                 </div>
               </div>

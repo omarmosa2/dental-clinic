@@ -593,7 +593,15 @@ export class EnhancedPdfReports {
             </div>
             <div class="footer-right">
               <div class="footer-stats">
-                <span class="stat-item">💰 ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(data.totalRevenue || 0)} إجمالي</span>
+                <span class="stat-item">💰 ${(() => {
+                  try {
+                    const { getCurrencyConfig, formatCurrencyWithConfig, getDefaultCurrency } = require('@/lib/utils')
+                    const config = getCurrencyConfig(settings?.currency || getDefaultCurrency())
+                    return formatCurrencyWithConfig(data.totalRevenue || 0, config)
+                  } catch (error) {
+                    return new Intl.NumberFormat('en-US', { style: 'currency', currency: settings?.currency || 'USD' }).format(data.totalRevenue || 0)
+                  }
+                })()} إجمالي</span>
                 <span class="stat-item">✅ ${data.completedPayments?.toLocaleString() || '0'} مكتمل</span>
                 <span class="stat-item">🔄 ${data.partialPayments?.toLocaleString() || '0'} جزئي</span>
                 <span class="stat-item">📊 ${data.dataCount?.toLocaleString() || '0'} معاملة</span>

@@ -2102,7 +2102,15 @@ export class PdfService {
               </tr>
               <tr>
                 <td>متوسط الإيراد لكل مريض</td>
-                <td>$${((financialData.totalRevenue || 0) / patientData.totalPatients).toLocaleString()}</td>
+                <td>${(() => {
+                  try {
+                    const { getCurrencyConfig, formatCurrencyWithConfig, getDefaultCurrency } = require('@/lib/utils')
+                    const config = getCurrencyConfig(getDefaultCurrency())
+                    return formatCurrencyWithConfig((financialData.totalRevenue || 0) / patientData.totalPatients, config)
+                  } catch (error) {
+                    return `$${((financialData.totalRevenue || 0) / patientData.totalPatients).toLocaleString()}`
+                  }
+                })()}</td>
               </tr>
             </tbody>
           </table>
@@ -2216,13 +2224,29 @@ export class PdfService {
     // Helper functions
     const formatCurrency = (amount: number) => {
       try {
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: currency || 'USD',
-          minimumFractionDigits: 2
-        }).format(amount || 0)
+        // Import currency utilities
+        const { getCurrencyConfig, formatCurrencyWithConfig } = require('@/lib/utils')
+        const config = getCurrencyConfig(currency || 'USD')
+        return formatCurrencyWithConfig(amount || 0, config)
       } catch (error) {
-        return `$${(amount || 0).toFixed(2)}`
+        // Fallback formatting
+        try {
+          return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: currency || 'USD',
+            minimumFractionDigits: 2
+          }).format(amount || 0)
+        } catch (fallbackError) {
+          // Ultimate fallback with dynamic currency
+          try {
+            const { getCurrencyConfig, getDefaultCurrency } = require('@/lib/utils')
+            const config = getCurrencyConfig(currency || getDefaultCurrency())
+            const fixedAmount = (amount || 0).toFixed(config.decimals)
+            return config.position === 'before' ? `${config.symbol}${fixedAmount}` : `${fixedAmount} ${config.symbol}`
+          } catch (ultimateError) {
+            return `$${(amount || 0).toFixed(2)}`
+          }
+        }
       }
     }
 
@@ -2656,7 +2680,24 @@ export class PdfService {
 
   // Create comprehensive financial report HTML
   private static createComprehensiveFinancialReportHTML(data: any, settings?: ClinicSettings | null): string {
-    const formatCurrency = (amount: number) => `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    const formatCurrency = (amount: number) => {
+      try {
+        // Import currency utilities
+        const { getCurrencyConfig, formatCurrencyWithConfig, getDefaultCurrency } = require('@/lib/utils')
+        const config = getCurrencyConfig(settings?.currency || getDefaultCurrency())
+        return formatCurrencyWithConfig(amount || 0, config)
+      } catch (error) {
+        // Fallback formatting with dynamic currency
+        try {
+          const { getCurrencyConfig, getDefaultCurrency } = require('@/lib/utils')
+          const config = getCurrencyConfig(settings?.currency || getDefaultCurrency())
+          const formattedAmount = amount.toLocaleString('en-US', { minimumFractionDigits: config.decimals, maximumFractionDigits: config.decimals })
+          return config.position === 'before' ? `${config.symbol}${formattedAmount}` : `${formattedAmount} ${config.symbol}`
+        } catch (fallbackError) {
+          return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        }
+      }
+    }
     const formatDate = (dateStr: string) => {
       if (!dateStr) return 'غير محدد'
       const date = new Date(dateStr)

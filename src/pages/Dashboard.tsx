@@ -12,6 +12,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useStableClinicName } from '@/hooks/useStableSettings'
 import { useInventoryStore } from '@/store/inventoryStore'
 import { formatCurrency, formatDate, formatTime, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue, parseAndFormatGregorianMonth } from '@/lib/utils'
+import { useCurrency } from '@/contexts/CurrencyContext'
 import { validateNumericData, validateDateData, transformToChartData, groupDataByPeriod, processFinancialData } from '@/lib/chartDataHelpers'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -52,6 +53,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
   const { appointments, getAppointmentsForDate, loadAppointments } = useAppointmentStore()
   const { payments, totalRevenue, pendingAmount, monthlyRevenue, loadPayments } = usePaymentStore()
   const { settings, currency } = useSettingsStore()
+  const { formatAmount } = useCurrency()
   const clinicName = useStableClinicName()
   const {
     items: inventoryItems,
@@ -163,7 +165,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           return {
             month: monthName,
             revenue: Math.round(revenue * 100) / 100, // Round to 2 decimal places
-            formattedRevenue: formatCurrency(revenue, currency)
+            formattedRevenue: formatAmount(revenue)
           }
         })
         .sort((a, b) => {
@@ -358,8 +360,8 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           <CardContent className="stats-content">
             <div className="text-2xl font-bold text-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
-                ? formatCurrency(stats.thisMonthRevenue, currency)
-                : formatCurrency(paymentStats.financialStats.totalRevenue, currency)}
+                ? formatAmount(stats.thisMonthRevenue)
+                : formatAmount(paymentStats.financialStats.totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
@@ -388,8 +390,8 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           <CardContent className="stats-content">
             <div className="text-2xl font-bold text-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
-                ? formatCurrency(stats.totalRevenue, currency)
-                : formatCurrency(paymentStats.financialStats.totalRevenue, currency)}
+                ? formatAmount(stats.totalRevenue)
+                : formatAmount(paymentStats.financialStats.totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
@@ -409,8 +411,8 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           <CardContent className="stats-content">
             <div className="text-2xl font-bold text-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
-                ? formatCurrency(stats.pendingPayments, currency)
-                : formatCurrency(paymentStats.financialStats.pendingAmount, currency)}
+                ? formatAmount(stats.pendingPayments)
+                : formatAmount(paymentStats.financialStats.pendingAmount)}
             </div>
             <p className="text-xs text-muted-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
@@ -456,7 +458,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
               <span>اتجاه الإيرادات</span>
             </CardTitle>
             <CardDescription>
-              الإيرادات الشهرية خلال آخر 6 أشهر ({formatCurrency(stats.totalRevenue, currency)} إجمالي)
+              الإيرادات الشهرية خلال آخر 6 أشهر ({formatAmount(stats.totalRevenue)} إجمالي)
             </CardDescription>
           </CardHeader>
           <CardContent>

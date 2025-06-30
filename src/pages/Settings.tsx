@@ -4,6 +4,8 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useStableClinicLogo } from '@/hooks/useStableSettings'
 import { formatDate } from '@/lib/utils'
+import { SUPPORTED_CURRENCIES } from '@/lib/utils'
+import { useCurrency } from '@/contexts/CurrencyContext'
 import SecuritySettings from '@/components/settings/SecuritySettings'
 import ElegantShortcutsDisplay from '@/components/help/ElegantShortcutsDisplay'
 import {
@@ -27,7 +29,8 @@ import {
   Mail,
   Info,
   Image,
-  Keyboard
+  Keyboard,
+  DollarSign
 } from 'lucide-react'
 
 
@@ -64,6 +67,7 @@ export default function Settings() {
 
   const { settings, updateSettings, loadSettings } = useSettingsStore()
   const { isDarkMode, toggleDarkMode } = useTheme()
+  const { currentCurrency, setCurrency } = useCurrency()
   const stableClinicLogo = useStableClinicLogo()
 
   useEffect(() => {
@@ -706,6 +710,7 @@ export default function Settings() {
                   clinic_address: formData.get('clinic_address') as string,
                   clinic_phone: formData.get('clinic_phone') as string,
                   clinic_email: formData.get('clinic_email') as string,
+                  currency: formData.get('currency') as string,
                 }
                 handleUpdateSettings(clinicData)
               }}>
@@ -780,6 +785,33 @@ export default function Settings() {
                     rows={3}
                     className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
+                </div>
+
+                {/* Currency Selection */}
+                <div className="space-y-2">
+                  <label htmlFor="currency" className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    العملة المستخدمة
+                  </label>
+                  <select
+                    id="currency"
+                    name="currency"
+                    defaultValue={settings?.currency || currentCurrency || 'USD'}
+                    className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    onChange={(e) => {
+                      // Update currency immediately when changed
+                      setCurrency(e.target.value)
+                    }}
+                  >
+                    {Object.entries(SUPPORTED_CURRENCIES).map(([code, config]) => (
+                      <option key={code} value={code}>
+                        {config.nameAr} ({config.symbol}) - {config.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    العملة المختارة ستظهر في جميع أنحاء التطبيق (المدفوعات، التقارير، الإحصائيات)
+                  </p>
                 </div>
 
                 {/* Clinic Logo Section */}

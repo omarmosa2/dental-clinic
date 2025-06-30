@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useGlobalStore } from '@/store/globalStore'
 import { QuickAccessService } from '@/services/quickAccessService'
+import { useCurrency } from '@/contexts/CurrencyContext'
 import type { Patient, Appointment, Payment, ToothTreatment } from '@/types'
 
 interface QuickAccessDashboardProps {
@@ -55,13 +56,8 @@ export default function QuickAccessDashboard({
     await refreshQuickAccessData()
   }
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount)
-  }
+  // Format currency - now using centralized currency management
+  const { formatAmount } = useCurrency()
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -404,7 +400,7 @@ export default function QuickAccessDashboard({
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="destructive" className="text-xs">
-                        {formatCurrency(payment.remaining_balance || 0)}
+                        {formatAmount(payment.remaining_balance || 0)}
                       </Badge>
                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                         <Eye className="w-3 h-3" />

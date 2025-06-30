@@ -5,7 +5,130 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Currency mapping for Arabic currency names to ISO codes
+// Comprehensive currency configuration system
+export interface CurrencyConfig {
+  code: string
+  symbol: string
+  name: string
+  nameAr: string
+  decimals: number
+  locale: string
+  position: 'before' | 'after'
+}
+
+// Supported currencies with full configuration
+export const SUPPORTED_CURRENCIES: { [key: string]: CurrencyConfig } = {
+  USD: {
+    code: 'USD',
+    symbol: '$',
+    name: 'US Dollar',
+    nameAr: 'دولار أمريكي',
+    decimals: 2,
+    locale: 'en-US',
+    position: 'before'
+  },
+  SAR: {
+    code: 'SAR',
+    symbol: 'ر.س',
+    name: 'Saudi Riyal',
+    nameAr: 'ريال سعودي',
+    decimals: 2,
+    locale: 'ar-SA',
+    position: 'after'
+  },
+  AED: {
+    code: 'AED',
+    symbol: 'د.إ',
+    name: 'UAE Dirham',
+    nameAr: 'درهم إماراتي',
+    decimals: 2,
+    locale: 'ar-AE',
+    position: 'after'
+  },
+  KWD: {
+    code: 'KWD',
+    symbol: 'د.ك',
+    name: 'Kuwaiti Dinar',
+    nameAr: 'دينار كويتي',
+    decimals: 3,
+    locale: 'ar-KW',
+    position: 'after'
+  },
+  EUR: {
+    code: 'EUR',
+    symbol: '€',
+    name: 'Euro',
+    nameAr: 'يورو',
+    decimals: 2,
+    locale: 'en-EU',
+    position: 'before'
+  },
+  EGP: {
+    code: 'EGP',
+    symbol: 'ج.م',
+    name: 'Egyptian Pound',
+    nameAr: 'جنيه مصري',
+    decimals: 2,
+    locale: 'ar-EG',
+    position: 'after'
+  },
+  GBP: {
+    code: 'GBP',
+    symbol: '£',
+    name: 'British Pound',
+    nameAr: 'جنيه إسترليني',
+    decimals: 2,
+    locale: 'en-GB',
+    position: 'before'
+  },
+  QAR: {
+    code: 'QAR',
+    symbol: 'ر.ق',
+    name: 'Qatari Riyal',
+    nameAr: 'ريال قطري',
+    decimals: 2,
+    locale: 'ar-QA',
+    position: 'after'
+  },
+  BHD: {
+    code: 'BHD',
+    symbol: 'د.ب',
+    name: 'Bahraini Dinar',
+    nameAr: 'دينار بحريني',
+    decimals: 3,
+    locale: 'ar-BH',
+    position: 'after'
+  },
+  OMR: {
+    code: 'OMR',
+    symbol: 'ر.ع',
+    name: 'Omani Rial',
+    nameAr: 'ريال عماني',
+    decimals: 3,
+    locale: 'ar-OM',
+    position: 'after'
+  },
+  SYP: {
+    code: 'SYP',
+    symbol: 'ل.س',
+    name: 'Syrian Pound',
+    nameAr: 'ليرة سورية',
+    decimals: 2,
+    locale: 'ar-SY',
+    position: 'after'
+  },
+  TRY: {
+    code: 'TRY',
+    symbol: '₺',
+    name: 'Turkish Lira',
+    nameAr: 'ليرة تركية',
+    decimals: 2,
+    locale: 'tr-TR',
+    position: 'after'
+  }
+}
+
+// Currency mapping for Arabic currency names to ISO codes (backward compatibility)
 const currencyMapping: { [key: string]: string } = {
   '$': 'USD',
   '$ أمريكي': 'USD',
@@ -25,55 +148,121 @@ const currencyMapping: { [key: string]: string } = {
   'KWD': 'KWD',
   'USD': 'USD',
   'EUR': 'EUR',
-  'EGP': 'EGP'
+  'EGP': 'EGP',
+  'GBP': 'GBP',
+  'QAR': 'QAR',
+  'BHD': 'BHD',
+  'OMR': 'OMR',
+  'ليرة': 'SYP',
+  'ليرة سورية': 'SYP',
+  'SYP': 'SYP',
+  'ليرة تركية': 'TRY',
+  'تركية': 'TRY',
+  'TRY': 'TRY'
 }
 
-export function formatCurrency(amount: number, currency: string = 'USD'): string {
+// Get currency configuration
+export function getCurrencyConfig(currencyCode: string): CurrencyConfig {
+  const code = currencyMapping[currencyCode] || currencyCode
+  return SUPPORTED_CURRENCIES[code] || SUPPORTED_CURRENCIES.USD
+}
+
+// Get default currency from settings store (will be implemented)
+let defaultCurrency = 'USD'
+
+export function setDefaultCurrency(currency: string) {
+  defaultCurrency = currency
+}
+
+export function getDefaultCurrency(): string {
+  return defaultCurrency
+}
+
+export function formatCurrency(amount: number, currency?: string): string {
   // Validate amount first
   const validAmount = Number(amount)
   if (isNaN(validAmount) || !isFinite(validAmount)) {
     console.warn('Invalid amount for currency formatting:', amount)
-    return '$0.00' // Return default formatted zero
+    const config = getCurrencyConfig(currency || getDefaultCurrency())
+    return formatCurrencyWithConfig(0, config)
   }
 
-  // Handle null, undefined, or empty currency
-  if (!currency) {
-    currency = 'USD'
-  }
+  // Use provided currency or default
+  const currencyCode = currency || getDefaultCurrency()
+  const config = getCurrencyConfig(currencyCode)
 
-  // Map Arabic currency names to ISO codes
-  const isoCode = currencyMapping[currency] || currency
+  return formatCurrencyWithConfig(validAmount, config)
+}
+
+// Enhanced currency formatting with full configuration support
+export function formatCurrencyWithConfig(amount: number, config: CurrencyConfig): string {
+  const validAmount = Number(amount)
+  if (isNaN(validAmount) || !isFinite(validAmount)) {
+    return `${config.symbol}0.${'0'.repeat(config.decimals)}`
+  }
 
   try {
-    // Try to format with the ISO code
-    return new Intl.NumberFormat('en-US', {
+    // Try to format with Intl.NumberFormat using the currency's locale
+    return new Intl.NumberFormat(config.locale, {
       style: 'currency',
-      currency: isoCode,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      currency: config.code,
+      minimumFractionDigits: config.decimals,
+      maximumFractionDigits: config.decimals,
     }).format(validAmount)
   } catch (error) {
-    // Fallback: format as number with currency symbol
-    console.warn(`Invalid currency code: ${currency}, falling back to USD`)
+    // Fallback: manual formatting with symbol positioning
+    console.warn(`Error formatting currency ${config.code}, using manual formatting`)
+
     try {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+      const formattedNumber = new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: config.decimals,
+        maximumFractionDigits: config.decimals,
       }).format(validAmount)
-    } catch (fallbackError) {
-      // Ultimate fallback: just format the number with currency text
-      try {
-        const formattedNumber = new Intl.NumberFormat('en-US', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(validAmount)
-        return `${formattedNumber} ${currency}`
-      } catch (finalError) {
-        // Final fallback: return simple formatted string
-        return `${validAmount.toFixed(2)} ${currency}`
+
+      if (config.position === 'before') {
+        return `${config.symbol}${formattedNumber}`
+      } else {
+        return `${formattedNumber} ${config.symbol}`
       }
+    } catch (fallbackError) {
+      // Ultimate fallback: simple formatting
+      const fixedAmount = validAmount.toFixed(config.decimals)
+      if (config.position === 'before') {
+        return `${config.symbol}${fixedAmount}`
+      } else {
+        return `${fixedAmount} ${config.symbol}`
+      }
+    }
+  }
+}
+
+// Format currency with symbol only (no decimals for display)
+export function formatCurrencySymbol(amount: number, currency?: string): string {
+  const currencyCode = currency || getDefaultCurrency()
+  const config = getCurrencyConfig(currencyCode)
+
+  const validAmount = Number(amount)
+  if (isNaN(validAmount) || !isFinite(validAmount)) {
+    return config.symbol
+  }
+
+  try {
+    const formattedNumber = new Intl.NumberFormat(config.locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Math.round(validAmount))
+
+    if (config.position === 'before') {
+      return `${config.symbol}${formattedNumber}`
+    } else {
+      return `${formattedNumber} ${config.symbol}`
+    }
+  } catch (error) {
+    const roundedAmount = Math.round(validAmount).toString()
+    if (config.position === 'before') {
+      return `${config.symbol}${roundedAmount}`
+    } else {
+      return `${roundedAmount} ${config.symbol}`
     }
   }
 }
@@ -516,7 +705,7 @@ export function getChartColorsWithFallback(
 export function formatChartValue(
   value: number,
   type: 'currency' | 'percentage' | 'number' = 'number',
-  currency: string = 'USD'
+  currency?: string
 ): string {
   // Validate input value
   const validValue = Number(value)
@@ -524,7 +713,8 @@ export function formatChartValue(
     console.warn('Invalid value for chart formatting:', value)
     switch (type) {
       case 'currency':
-        return '$0.00'
+        const config = getCurrencyConfig(currency || getDefaultCurrency())
+        return `${config.symbol}0.${'0'.repeat(config.decimals)}`
       case 'percentage':
         return '0%'
       case 'number':
@@ -536,7 +726,7 @@ export function formatChartValue(
   try {
     switch (type) {
       case 'currency':
-        return formatCurrency(validValue, currency)
+        return formatCurrency(validValue, currency || getDefaultCurrency())
       case 'percentage':
         const percentage = Math.round(validValue * 10) / 10
         return `${isNaN(percentage) ? 0 : percentage}%`

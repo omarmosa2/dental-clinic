@@ -2,7 +2,7 @@ import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import ExcelJS from 'exceljs'
 import type { Patient, Appointment, Payment, Lab, LabOrder, ReportExportOptions, PatientReportData, AppointmentReportData, FinancialReportData, InventoryReportData } from '../types'
-import { formatCurrency, formatDate } from '../lib/utils'
+import { formatCurrency, formatDate, getDefaultCurrency } from '../lib/utils'
 import { getTreatmentNameInArabic, getCategoryNameInArabic } from '../data/teethData'
 
 export class ExportService {
@@ -474,19 +474,19 @@ export class ExportService {
       <div class="summary-cards">
         <div class="summary-card">
           <h3>إجمالي الإيرادات</h3>
-          <div class="number">${formatCurrency(data.totalRevenue || 0, 'USD')}</div>
+          <div class="number">${formatCurrency(data.totalRevenue || 0)}</div>
         </div>
         <div class="summary-card">
           <h3>المدفوعات المكتملة</h3>
-          <div class="number">${formatCurrency(data.completedPayments || 0, 'USD')}</div>
+          <div class="number">${formatCurrency(data.completedPayments || 0)}</div>
         </div>
         <div class="summary-card">
           <h3>المدفوعات المعلقة</h3>
-          <div class="number">${formatCurrency(data.pendingPayments || 0, 'USD')}</div>
+          <div class="number">${formatCurrency(data.pendingPayments || 0)}</div>
         </div>
         <div class="summary-card">
           <h3>المدفوعات المتأخرة</h3>
-          <div class="number">${formatCurrency(data.overduePayments || 0, 'USD')}</div>
+          <div class="number">${formatCurrency(data.overduePayments || 0)}</div>
         </div>
       </div>
 
@@ -505,7 +505,7 @@ export class ExportService {
             ${data.paymentMethodStats.map(item => `
               <tr>
                 <td>${this.translatePaymentMethod(item.method)}</td>
-                <td>${formatCurrency(item.amount)} $</td>
+                <td>${formatCurrency(item.amount)}</td>
                 <td>${item.count}</td>
               </tr>
             `).join('')}
