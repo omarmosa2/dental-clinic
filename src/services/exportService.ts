@@ -396,21 +396,21 @@ export class ExportService {
         <table>
           <thead>
             <tr>
-              <th>الاسم</th>
+              <th>الاسم الكامل</th>
               <th>الهاتف</th>
               <th>العمر</th>
-              <th>آخر زيارة</th>
-              <th>الحالة</th>
+              <th>الجنس</th>
+              <th>الرقم التسلسلي</th>
             </tr>
           </thead>
           <tbody>
             ${data.patients.slice(0, 50).map(patient => `
               <tr>
-                <td>${patient.first_name} ${patient.last_name}</td>
+                <td>${patient.full_name || 'غير محدد'}</td>
                 <td>${patient.phone || 'غير محدد'}</td>
                 <td>${patient.age || 'غير محدد'}</td>
-                <td>${patient.last_visit || 'لا توجد زيارات'}</td>
-                <td>${patient.status || 'نشط'}</td>
+                <td>${patient.gender === 'male' ? 'ذكر' : 'أنثى'}</td>
+                <td>${patient.serial_number || 'غير محدد'}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -723,11 +723,11 @@ export class ExportService {
 
       // Table headers
       doc.setFontSize(10)
-      doc.text('الاسم', 20, yPosition)
+      doc.text('الاسم الكامل', 20, yPosition)
       doc.text('الهاتف', 80, yPosition)
       doc.text('العمر', 130, yPosition)
-      doc.text('آخر زيارة', 170, yPosition)
-      doc.text('الحالة', 220, yPosition)
+      doc.text('الجنس', 170, yPosition)
+      doc.text('الرقم التسلسلي', 220, yPosition)
 
       doc.line(20, yPosition + 2, pageWidth - 20, yPosition + 2)
       yPosition += 10
@@ -740,11 +740,11 @@ export class ExportService {
           yPosition = 30
         }
 
-        doc.text(`${patient.first_name} ${patient.last_name}`, 20, yPosition)
+        doc.text(patient.full_name || 'غير محدد', 20, yPosition)
         doc.text(patient.phone || 'غير محدد', 80, yPosition)
         doc.text(patient.age?.toString() || 'غير محدد', 130, yPosition)
-        doc.text(patient.last_visit || 'لا توجد زيارات', 170, yPosition)
-        doc.text(patient.status || 'نشط', 220, yPosition)
+        doc.text(patient.gender === 'male' ? 'ذكر' : 'أنثى', 170, yPosition)
+        doc.text(patient.serial_number || 'غير محدد', 220, yPosition)
         yPosition += 8
       })
     }
@@ -995,7 +995,7 @@ export class ExportService {
       row += 2
 
       // Headers
-      const headers = ['الاسم الأول', 'الاسم الأخير', 'الهاتف', 'البريد الإلكتروني', 'العمر', 'آخر زيارة']
+      const headers = ['الرقم التسلسلي', 'الاسم الكامل', 'الجنس', 'العمر', 'الهاتف', 'البريد الإلكتروني', 'تاريخ التسجيل']
       headers.forEach((header, index) => {
         const cell = worksheet.getCell(row, index + 1)
         cell.value = header
@@ -1006,12 +1006,16 @@ export class ExportService {
 
       // Data rows
       data.patients.forEach((patient: any) => {
-        worksheet.getCell(row, 1).value = patient.first_name || ''
-        worksheet.getCell(row, 2).value = patient.last_name || ''
-        worksheet.getCell(row, 3).value = patient.phone || ''
-        worksheet.getCell(row, 4).value = patient.email || ''
-        worksheet.getCell(row, 5).value = patient.age || ''
-        worksheet.getCell(row, 6).value = patient.last_visit || ''
+        const genderLabel = patient.gender === 'male' ? 'ذكر' : 'أنثى'
+        const registrationDate = patient.created_at ? new Date(patient.created_at).toLocaleDateString('ar-SA') : ''
+
+        worksheet.getCell(row, 1).value = patient.serial_number || ''
+        worksheet.getCell(row, 2).value = patient.full_name || ''
+        worksheet.getCell(row, 3).value = genderLabel
+        worksheet.getCell(row, 4).value = patient.age || ''
+        worksheet.getCell(row, 5).value = patient.phone || ''
+        worksheet.getCell(row, 6).value = patient.email || ''
+        worksheet.getCell(row, 7).value = registrationDate
         row++
       })
     }

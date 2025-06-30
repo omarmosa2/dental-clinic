@@ -758,7 +758,7 @@ export class ComprehensiveExportService {
         }
 
         const method = this.getPaymentMethodInArabic(payment.payment_method)
-        const status = this.getPaymentStatusInArabic(payment.status)
+        const status = getPaymentStatusInArabic(payment.status)
         const receiptNumber = payment.receipt_number || ''
         const notes = payment.notes || ''
 
@@ -949,20 +949,7 @@ export class ComprehensiveExportService {
     return methodMap[method] || method
   }
 
-  /**
-   * ترجمة حالة الدفع إلى العربية
-   */
-  private static getPaymentStatusInArabic(status: string): string {
-    const statusMap: { [key: string]: string } = {
-      'completed': 'مكتمل',
-      'partial': 'جزئي',
-      'pending': 'معلق',
-      'overdue': 'متأخر',
-      'failed': 'فاشل',
-      'refunded': 'مسترد'
-    }
-    return statusMap[status] || status
-  }
+
 
   /**
    * تحديد حالة المخزون بالعربية
@@ -1264,38 +1251,7 @@ export class ComprehensiveExportService {
     }
   }
 
-  /**
-   * تجميع حسب الحالة
-   */
-  private static groupByStatus(items: any[], statusField: string) {
-    return items.reduce((acc, item) => {
-      const status = item[statusField] || 'غير محدد'
-      acc[status] = (acc[status] || 0) + 1
-      return acc
-    }, {})
-  }
 
-  /**
-   * تجميع المدفوعات حسب طريقة الدفع
-   */
-  private static groupByMethod(payments: Payment[]) {
-    return payments.reduce((acc, payment) => {
-      const method = payment.payment_method || 'غير محدد'
-      acc[method] = (acc[method] || 0) + 1
-      return acc
-    }, {})
-  }
-
-  /**
-   * تجميع المخزون حسب الفئة
-   */
-  private static groupByCategory(inventory: InventoryItem[]) {
-    return inventory.reduce((acc, item) => {
-      const category = item.category || 'غير محدد'
-      acc[category] = (acc[category] || 0) + 1
-      return acc
-    }, {})
-  }
 
   /**
    * توليد CSV شامل محسن لجميع جوانب التطبيق
@@ -1678,9 +1634,7 @@ export class ComprehensiveExportService {
     return getStatusLabelInArabic(status)
   }
 
-  private static getPaymentStatusInArabic(status: string): string {
-    return getPaymentStatusInArabic(status)
-  }
+
 
   /**
    * تنسيق التاريخ بالتقويم الميلادي

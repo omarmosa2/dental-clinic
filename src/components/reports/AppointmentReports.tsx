@@ -248,7 +248,7 @@ export default function AppointmentReports() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
+            onClick={async () => {
               // Use filtered data for export
               const dataToExport = appointmentStats.filteredData.length > 0 ? appointmentStats.filteredData : appointments
 

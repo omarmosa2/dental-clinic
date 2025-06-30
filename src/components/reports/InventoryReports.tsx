@@ -239,7 +239,7 @@ export default function InventoryReports() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
+            onClick={async () => {
               // Use filtered data for export
               const dataToExport = inventoryStats.filteredData
 

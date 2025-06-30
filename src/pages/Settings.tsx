@@ -235,7 +235,7 @@ export default function Settings() {
             <span>تحديث</span>
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               // Export settings data
               const settingsData = {
                 'الوضع المظلم': isDarkMode ? 'مفعل' : 'معطل',
