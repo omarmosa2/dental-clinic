@@ -77,6 +77,7 @@ export default function Appointments() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPatientDetails, setShowPatientDetails] = useState(false)
   const [selectedPatientForDetails, setSelectedPatientForDetails] = useState<any>(null)
+  const [selectedSlotInfo, setSelectedSlotInfo] = useState<{date: Date, time: string} | null>(null)
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
@@ -193,6 +194,17 @@ export default function Appointments() {
 
   const handleSelectSlot = useCallback((slotInfo: any) => {
     console.log('Selected slot:', slotInfo)
+
+    // Extract date and time from slotInfo
+    const selectedDate = slotInfo.start || new Date()
+    const timeString = selectedDate.toTimeString().slice(0, 5) // HH:MM format
+
+    // Store selected slot information
+    setSelectedSlotInfo({
+      date: selectedDate,
+      time: timeString
+    })
+
     // Clear selection for new appointment and open dialog with selected time
     setSelectedAppointment(null)
     setShowAddDialog(true)
@@ -814,6 +826,7 @@ export default function Appointments() {
         isOpen={showAddDialog}
         onClose={() => {
           setShowAddDialog(false)
+          setSelectedSlotInfo(null) // Clear selected slot info when closing
           // Don't clear selectedAppointment when closing dialog
           // Only clear it when explicitly needed (like after successful save)
         }}
@@ -845,6 +858,7 @@ export default function Appointments() {
             }
             setShowAddDialog(false)
             setSelectedAppointment(null)
+            setSelectedSlotInfo(null) // Clear selected slot info after successful save
           } catch (error) {
             console.error('❌ Error saving appointment:', error)
             toast({
@@ -856,6 +870,8 @@ export default function Appointments() {
         }}
         patients={patients}
         treatments={[]} // You can add treatments here if needed
+        selectedDate={selectedSlotInfo?.date}
+        selectedTime={selectedSlotInfo?.time}
         initialData={selectedAppointment}
       />
 

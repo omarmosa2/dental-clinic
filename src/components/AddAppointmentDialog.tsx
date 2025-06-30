@@ -89,18 +89,32 @@ export default function AddAppointmentDialog({
         status: initialData.status || 'scheduled',
         notes: initialData.notes || ''
       })
-    } else if (selectedDate && selectedTime) {
+    } else if (selectedDate) {
       const startDateTime = new Date(selectedDate)
-      const [hours, minutes] = selectedTime.split(':')
-      startDateTime.setHours(parseInt(hours), parseInt(minutes))
+
+      // If selectedTime is provided, use it; otherwise use the time from selectedDate
+      if (selectedTime) {
+        const [hours, minutes] = selectedTime.split(':')
+        startDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+      }
 
       const endDateTime = new Date(startDateTime)
       endDateTime.setHours(startDateTime.getHours() + 1) // Default 1 hour duration
 
+      // Format dates for datetime-local input (YYYY-MM-DDTHH:MM)
+      const formatForInput = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        const hours = String(date.getHours()).padStart(2, '0')
+        const minutes = String(date.getMinutes()).padStart(2, '0')
+        return `${year}-${month}-${day}T${hours}:${minutes}`
+      }
+
       setFormData(prev => ({
         ...prev,
-        start_time: startDateTime.toISOString().slice(0, 16),
-        end_time: endDateTime.toISOString().slice(0, 16) // Same format as start_time
+        start_time: formatForInput(startDateTime),
+        end_time: formatForInput(endDateTime)
       }))
     } else {
       // Reset form when opening for new appointment
