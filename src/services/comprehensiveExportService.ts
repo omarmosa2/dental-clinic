@@ -143,7 +143,15 @@ export class ComprehensiveExportService {
     // المدفوعات المعلقة
     const pendingAmount = payments
       .filter(p => p.status === 'pending')
-      .reduce((sum, payment) => sum + validateAmount(payment.amount), 0)
+      .reduce((sum, payment) => {
+        const amount = validateAmount(payment.amount)
+        const totalAmountDue = validateAmount(payment.total_amount_due)
+
+        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+        const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+
+        return sum + pendingAmount
+      }, 0)
 
     // === المصروفات ===
     let labOrdersTotal = 0

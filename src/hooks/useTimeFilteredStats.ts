@@ -165,7 +165,12 @@ export function useTimeFilteredStats<T extends FilterableData>({
                      (item as any).total_amount ||
                      (item as any).cost ||
                      (item as any).price || 0
-        return sum + (typeof amount === 'number' ? amount : parseFloat(amount) || 0)
+        const totalAmountDue = (item as any).total_amount_due || 0
+
+        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+        const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+
+        return sum + (typeof pendingAmount === 'number' ? pendingAmount : parseFloat(pendingAmount) || 0)
       }, 0)
 
     const overdueAmount = filteredData
@@ -184,7 +189,12 @@ export function useTimeFilteredStats<T extends FilterableData>({
                      (item as any).total_amount ||
                      (item as any).cost ||
                      (item as any).price || 0
-        return sum + (typeof amount === 'number' ? amount : parseFloat(amount) || 0)
+        const totalAmountDue = (item as any).total_amount_due || 0
+
+        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+        const overdueAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+
+        return sum + (typeof overdueAmount === 'number' ? overdueAmount : parseFloat(overdueAmount) || 0)
       }, 0)
 
     // حساب المبالغ المتبقية من الدفعات الجزئية بشكل صحيح

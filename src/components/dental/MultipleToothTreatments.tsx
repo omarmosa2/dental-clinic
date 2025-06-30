@@ -37,6 +37,8 @@ import {
 import { formatDate } from '@/lib/utils'
 import { notify } from '@/services/notificationService'
 import TreatmentSessions from './TreatmentSessions'
+import { usePaymentStore } from '@/store/paymentStore'
+import { usePatientStore } from '@/store/patientStore'
 
 interface MultipleToothTreatmentsProps {
   patientId: string
@@ -60,6 +62,8 @@ export default function MultipleToothTreatments({
   onReorderTreatments
 }: MultipleToothTreatmentsProps) {
   const { isDarkMode } = useTheme()
+  const { createPayment } = usePaymentStore()
+  const { patients } = usePatientStore()
   const [isAddingTreatment, setIsAddingTreatment] = useState(false)
   const [editingTreatment, setEditingTreatment] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
@@ -94,6 +98,42 @@ export default function MultipleToothTreatments({
     return statusOption?.color || '#6b7280'
   }
 
+  // دالة إنشاء دفعة معلقة للعلاج
+  const createPendingPaymentForTreatment = async () => {
+    try {
+      // الحصول على بيانات المريض
+      const patient = patients.find(p => p.id === patientId)
+      if (!patient) {
+        notify.error('لم يتم العثور على بيانات المريض')
+        return
+      }
+
+      // إنشاء وصف للدفعة
+      const treatmentTypeInfo = getTreatmentByValue(newTreatment.treatment_type!)
+      const description = `علاج ${treatmentTypeInfo?.label || newTreatment.treatment_type} - سن ${toothName || toothNumber}`
+
+      // بيانات الدفعة المعلقة
+      const paymentData = {
+        patient_id: patientId,
+        amount: 0, // مبلغ مدفوع = 0 لجعل الحالة معلقة
+        payment_method: 'cash' as const,
+        payment_date: new Date().toISOString().split('T')[0],
+        description: description,
+        status: 'pending' as const,
+        notes: `دفعة معلقة لعلاج سن ${toothName || toothNumber}`,
+        total_amount_due: newTreatment.cost || 0,
+        amount_paid: 0,
+        remaining_balance: newTreatment.cost || 0
+      }
+
+      await createPayment(paymentData)
+      notify.success('تم إنشاء دفعة معلقة في جدول المدفوعات')
+    } catch (error) {
+      console.error('خطأ في إنشاء الدفعة المعلقة:', error)
+      notify.error('فشل في إنشاء الدفعة المعلقة')
+    }
+  }
+
   const handleAddTreatment = async () => {
     if (!newTreatment.treatment_type || !newTreatment.treatment_category) {
       notify.error('يرجى اختيار نوع العلاج والتصنيف')
@@ -107,6 +147,11 @@ export default function MultipleToothTreatments({
       } as Omit<ToothTreatment, 'id' | 'created_at' | 'updated_at'>
 
       await onAddTreatment(treatmentData)
+
+      // إنشاء دفعة معلقة إذا تم تعبئة التكلفة
+      if (newTreatment.cost && newTreatment.cost > 0) {
+        await createPendingPaymentForTreatment()
+      }
 
       // Reset form
       setNewTreatment({
@@ -563,7 +608,7 @@ export default function MultipleToothTreatments({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label className={cn(
                   "font-medium",
@@ -591,17 +636,19 @@ export default function MultipleToothTreatments({
                 </Select>
               </div>
 
-              {/* حقل التكلفة مخفي مؤقتاً - يمكن إظهاره لاحقاً */}
-              <div className="space-y-2" style={{ display: 'none' }}>
+              {/* حقل التكلفة */}
+              <div className="space-y-2">
                 <Label className={cn(
                   "font-medium",
                   isDarkMode ? "text-blue-200" : "text-blue-800"
                 )}>التكلفة ($)</Label>
                 <Input
                   type="number"
+                  min="0"
+                  step="0.01"
                   value={newTreatment.cost || ''}
                   onChange={(e) => setNewTreatment(prev => ({ ...prev, cost: parseFloat(e.target.value) || 0 }))}
-                  placeholder="0"
+                  placeholder="0.00"
                   className={cn(
                     "border-2 transition-colors",
                     isDarkMode
@@ -609,6 +656,14 @@ export default function MultipleToothTreatments({
                       : "border-blue-200 bg-white hover:border-blue-300 focus:border-blue-500"
                   )}
                 />
+                {newTreatment.cost && newTreatment.cost > 0 && (
+                  <p className={cn(
+                    "text-xs",
+                    isDarkMode ? "text-blue-300" : "text-blue-600"
+                  )}>
+                    💡 سيتم إنشاء دفعة معلقة في جدول المدفوعات
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -703,6 +758,8 @@ interface EditTreatmentFormProps {
 
 function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatmentFormProps) {
   const { isDarkMode } = useTheme()
+  const { createPayment } = usePaymentStore()
+  const { patients } = usePatientStore()
   const [editData, setEditData] = useState<Partial<ToothTreatment>>({
     treatment_type: treatment.treatment_type,
     treatment_category: treatment.treatment_category,
@@ -713,10 +770,47 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
     notes: treatment.notes
   })
   const [selectedCategory, setSelectedCategory] = useState(treatment.treatment_category || '')
+  const [originalCost] = useState(treatment.cost || 0) // حفظ التكلفة الأصلية للمقارنة
 
   const filteredTreatmentTypes = selectedCategory
     ? getTreatmentsByCategory(selectedCategory as any)
     : []
+
+  // دالة إنشاء دفعة معلقة للعلاج المُعدّل
+  const createPendingPaymentForEditedTreatment = async () => {
+    try {
+      // الحصول على بيانات المريض
+      const patient = patients.find(p => p.id === treatment.patient_id)
+      if (!patient) {
+        notify.error('لم يتم العثور على بيانات المريض')
+        return
+      }
+
+      // إنشاء وصف للدفعة
+      const treatmentTypeInfo = getTreatmentByValue(editData.treatment_type!)
+      const description = `علاج ${treatmentTypeInfo?.label || editData.treatment_type} - سن ${treatment.tooth_name || treatment.tooth_number}`
+
+      // بيانات الدفعة المعلقة
+      const paymentData = {
+        patient_id: treatment.patient_id,
+        amount: 0, // مبلغ مدفوع = 0 لجعل الحالة معلقة
+        payment_method: 'cash' as const,
+        payment_date: new Date().toISOString().split('T')[0],
+        description: description,
+        status: 'pending' as const,
+        notes: `دفعة معلقة لعلاج سن ${treatment.tooth_name || treatment.tooth_number} (تم تعديل التكلفة)`,
+        total_amount_due: editData.cost || 0,
+        amount_paid: 0,
+        remaining_balance: editData.cost || 0
+      }
+
+      await createPayment(paymentData)
+      notify.success('تم إنشاء دفعة معلقة في جدول المدفوعات')
+    } catch (error) {
+      console.error('خطأ في إنشاء الدفعة المعلقة:', error)
+      notify.error('فشل في إنشاء الدفعة المعلقة')
+    }
+  }
 
   const handleSave = async () => {
     if (!editData.treatment_type) {
@@ -730,6 +824,12 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
         treatment_color: getTreatmentByValue(editData.treatment_type!)?.color || treatment.treatment_color
       }
       await onSave(treatment.id, updatedData)
+
+      // إنشاء دفعة معلقة إذا تم تعديل التكلفة وأصبحت أكبر من 0
+      const newCost = editData.cost || 0
+      if (newCost > 0 && newCost !== originalCost) {
+        await createPendingPaymentForEditedTreatment()
+      }
     } catch (error) {
       console.error('Error updating treatment:', error)
     }
@@ -790,7 +890,7 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label>حالة العلاج</Label>
           <Select
@@ -819,15 +919,34 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
           </Select>
         </div>
 
-        {/* حقل التكلفة مخفي مؤقتاً - يمكن إظهاره لاحقاً */}
-        <div className="space-y-2" style={{ display: 'none' }}>
-          <Label>التكلفة ($)</Label>
+        {/* حقل التكلفة */}
+        <div className="space-y-2">
+          <Label className={cn(
+            "font-medium",
+            isDarkMode ? "text-orange-200" : "text-orange-800"
+          )}>التكلفة ($)</Label>
           <Input
             type="number"
+            min="0"
+            step="0.01"
             value={editData.cost || ''}
             onChange={(e) => setEditData(prev => ({ ...prev, cost: parseFloat(e.target.value) || 0 }))}
-            placeholder="0"
+            placeholder="0.00"
+            className={cn(
+              "border-2 transition-colors",
+              isDarkMode
+                ? "border-orange-800/50 bg-orange-950/30 hover:border-orange-700 focus:border-orange-600"
+                : "border-orange-200 bg-white hover:border-orange-300 focus:border-orange-500"
+            )}
           />
+          {editData.cost && editData.cost > 0 && editData.cost !== originalCost && (
+            <p className={cn(
+              "text-xs",
+              isDarkMode ? "text-orange-300" : "text-orange-600"
+            )}>
+              💡 سيتم إنشاء دفعة معلقة عند تعديل التكلفة
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">

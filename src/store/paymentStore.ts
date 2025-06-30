@@ -16,6 +16,7 @@ interface PaymentState {
   pendingAmount: number
   totalRemainingBalance: number
   partialPaymentsCount: number
+  pendingPaymentsCount: number
   monthlyRevenue: { [key: string]: number }
   paymentMethodStats: { [key: string]: number }
 }
@@ -41,6 +42,7 @@ interface PaymentActions {
   calculatePendingAmount: () => void
   calculateTotalRemainingBalance: () => void
   calculatePartialPaymentsCount: () => void
+  calculatePendingPaymentsCount: () => void
   calculateMonthlyRevenue: () => void
   calculatePaymentMethodStats: () => void
   getPaymentsByPatient: (patientId: string) => Payment[]
@@ -78,6 +80,7 @@ export const usePaymentStore = create<PaymentStore>()(
           get().calculatePendingAmount()
           get().calculateTotalRemainingBalance()
           get().calculatePartialPaymentsCount()
+          get().calculatePendingPaymentsCount()
           get().calculateMonthlyRevenue()
           get().calculatePaymentMethodStats()
           get().filterPayments()
@@ -100,6 +103,7 @@ export const usePaymentStore = create<PaymentStore>()(
         pendingAmount: 0,
         totalRemainingBalance: 0,
         partialPaymentsCount: 0,
+        pendingPaymentsCount: 0,
         monthlyRevenue: {},
         paymentMethodStats: {},
 
@@ -119,6 +123,7 @@ export const usePaymentStore = create<PaymentStore>()(
           get().calculatePendingAmount()
           get().calculateTotalRemainingBalance()
           get().calculatePartialPaymentsCount()
+          get().calculatePendingPaymentsCount()
           get().calculateMonthlyRevenue()
           get().calculatePaymentMethodStats()
           get().filterPayments()
@@ -236,6 +241,7 @@ export const usePaymentStore = create<PaymentStore>()(
           get().calculatePendingAmount()
           get().calculateTotalRemainingBalance()
           get().calculatePartialPaymentsCount()
+          get().calculatePendingPaymentsCount()
           get().calculateMonthlyRevenue()
           get().calculatePaymentMethodStats()
           get().filterPayments()
@@ -353,13 +359,19 @@ export const usePaymentStore = create<PaymentStore>()(
         const pending = payments
           .filter(p => p.status === 'pending')
           .reduce((sum, payment) => {
-            // Ensure amount is a valid number with proper validation
-            const amount = Number(payment.amount)
-            if (isNaN(amount) || !isFinite(amount)) {
-              console.warn('Invalid pending payment amount:', payment.amount, 'for payment:', payment.id)
-              return sum
+            // دالة مساعدة للتحقق من صحة المبالغ
+            const validateAmount = (amount: any): number => {
+              const num = Number(amount)
+              return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
             }
-            return sum + amount
+
+            const amount = validateAmount(payment.amount)
+            const totalAmountDue = validateAmount(payment.total_amount_due)
+
+            // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+            const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+
+            return sum + pendingAmount
           }, 0)
 
         const validPending = isNaN(pending) || !isFinite(pending) ? 0 : Math.round(pending * 100) / 100
@@ -409,6 +421,13 @@ export const usePaymentStore = create<PaymentStore>()(
         const partialCount = payments.filter(p => p.status === 'partial').length
 
         set({ partialPaymentsCount: partialCount })
+      },
+
+      calculatePendingPaymentsCount: () => {
+        const { payments } = get()
+        const pendingCount = payments.filter(p => p.status === 'pending').length
+
+        set({ pendingPaymentsCount: pendingCount })
       },
 
       calculateMonthlyRevenue: () => {

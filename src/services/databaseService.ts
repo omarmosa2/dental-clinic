@@ -1256,10 +1256,11 @@ export class DatabaseService {
         payment_method: payment.payment_method
       })
 
-      // Calculate payment amounts
+      // Calculate payment amounts - التأكد من أن amount ليس null أو undefined
+      const amount = payment.amount || 0  // استخدام 0 كقيمة افتراضية إذا كان amount فارغ
       const discountAmount = payment.discount_amount || 0
       const taxAmount = payment.tax_amount || 0
-      const totalAmount = payment.amount + taxAmount - discountAmount
+      const totalAmount = amount + taxAmount - discountAmount
 
       let appointmentTotalCost = null
       let appointmentTotalPaid = null
@@ -1287,7 +1288,7 @@ export class DatabaseService {
           // استخدام المبلغ المرسل من النموذج أولاً، ثم تكلفة الموعد كبديل
           totalAmountDue = payment.total_amount_due || (appointmentTotalCost > 0 ? appointmentTotalCost : totalAmount)
 
-          appointmentTotalPaid = previousPayments.total + payment.amount
+          appointmentTotalPaid = previousPayments.total + amount
           appointmentRemainingBalance = Math.max(0, totalAmountDue - appointmentTotalPaid)
 
           amountPaid = appointmentTotalPaid
@@ -1328,7 +1329,7 @@ export class DatabaseService {
       `)
 
       const result = stmt.run(
-        id, payment.patient_id, payment.appointment_id, payment.amount,
+        id, payment.patient_id, payment.appointment_id, amount,
         payment.payment_method, payment.payment_date, payment.description,
         payment.receipt_number, status, payment.notes,
         discountAmount, taxAmount, totalAmount,
@@ -1353,6 +1354,7 @@ export class DatabaseService {
       return {
         ...payment,
         id,
+        amount,
         status,
         total_amount: totalAmount,
         appointment_total_cost: appointmentTotalCost,
@@ -2324,13 +2326,14 @@ export class DatabaseService {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
-    const totalAmount = payment.total_amount || payment.amount
+    const amount = payment.amount || 0  // استخدام 0 كقيمة افتراضية إذا كان amount فارغ
+    const totalAmount = payment.total_amount || amount
     const totalAmountDue = payment.total_amount_due || totalAmount
-    const amountPaid = payment.amount_paid || payment.amount
+    const amountPaid = payment.amount_paid || amount
     const remainingBalance = totalAmountDue - amountPaid
 
     stmt.run(
-      id, payment.patient_id, payment.appointment_id, payment.amount,
+      id, payment.patient_id, payment.appointment_id, amount,
       payment.payment_method, payment.payment_date, payment.status || 'completed',
       payment.description, payment.receipt_number, payment.notes,
       payment.discount_amount || 0, payment.tax_amount || 0,
@@ -2340,6 +2343,7 @@ export class DatabaseService {
     return {
       ...payment,
       id,
+      amount,
       total_amount: totalAmount,
       total_amount_due: totalAmountDue,
       amount_paid: amountPaid,

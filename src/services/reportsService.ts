@@ -493,9 +493,14 @@ export class ReportsService {
     const totalPending = filteredPayments
       .filter(p => p.status === 'pending')
       .reduce((sum, p) => {
-        // للمدفوعات المعلقة، استخدام المبلغ الكامل
+        // للمدفوعات المعلقة، استخدام المبلغ الإجمالي المطلوب إذا كان المبلغ المدفوع 0
         const amount = validateAmount(p.amount)
-        return sum + amount
+        const totalAmountDue = validateAmount(p.total_amount_due)
+
+        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+        const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+
+        return sum + pendingAmount
       }, 0)
 
     // حساب إجمالي المبلغ المتبقي من جميع المدفوعات الجزئية بشكل صحيح

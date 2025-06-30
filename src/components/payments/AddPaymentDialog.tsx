@@ -94,8 +94,8 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
 
   // اقتراح الحالة تلقائياً بناءً على المبلغ
   const getSuggestedStatus = (): 'completed' | 'partial' | 'pending' => {
-    const amount = parseFloat(formData.amount) || 0
-    const totalAmountDue = parseFloat(formData.total_amount_due) || 0
+    const amount = formData.amount ? parseFloat(formData.amount) : 0
+    const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : 0
 
     if (totalAmountDue > 0) {
       if (formData.appointment_id && formData.appointment_id !== 'none') {
@@ -124,7 +124,12 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
       }
     }
 
-    return 'completed' // افتراضي
+    // إذا لم يكن هناك مبلغ إجمالي مطلوب ولكن هناك مبلغ مدفوع
+    if (amount > 0) {
+      return 'completed'
+    }
+
+    return 'pending' // افتراضي للحالات الأخرى
   }
 
   // حساب المبلغ الإجمالي للدفعة
@@ -227,7 +232,11 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
 
   // تحديث الحالة تلقائياً عند تغيير المبلغ أو المبلغ الإجمالي
   useEffect(() => {
-    if (formData.amount && parseFloat(formData.amount) > 0 && formData.total_amount_due && parseFloat(formData.total_amount_due) > 0) {
+    // تحديث الحالة إذا كان هناك مبلغ إجمالي مطلوب أو مبلغ مدفوع
+    const amount = formData.amount ? parseFloat(formData.amount) : 0
+    const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : 0
+
+    if (totalAmountDue > 0 || amount > 0) {
       const suggestedStatus = getSuggestedStatus()
       setFormData(prev => ({
         ...prev,
@@ -243,8 +252,14 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
       newErrors.patient_id = 'يرجى اختيار المريض'
     }
 
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      newErrors.amount = 'يرجى إدخال مبلغ صحيح'
+    // التحقق من المبلغ - يمكن أن يكون 0 إذا كان هناك مبلغ إجمالي مطلوب (دفعة معلقة)
+    const amount = formData.amount ? parseFloat(formData.amount) : 0
+    const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : 0
+
+    if (amount < 0) {
+      newErrors.amount = 'المبلغ لا يمكن أن يكون سالباً'
+    } else if (amount === 0 && totalAmountDue === 0) {
+      newErrors.amount = 'يرجى إدخال مبلغ صحيح أو مبلغ إجمالي مطلوب'
     }
 
     if (!formData.payment_date) {
@@ -265,20 +280,13 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
       errors: newErrors
     })
 
-    // التحقق من صحة المبلغ
-    const totalAmountDue = parseFloat(formData.total_amount_due) || 0
-    const currentAmount = parseFloat(formData.amount) || 0
-
+    // التحقق من صحة المبلغ مع المبلغ الإجمالي
     if (formData.appointment_id && formData.appointment_id !== 'none') {
       // للمدفوعات المرتبطة بموعد - استخدام المبلغ الإجمالي المدخل
       const remainingBeforeThisPayment = totalAmountDue - autoCalculations.previousPayments
 
-      if (totalAmountDue > 0 && currentAmount > remainingBeforeThisPayment) {
+      if (totalAmountDue > 0 && amount > remainingBeforeThisPayment) {
         newErrors.amount = `مبلغ هذه الدفعة لا يمكن أن يكون أكبر من المبلغ المتبقي (${remainingBeforeThisPayment.toFixed(2)} $)`
-      }
-
-      if (currentAmount <= 0) {
-        newErrors.amount = 'يجب أن يكون مبلغ الدفعة أكبر من صفر'
       }
     } else {
       // للمدفوعات العامة غير المرتبطة بموعد
@@ -286,10 +294,6 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
 
       if (totalAmountDue > 0 && totalPaid > totalAmountDue) {
         newErrors.amount = 'إجمالي المدفوعات لا يمكن أن يتجاوز المبلغ الإجمالي المطلوب'
-      }
-
-      if (currentAmount <= 0) {
-        newErrors.amount = 'يجب أن يكون مبلغ الدفعة أكبر من صفر'
       }
     }
 
@@ -311,7 +315,8 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     console.log('✅ Form validation passed')
 
     try {
-      const amount = parseFloat(formData.amount)
+      // التأكد من أن amount رقم صحيح، استخدام 0 كقيمة افتراضية
+      const amount = formData.amount ? parseFloat(formData.amount) : 0
       const discountAmount = formData.discount_amount ? parseFloat(formData.discount_amount) : 0
       const taxAmount = formData.tax_amount ? parseFloat(formData.tax_amount) : 0
       const totalAmount = amount + taxAmount - discountAmount

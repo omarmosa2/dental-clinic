@@ -66,6 +66,7 @@ export default function Payments() {
     pendingAmount,
     totalRemainingBalance,
     partialPaymentsCount,
+    pendingPaymentsCount,
     paymentMethodStats,
     loadPayments,
     deletePayment,
@@ -412,7 +413,7 @@ export default function Payments() {
                   return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
                 }
 
-                // حساب المبالغ المتبقية من المدفوعات الجزئية بدقة (نفس منطق التصدير)
+                // حساب المبالغ المتبقية من المدفوعات الجزئية والمعلقة بدقة (نفس منطق التصدير)
                 // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
                 const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
                 let generalRemainingBalance = 0
@@ -437,6 +438,14 @@ export default function Payments() {
                       const paid = validateAmount(payment.amount_paid || payment.amount)
                       generalRemainingBalance += Math.max(0, totalDue - paid)
                     }
+                  } else if (payment.status === 'pending') {
+                    // إضافة المدفوعات المعلقة
+                    const amount = validateAmount(payment.amount)
+                    const totalAmountDue = validateAmount(payment.total_amount_due)
+
+                    // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+                    const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+                    generalRemainingBalance += pendingAmount
                   }
                 })
 
@@ -491,10 +500,12 @@ export default function Payments() {
                 }
 
                 const filteredPartialCount = dataToCalculate.filter(p => p.status === 'partial').length
+                const filteredPendingCount = dataToCalculate.filter(p => p.status === 'pending').length
+                const filteredTotalCount = filteredPartialCount + filteredPendingCount
 
                 return paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
-                  ? `${partialPaymentsCount} دفعة جزئية`
-                  : `${filteredPartialCount} دفعة جزئية في الفترة المحددة`
+                  ? `${partialPaymentsCount} دفعة جزئية + ${pendingPaymentsCount} دفعة معلقة`
+                  : `${filteredTotalCount} دفعة (${filteredPartialCount} جزئية + ${filteredPendingCount} معلقة)`
               })()}
             </p>
           </CardContent>

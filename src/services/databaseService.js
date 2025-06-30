@@ -1346,14 +1346,24 @@ class DatabaseService {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
-    // حساب القيم المطلوبة
-    const totalAmount = payment.total_amount || payment.amount
+    // حساب القيم المطلوبة - التأكد من أن amount ليس null أو undefined
+    const amount = payment.amount || 0  // استخدام 0 كقيمة افتراضية إذا كان amount فارغ
+    const totalAmount = payment.total_amount || amount
     const totalAmountDue = payment.total_amount_due || totalAmount
-    const amountPaid = payment.amount_paid || payment.amount
+    const amountPaid = payment.amount_paid || amount
     const remainingBalance = payment.remaining_balance || Math.max(0, totalAmountDue - amountPaid)
 
+    console.log('🔍 Payment values before insert:', {
+      amount,
+      totalAmount,
+      totalAmountDue,
+      amountPaid,
+      remainingBalance,
+      status: payment.status || 'completed'
+    })
+
     const result = stmt.run(
-      id, payment.patient_id, payment.appointment_id, payment.amount,
+      id, payment.patient_id, payment.appointment_id, amount,
       payment.payment_method, payment.payment_date, payment.status || 'completed',
       payment.description, payment.receipt_number, payment.notes,
       payment.discount_amount || 0, payment.tax_amount || 0,
@@ -1381,7 +1391,17 @@ class DatabaseService {
     const patientStmt = this.db.prepare('SELECT * FROM patients WHERE id = ?')
     const patient = patientStmt.get(payment.patient_id)
 
-    const createdPayment = { ...payment, id, created_at: now, updated_at: now }
+    const createdPayment = {
+      ...payment,
+      id,
+      amount,
+      total_amount: totalAmount,
+      total_amount_due: totalAmountDue,
+      amount_paid: amountPaid,
+      remaining_balance: remainingBalance,
+      created_at: now,
+      updated_at: now
+    }
 
     if (patient) {
       createdPayment.patient = {

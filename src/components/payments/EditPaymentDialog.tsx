@@ -178,8 +178,8 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
 
   // اقتراح الحالة تلقائياً بناءً على المبلغ
   const getSuggestedStatus = (): 'completed' | 'partial' | 'pending' => {
-    const amount = parseFloat(formData.amount) || 0
-    const totalAmountDue = parseFloat(formData.total_amount_due) || 0
+    const amount = formData.amount ? parseFloat(formData.amount) : 0
+    const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : 0
 
     if (totalAmountDue > 0) {
       if (formData.appointment_id && formData.appointment_id !== 'none') {
@@ -212,12 +212,21 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
       }
     }
 
-    return 'completed' // افتراضي
+    // إذا لم يكن هناك مبلغ إجمالي مطلوب ولكن هناك مبلغ مدفوع
+    if (amount > 0) {
+      return 'completed'
+    }
+
+    return 'pending' // افتراضي للحالات الأخرى
   }
 
   // تحديث الحالة تلقائياً عند تغيير المبلغ أو المبلغ الإجمالي
   useEffect(() => {
-    if (formData.amount && parseFloat(formData.amount) > 0 && formData.total_amount_due && parseFloat(formData.total_amount_due) > 0) {
+    // تحديث الحالة إذا كان هناك مبلغ إجمالي مطلوب أو مبلغ مدفوع
+    const amount = formData.amount ? parseFloat(formData.amount) : 0
+    const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : 0
+
+    if (totalAmountDue > 0 || amount > 0) {
       const suggestedStatus = getSuggestedStatus()
       setFormData(prev => ({
         ...prev,

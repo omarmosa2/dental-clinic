@@ -2557,7 +2557,15 @@ export class ExportService {
         const paymentDate = new Date(p.payment_date || p.created_at)
         return paymentDate >= thirtyDaysAgo
       })
-      .reduce((sum, p) => sum + Number(p.amount), 0)
+      .reduce((sum, p) => {
+        const amount = Number(p.amount) || 0
+        const totalAmountDue = Number(p.total_amount_due) || 0
+
+        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+        const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+
+        return sum + pendingAmount
+      }, 0)
 
     const overduePayments = payments
       .filter(p => p.status === 'pending')
@@ -2565,7 +2573,15 @@ export class ExportService {
         const paymentDate = new Date(p.payment_date || p.created_at)
         return paymentDate < thirtyDaysAgo
       })
-      .reduce((sum, p) => sum + Number(p.amount), 0)
+      .reduce((sum, p) => {
+        const amount = Number(p.amount) || 0
+        const totalAmountDue = Number(p.total_amount_due) || 0
+
+        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+        const overdueAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+
+        return sum + overdueAmount
+      }, 0)
 
     // Calculate payment method statistics
     const paymentMethods = payments
@@ -2671,7 +2687,15 @@ export class ExportService {
         const paymentDate = new Date(p.payment_date || p.created_at)
         return paymentDate >= thirtyDaysAgo
       })
-      .reduce((sum, p) => sum + Number(p.amount), 0)
+      .reduce((sum, p) => {
+        const amount = Number(p.amount) || 0
+        const totalAmountDue = Number(p.total_amount_due) || 0
+
+        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+        const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+
+        return sum + pendingAmount
+      }, 0)
 
     const overduePayments = payments
       .filter(p => p.status === 'pending')
@@ -2679,7 +2703,15 @@ export class ExportService {
         const paymentDate = new Date(p.payment_date || p.created_at)
         return paymentDate < thirtyDaysAgo
       })
-      .reduce((sum, p) => sum + Number(p.amount), 0)
+      .reduce((sum, p) => {
+        const amount = Number(p.amount) || 0
+        const totalAmountDue = Number(p.total_amount_due) || 0
+
+        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+        const overdueAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+
+        return sum + overdueAmount
+      }, 0)
 
     // Calculate payment method statistics
     const paymentMethods = payments
