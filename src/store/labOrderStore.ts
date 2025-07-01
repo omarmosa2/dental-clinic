@@ -46,6 +46,7 @@ interface LabOrderActions {
   getOrdersByPatient: (patientId: string) => LabOrder[]
   getOrdersByStatus: (status: string) => LabOrder[]
   getOrdersByDateRange: (startDate: Date, endDate: Date) => LabOrder[]
+  getLabOrdersByTreatment: (treatmentId: string) => LabOrder[]
 }
 
 type LabOrderStore = LabOrderState & LabOrderActions
@@ -285,6 +286,10 @@ export const useLabOrderStore = create<LabOrderStore>()(
           const orderDate = new Date(order.order_date)
           return orderDate >= startDate && orderDate <= endDate
         })
+      },
+
+      getLabOrdersByTreatment: (treatmentId) => {
+        return get().labOrders.filter(order => order.tooth_treatment_id === treatmentId)
       }
     }),
     {

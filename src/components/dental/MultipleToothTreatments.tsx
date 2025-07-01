@@ -892,6 +892,8 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
   const { isDarkMode } = useTheme()
   const { createPayment, updatePayment, getPaymentsByPatient } = usePaymentStore()
   const { patients } = usePatientStore()
+  const { labs, loadLabs } = useLabStore()
+  const { createLabOrder, getLabOrdersByTreatment, updateLabOrder, loadLabOrders } = useLabOrderStore()
   const [editData, setEditData] = useState<Partial<ToothTreatment>>({
     treatment_type: treatment.treatment_type,
     treatment_category: treatment.treatment_category,
@@ -903,6 +905,58 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
   })
   const [selectedCategory, setSelectedCategory] = useState(treatment.treatment_category || '')
   const [originalCost] = useState(treatment.cost || 0) // حفظ التكلفة الأصلية للمقارنة
+  const [selectedLab, setSelectedLab] = useState<string>('')
+  const [labCost, setLabCost] = useState<number>(0)
+
+  // تحميل المخابر وطلبات المخابر عند فتح النموذج
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // تحميل المخابر أولاً
+        await loadLabs()
+
+        // إذا كان العلاج من فئة التعويضات، حاول تحميل بيانات المخبر الموجودة
+        if (treatment.treatment_category === 'التعويضات') {
+          // تحميل طلبات المخابر للتأكد من وجود البيانات المحدثة
+          await loadLabOrders()
+
+          // الآن البحث عن طلبات المخبر المرتبطة بهذا العلاج
+          const existingLabOrders = getLabOrdersByTreatment(treatment.id)
+          console.log('🔍 [DEBUG] Looking for lab orders for treatment:', treatment.id)
+          console.log('🔍 [DEBUG] Found lab orders:', existingLabOrders)
+
+          if (existingLabOrders.length > 0) {
+            const labOrder = existingLabOrders[0] // أخذ أول طلب مخبر
+            console.log('✅ [DEBUG] Setting lab data:', {
+              lab_id: labOrder.lab_id,
+              cost: labOrder.cost,
+              labOrder: labOrder
+            })
+
+            // تأكد من أن البيانات موجودة قبل التعبئة
+            if (labOrder.lab_id) {
+              setSelectedLab(labOrder.lab_id)
+              console.log('✅ [DEBUG] Lab ID set to:', labOrder.lab_id)
+            }
+
+            if (labOrder.cost !== undefined && labOrder.cost !== null) {
+              setLabCost(labOrder.cost)
+              console.log('✅ [DEBUG] Lab cost set to:', labOrder.cost)
+            }
+          } else {
+            console.log('⚠️ [DEBUG] No lab orders found for treatment:', treatment.id)
+            // إعادة تعيين القيم إذا لم توجد طلبات مخبر
+            setSelectedLab('')
+            setLabCost(0)
+          }
+        }
+      } catch (error) {
+        console.error('❌ [DEBUG] Error loading lab data:', error)
+      }
+    }
+
+    loadData()
+  }, [loadLabs, treatment.id, treatment.treatment_category, getLabOrdersByTreatment, loadLabOrders])
 
   const filteredTreatmentTypes = selectedCategory
     ? getTreatmentsByCategory(selectedCategory as any)
@@ -998,6 +1052,12 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
       return
     }
 
+    // التحقق من حقول المخبر للتعويضات
+    if (selectedCategory === 'التعويضات' && labCost > 0 && !selectedLab) {
+      notify.error('يرجى اختيار المخبر عند إدخال تكلفة المخبر')
+      return
+    }
+
     try {
       const updatedData = {
         ...editData,
@@ -1011,8 +1071,50 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
       if (newCost !== originalCostValue) {
         await updatePaymentsForEditedTreatment()
       }
+
+      // إدارة طلبات المخبر للتعويضات
+      if (selectedCategory === 'التعويضات') {
+        const existingLabOrders = getLabOrdersByTreatment(treatment.id)
+
+        if (labCost > 0 && selectedLab) {
+          // إنشاء أو تحديث طلب المخبر
+          const treatmentTypeInfo = getTreatmentByValue(editData.treatment_type!)
+          const serviceName = treatmentTypeInfo?.label || editData.treatment_type || 'خدمة مخبر'
+
+          if (existingLabOrders.length > 0) {
+            // تحديث طلب المخبر الموجود
+            const labOrder = existingLabOrders[0]
+            await updateLabOrder(labOrder.id, {
+              lab_id: selectedLab,
+              cost: labCost,
+              service_name: serviceName,
+              notes: `طلب مخبر لعلاج سن ${treatment.tooth_name || treatment.tooth_number} (تم التحديث)`
+            })
+            notify.success('تم تحديث طلب المخبر')
+          } else {
+            // إنشاء طلب مخبر جديد
+            const labOrderData = {
+              lab_id: selectedLab,
+              patient_id: treatment.patient_id,
+              tooth_treatment_id: treatment.id,
+              service_name: serviceName,
+              cost: labCost,
+              order_date: new Date().toISOString().split('T')[0],
+              status: 'معلق' as const,
+              notes: `طلب مخبر لعلاج سن ${treatment.tooth_name || treatment.tooth_number}`,
+              paid_amount: 0
+            }
+
+            await createLabOrder(labOrderData)
+            notify.success('تم إنشاء طلب المخبر')
+          }
+        }
+      }
+
+      onCancel() // إغلاق نموذج التعديل
     } catch (error) {
       console.error('Error updating treatment:', error)
+      notify.error('فشل في حفظ التغييرات')
     }
   }
 
@@ -1139,6 +1241,115 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
           />
         </div>
       </div>
+
+      {/* حقول المخبر - تظهر فقط لعلاجات التعويضات */}
+      {(() => {
+        console.log('🔍 [DEBUG] Lab card condition check:', {
+          selectedCategory,
+          treatmentCategory: treatment.treatment_category,
+          shouldShow: selectedCategory === 'التعويضات' || treatment.treatment_category === 'التعويضات'
+        })
+        return (selectedCategory === 'التعويضات' || treatment.treatment_category === 'التعويضات')
+      })() && (
+        <div className={cn(
+          "grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-xl border-2 shadow-sm transition-all duration-200",
+          isDarkMode
+            ? "bg-gradient-to-br from-purple-950/30 to-purple-900/20 border-purple-700/40 shadow-purple-900/10"
+            : "bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-300/60 shadow-purple-200/20"
+        )}>
+          {/* عنوان الكارد */}
+          <div className="md:col-span-2 mb-2">
+            <div className={cn(
+              "flex items-center gap-3 text-sm font-semibold",
+              isDarkMode ? "text-purple-200" : "text-purple-800"
+            )}>
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center text-lg",
+                isDarkMode
+                  ? "bg-purple-800/40 text-purple-200"
+                  : "bg-purple-200/60 text-purple-700"
+              )}>
+                🏭
+              </div>
+              <span>معلومات المخبر</span>
+              <div className={cn(
+                "h-px flex-1 ml-2",
+                isDarkMode ? "bg-purple-700/30" : "bg-purple-300/50"
+              )}></div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label className={cn(
+              "font-medium flex items-center gap-2 text-sm",
+              isDarkMode ? "text-purple-100" : "text-purple-900"
+            )}>
+              🏭 اختيار المخبر
+            </Label>
+            <Select
+              value={selectedLab}
+              onValueChange={setSelectedLab}
+            >
+              <SelectTrigger className={cn(
+                "border-2 transition-all duration-200 h-11",
+                isDarkMode
+                  ? "border-purple-700/50 bg-purple-950/40 hover:border-purple-600 focus:border-purple-500 text-purple-100"
+                  : "border-purple-300/70 bg-white hover:border-purple-400 focus:border-purple-500 text-purple-900"
+              )}>
+                <SelectValue placeholder="اختر المخبر" />
+              </SelectTrigger>
+              <SelectContent className={cn(
+                isDarkMode
+                  ? "bg-purple-950 border-purple-700"
+                  : "bg-white border-purple-200"
+              )}>
+                {labs.map((lab) => (
+                  <SelectItem key={lab.id} value={lab.id}>
+                    <div className="flex items-center gap-2">
+                      <span>🏭</span>
+                      <span>{lab.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-3">
+            <Label className={cn(
+              "font-medium flex items-center gap-2 text-sm",
+              isDarkMode ? "text-purple-100" : "text-purple-900"
+            )}>
+              💰 تكلفة المخبر ($)
+            </Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={labCost || ''}
+              onChange={(e) => setLabCost(parseFloat(e.target.value) || 0)}
+              placeholder="0.00"
+              className={cn(
+                "border-2 transition-all duration-200 h-11",
+                isDarkMode
+                  ? "border-purple-700/50 bg-purple-950/40 hover:border-purple-600 focus:border-purple-500 text-purple-100 placeholder:text-purple-400"
+                  : "border-purple-300/70 bg-white hover:border-purple-400 focus:border-purple-500 text-purple-900 placeholder:text-purple-500"
+              )}
+            />
+            {labCost > 0 && (
+              <div className={cn(
+                "flex items-center gap-2 text-xs p-2 rounded-lg",
+                isDarkMode
+                  ? "bg-purple-800/30 text-purple-200 border border-purple-700/30"
+                  : "bg-purple-100/70 text-purple-700 border border-purple-200/50"
+              )}>
+                <span className="text-sm">✨</span>
+                <span>سيتم تحديث طلب المخبر تلقائياً</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {editData.treatment_status === 'completed' && (
         <div className="space-y-2">
