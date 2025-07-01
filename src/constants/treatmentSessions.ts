@@ -27,14 +27,42 @@ export const RESTORATIVE_SESSIONS: SessionType[] = [
   { value: 'bite_adjustment', label: 'تعديل العضة', description: 'تعديل ارتفاع الحشوة' }
 ]
 
-// جلسات التيجان والجسور
+// جلسات التيجان والجسور والتعويضات
 export const PROSTHETIC_SESSIONS: SessionType[] = [
+  // جلسات التيجان والجسور الثابتة
   { value: 'tooth_prep', label: 'تحضير السن', description: 'برد وتشكيل السن' },
   { value: 'impression', label: 'أخذ الطبعة', description: 'أخذ طبعة للسن المحضر' },
   { value: 'temp_crown', label: 'تاج مؤقت', description: 'وضع تاج مؤقت' },
   { value: 'try_in', label: 'تجربة التاج', description: 'تجربة التاج النهائي' },
   { value: 'cementation', label: 'تثبيت التاج', description: 'تثبيت التاج بالإسمنت' },
-  { value: 'final_adjustment', label: 'التعديل النهائي', description: 'تعديل العضة والتلميع' }
+  { value: 'final_adjustment', label: 'التعديل النهائي', description: 'تعديل العضة والتلميع' },
+
+  // جلسات الأجهزة المتحركة
+  { value: 'initial_impression', label: 'الطبعة الأولية', description: 'أخذ طبعة أولية للفكين' },
+  { value: 'final_impression', label: 'الطبعة النهائية', description: 'أخذ طبعة نهائية دقيقة' },
+  { value: 'bite_registration', label: 'تسجيل العضة', description: 'تحديد العلاقة بين الفكين' },
+  { value: 'try_in_wax', label: 'تجربة الشمع', description: 'تجربة الأسنان على الشمع' },
+  { value: 'denture_delivery', label: 'تسليم الجهاز', description: 'تسليم الجهاز المتحرك النهائي' },
+  { value: 'denture_adjustment', label: 'تعديل الجهاز', description: 'تعديل وضبط الجهاز المتحرك' },
+  { value: 'follow_up_denture', label: 'متابعة الجهاز', description: 'فحص ومتابعة الجهاز المتحرك' },
+
+  // جلسات التعويضات فوق الزرعات
+  { value: 'implant_impression', label: 'طبعة الزرعة', description: 'أخذ طبعة للزرعة المدفونة' },
+  { value: 'abutment_placement', label: 'وضع الدعامة', description: 'تركيب دعامة فوق الزرعة' },
+  { value: 'implant_crown_try', label: 'تجربة تاج الزرعة', description: 'تجربة التاج فوق الزرعة' },
+  { value: 'implant_crown_delivery', label: 'تسليم تاج الزرعة', description: 'تثبيت التاج النهائي فوق الزرعة' },
+
+  // جلسات القلوب والأوتاد
+  { value: 'post_space_prep', label: 'تحضير مجرى الوتد', description: 'تحضير مجرى الوتد في الجذر' },
+  { value: 'post_impression', label: 'طبعة الوتد', description: 'أخذ طبعة لمجرى الوتد' },
+  { value: 'post_try_in', label: 'تجربة الوتد', description: 'تجربة القلب والوتد' },
+  { value: 'post_cementation', label: 'تثبيت الوتد', description: 'تثبيت القلب والوتد بالإسمنت' },
+
+  // جلسات الفينير
+  { value: 'veneer_prep', label: 'تحضير الفينير', description: 'برد طفيف للسطح الأمامي' },
+  { value: 'veneer_impression', label: 'طبعة الفينير', description: 'أخذ طبعة للأسنان المحضرة' },
+  { value: 'veneer_try_in', label: 'تجربة الفينير', description: 'تجربة قشور الفينير' },
+  { value: 'veneer_bonding', label: 'لصق الفينير', description: 'لصق قشور الفينير نهائياً' }
 ]
 
 // جلسات قلع الأسنان
@@ -81,31 +109,31 @@ export const getSessionTypesByCategory = (category: string): SessionType[] => {
     case 'علاج العصب':
     case 'endodontic':
       return ENDODONTIC_SESSIONS
-    
+
     case 'ترميمي/تحفظي':
     case 'restorative':
       return RESTORATIVE_SESSIONS
-    
+
     case 'تركيبات':
     case 'prosthetic':
       return PROSTHETIC_SESSIONS
-    
+
     case 'جراحي':
     case 'surgical':
       return SURGICAL_SESSIONS
-    
+
     case 'لثة':
     case 'periodontal':
       return PERIODONTAL_SESSIONS
-    
+
     case 'أطفال':
     case 'pediatric':
       return PEDIATRIC_SESSIONS
-    
+
     case 'تجميلي':
     case 'cosmetic':
       return COSMETIC_SESSIONS
-    
+
     default:
       // إرجاع جلسات عامة للعلاجات غير المصنفة
       return [
@@ -126,7 +154,7 @@ export const getAllSessionTypes = (): SessionType[] => {
     ...PERIODONTAL_SESSIONS,
     ...PEDIATRIC_SESSIONS,
     ...COSMETIC_SESSIONS
-  ].filter((session, index, self) => 
+  ].filter((session, index, self) =>
     index === self.findIndex(s => s.value === session.value)
   ) // إزالة التكرارات
 }

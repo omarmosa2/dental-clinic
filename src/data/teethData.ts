@@ -183,6 +183,25 @@ export const TREATMENT_TYPES = [
   { value: 'crown_ceramic', label: 'تاج خزفي', color: '#8b5cf6', category: 'التعويضات' },
   { value: 'crown_zirconia', label: 'تاج زيركونيا', color: '#a855f7', category: 'التعويضات' },
   { value: 'bridge', label: 'جسر', color: '#f59e0b', category: 'التعويضات' },
+
+  // أجهزة متحركة
+  { value: 'complete_denture_acrylic', label: 'جهاز متحرك كامل أكريل', color: '#94a3b8', category: 'التعويضات' },
+  { value: 'partial_denture_acrylic', label: 'جهاز متحرك جزئي أكريل', color: '#64748b', category: 'التعويضات' },
+  { value: 'complete_denture_vitalium', label: 'جهاز متحرك كامل فيتاليوم', color: '#475569', category: 'التعويضات' },
+  { value: 'partial_denture_vitalium', label: 'جهاز متحرك جزئي فيتاليوم', color: '#334155', category: 'التعويضات' },
+  { value: 'complete_denture_flexible', label: 'جهاز متحرك كامل مرن', color: '#e879f9', category: 'التعويضات' },
+  { value: 'partial_denture_flexible', label: 'جهاز متحرك جزئي مرن', color: '#d946ef', category: 'التعويضات' },
+
+  // تعويضات فوق الزرعات
+  { value: 'implant_crown_zirconia', label: 'تعويض زركونيا فوق زرعة', color: '#a855f7', category: 'التعويضات' },
+  { value: 'implant_crown_ceramic', label: 'تعويض خزف فوق زرعة', color: '#8b5cf6', category: 'التعويضات' },
+
+  // قلوب وأوتاد
+  { value: 'cast_post_core', label: 'قلب ووتد مصبوب معدني', color: '#6b7280', category: 'التعويضات' },
+  { value: 'zirconia_post_core', label: 'قلب ووتد زركونيا', color: '#a855f7', category: 'التعويضات' },
+
+  // فينير
+  { value: 'veneer', label: 'فينير', color: '#f8fafc', category: 'التعويضات' },
 ] as const
 
 export type TreatmentType = typeof TREATMENT_TYPES[number]['value']
