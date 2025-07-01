@@ -291,7 +291,7 @@ export default function PatientDetailsModal({
                   <CardContent className="space-y-3 card-content" dir="rtl">
                     <div className="flex justify-between items-center">
                       <Badge variant="outline">#{patient.serial_number}</Badge>
-                      <span className="text-muted-foreground">الرقم التسلسلي:</span>
+                      <span className="text-muted-foreground">#:</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="font-medium">{patient.full_name}</span>
@@ -461,7 +461,7 @@ export default function PatientDetailsModal({
                         <thead className="bg-muted">
                           <tr>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              الرقم التسلسلي
+                              #
                             </th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                               رقم السن
@@ -587,7 +587,7 @@ export default function PatientDetailsModal({
                         <thead className="bg-muted">
                           <tr>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                              الرقم التسلسلي
+                              #
                             </th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                               العنوان

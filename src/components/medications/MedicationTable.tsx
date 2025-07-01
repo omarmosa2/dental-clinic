@@ -85,7 +85,7 @@ export default function MedicationTable({ medications, onEdit, onDelete, searchQ
       <Table className="table-center-all">
         <TableHeader>
           <TableRow>
-            <TableHead className="text-center">الرقم التسلسلي</TableHead>
+            <TableHead className="text-center">#</TableHead>
             <TableHead className="text-center">اسم الدواء</TableHead>
             <TableHead className="text-center">التعليمات</TableHead>
             <TableHead className="text-center">تاريخ الإضافة</TableHead>

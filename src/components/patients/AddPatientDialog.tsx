@@ -31,7 +31,7 @@ interface PatientFormData {
   full_name: string
   gender: 'male' | 'female'
   age: number
-  patient_condition: string
+  patient_condition?: string
   allergies?: string
   medical_conditions?: string
   email?: string
@@ -186,39 +186,62 @@ export default function AddPatientDialog({ open, onOpenChange }: AddPatientDialo
               </div>
             </div>
 
-            {/* Date Added */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                تاريخ الإضافة *
-              </label>
-              <Input
-                type="datetime-local"
-                {...register('date_added', { required: 'تاريخ الإضافة مطلوب' })}
-              />
-              {errors.date_added && (
-                <p className="text-sm text-destructive">{errors.date_added.message}</p>
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Date Added */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  تاريخ الإضافة *
+                </label>
+                <Input
+                  type="datetime-local"
+                  {...register('date_added', { required: 'تاريخ الإضافة مطلوب' })}
+                />
+                {errors.date_added && (
+                  <p className="text-sm text-destructive">{errors.date_added.message}</p>
+                )}
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  رقم الهاتف
+                </label>
+                <Input
+                  type="tel"
+                  {...register('phone', {
+                    pattern: {
+                      value: /^[0-9]{12}$/,
+                      message: 'رقم الهاتف يجب أن يكون 12 رقم (مثل: 963987654321)'
+                    }
+                  })}
+                  placeholder="963987654321"
+                />
+                <p className="text-xs text-muted-foreground">
+                  يرجى إدخال رقم الهاتف مع رمز الدولة بدون + أو 00 (مثل: 963987654321)
+                </p>
+                {errors.phone && (
+                  <p className="text-sm text-destructive">{errors.phone.message}</p>
+                )}
+              </div>
             </div>
 
-            {/* Patient Condition */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                حالة المريض / التشخيص *
-              </label>
-              <Textarea
-                {...register('patient_condition', { required: 'حالة المريض مطلوبة' })}
-                placeholder="أدخل وصف الحالة الطبية أو التشخيص"
-                rows={3}
-              />
-              {errors.patient_condition && (
-                <p className="text-sm text-destructive">{errors.patient_condition.message}</p>
-              )}
-            </div>
           </div>
 
           {/* Optional Fields */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">الحقول الاختيارية</h3>
+
+            {/* Patient Condition */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                حالة المريض / التشخيص
+              </label>
+              <Textarea
+                {...register('patient_condition')}
+                placeholder="أدخل وصف الحالة الطبية أو التشخيص"
+                rows={3}
+              />
+            </div>
 
             {/* Allergies */}
             <div className="space-y-2">
@@ -272,26 +295,6 @@ export default function AddPatientDialog({ open, onOpenChange }: AddPatientDialo
                 {...register('address')}
                 placeholder="أدخل العنوان الكامل"
               />
-            </div>
-
-            {/* Phone */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                رقم الهاتف
-              </label>
-              <Input
-                type="tel"
-                {...register('phone', {
-                  pattern: {
-                    value: /^[0-9]{12}$/,
-                    message: 'رقم الهاتف يجب أن يكون 12 رقم (مثل: 963987654321)'
-                  }
-                })}
-                placeholder="963987654321"
-              />
-              {errors.phone && (
-                <p className="text-sm text-destructive">{errors.phone.message}</p>
-              )}
             </div>
 
             {/* Notes */}

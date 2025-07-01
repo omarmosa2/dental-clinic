@@ -224,7 +224,7 @@ export default function AppointmentTable({
         <Table className="table-center-all">
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">#</TableHead>
               <TableHead className="text-center">اسم المريض</TableHead>
               <TableHead className="text-center">تاريخ ووقت البداية</TableHead>
               <TableHead className="text-center">تاريخ ووقت النهاية</TableHead>
@@ -253,7 +253,7 @@ export default function AppointmentTable({
         <Table className="table-center-all">
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">#</TableHead>
               <TableHead className="text-center">اسم المريض</TableHead>
               <TableHead className="text-center">تاريخ ووقت البداية</TableHead>
               <TableHead className="text-center">تاريخ ووقت النهاية</TableHead>
@@ -315,7 +315,7 @@ export default function AppointmentTable({
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="text-center min-w-[80px]">
-                  <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
+                  <span className="arabic-enhanced font-medium">#</span>
                 </TableHead>
                 <SortableHeader field="patient_name" className="min-w-[180px]">
                   <span className="arabic-enhanced font-medium">اسم المريض</span>

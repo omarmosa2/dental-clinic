@@ -137,7 +137,7 @@ export default function PatientTable({
         <Table className="table-center-all">
           <TableHeader>
             <TableRow>
-              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">#</TableHead>
               <TableHead className="text-center">الاسم الكامل للمريض</TableHead>
               <TableHead className="text-center">الجنس</TableHead>
               <TableHead className="text-center">العمر</TableHead>
@@ -169,8 +169,8 @@ export default function PatientTable({
         <Table className="table-center-all">
           <TableHeader>
             <TableRow>
-              <TableHead className="text-center">
-                <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
+              <TableHead className="text-center w-12 max-w-12 min-w-12">
+                <span className="arabic-enhanced font-medium text-xs">#</span>
               </TableHead>
               <SortableHeader field="full_name">الاسم الكامل للمريض</SortableHeader>
               <SortableHeader field="gender">الجنس</SortableHeader>
@@ -217,8 +217,8 @@ export default function PatientTable({
           <Table className="table-center-all">
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="text-center">
-                  <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
+                <TableHead className="text-center w-12 max-w-12 min-w-12">
+                  <span className="arabic-enhanced font-medium text-xs">#</span>
                 </TableHead>
                 <SortableHeader field="full_name">
                   <span className="arabic-enhanced font-medium">الاسم الكامل للمريض</span>
@@ -246,7 +246,7 @@ export default function PatientTable({
           <TableBody>
             {paginatedPatients.map((patient, index) => (
             <TableRow key={patient.id} className="hover:bg-muted/50">
-              <TableCell className="font-medium text-center">
+              <TableCell className="font-medium text-center w-12 max-w-12 min-w-12 text-xs">
                 {startIndex + index + 1}
               </TableCell>
               <TableCell className="font-medium text-center">

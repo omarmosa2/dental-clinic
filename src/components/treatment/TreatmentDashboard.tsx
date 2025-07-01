@@ -101,7 +101,7 @@ export default function TreatmentDashboard({
                 {patient.full_name}
               </CardTitle>
               <CardDescription>
-                الرقم التسلسلي: #{patient.serial_number} | العمر: {patient.age} سنة
+                #: #{patient.serial_number} | العمر: {patient.age} سنة
               </CardDescription>
             </div>
             <Badge variant="outline">

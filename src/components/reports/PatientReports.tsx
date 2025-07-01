@@ -713,7 +713,7 @@ export default function PatientReports() {
               <table className="w-full table-center-all" dir="rtl">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-center p-3 font-medium arabic-enhanced">الرقم التسلسلي</th>
+                    <th className="text-center p-3 font-medium arabic-enhanced">#</th>
                     <th className="text-center p-3 font-medium arabic-enhanced">الاسم</th>
                     <th className="text-center p-3 font-medium arabic-enhanced">الهاتف</th>
                     <th className="text-center p-3 font-medium arabic-enhanced">البريد الإلكتروني</th>

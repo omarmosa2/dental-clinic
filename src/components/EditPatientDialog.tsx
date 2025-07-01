@@ -104,21 +104,6 @@ export default function EditPatientDialog({ isOpen, patient, onClose, onSave }: 
           <div className="space-y-4">
             <h3 className="text-lg font-medium">الحقول المطلوبة</h3>
 
-            {/* Serial Number (Read-only) */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                الرقم التسلسلي
-              </Label>
-              <Input
-                type="text"
-                name="serial_number"
-                value={formData.serial_number}
-                readOnly
-                className="bg-gray-100"
-                placeholder="الرقم التسلسلي"
-              />
-            </div>
-
             {/* Full Name */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">
@@ -169,39 +154,58 @@ export default function EditPatientDialog({ isOpen, patient, onClose, onSave }: 
               </div>
             </div>
 
-            {/* Date Added */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                تاريخ الإضافة *
-              </Label>
-              <Input
-                type="datetime-local"
-                name="date_added"
-                value={formData.date_added}
-                onChange={handleChange}
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              {/* Date Added */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  تاريخ الإضافة *
+                </Label>
+                <Input
+                  type="datetime-local"
+                  name="date_added"
+                  value={formData.date_added}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  رقم الهاتف
+                </Label>
+                <Input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="963987654321"
+                />
+                <p className="text-xs text-muted-foreground">
+                  يرجى إدخال رقم الهاتف مع رمز الدولة بدون + أو 00 (مثل: 963987654321)
+                </p>
+              </div>
             </div>
 
-            {/* Patient Condition */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                حالة المريض / التشخيص *
-              </Label>
-              <Textarea
-                name="patient_condition"
-                value={formData.patient_condition}
-                onChange={handleChange}
-                required
-                placeholder="أدخل وصف الحالة الطبية أو التشخيص"
-                rows={3}
-              />
-            </div>
           </div>
 
           {/* Optional Fields */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">الحقول الاختيارية</h3>
+
+            {/* Patient Condition */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                حالة المريض / التشخيص
+              </Label>
+              <Textarea
+                name="patient_condition"
+                value={formData.patient_condition}
+                onChange={handleChange}
+                placeholder="أدخل وصف الحالة الطبية أو التشخيص"
+                rows={3}
+              />
+            </div>
 
             {/* Allergies */}
             <div className="space-y-2">
@@ -256,20 +260,6 @@ export default function EditPatientDialog({ isOpen, patient, onClose, onSave }: 
                 value={formData.address}
                 onChange={handleChange}
                 placeholder="أدخل العنوان الكامل"
-              />
-            </div>
-
-            {/* Phone */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                رقم الهاتف
-              </Label>
-              <Input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="963987654321"
               />
             </div>
 

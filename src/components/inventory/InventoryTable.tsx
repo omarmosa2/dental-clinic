@@ -258,7 +258,7 @@ export default function InventoryTable({
         <Table className="table-center-all">
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">#</TableHead>
               <TableHead className="text-center">اسم العنصر</TableHead>
               <TableHead className="text-center">الفئة</TableHead>
               <TableHead className="text-center">الكمية</TableHead>
@@ -290,7 +290,7 @@ export default function InventoryTable({
         <Table className="table-center-all">
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">#</TableHead>
               <TableHead className="text-center">اسم العنصر</TableHead>
               <TableHead className="text-center">الفئة</TableHead>
               <TableHead className="text-center">الكمية</TableHead>
@@ -374,7 +374,7 @@ export default function InventoryTable({
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="text-center">
-                  <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
+                  <span className="arabic-enhanced font-medium">#</span>
                 </TableHead>
                 <SortableHeader field="name">
                   <span className="arabic-enhanced font-medium">اسم العنصر</span>

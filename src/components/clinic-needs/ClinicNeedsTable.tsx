@@ -103,7 +103,7 @@ const ClinicNeedsTable: React.FC<ClinicNeedsTableProps> = ({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="text-center">الرقم التسلسلي</TableHead>
+            <TableHead className="text-center">#</TableHead>
             <TableHead className="text-right">اسم الاحتياج</TableHead>
             <TableHead className="text-right">الكمية</TableHead>
             <TableHead className="text-right">السعر</TableHead>

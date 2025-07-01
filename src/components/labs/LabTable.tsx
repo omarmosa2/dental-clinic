@@ -99,7 +99,7 @@ export default function LabTable({ labs, onEdit, onDelete, searchQuery }: LabTab
       <Table className="table-center-all">
         <TableHeader>
           <TableRow>
-            <TableHead className="text-center">الرقم التسلسلي</TableHead>
+            <TableHead className="text-center">#</TableHead>
             <TableHead className="text-center">اسم المختبر</TableHead>
             <TableHead className="text-center">معلومات الاتصال</TableHead>
             <TableHead className="text-center">العنوان</TableHead>

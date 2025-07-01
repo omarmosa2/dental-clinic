@@ -4,7 +4,7 @@ export interface Patient {
   full_name: string
   gender: 'male' | 'female'
   age: number
-  patient_condition: string
+  patient_condition?: string
   allergies?: string
   medical_conditions?: string
   email?: string

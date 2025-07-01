@@ -601,7 +601,7 @@ export default function InventoryReports() {
               <table className="w-full table-center-all">
                 <thead className="bg-muted">
                   <tr>
-                    <th className="text-center p-3 font-medium">الرقم التسلسلي</th>
+                    <th className="text-center p-3 font-medium">#</th>
                     <th className="text-center p-3 font-medium">اسم العنصر</th>
                     <th className="text-center p-3 font-medium">الفئة</th>
                     <th className="text-center p-3 font-medium">الكمية الحالية</th>

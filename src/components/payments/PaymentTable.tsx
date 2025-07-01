@@ -215,7 +215,7 @@ export default function PaymentTable({
         <Table className="table-center-all">
           <TableHeader>
             <TableRow>
-              <TableHead className="text-center">الرقم التسلسلي</TableHead>
+              <TableHead className="text-center">#</TableHead>
               <SortableHeader field="patient_name">المريض</SortableHeader>
               <TableHead className="text-center">العلاج/الموعد</TableHead>
               <SortableHeader field="amount">المبلغ والرصيد</SortableHeader>
@@ -253,7 +253,7 @@ export default function PaymentTable({
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="text-center">
-                  <span className="arabic-enhanced font-medium">الرقم التسلسلي</span>
+                  <span className="arabic-enhanced font-medium">#</span>
                 </TableHead>
                 <SortableHeader field="patient_name">
                   <span className="arabic-enhanced font-medium">المريض</span>

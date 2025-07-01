@@ -400,7 +400,7 @@ export class ExportService {
               <th>الهاتف</th>
               <th>العمر</th>
               <th>الجنس</th>
-              <th>الرقم التسلسلي</th>
+              <th>#</th>
             </tr>
           </thead>
           <tbody>
@@ -727,7 +727,7 @@ export class ExportService {
       doc.text('الهاتف', 80, yPosition)
       doc.text('العمر', 130, yPosition)
       doc.text('الجنس', 170, yPosition)
-      doc.text('الرقم التسلسلي', 220, yPosition)
+      doc.text('#', 220, yPosition)
 
       doc.line(20, yPosition + 2, pageWidth - 20, yPosition + 2)
       yPosition += 10
@@ -995,7 +995,7 @@ export class ExportService {
       row += 2
 
       // Headers
-      const headers = ['الرقم التسلسلي', 'الاسم الكامل', 'الجنس', 'العمر', 'الهاتف', 'البريد الإلكتروني', 'تاريخ التسجيل']
+      const headers = ['#', 'الاسم الكامل', 'الجنس', 'العمر', 'الهاتف', 'البريد الإلكتروني', 'تاريخ التسجيل']
       headers.forEach((header, index) => {
         const cell = worksheet.getCell(row, index + 1)
         cell.value = header
@@ -1448,7 +1448,7 @@ export class ExportService {
       currentRow += 2
 
       // Table headers
-      const headers = ['الرقم التسلسلي', 'اسم العنصر', 'الكمية المطلوبة', 'الأولوية', 'الحالة', 'تاريخ الطلب', 'تاريخ الاستلام', 'الملاحظات']
+      const headers = ['#', 'اسم العنصر', 'الكمية المطلوبة', 'الأولوية', 'الحالة', 'تاريخ الطلب', 'تاريخ الاستلام', 'الملاحظات']
       headers.forEach((header, index) => {
         const cell = worksheet.getCell(currentRow, index + 1)
         cell.value = header
@@ -1638,7 +1638,7 @@ export class ExportService {
            line.includes('اسم الصنف') ||
            line.includes('التاريخ,الوقت') ||
            line.includes('رقم الإيصال') ||
-           line.includes('الرقم التسلسلي') ||
+           line.includes('#') ||
            line.includes('اسم العلاج') ||
            line.includes('اسم المنتج') ||
            (currentRow === 1 && line.includes(','))
@@ -1870,7 +1870,7 @@ export class ExportService {
 
     if (options.includeDetails && data.patients) {
       csv += 'تفاصيل المرضى\n'
-      csv += 'الرقم التسلسلي,الاسم الكامل,الجنس,العمر,الهاتف,البريد الإلكتروني,تاريخ التسجيل\n'
+      csv += '#,الاسم الكامل,الجنس,العمر,الهاتف,البريد الإلكتروني,تاريخ التسجيل\n'
 
       data.patients.forEach((patient: any) => {
         const genderLabel = patient.gender === 'male' ? 'ذكر' : 'أنثى'
@@ -2061,7 +2061,7 @@ export class ExportService {
     try {
       // CSV Headers in Arabic
       const headers = [
-        'الرقم التسلسلي',
+        '#',
         'اسم الاحتياج',
         'الكمية',
         'السعر',

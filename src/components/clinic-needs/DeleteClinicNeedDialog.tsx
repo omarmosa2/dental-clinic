@@ -65,7 +65,7 @@ const DeleteClinicNeedDialog: React.FC<DeleteClinicNeedDialogProps> = ({
         <div className="py-4">
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between">
-              <span className="font-medium">الرقم التسلسلي:</span>
+              <span className="font-medium">#:</span>
               <span>{need.serial_number}</span>
             </div>
             <div className="flex justify-between">

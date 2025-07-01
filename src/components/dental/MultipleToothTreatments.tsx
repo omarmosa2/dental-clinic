@@ -39,6 +39,8 @@ import { notify } from '@/services/notificationService'
 import TreatmentSessions from './TreatmentSessions'
 import { usePaymentStore } from '@/store/paymentStore'
 import { usePatientStore } from '@/store/patientStore'
+import { useLabStore } from '@/store/labStore'
+import { useLabOrderStore } from '@/store/labOrderStore'
 
 interface MultipleToothTreatmentsProps {
   patientId: string
@@ -66,9 +68,13 @@ export default function MultipleToothTreatments({
   const { isDarkMode } = useTheme()
   const { createPayment, updatePayment, getPaymentsByPatient } = usePaymentStore()
   const { patients } = usePatientStore()
+  const { labs, loadLabs } = useLabStore()
+  const { createLabOrder } = useLabOrderStore()
   const [isAddingTreatment, setIsAddingTreatment] = useState(false)
   const [editingTreatment, setEditingTreatment] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [selectedLab, setSelectedLab] = useState<string>('')
+  const [labCost, setLabCost] = useState<number>(0)
   const [newTreatment, setNewTreatment] = useState<Partial<ToothTreatment>>({
     patient_id: patientId,
     tooth_number: toothNumber,
@@ -82,6 +88,11 @@ export default function MultipleToothTreatments({
   // Treatment Sessions state
   const [treatmentSessions, setTreatmentSessions] = useState<{ [treatmentId: string]: TreatmentSession[] }>({})
   const [selectedTreatmentForSessions, setSelectedTreatmentForSessions] = useState<string | null>(null)
+
+  // Load labs on component mount
+  useEffect(() => {
+    loadLabs()
+  }, [loadLabs])
 
   // Sort treatments by priority
   const sortedTreatments = [...treatments].sort((a, b) => a.priority - b.priority)
@@ -141,6 +152,37 @@ export default function MultipleToothTreatments({
     }
   }
 
+  // دالة إنشاء طلب مخبر للعلاج
+  const createLabOrderForTreatment = async (treatmentId: string) => {
+    if (!selectedLab || labCost <= 0) {
+      return // لا نحتاج طلب مخبر إذا لم يتم اختيار مخبر أو تكلفة
+    }
+
+    try {
+      const patient = patients.find(p => p.id === patientId)
+      const treatmentType = getTreatmentByValue(newTreatment.treatment_type!)
+
+      const labOrderData = {
+        lab_id: selectedLab,
+        patient_id: patientId,
+        tooth_treatment_id: treatmentId,
+        service_name: `${treatmentType?.label || 'علاج تعويضات'} - السن ${toothNumber}`,
+        cost: labCost,
+        order_date: new Date().toISOString().split('T')[0],
+        status: 'معلق' as const,
+        notes: `طلب مخبر للمريض: ${patient?.full_name || 'غير محدد'} - السن: ${toothName}`,
+        paid_amount: 0,
+        remaining_balance: labCost
+      }
+
+      await createLabOrder(labOrderData)
+      notify.success('تم إنشاء طلب المخبر بنجاح')
+    } catch (error) {
+      console.error('خطأ في إنشاء طلب المخبر:', error)
+      notify.error('فشل في إنشاء طلب المخبر')
+    }
+  }
+
   const handleAddTreatment = async () => {
     if (!newTreatment.treatment_type || !newTreatment.treatment_category) {
       notify.error('يرجى اختيار نوع العلاج والتصنيف')
@@ -160,6 +202,11 @@ export default function MultipleToothTreatments({
         await createPendingPaymentForTreatment(newTreatmentResult.id)
       }
 
+      // إنشاء طلب مخبر إذا كان العلاج من فئة التعويضات وتم اختيار مخبر
+      if (newTreatmentResult && newTreatment.treatment_category === 'التعويضات') {
+        await createLabOrderForTreatment(newTreatmentResult.id)
+      }
+
       // Reset form
       setNewTreatment({
         patient_id: patientId,
@@ -171,6 +218,8 @@ export default function MultipleToothTreatments({
         // priority will be auto-assigned by the database service
       })
       setSelectedCategory('')
+      setSelectedLab('')
+      setLabCost(0)
       setIsAddingTreatment(false)
       notify.success('تم إضافة العلاج بنجاح')
     } catch (error) {
@@ -698,6 +747,74 @@ export default function MultipleToothTreatments({
                 />
               </div>
             </div>
+
+            {/* حقول المخبر - تظهر فقط لعلاجات التعويضات */}
+            {selectedCategory === 'التعويضات' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800/30">
+                <div className="space-y-2">
+                  <Label className={cn(
+                    "font-medium flex items-center gap-2",
+                    isDarkMode ? "text-purple-200" : "text-purple-800"
+                  )}>
+                    🏭 اختيار المخبر
+                  </Label>
+                  <Select
+                    value={selectedLab}
+                    onValueChange={setSelectedLab}
+                  >
+                    <SelectTrigger className={cn(
+                      "border-2 transition-colors",
+                      isDarkMode
+                        ? "border-purple-800/50 bg-purple-950/30 hover:border-purple-700 focus:border-purple-600"
+                        : "border-purple-200 bg-white hover:border-purple-300 focus:border-purple-500"
+                    )}>
+                      <SelectValue placeholder="اختر المخبر" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {labs.map((lab) => (
+                        <SelectItem key={lab.id} value={lab.id}>
+                          <div className="flex items-center gap-2">
+                            <span>🏭</span>
+                            <span>{lab.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className={cn(
+                    "font-medium flex items-center gap-2",
+                    isDarkMode ? "text-purple-200" : "text-purple-800"
+                  )}>
+                    💰 تكلفة المخبر ($)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={labCost || ''}
+                    onChange={(e) => setLabCost(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className={cn(
+                      "border-2 transition-colors",
+                      isDarkMode
+                        ? "border-purple-800/50 bg-purple-950/30 hover:border-purple-700 focus:border-purple-600"
+                        : "border-purple-200 bg-white hover:border-purple-300 focus:border-purple-500"
+                    )}
+                  />
+                  {labCost > 0 && (
+                    <p className={cn(
+                      "text-xs",
+                      isDarkMode ? "text-purple-300" : "text-purple-600"
+                    )}>
+                      🏭 سيتم إنشاء طلب مخبر تلقائياً
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label className={cn(
