@@ -158,21 +158,12 @@ export default function DeletePaymentDialog({ open, onOpenChange, payment }: Del
                 </div>
               </div>
 
-              {(payment.description || payment.notes) && (
+              {payment.description && (
                 <div className="border-t pt-3 mt-3 space-y-2">
-                  {payment.description && (
-                    <div>
-                      <span className="text-muted-foreground text-xs">الوصف:</span>
-                      <p className="text-sm">{payment.description}</p>
-                    </div>
-                  )}
-
-                  {payment.notes && (
-                    <div>
-                      <span className="text-muted-foreground text-xs">ملاحظات:</span>
-                      <p className="text-sm">{payment.notes}</p>
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-muted-foreground text-xs">الوصف:</span>
+                    <p className="text-sm">{payment.description}</p>
+                  </div>
                 </div>
               )}
             </CardContent>

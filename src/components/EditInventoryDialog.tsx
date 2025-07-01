@@ -318,7 +318,7 @@ export default function EditInventoryDialog({
                 name="cost_per_unit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium">تكلفة الوحدة (دولار)</FormLabel>
+                    <FormLabel className="text-sm font-medium">تكلفة الوحدة</FormLabel>
                     <FormControl>
                       <Input
                         type="number"

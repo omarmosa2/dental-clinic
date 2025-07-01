@@ -128,14 +128,16 @@ export default function EnhancedToothDetailsDialog({
     }
   }, [open, patientId, toothNumber, loadToothTreatmentsByTooth, loadToothTreatmentImagesByTooth, clearImages])
 
-  const handleAddTreatment = async (treatmentData: Omit<ToothTreatment, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleAddTreatment = async (treatmentData: Omit<ToothTreatment, 'id' | 'created_at' | 'updated_at'>): Promise<ToothTreatment | null> => {
     try {
       setIsLoading(true)
-      await createToothTreatment(treatmentData)
+      const newTreatment = await createToothTreatment(treatmentData)
       notify.success('تم إضافة العلاج بنجاح')
+      return newTreatment
     } catch (error) {
       notify.error('فشل في إضافة العلاج')
       console.error('Error adding treatment:', error)
+      return null
     } finally {
       setIsLoading(false)
     }

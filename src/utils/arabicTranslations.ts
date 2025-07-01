@@ -3,91 +3,80 @@
  * Arabic Translation Center for all system data
  */
 
+import { getTreatmentByValue } from '@/data/teethData'
+
+// متغير لتخزين العلاجات المخصصة
+let customTreatmentsCache: { [key: string]: string } = {}
+let isLoadingCustomTreatments = false
+
+// دالة لتحميل جميع العلاجات المخصصة مرة واحدة
+const loadCustomTreatments = async (): Promise<void> => {
+  if (isLoadingCustomTreatments) return
+
+  isLoadingCustomTreatments = true
+  try {
+    if (window.electronAPI?.treatments?.getAll) {
+      const treatments = await window.electronAPI.treatments.getAll()
+      if (treatments && Array.isArray(treatments)) {
+        treatments.forEach((treatment: any) => {
+          if (treatment.id && treatment.name) {
+            customTreatmentsCache[treatment.id] = treatment.name
+          }
+        })
+      }
+    }
+  } catch (error) {
+    console.warn('خطأ في تحميل العلاجات المخصصة:', error)
+  } finally {
+    isLoadingCustomTreatments = false
+  }
+}
+
+// دالة للحصول على اسم العلاج المخصص
+const getCustomTreatmentName = (treatmentId: string): string => {
+  // إذا كان في الكاش، أرجعه
+  if (customTreatmentsCache[treatmentId]) {
+    return customTreatmentsCache[treatmentId]
+  }
+
+  // إذا لم يكن محمل، حمل العلاجات المخصصة
+  if (!isLoadingCustomTreatments && Object.keys(customTreatmentsCache).length === 0) {
+    loadCustomTreatments()
+  }
+
+  // إرجاع معرف العلاج مؤقتاً حتى يتم التحميل
+  return treatmentId
+}
+
+// دالة لتحديث كاش العلاجات المخصصة
+export const updateCustomTreatmentCache = (treatmentId: string, treatmentName: string) => {
+  customTreatmentsCache[treatmentId] = treatmentName
+}
+
+// دالة لمسح كاش العلاجات المخصصة
+export const clearCustomTreatmentCache = () => {
+  customTreatmentsCache = {}
+}
+
+// دالة لإعادة تحميل العلاجات المخصصة
+export const reloadCustomTreatments = async (): Promise<void> => {
+  clearCustomTreatmentCache()
+  await loadCustomTreatments()
+}
+
 // ترجمة أنواع العلاجات
 export const getTreatmentNameInArabic = (treatmentType: string): string => {
   if (!treatmentType) return 'غير محدد'
 
-  const treatmentMap: { [key: string]: string } = {
-    // Preventive treatments - العلاجات الوقائية
-    'healthy': 'سليم',
-    'cleaning': 'تنظيف',
-    'deep_cleaning': 'تنظيف عميق',
-    'fluoride': 'فلورايد',
-    'sealant': 'حشو وقائي',
-    'scaling': 'تقليح',
-    'subgingival_scaling': 'تقليح تحت اللثة',
-
-    // Restorative treatments - الترميمية (المحافظة)
-    'filling_metal': 'حشو معدني',
-    'filling_cosmetic': 'حشو تجميلي',
-    'filling_glass_ionomer': 'حشو زجاجي',
-    'inlay': 'حشو داخلي',
-    'onlay': 'حشو خارجي',
-
-    // Endodontic treatments - علاج العصب
-    'pulp_therapy': 'مداولة لبية',
-    'direct_pulp_cap': 'تغطية مباشرة',
-    'indirect_pulp_cap': 'تغطية غير مباشرة',
-    'retreatment': 'إعادة معالجة',
-    'deep_pulp_treatment': 'معالجة لبية عفنة',
-
-    // Surgical treatments - العلاجات الجراحية
-    'extraction': 'قلع',
-    'simple_extraction': 'قلع بسيط',
-    'surgical_extraction': 'قلع جراحي',
-    'apical_resection': 'استئصال قمي',
-    'root_tip_extraction': 'استئصال قمة الجذر',
-
-    // Cosmetic treatments - العلاجات التجميلية
-    'whitening': 'تبييض',
-    'veneer': 'قشرة تجميلية',
-    'bonding': 'ربط تجميلي',
-    'polish': 'تلميع',
-
-    // Orthodontic treatments - علاجات التقويم
-    'orthodontic_metal': 'تقويم معدني',
-    'orthodontic_ceramic': 'تقويم سيراميك',
-    'orthodontic_clear': 'تقويم شفاف',
-    'retainer': 'مثبت',
-
-    // Periodontal treatments - علاجات اللثة
-    'gum_treatment': 'علاج اللثة',
-    'periodontal_therapy': 'علاج دواعم السن',
-    'gum_surgery': 'جراحة اللثة',
-
-    // Pediatric treatments - علاجات الأطفال
-    'pulp_amputation': 'بتر اللب',
-    'pulp_treatment': 'علاج اللب',
-    'space_maintainer': 'حافظ مسافة',
-
-    // Prosthetic treatments - التعويضات
-    'metal_crown': 'تاج معدني',
-    'crown_metal': 'تاج معدني',
-    'ceramic_crown': 'تاج سيراميك',
-    'crown_ceramic': 'تاج سيراميك',
-    'zirconia_crown': 'تاج زيركونيا',
-    'bridge': 'جسر',
-    'partial_denture': 'طقم جزئي',
-    'complete_denture': 'طقم كامل',
-    'implant': 'زراعة',
-
-    // Legacy treatments
-    'preventive': 'علاج وقائي',
-    'pulp_cap': 'تغطية لب',
-    'extraction_simple': 'قلع بسيط',
-
-    // Additional common treatments
-    'crown': 'تاج',
-    'filling': 'حشو',
-    'root_canal': 'علاج عصب',
-    'tooth_extraction': 'قلع سن',
-    'dental_cleaning': 'تنظيف أسنان',
-    'teeth_whitening': 'تبييض أسنان',
-    'dental_crown': 'تاج سني',
-    'dental_filling': 'حشو سني'
+  // أولاً، تحقق من العلاجات المحددة مسبقاً في TREATMENT_TYPES
+  const predefinedTreatment = getTreatmentByValue(treatmentType)
+  if (predefinedTreatment) {
+    return predefinedTreatment.label
   }
 
-  return treatmentMap[treatmentType] || treatmentType
+  // إذا لم يكن من العلاجات المحددة مسبقاً، فهو علاج مخصص بـ UUID
+  // نحتاج للبحث عنه في قاعدة البيانات
+  return getCustomTreatmentName(treatmentType)
 }
 
 // ترجمة فئات العلاجات

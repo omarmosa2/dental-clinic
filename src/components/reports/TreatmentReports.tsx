@@ -40,6 +40,7 @@ import TimeFilter from '@/components/ui/time-filter'
 import { PdfService } from '@/services/pdfService'
 import { ExportService } from '@/services/exportService'
 import { notify } from '@/services/notificationService'
+import { useTreatmentNames } from '@/hooks/useTreatmentNames'
 import { getTreatmentNameInArabic, getCategoryNameInArabic, getStatusLabelInArabic } from '@/utils/arabicTranslations'
 import {
   Activity,
@@ -101,6 +102,9 @@ export default function TreatmentReports() {
   const { currency, settings } = useSettingsStore()
   const { isDarkMode } = useTheme()
 
+  // Load custom treatment names for proper display
+  const { refreshTreatmentNames } = useTreatmentNames()
+
   // Time filtering for treatments
   const treatmentStats = useTimeFilteredStats({
     data: toothTreatments,
@@ -115,7 +119,8 @@ export default function TreatmentReports() {
     generateReport('treatments')
     loadToothTreatments()
     loadPatients()
-  }, [generateReport, loadToothTreatments, loadPatients])
+    refreshTreatmentNames() // تحديث أسماء العلاجات المخصصة
+  }, [generateReport, loadToothTreatments, loadPatients, refreshTreatmentNames])
 
   // Calculate filtered statistics
   const filteredTreatmentStats = useMemo(() => {

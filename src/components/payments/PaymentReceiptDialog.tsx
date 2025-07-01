@@ -968,14 +968,7 @@ ${address ? `📍 العنوان: ${address}` : ''}
               </div>
             )}
 
-            {payment.notes && (
-              <div className="section">
-                <div className="separator">- - - - - - - - - - - - - - - -</div>
-                <div style={{ textAlign: 'center', fontSize: '10px', margin: '4px 0', fontStyle: 'italic' }}>
-                  ملاحظات: {payment.notes}
-                </div>
-              </div>
-            )}
+            {/* لا نعرض الملاحظات في الإيصال لأنها تحتوي على معرف العلاج للربط الداخلي */}
 
             {/* معلومات إضافية مفيدة */}
             <div className="section">

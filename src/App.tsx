@@ -9,6 +9,7 @@ import { useRealTimeTableSync } from './hooks/useRealTimeTableSync'
 import { useAuth } from './hooks/useAuth'
 import { useLicense } from './hooks/useLicense'
 import { useSystemShortcuts } from './hooks/useKeyboardShortcuts'
+import { useTreatmentNames } from './hooks/useTreatmentNames'
 import { enhanceKeyboardEvent } from '@/utils/arabicKeyboardMapping'
 import LoginScreen from './components/auth/LoginScreen'
 import LicenseEntryScreen from './components/auth/LicenseEntryScreen'
@@ -75,6 +76,9 @@ function AppContent() {
 
   // Enable real-time synchronization for the entire application
   useRealTimeSync()
+
+  // Load custom treatment names for proper display
+  useTreatmentNames()
 
   // Setup keyboard shortcuts - تم تعطيلها لصالح الاختصارات المحلية في كل صفحة
   // useSystemShortcuts({

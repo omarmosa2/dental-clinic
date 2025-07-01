@@ -44,6 +44,7 @@ import AddPaymentDialog from '@/components/payments/AddPaymentDialog'
 import AddPrescriptionDialog from '@/components/medications/AddPrescriptionDialog'
 import ComprehensivePendingInvoiceDialog from '@/components/payments/ComprehensivePendingInvoiceDialog'
 import { TREATMENT_STATUS_OPTIONS, getTreatmentNameInArabic } from '@/data/teethData'
+import { useTreatmentNames } from '@/hooks/useTreatmentNames'
 
 interface PatientDetailsModalProps {
   patient: Patient | null
@@ -84,6 +85,9 @@ export default function PatientDetailsModal({
   const { toothTreatments, loadToothTreatmentsByPatient } = useDentalTreatmentStore()
   const { toast } = useToast()
 
+  // Load custom treatment names for proper display
+  const { refreshTreatmentNames } = useTreatmentNames()
+
   useEffect(() => {
     if (patient && open) {
       // Filter appointments for this patient
@@ -104,6 +108,8 @@ export default function PatientDetailsModal({
         const filteredTreatments = toothTreatments.filter(treatment => treatment.patient_id === patient.id)
         setPatientTreatments(filteredTreatments)
         setIsLoadingTreatments(false)
+        // تحديث أسماء العلاجات المخصصة
+        refreshTreatmentNames()
       }).catch(() => {
         setIsLoadingTreatments(false)
       })
@@ -125,7 +131,7 @@ export default function PatientDetailsModal({
         console.error('خطأ في تحميل طلبات المختبر')
       })
     }
-  }, [patient, open, appointments, payments, toothTreatments, loadToothTreatmentsByPatient])
+  }, [patient, open, appointments, payments, toothTreatments, loadToothTreatmentsByPatient, refreshTreatmentNames])
 
   if (!patient) return null
 

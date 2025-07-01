@@ -45,7 +45,7 @@ interface MultipleToothTreatmentsProps {
   toothNumber: number
   toothName: string
   treatments: ToothTreatment[]
-  onAddTreatment: (treatment: Omit<ToothTreatment, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  onAddTreatment: (treatment: Omit<ToothTreatment, 'id' | 'created_at' | 'updated_at'>) => Promise<ToothTreatment | null>
   onUpdateTreatment: (id: string, updates: Partial<ToothTreatment>) => Promise<void>
   onDeleteTreatment: (id: string) => Promise<void>
   onReorderTreatments: (treatmentIds: string[]) => Promise<void>
@@ -64,7 +64,7 @@ export default function MultipleToothTreatments({
   onSessionStatsUpdate
 }: MultipleToothTreatmentsProps) {
   const { isDarkMode } = useTheme()
-  const { createPayment } = usePaymentStore()
+  const { createPayment, updatePayment, getPaymentsByPatient } = usePaymentStore()
   const { patients } = usePatientStore()
   const [isAddingTreatment, setIsAddingTreatment] = useState(false)
   const [editingTreatment, setEditingTreatment] = useState<string | null>(null)
@@ -75,7 +75,8 @@ export default function MultipleToothTreatments({
     tooth_name: toothName,
     treatment_status: 'planned',
     cost: 0,
-    priority: treatments.length + 1
+    start_date: new Date().toISOString().split('T')[0] // تحديد التاريخ المحلي تلقائياً
+    // priority will be auto-assigned by the database service
   })
 
   // Treatment Sessions state
@@ -101,7 +102,7 @@ export default function MultipleToothTreatments({
   }
 
   // دالة إنشاء دفعة معلقة للعلاج
-  const createPendingPaymentForTreatment = async () => {
+  const createPendingPaymentForTreatment = async (treatmentId: string) => {
     try {
       // الحصول على بيانات المريض
       const patient = patients.find(p => p.id === patientId)
@@ -120,9 +121,9 @@ export default function MultipleToothTreatments({
         amount: 0, // مبلغ مدفوع = 0 لجعل الحالة معلقة
         payment_method: 'cash' as const,
         payment_date: new Date().toISOString().split('T')[0],
-        description: description,
+        description: description, // وصف نظيف بدون معرف العلاج
         status: 'pending' as const,
-        notes: `دفعة معلقة لعلاج سن ${toothName || toothNumber}`,
+        notes: `دفعة معلقة لعلاج سن ${toothName || toothNumber} [علاج:${treatmentId}]`, // المعرف في الملاحظات فقط للربط الداخلي
         total_amount_due: newTreatment.cost || 0,
         amount_paid: 0,
         remaining_balance: newTreatment.cost || 0
@@ -148,11 +149,11 @@ export default function MultipleToothTreatments({
         treatment_color: getTreatmentByValue(newTreatment.treatment_type!)?.color || '#22c55e'
       } as Omit<ToothTreatment, 'id' | 'created_at' | 'updated_at'>
 
-      await onAddTreatment(treatmentData)
+      const newTreatmentResult = await onAddTreatment(treatmentData)
 
-      // إنشاء دفعة معلقة إذا تم تعبئة التكلفة
-      if (newTreatment.cost && newTreatment.cost > 0) {
-        await createPendingPaymentForTreatment()
+      // إنشاء دفعة معلقة إذا تم تعبئة التكلفة وتم إنشاء العلاج بنجاح
+      if (newTreatmentResult && newTreatment.cost && newTreatment.cost > 0) {
+        await createPendingPaymentForTreatment(newTreatmentResult.id)
       }
 
       // Reset form
@@ -162,7 +163,8 @@ export default function MultipleToothTreatments({
         tooth_name: toothName,
         treatment_status: 'planned',
         cost: 0,
-        priority: treatments.length + 2
+        start_date: new Date().toISOString().split('T')[0] // تحديد التاريخ المحلي تلقائياً
+        // priority will be auto-assigned by the database service
       })
       setSelectedCategory('')
       setIsAddingTreatment(false)
@@ -724,7 +726,8 @@ export default function MultipleToothTreatments({
                     tooth_name: toothName,
                     treatment_status: 'planned',
                     cost: 0,
-                    priority: treatments.length + 1
+                    start_date: new Date().toISOString().split('T')[0] // تحديد التاريخ المحلي تلقائياً
+                    // priority will be auto-assigned by the database service
                   })
                 }}
                 className={cn(
@@ -766,7 +769,7 @@ interface EditTreatmentFormProps {
 
 function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatmentFormProps) {
   const { isDarkMode } = useTheme()
-  const { createPayment } = usePaymentStore()
+  const { createPayment, updatePayment, getPaymentsByPatient } = usePaymentStore()
   const { patients } = usePatientStore()
   const [editData, setEditData] = useState<Partial<ToothTreatment>>({
     treatment_type: treatment.treatment_type,
@@ -784,8 +787,8 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
     ? getTreatmentsByCategory(selectedCategory as any)
     : []
 
-  // دالة إنشاء دفعة معلقة للعلاج المُعدّل
-  const createPendingPaymentForEditedTreatment = async () => {
+  // دالة تحديث أو إنشاء دفعة معلقة للعلاج المُعدّل
+  const updateOrCreatePendingPaymentForEditedTreatment = async () => {
     try {
       // الحصول على بيانات المريض
       const patient = patients.find(p => p.id === treatment.patient_id)
@@ -794,29 +797,52 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
         return
       }
 
+      // البحث عن المدفوعات المعلقة الموجودة للمريض
+      const patientPayments = getPaymentsByPatient(treatment.patient_id)
+
+      // البحث عن دفعة معلقة مرتبطة بهذا العلاج المحدد
+      // نبحث عن دفعة معلقة تحتوي على معرف العلاج في الملاحظات فقط
+      const existingPendingPayment = patientPayments.find(payment =>
+        payment.status === 'pending' &&
+        payment.notes?.includes(`[علاج:${treatment.id}]`)
+      )
+
       // إنشاء وصف للدفعة
       const treatmentTypeInfo = getTreatmentByValue(editData.treatment_type!)
       const description = `علاج ${treatmentTypeInfo?.label || editData.treatment_type} - سن ${treatment.tooth_name || treatment.tooth_number}`
 
-      // بيانات الدفعة المعلقة
-      const paymentData = {
-        patient_id: treatment.patient_id,
-        amount: 0, // مبلغ مدفوع = 0 لجعل الحالة معلقة
-        payment_method: 'cash' as const,
-        payment_date: new Date().toISOString().split('T')[0],
-        description: description,
-        status: 'pending' as const,
-        notes: `دفعة معلقة لعلاج سن ${treatment.tooth_name || treatment.tooth_number} (تم تعديل التكلفة)`,
-        total_amount_due: editData.cost || 0,
-        amount_paid: 0,
-        remaining_balance: editData.cost || 0
-      }
+      if (existingPendingPayment) {
+        // تحديث الدفعة المعلقة الموجودة
+        const updatedPaymentData = {
+          description: description, // وصف نظيف بدون معرف العلاج
+          notes: `دفعة معلقة لعلاج سن ${treatment.tooth_name || treatment.tooth_number} (تم تعديل التكلفة) [علاج:${treatment.id}]`, // المعرف في الملاحظات فقط
+          total_amount_due: editData.cost || 0,
+          remaining_balance: editData.cost || 0
+        }
 
-      await createPayment(paymentData)
-      notify.success('تم إنشاء دفعة معلقة في جدول المدفوعات')
+        await updatePayment(existingPendingPayment.id, updatedPaymentData)
+        notify.success('تم تحديث الدفعة المعلقة في جدول المدفوعات')
+      } else {
+        // إنشاء دفعة معلقة جديدة
+        const paymentData = {
+          patient_id: treatment.patient_id,
+          amount: 0, // مبلغ مدفوع = 0 لجعل الحالة معلقة
+          payment_method: 'cash' as const,
+          payment_date: new Date().toISOString().split('T')[0],
+          description: description, // وصف نظيف بدون معرف العلاج
+          status: 'pending' as const,
+          notes: `دفعة معلقة لعلاج سن ${treatment.tooth_name || treatment.tooth_number} (تم تعديل التكلفة) [علاج:${treatment.id}]`, // المعرف في الملاحظات فقط
+          total_amount_due: editData.cost || 0,
+          amount_paid: 0,
+          remaining_balance: editData.cost || 0
+        }
+
+        await createPayment(paymentData)
+        notify.success('تم إنشاء دفعة معلقة في جدول المدفوعات')
+      }
     } catch (error) {
-      console.error('خطأ في إنشاء الدفعة المعلقة:', error)
-      notify.error('فشل في إنشاء الدفعة المعلقة')
+      console.error('خطأ في تحديث/إنشاء الدفعة المعلقة:', error)
+      notify.error('فشل في تحديث/إنشاء الدفعة المعلقة')
     }
   }
 
@@ -833,10 +859,10 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
       }
       await onSave(treatment.id, updatedData)
 
-      // إنشاء دفعة معلقة إذا تم تعديل التكلفة وأصبحت أكبر من 0
+      // تحديث أو إنشاء دفعة معلقة إذا تم تعديل التكلفة وأصبحت أكبر من 0
       const newCost = editData.cost || 0
       if (newCost > 0 && newCost !== originalCost) {
-        await createPendingPaymentForEditedTreatment()
+        await updateOrCreatePendingPaymentForEditedTreatment()
       }
     } catch (error) {
       console.error('Error updating treatment:', error)
