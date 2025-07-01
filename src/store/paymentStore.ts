@@ -368,8 +368,14 @@ export const usePaymentStore = create<PaymentStore>()(
             const amount = validateAmount(payment.amount)
             const totalAmountDue = validateAmount(payment.total_amount_due)
 
-            // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
-            const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+            // للمدفوعات المعلقة، استخدم المبلغ الإجمالي المطلوب أو المتبقي إذا كان متوفراً
+            const remainingBalance = validateAmount(payment.remaining_balance)
+            let pendingAmount = amount
+            if (totalAmountDue > 0) {
+              pendingAmount = totalAmountDue
+            } else if (remainingBalance > 0) {
+              pendingAmount = remainingBalance
+            }
 
             return sum + pendingAmount
           }, 0)

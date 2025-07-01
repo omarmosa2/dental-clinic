@@ -1310,12 +1310,40 @@ export default function FinancialReports() {
                           <td className="p-3 text-right">
                             <div className="flex flex-col">
                               <span className="font-semibold">
-                                <CurrencyDisplay amount={payment.amount || 0} currency={currency} />
+                                <CurrencyDisplay
+                                  amount={
+                                    payment.status === 'pending'
+                                      ? (payment.total_amount_due && payment.total_amount_due > 0)
+                                        ? payment.total_amount_due
+                                        : (payment.remaining_balance && payment.remaining_balance > 0)
+                                        ? payment.remaining_balance
+                                        : payment.amount || 0
+                                      : payment.amount || 0
+                                  }
+                                  currency={currency}
+                                />
                               </span>
-                              {payment.status === 'partial' && payment.amount_paid && (
-                                <span className="text-xs text-muted-foreground">
-                                  مدفوع: <CurrencyDisplay amount={payment.amount_paid} currency={currency} />
-                                </span>
+                              {payment.status === 'partial' && (
+                                <div className="text-xs space-y-0.5">
+                                  {payment.amount_paid && (
+                                    <div className="text-blue-600 dark:text-blue-400">
+                                      مدفوع: <CurrencyDisplay amount={payment.amount_paid} currency={currency} />
+                                    </div>
+                                  )}
+                                  {(payment.appointment_remaining_balance || payment.remaining_balance) && (
+                                    <div className="text-orange-600 dark:text-orange-400">
+                                      متبقي: <CurrencyDisplay
+                                        amount={payment.appointment_remaining_balance || payment.remaining_balance || 0}
+                                        currency={currency}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {payment.status === 'pending' && payment.total_amount_due && (
+                                <div className="text-xs text-muted-foreground">
+                                  إجمالي مطلوب: <CurrencyDisplay amount={payment.total_amount_due} currency={currency} />
+                                </div>
                               )}
                             </div>
                           </td>

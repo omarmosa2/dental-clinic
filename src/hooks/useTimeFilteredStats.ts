@@ -167,8 +167,14 @@ export function useTimeFilteredStats<T extends FilterableData>({
                      (item as any).price || 0
         const totalAmountDue = (item as any).total_amount_due || 0
 
-        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
-        const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+        // للمدفوعات المعلقة، استخدم المبلغ الإجمالي المطلوب أو المتبقي إذا كان متوفراً
+        const remainingBalance = (item as any).remaining_balance || 0
+        let pendingAmount = amount
+        if (totalAmountDue > 0) {
+          pendingAmount = totalAmountDue
+        } else if (remainingBalance > 0) {
+          pendingAmount = remainingBalance
+        }
 
         return sum + (typeof pendingAmount === 'number' ? pendingAmount : parseFloat(pendingAmount) || 0)
       }, 0)
@@ -191,8 +197,14 @@ export function useTimeFilteredStats<T extends FilterableData>({
                      (item as any).price || 0
         const totalAmountDue = (item as any).total_amount_due || 0
 
-        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
-        const overdueAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+        // للمدفوعات المتأخرة، استخدم المبلغ الإجمالي المطلوب أو المتبقي إذا كان متوفراً
+        const remainingBalance = (item as any).remaining_balance || 0
+        let overdueAmount = amount
+        if (totalAmountDue > 0) {
+          overdueAmount = totalAmountDue
+        } else if (remainingBalance > 0) {
+          overdueAmount = remainingBalance
+        }
 
         return sum + (typeof overdueAmount === 'number' ? overdueAmount : parseFloat(overdueAmount) || 0)
       }, 0)

@@ -131,7 +131,7 @@ export default function PatientDetailsModal({
         console.error('خطأ في تحميل طلبات المختبر')
       })
     }
-  }, [patient, open, appointments, payments, toothTreatments, loadToothTreatmentsByPatient, refreshTreatmentNames])
+  }, [patient, open, appointments, payments, toothTreatments, loadToothTreatmentsByPatient])
 
   if (!patient) return null
 

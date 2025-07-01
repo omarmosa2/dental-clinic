@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { updateCustomTreatmentCache, reloadCustomTreatments } from '@/utils/arabicTranslations'
 
 /**
@@ -22,19 +22,19 @@ export const useTreatmentNames = () => {
   }, [])
 
   // دالة لتحديث اسم علاج مخصص في الكاش
-  const updateTreatmentName = (treatmentId: string, treatmentName: string) => {
+  const updateTreatmentName = useCallback((treatmentId: string, treatmentName: string) => {
     updateCustomTreatmentCache(treatmentId, treatmentName)
-  }
+  }, [])
 
   // دالة لإعادة تحميل جميع العلاجات المخصصة
-  const refreshTreatmentNames = async () => {
+  const refreshTreatmentNames = useCallback(async () => {
     setIsLoading(true)
     try {
       await reloadCustomTreatments()
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   return {
     updateTreatmentName,
