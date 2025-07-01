@@ -22,6 +22,7 @@ import AddPaymentDialog from '@/components/payments/AddPaymentDialog'
 import EditPaymentDialog from '@/components/payments/EditPaymentDialog'
 import DeletePaymentDialog from '@/components/payments/DeletePaymentDialog'
 import PaymentReceiptDialog from '@/components/payments/PaymentReceiptDialog'
+import PaymentDetailsDialog from '@/components/payments/PaymentDetailsDialog'
 import PaymentTable from '@/components/payments/PaymentTable'
 import {
   Plus,
@@ -49,6 +50,7 @@ export default function Payments() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showReceiptDialog, setShowReceiptDialog] = useState(false)
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
   const [preSelectedPatientId, setPreSelectedPatientId] = useState<string | undefined>(undefined)
 
@@ -160,6 +162,11 @@ export default function Payments() {
   const handleShowReceipt = (payment: Payment) => {
     setSelectedPayment(payment)
     setShowReceiptDialog(true)
+  }
+
+  const handleViewDetails = (payment: Payment) => {
+    setSelectedPayment(payment)
+    setShowDetailsDialog(true)
   }
 
   const handleAddPayment = () => {
@@ -654,6 +661,7 @@ export default function Payments() {
         onEdit={handleEditPayment}
         onDelete={handleDeletePayment}
         onShowReceipt={handleShowReceipt}
+        onViewDetails={handleViewDetails}
       />
 
       {/* Dialogs */}
@@ -687,6 +695,13 @@ export default function Payments() {
             open={showReceiptDialog}
             onOpenChange={setShowReceiptDialog}
             payment={selectedPayment}
+          />
+
+          <PaymentDetailsDialog
+            open={showDetailsDialog}
+            onOpenChange={setShowDetailsDialog}
+            payment={selectedPayment}
+            patients={patients}
           />
         </>
       )}

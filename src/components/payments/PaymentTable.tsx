@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Edit,
   Trash2,
-  Receipt,
+  Printer,
   User,
   ArrowUpDown,
   ArrowUp,
@@ -25,7 +25,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-
+  Eye,
   DollarSign
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
@@ -40,6 +40,7 @@ interface PaymentTableProps {
   onEdit: (payment: Payment) => void
   onDelete: (payment: Payment) => void
   onShowReceipt: (payment: Payment) => void
+  onViewDetails: (payment: Payment) => void
 }
 
 export default function PaymentTable({
@@ -48,7 +49,8 @@ export default function PaymentTable({
   isLoading,
   onEdit,
   onDelete,
-  onShowReceipt
+  onShowReceipt,
+  onViewDetails
 }: PaymentTableProps) {
   const [sortField, setSortField] = useState<SortField>('payment_date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -452,15 +454,25 @@ export default function PaymentTable({
                       {formatDate(payment.payment_date)}
                     </div>
                   </TableCell>
-                  <TableCell className="min-w-[180px] text-center">
+                  <TableCell className="min-w-[220px] text-center">
                     <div className="flex items-center justify-center space-x-1 space-x-reverse">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="action-btn-details text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={() => onViewDetails(payment)}
+                        title="عرض التفاصيل"
+                      >
+                        <Eye className="w-4 h-4 ml-1" />
+                        <span className="text-xs arabic-enhanced">تفاصيل</span>
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         className="action-btn-receipt"
                         onClick={() => onShowReceipt(payment)}
                       >
-                        <Receipt className="w-4 h-4 ml-1" />
+                        <Printer className="w-4 h-4 ml-1" />
                         <span className="text-xs arabic-enhanced">إيصال</span>
                       </Button>
                       <Button
