@@ -307,7 +307,8 @@ CREATE TABLE IF NOT EXISTS lab_orders (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (lab_id) REFERENCES labs(id) ON DELETE CASCADE,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL,
-    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
+    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
+    FOREIGN KEY (tooth_treatment_id) REFERENCES tooth_treatments(id) ON DELETE CASCADE
 );
 
 -- Laboratory indexes for search and performance optimization

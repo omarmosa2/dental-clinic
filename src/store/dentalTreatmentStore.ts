@@ -214,6 +214,12 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
             treatmentId: id
           }
         }))
+        // Emit event for payment store to update
+        window.dispatchEvent(new CustomEvent('treatment-payments-deleted', {
+          detail: {
+            treatmentId: id
+          }
+        }))
       }
     } catch (error) {
       set({

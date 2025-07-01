@@ -1595,6 +1595,13 @@ class DatabaseService {
     return result.changes > 0
   }
 
+  // دالة لحذف المدفوعات حسب معرف العلاج
+  async deletePaymentsByToothTreatment(toothTreatmentId) {
+    const stmt = this.db.prepare('DELETE FROM payments WHERE tooth_treatment_id = ?')
+    const result = stmt.run(toothTreatmentId)
+    return result.changes
+  }
+
   // دالة للحصول على المدفوعات حسب العلاج
   async getPaymentsByToothTreatment(toothTreatmentId) {
     const stmt = this.db.prepare(`
@@ -3861,9 +3868,27 @@ class DatabaseService {
     this.ensureConnection()
     this.ensureToothTreatmentsTableExists()
 
-    const stmt = this.db.prepare('DELETE FROM tooth_treatments WHERE id = ?')
-    const result = stmt.run(id)
-    return result.changes > 0
+    // Start a transaction to ensure data consistency
+    const transaction = this.db.transaction(() => {
+      // First, delete associated payments
+      const deletePaymentsStmt = this.db.prepare('DELETE FROM payments WHERE tooth_treatment_id = ?')
+      const paymentsResult = deletePaymentsStmt.run(id)
+      console.log(`🗑️ Deleted ${paymentsResult.changes} payments associated with treatment ${id}`)
+
+      // Second, delete associated lab orders (if cascade delete is not working)
+      const deleteLabOrdersStmt = this.db.prepare('DELETE FROM lab_orders WHERE tooth_treatment_id = ?')
+      const labOrdersResult = deleteLabOrdersStmt.run(id)
+      console.log(`🗑️ Deleted ${labOrdersResult.changes} lab orders associated with treatment ${id}`)
+
+      // Finally, delete the tooth treatment
+      const deleteTreatmentStmt = this.db.prepare('DELETE FROM tooth_treatments WHERE id = ?')
+      const treatmentResult = deleteTreatmentStmt.run(id)
+      console.log(`🗑️ Deleted tooth treatment ${id}. Affected rows: ${treatmentResult.changes}`)
+
+      return treatmentResult.changes > 0
+    })
+
+    return transaction()
   }
 
   async reorderToothTreatments(patientId, toothNumber, treatmentIds) {

@@ -78,7 +78,21 @@ export const usePaymentStore = create<PaymentStore>()(
           })
 
           // Recalculate all analytics immediately
-          get().calculateTotalRevenue()
+          get()
+
+        // Listen for treatment deletion events to update payments
+        window.addEventListener('treatment-payments-deleted', (event: any) => {
+          const { treatmentId } = event.detail
+          const { payments, selectedPayment } = get()
+
+          // Remove payments for deleted treatment
+          const updatedPayments = payments.filter(p => p.tooth_treatment_id !== treatmentId)
+
+          set({
+            payments: updatedPayments,
+            selectedPayment: selectedPayment?.tooth_treatment_id === treatmentId ? null : selectedPayment
+          })
+        }).calculateTotalRevenue()
           get().calculatePendingAmount()
           get().calculateTotalRemainingBalance()
           get().calculatePartialPaymentsCount()

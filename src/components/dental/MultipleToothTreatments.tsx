@@ -69,7 +69,7 @@ export default function MultipleToothTreatments({
   const { createPayment, updatePayment, getPaymentsByPatient } = usePaymentStore()
   const { patients } = usePatientStore()
   const { labs, loadLabs } = useLabStore()
-  const { createLabOrder } = useLabOrderStore()
+  const { createLabOrder, updateLabOrder, deleteLabOrder, getLabOrdersByTreatment } = useLabOrderStore()
   const [isAddingTreatment, setIsAddingTreatment] = useState(false)
   const [editingTreatment, setEditingTreatment] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
@@ -1073,9 +1073,9 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
       }
 
       // إدارة طلبات المخبر للتعويضات
-      if (selectedCategory === 'التعويضات') {
-        const existingLabOrders = getLabOrdersByTreatment(treatment.id)
+      const existingLabOrders = getLabOrdersByTreatment(treatment.id)
 
+      if (selectedCategory === 'التعويضات') {
         if (labCost > 0 && selectedLab) {
           // إنشاء أو تحديث طلب المخبر
           const treatmentTypeInfo = getTreatmentByValue(editData.treatment_type!)
@@ -1108,6 +1108,20 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             await createLabOrder(labOrderData)
             notify.success('تم إنشاء طلب المخبر')
           }
+        } else if (existingLabOrders.length > 0) {
+          // إذا لم يتم تحديد مخبر أو تكلفة، احذف طلبات المخبر الموجودة
+          for (const labOrder of existingLabOrders) {
+            await deleteLabOrder(labOrder.id)
+          }
+          notify.info('تم حذف طلبات المخبر لعدم تحديد مخبر أو تكلفة')
+        }
+      } else {
+        // إذا تم تغيير التصنيف من التعويضات إلى شيء آخر، احذف طلبات المخبر
+        if (existingLabOrders.length > 0) {
+          for (const labOrder of existingLabOrders) {
+            await deleteLabOrder(labOrder.id)
+          }
+          notify.info('تم حذف طلبات المخبر لتغيير تصنيف العلاج')
         }
       }
 
