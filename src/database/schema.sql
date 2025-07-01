@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS appointments (
 CREATE TABLE IF NOT EXISTS payments (
     id TEXT PRIMARY KEY,
     patient_id TEXT NOT NULL,
-    appointment_id TEXT, -- ربط مباشر بالموعد
+    tooth_treatment_id TEXT, -- ربط مباشر بعلاج السن
+    appointment_id TEXT, -- ربط اختياري بالموعد (للتوافق مع النظام القديم)
     amount DECIMAL(10,2) NOT NULL, -- المبلغ المدفوع في هذه الدفعة
     payment_method TEXT NOT NULL, -- cash, bank_transfer
     payment_date DATETIME NOT NULL,
@@ -62,17 +63,18 @@ CREATE TABLE IF NOT EXISTS payments (
     discount_amount DECIMAL(10,2) DEFAULT 0,
     tax_amount DECIMAL(10,2) DEFAULT 0,
     total_amount DECIMAL(10,2), -- المبلغ الإجمالي لهذه الدفعة (amount + tax - discount)
-    -- حقول تتبع الرصيد لكل موعد
-    appointment_total_cost DECIMAL(10,2), -- التكلفة الإجمالية للموعد (من جدول appointments)
-    appointment_total_paid DECIMAL(10,2), -- إجمالي المدفوع لهذا الموعد حتى الآن
-    appointment_remaining_balance DECIMAL(10,2), -- المتبقي لهذا الموعد
-    -- حقول عامة للمدفوعات غير المرتبطة بموعد
+    -- حقول تتبع الرصيد لكل علاج
+    treatment_total_cost DECIMAL(10,2), -- التكلفة الإجمالية للعلاج (من جدول tooth_treatments)
+    treatment_total_paid DECIMAL(10,2), -- إجمالي المدفوع لهذا العلاج حتى الآن
+    treatment_remaining_balance DECIMAL(10,2), -- المتبقي لهذا العلاج
+    -- حقول عامة للمدفوعات غير المرتبطة بعلاج
     total_amount_due DECIMAL(10,2), -- المبلغ الإجمالي المطلوب (للمدفوعات العامة)
     amount_paid DECIMAL(10,2), -- إجمالي المبلغ المدفوع (للمدفوعات العامة)
     remaining_balance DECIMAL(10,2), -- المبلغ المتبقي (للمدفوعات العامة)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+    FOREIGN KEY (tooth_treatment_id) REFERENCES tooth_treatments(id) ON DELETE SET NULL,
     FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
 );
 

@@ -133,11 +133,16 @@ export class ComprehensiveExportService {
     // إجمالي الإيرادات
     const totalRevenue = completedPayments + partialPayments
 
-    // المبالغ المتبقية من المدفوعات الجزئية
+    // المبالغ المتبقية من المدفوعات الجزئية والمعلقة
     const remainingBalances = validateAmount(
       payments
-        .filter(p => p.status === 'partial' && p.appointment_remaining_balance)
-        .reduce((sum, payment) => sum + validateAmount(payment.appointment_remaining_balance), 0)
+        .filter(p => (p.status === 'partial' || p.status === 'pending') &&
+                    (p.treatment_remaining_balance || p.remaining_balance))
+        .reduce((sum, payment) => {
+          const treatmentRemaining = validateAmount(payment.treatment_remaining_balance)
+          const generalRemaining = validateAmount(payment.remaining_balance)
+          return sum + (treatmentRemaining || generalRemaining)
+        }, 0)
     )
 
     // المدفوعات المعلقة
@@ -147,8 +152,16 @@ export class ComprehensiveExportService {
         const amount = validateAmount(payment.amount)
         const totalAmountDue = validateAmount(payment.total_amount_due)
 
-        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
-        const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+        let pendingAmount = amount
+
+        if (payment.tooth_treatment_id) {
+          // للمدفوعات المرتبطة بعلاجات، استخدم التكلفة الإجمالية للعلاج
+          const treatmentCost = validateAmount(payment.treatment_total_cost) || totalAmountDue
+          pendingAmount = treatmentCost
+        } else if (amount === 0 && totalAmountDue > 0) {
+          // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+          pendingAmount = totalAmountDue
+        }
 
         return sum + pendingAmount
       }, 0)

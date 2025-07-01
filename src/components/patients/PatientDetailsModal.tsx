@@ -707,19 +707,45 @@ export default function PatientDetailsModal({
                 <div className="space-y-4" dir="rtl">
                   {/* Payment Summary */}
                   {(() => {
-                    // حساب الملخص المالي باستخدام الدالة الجديدة
+                    // حساب الملخص المالي باستخدام الدالة الجديدة مع دعم العلاجات
                     const summary = calculatePatientPaymentSummary(patient.id, payments, appointments)
 
-                    const totalAmountDue = summary.totalDue
-                    const totalAmountPaid = summary.totalPaid
-                    const totalRemainingBalance = summary.totalRemaining
+                    // حساب إضافي للمدفوعات المرتبطة بالعلاجات
+                    const treatmentPayments = patientPayments.filter(p => p.tooth_treatment_id)
+                    const appointmentPayments = patientPayments.filter(p => p.appointment_id && !p.tooth_treatment_id)
+                    const generalPayments = patientPayments.filter(p => !p.appointment_id && !p.tooth_treatment_id)
+
+                    // حساب المبالغ للعلاجات
+                    const treatmentTotalDue = treatmentPayments.reduce((sum, p) => sum + (p.treatment_total_cost || 0), 0)
+                    const treatmentTotalPaid = treatmentPayments.reduce((sum, p) => sum + p.amount, 0)
+                    const treatmentRemaining = treatmentPayments.reduce((sum, p) => sum + (p.treatment_remaining_balance || 0), 0)
+
+                    // حساب المبالغ للمواعيد
+                    const appointmentTotalDue = appointmentPayments.reduce((sum, p) => sum + (p.appointment_total_cost || 0), 0)
+                    const appointmentTotalPaid = appointmentPayments.reduce((sum, p) => sum + p.amount, 0)
+                    const appointmentRemaining = appointmentPayments.reduce((sum, p) => sum + (p.appointment_remaining_balance || 0), 0)
+
+                    // حساب المبالغ العامة
+                    const generalTotalDue = generalPayments.reduce((sum, p) => sum + (p.total_amount_due || 0), 0)
+                    const generalTotalPaid = generalPayments.reduce((sum, p) => sum + p.amount, 0)
+                    const generalRemaining = generalPayments.reduce((sum, p) => sum + (p.remaining_balance || 0), 0)
+
+                    // الإجماليات النهائية
+                    const totalAmountDue = treatmentTotalDue + appointmentTotalDue + generalTotalDue
+                    const totalAmountPaid = treatmentTotalPaid + appointmentTotalPaid + generalTotalPaid
+                    const totalRemainingBalance = treatmentRemaining + appointmentRemaining + generalRemaining
+
+                    // إحصائيات إضافية
+                    const pendingPayments = patientPayments.filter(p => p.status === 'pending')
+                    const partialPayments = patientPayments.filter(p => p.status === 'partial')
+                    const completedPayments = patientPayments.filter(p => p.status === 'completed')
 
                     return (
                       <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-border card-rtl">
                         <CardHeader className="card-header">
                           <CardTitle className="flex items-center gap-2 text-primary text-right">
                             <DollarSign className="w-5 h-5" />
-                            ملخص المدفوعات
+                            ملخص المدفوعات الشامل
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="card-content" dir="rtl">
@@ -734,6 +760,9 @@ export default function PatientDetailsModal({
                                   <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                                     المبلغ
                                   </th>
+                                  <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                                    التفاصيل
+                                  </th>
                                 </tr>
                               </thead>
                               <tbody className="bg-background divide-y divide-border">
@@ -744,6 +773,9 @@ export default function PatientDetailsModal({
                                   <td className="px-4 py-3 text-sm font-bold text-blue-600 dark:text-blue-400">
                                     {formatCurrency(totalAmountDue)}
                                   </td>
+                                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                                    علاجات: {formatCurrency(treatmentTotalDue)} | مواعيد: {formatCurrency(appointmentTotalDue)} | عام: {formatCurrency(generalTotalDue)}
+                                  </td>
                                 </tr>
                                 <tr>
                                   <td className="px-4 py-3 text-sm text-muted-foreground">
@@ -751,6 +783,9 @@ export default function PatientDetailsModal({
                                   </td>
                                   <td className="px-4 py-3 text-sm font-bold text-green-600 dark:text-green-400">
                                     {formatCurrency(totalAmountPaid)}
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                                    علاجات: {formatCurrency(treatmentTotalPaid)} | مواعيد: {formatCurrency(appointmentTotalPaid)} | عام: {formatCurrency(generalTotalPaid)}
                                   </td>
                                 </tr>
                                 <tr className="bg-muted/50">
@@ -764,6 +799,30 @@ export default function PatientDetailsModal({
                                     {totalRemainingBalance === 0 && (
                                       <span className="mr-2 text-xs text-green-600 dark:text-green-400">✓ مكتمل</span>
                                     )}
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                                    علاجات: {formatCurrency(treatmentRemaining)} | مواعيد: {formatCurrency(appointmentRemaining)} | عام: {formatCurrency(generalRemaining)}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                                    حالات الدفع
+                                  </td>
+                                  <td className="px-4 py-3 text-sm">
+                                    <div className="flex gap-2 flex-wrap">
+                                      <Badge variant="secondary" className="text-xs">
+                                        مكتمل: {completedPayments.length}
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs">
+                                        جزئي: {partialPayments.length}
+                                      </Badge>
+                                      <Badge variant="destructive" className="text-xs">
+                                        معلق: {pendingPayments.length}
+                                      </Badge>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                                    إجمالي المدفوعات: {patientPayments.length}
                                   </td>
                                 </tr>
                               </tbody>
@@ -779,7 +838,7 @@ export default function PatientDetailsModal({
                     <CardHeader className="card-header">
                       <CardTitle className="flex items-center gap-2 text-foreground text-right">
                         <DollarSign className="w-5 h-5" />
-                        تفاصيل المدفوعات
+                        تفاصيل المدفوعات الشاملة
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="card-content" dir="rtl">
@@ -787,25 +846,31 @@ export default function PatientDetailsModal({
                         <table className="w-full">
                           <thead className="bg-muted">
                             <tr>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                                الرقم التسلسلي
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
+                                #
                               </th>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
+                                النوع
+                              </th>
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
+                                التفاصيل
+                              </th>
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
                                 تاريخ الدفع
                               </th>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
                                 المبلغ المدفوع
                               </th>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
                                 الإجمالي المطلوب
                               </th>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
                                 المتبقي
                               </th>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
                                 طريقة الدفع
                               </th>
-                              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
                                 الحالة
                               </th>
                             </tr>
@@ -813,34 +878,98 @@ export default function PatientDetailsModal({
                           <tbody className="bg-background divide-y divide-border">
                             {patientPayments.map((payment, index) => {
                               const status = getPaymentStatusBadge(payment.status)
+
+                              // تحديد نوع الدفعة والتفاصيل
+                              let paymentType = 'عام'
+                              let paymentDetails = payment.description || 'دفعة عامة'
+                              let totalDue = payment.total_amount_due || 0
+                              let remaining = payment.remaining_balance || 0
+
+                              // تنظيف الوصف من معرفات العلاج
+                              if (payment.description) {
+                                paymentDetails = payment.description.replace(/\[علاج:[^\]]+\]/g, '').trim()
+                                paymentDetails = paymentDetails.replace(/^\s*-\s*/, '').trim()
+                              }
+
+                              // تنظيف الملاحظات من معرفات العلاج أيضاً
+                              let cleanNotes = payment.notes
+                              if (cleanNotes) {
+                                cleanNotes = cleanNotes.replace(/\[علاج:[^\]]+\]/g, '').trim()
+                                cleanNotes = cleanNotes.replace(/^\s*-\s*/, '').trim()
+                              }
+
+                              if (payment.tooth_treatment_id) {
+                                paymentType = 'علاج'
+                                const treatmentName = payment.tooth_treatment?.treatment_type
+                                  ? getTreatmentNameInArabic(payment.tooth_treatment.treatment_type)
+                                  : 'علاج سن'
+
+                                // استخدام اسم العلاج إذا كان الوصف فارغاً أو يحتوي فقط على معرف العلاج
+                                if (!paymentDetails || paymentDetails === 'دفعة عامة') {
+                                  paymentDetails = treatmentName
+                                }
+
+                                if (payment.tooth_treatment?.tooth_name) {
+                                  paymentDetails += ` - ${payment.tooth_treatment.tooth_name}`
+                                }
+                                totalDue = payment.treatment_total_cost || 0
+                                remaining = payment.treatment_remaining_balance || 0
+                              } else if (payment.appointment_id) {
+                                paymentType = 'موعد'
+                                paymentDetails = payment.appointment?.title || paymentDetails || 'موعد طبي'
+                                totalDue = payment.appointment_total_cost || payment.total_amount_due || 0
+                                remaining = payment.appointment_remaining_balance || payment.remaining_balance || 0
+                              }
+
                               return (
                                 <tr key={payment.id} className="hover:bg-muted/50 transition-colors">
-                                  <td className="px-4 py-3 text-sm text-foreground">
+                                  <td className="px-3 py-2 text-xs text-foreground">
                                     {index + 1}
                                   </td>
-                                  <td className="px-4 py-3 text-sm text-foreground">
+                                  <td className="px-3 py-2 text-xs">
+                                    <Badge
+                                      variant={
+                                        paymentType === 'علاج' ? 'default' :
+                                        paymentType === 'موعد' ? 'secondary' : 'outline'
+                                      }
+                                      className="text-xs"
+                                    >
+                                      {paymentType}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-3 py-2 text-xs text-foreground max-w-32">
+                                    <div className="truncate" title={paymentDetails}>
+                                      {paymentDetails}
+                                    </div>
+                                    {payment.tooth_treatment?.tooth_number && (
+                                      <div className="text-xs text-muted-foreground">
+                                        سن #{payment.tooth_treatment.tooth_number}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-xs text-foreground">
                                     {formatDate(payment.payment_date)}
                                   </td>
-                                  <td className="px-4 py-3 text-sm font-bold text-green-600 dark:text-green-400">
+                                  <td className="px-3 py-2 text-xs font-bold text-green-600 dark:text-green-400">
                                     {formatCurrency(payment.amount)}
                                   </td>
-                                  <td className="px-4 py-3 text-sm text-foreground">
-                                    {payment.total_amount_due ? formatCurrency(payment.total_amount_due) : '-'}
+                                  <td className="px-3 py-2 text-xs text-foreground">
+                                    {totalDue > 0 ? formatCurrency(totalDue) : '-'}
                                   </td>
-                                  <td className="px-4 py-3 text-sm font-medium">
-                                    {payment.remaining_balance !== undefined ? (
-                                      <span className={payment.remaining_balance > 0 ? 'text-destructive' : 'text-green-600 dark:text-green-400'}>
-                                        {formatCurrency(payment.remaining_balance)}
+                                  <td className="px-3 py-2 text-xs font-medium">
+                                    {remaining !== undefined ? (
+                                      <span className={remaining > 0 ? 'text-destructive' : 'text-green-600 dark:text-green-400'}>
+                                        {formatCurrency(remaining)}
                                       </span>
                                     ) : '-'}
                                   </td>
-                                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                                  <td className="px-3 py-2 text-xs text-muted-foreground">
                                     {payment.payment_method === 'cash' ? 'نقداً' :
                                      payment.payment_method === 'bank_transfer' ? 'تحويل بنكي' :
                                      payment.payment_method}
                                   </td>
-                                  <td className="px-4 py-3 text-sm">
-                                    <Badge variant={status.variant}>{status.label}</Badge>
+                                  <td className="px-3 py-2 text-xs">
+                                    <Badge variant={status.variant} className="text-xs">{status.label}</Badge>
                                   </td>
                                 </tr>
                               )
@@ -864,7 +993,9 @@ export default function PatientDetailsModal({
                                 {payment.description && (
                                   <div className="mb-1">
                                     <span className="text-xs text-muted-foreground">الوصف: </span>
-                                    <span className="text-xs text-foreground">{payment.description}</span>
+                                    <span className="text-xs text-foreground">
+                                      {payment.description.replace(/\[علاج:[^\]]+\]/g, '').trim().replace(/^\s*-\s*/, '').trim()}
+                                    </span>
                                   </div>
                                 )}
                                 {payment.receipt_number && (

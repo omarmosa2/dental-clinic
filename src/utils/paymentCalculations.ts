@@ -1,13 +1,16 @@
 import { Payment, Appointment } from '@/types'
 
 /**
- * حساب إجمالي المدفوعات لموعد محدد
+ * حساب إجمالي المدفوعات لموعد محدد (فقط من الدفعات الجزئية والمكتملة)
  */
 export function calculateAppointmentTotalPaid(appointmentId: string, payments: Payment[]): number {
   if (!appointmentId) return 0
 
   return payments
-    .filter(payment => payment.appointment_id === appointmentId)
+    .filter(payment =>
+      payment.appointment_id === appointmentId &&
+      (payment.status === 'partial' || payment.status === 'completed')
+    )
     .reduce((total, payment) => total + payment.amount, 0)
 }
 
@@ -21,6 +24,32 @@ export function calculateAppointmentRemainingBalance(
 ): number {
   const totalPaid = calculateAppointmentTotalPaid(appointmentId, payments)
   return Math.max(0, appointmentCost - totalPaid)
+}
+
+/**
+ * حساب إجمالي المدفوعات لعلاج محدد (فقط من الدفعات الجزئية والمكتملة)
+ */
+export function calculateTreatmentTotalPaid(treatmentId: string, payments: Payment[]): number {
+  if (!treatmentId) return 0
+
+  return payments
+    .filter(payment =>
+      payment.tooth_treatment_id === treatmentId &&
+      (payment.status === 'partial' || payment.status === 'completed')
+    )
+    .reduce((total, payment) => total + payment.amount, 0)
+}
+
+/**
+ * حساب الرصيد المتبقي لعلاج محدد
+ */
+export function calculateTreatmentRemainingBalance(
+  treatmentId: string,
+  treatmentCost: number,
+  payments: Payment[]
+): number {
+  const totalPaid = calculateTreatmentTotalPaid(treatmentId, payments)
+  return Math.max(0, treatmentCost - totalPaid)
 }
 
 /**
@@ -179,8 +208,11 @@ export function calculatePatientPaymentSummary(patientId: string, payments: Paym
     }
   })
 
-  // إضافة المدفوعات العامة غير المرتبطة بمواعيد
-  const generalPayments = patientPayments.filter(payment => !payment.appointment_id)
+  // إضافة المدفوعات العامة غير المرتبطة بمواعيد (فقط الجزئية والمكتملة)
+  const generalPayments = patientPayments.filter(payment =>
+    !payment.appointment_id &&
+    (payment.status === 'partial' || payment.status === 'completed')
+  )
   generalPayments.forEach(payment => {
     totalPaid += payment.amount
     if (payment.total_amount_due) {
@@ -188,8 +220,51 @@ export function calculatePatientPaymentSummary(patientId: string, payments: Paym
     }
   })
 
-  // حساب المبلغ المتبقي بشكل صحيح: الإجمالي المطلوب - الإجمالي المدفوع
-  const totalRemaining = Math.max(0, totalDue - totalPaid)
+  // حساب المبلغ المتبقي من الدفعات الجزئية فقط
+  let totalRemaining = 0
+
+  // المبلغ المتبقي من المواعيد (فقط من الدفعات الجزئية)
+  patientAppointments.forEach(appointment => {
+    if (appointment.cost) {
+      const partialPayments = patientPayments.filter(p =>
+        p.appointment_id === appointment.id && p.status === 'partial'
+      )
+      if (partialPayments.length > 0) {
+        const totalPaidForAppointment = partialPayments.reduce((sum, p) => sum + p.amount, 0)
+        totalRemaining += Math.max(0, appointment.cost - totalPaidForAppointment)
+      }
+    }
+  })
+
+  // المبلغ المتبقي من المدفوعات العامة (فقط من الدفعات الجزئية)
+  const partialGeneralPayments = patientPayments.filter(payment =>
+    !payment.appointment_id && payment.status === 'partial'
+  )
+  partialGeneralPayments.forEach(payment => {
+    if (payment.total_amount_due && payment.amount) {
+      totalRemaining += Math.max(0, payment.total_amount_due - payment.amount)
+    }
+  })
+
+  // المبلغ المتبقي من العلاجات (فقط من الدفعات الجزئية)
+  const treatmentPayments = patientPayments.filter(payment =>
+    payment.tooth_treatment_id && payment.status === 'partial'
+  )
+  const treatmentGroups: { [treatmentId: string]: Payment[] } = {}
+  treatmentPayments.forEach(payment => {
+    if (!treatmentGroups[payment.tooth_treatment_id!]) {
+      treatmentGroups[payment.tooth_treatment_id!] = []
+    }
+    treatmentGroups[payment.tooth_treatment_id!].push(payment)
+  })
+
+  Object.values(treatmentGroups).forEach(group => {
+    const totalPaidForTreatment = group.reduce((sum, p) => sum + p.amount, 0)
+    const treatmentCost = group[0].treatment_total_cost || 0
+    if (treatmentCost > 0) {
+      totalRemaining += Math.max(0, treatmentCost - totalPaidForTreatment)
+    }
+  })
 
   return {
     totalPaid,

@@ -10,6 +10,7 @@ import {
   ComprehensiveInvoiceData,
   ClinicSettings
 } from '@/types'
+import { getTreatmentNameInArabic } from '@/data/teethData'
 
 /**
  * خدمة حسابات المدفوعات المعلقة
@@ -83,13 +84,17 @@ export class PendingPaymentsService {
   static async getPatientPendingPayments(
     patientId: string,
     filter: PendingPaymentsFilter,
-    payments: Payment[]
+    payments: Payment[],
+    appointments: Appointment[] = [],
+    treatments: ToothTreatment[] = []
   ): Promise<PendingPaymentItem[]> {
     try {
       const dateRange = this.calculateDateRange(filter)
 
       // التحقق من وجود البيانات المطلوبة
       const safePayments = payments || []
+      const safeAppointments = appointments || []
+      const safeTreatments = treatments || []
 
       // فلترة المدفوعات المعلقة للمريض
       const patientPendingPayments = safePayments.filter(payment =>
@@ -109,48 +114,155 @@ export class PendingPaymentsService {
           ? safeAppointments.find(apt => apt.id === payment.appointment_id)
           : undefined
 
-        // البحث عن العلاجات المرتبطة بالموعد
-        const relatedTreatments = appointment
+        // البحث عن العلاج المرتبط مباشرة (النظام الجديد)
+        const directTreatment = payment.tooth_treatment_id
+          ? safeTreatments.find(treatment => treatment.id === payment.tooth_treatment_id)
+          : undefined
+
+        // البحث عن العلاجات المرتبطة بالموعد (النظام القديم)
+        const appointmentTreatments = appointment
           ? safeTreatments.filter(treatment => treatment.appointment_id === appointment.id)
           : []
+
+        // تحديد العلاج المستخدم (أولوية للعلاج المرتبط مباشرة)
+        const relatedTreatment = directTreatment || (appointmentTreatments.length === 1 ? appointmentTreatments[0] : undefined)
+        const allRelatedTreatments = directTreatment ? [directTreatment] : appointmentTreatments
 
         // إنشاء عنصر فاتورة للدفعة
         // للمدفوعات المعلقة، استخدام المبلغ الإجمالي المطلوب إذا كان المبلغ المدفوع 0
         const paymentAmount = payment.amount || 0
-        const totalAmountDue = payment.total_amount_due || 0
-        const remainingBalance = payment.remaining_balance || 0
 
-        // تحديد المبلغ المعلق الصحيح
+        // تحديد المبلغ المعلق حسب نوع الدفعة
         let pendingAmount = paymentAmount
-        if (paymentAmount === 0 && totalAmountDue > 0) {
-          pendingAmount = totalAmountDue
-        } else if (paymentAmount === 0 && remainingBalance > 0) {
-          pendingAmount = remainingBalance
-        } else if (remainingBalance > 0) {
-          pendingAmount = remainingBalance
+        let totalAmountDue = 0
+        let remainingBalance = 0
+
+        if (payment.tooth_treatment_id) {
+          // دفعة مرتبطة بعلاج مباشرة
+          totalAmountDue = payment.treatment_total_cost || 0
+          remainingBalance = payment.treatment_remaining_balance || 0
+          pendingAmount = remainingBalance > 0 ? remainingBalance : totalAmountDue
+        } else if (payment.appointment_id) {
+          // دفعة مرتبطة بموعد
+          totalAmountDue = payment.appointment_total_cost || payment.total_amount_due || 0
+          remainingBalance = payment.appointment_remaining_balance || payment.remaining_balance || 0
+          pendingAmount = remainingBalance > 0 ? remainingBalance : totalAmountDue
+        } else {
+          // دفعة عامة
+          totalAmountDue = payment.total_amount_due || 0
+          remainingBalance = payment.remaining_balance || 0
+          if (paymentAmount === 0 && totalAmountDue > 0) {
+            pendingAmount = totalAmountDue
+          } else if (paymentAmount === 0 && remainingBalance > 0) {
+            pendingAmount = remainingBalance
+          } else if (remainingBalance > 0) {
+            pendingAmount = remainingBalance
+          }
         }
 
+        // تحضير اسم العلاج بالعربية
+        let treatmentTypeArabic: string | undefined
+        if (relatedTreatment?.treatment_type) {
+          treatmentTypeArabic = getTreatmentNameInArabic(relatedTreatment.treatment_type)
+          // إذا لم تنجح الترجمة، استخدم النص الأصلي
+          if (treatmentTypeArabic === relatedTreatment.treatment_type) {
+            // محاولة ترجمة يدوية للعلاجات الشائعة
+            const manualTranslations: { [key: string]: string } = {
+              'pediatric_pulp_treatment': 'معالجة لبية',
+              'pulp_therapy': 'مداولة لبية',
+              'filling_metal': 'حشو معدني',
+              'filling_cosmetic': 'حشو تجميلي',
+              'crown_ceramic': 'تاج خزفي',
+              'extraction_simple': 'قلع بسيط'
+            }
+            treatmentTypeArabic = manualTranslations[relatedTreatment.treatment_type] || relatedTreatment.treatment_type
+          }
+        } else if (allRelatedTreatments.length > 0) {
+          treatmentTypeArabic = allRelatedTreatments
+            .map(t => {
+              let translated = getTreatmentNameInArabic(t.treatment_type)
+              if (translated === t.treatment_type) {
+                const manualTranslations: { [key: string]: string } = {
+                  'pediatric_pulp_treatment': 'معالجة لبية',
+                  'pulp_therapy': 'مداولة لبية',
+                  'filling_metal': 'حشو معدني',
+                  'filling_cosmetic': 'حشو تجميلي',
+                  'crown_ceramic': 'تاج خزفي',
+                  'extraction_simple': 'قلع بسيط'
+                }
+                translated = manualTranslations[t.treatment_type] || t.treatment_type
+              }
+              return translated
+            })
+            .join(', ')
+        }
 
+        // تنظيف الوصف من معرفات العلاج
+        let cleanDescription = payment.description
+        if (cleanDescription) {
+          // إزالة معرف العلاج من الوصف مثل [علاج:uuid]
+          cleanDescription = cleanDescription.replace(/\[علاج:[^\]]+\]/g, '').trim()
+          // إزالة الأقواس الفارغة إذا كانت موجودة
+          cleanDescription = cleanDescription.replace(/^\s*-\s*/, '').trim()
+          // إذا أصبح الوصف فارغاً، استخدم اسم العلاج
+          if (!cleanDescription && treatmentTypeArabic) {
+            cleanDescription = treatmentTypeArabic
+          }
+        }
+
+        // إذا لم يكن لدينا اسم علاج بالعربية، حاول استخراجه من الوصف
+        if (!treatmentTypeArabic && cleanDescription) {
+          // البحث عن أنماط شائعة في الوصف
+          const descriptionPatterns: { [key: string]: string } = {
+            'pediatric_pulp_treatment': 'معالجة لبية',
+            'معالجة لبية': 'معالجة لبية',
+            'علاج عصب': 'علاج عصب',
+            'حشو': 'حشو',
+            'تاج': 'تاج',
+            'قلع': 'قلع'
+          }
+
+          for (const [pattern, arabicName] of Object.entries(descriptionPatterns)) {
+            if (cleanDescription.includes(pattern)) {
+              treatmentTypeArabic = arabicName
+              break
+            }
+          }
+        }
+
+        // تنظيف الملاحظات أيضاً من معرفات العلاج
+        let cleanNotes = payment.notes
+        if (cleanNotes) {
+          cleanNotes = cleanNotes.replace(/\[علاج:[^\]]+\]/g, '').trim()
+          cleanNotes = cleanNotes.replace(/^\s*-\s*/, '').trim()
+        }
 
         const item: PendingPaymentItem = {
           id: payment.id,
           patient_id: payment.patient_id,
           appointment_id: payment.appointment_id,
+          tooth_treatment_id: payment.tooth_treatment_id, // إضافة معرف العلاج
           appointment_date: appointment?.start_time?.split('T')[0],
           appointment_title: appointment?.title,
-          treatment_type: relatedTreatments.length > 0
-            ? relatedTreatments.map(t => t.treatment_type).join(', ')
-            : undefined,
-          tooth_number: relatedTreatments.length === 1 ? relatedTreatments[0].tooth_number : undefined,
-          tooth_name: relatedTreatments.length === 1 ? relatedTreatments[0].tooth_name : undefined,
+          treatment_type: treatmentTypeArabic, // استخدام الترجمة العربية
+          tooth_number: relatedTreatment?.tooth_number,
+          tooth_name: relatedTreatment?.tooth_name,
           amount: this.roundToTwoDecimals(pendingAmount),
-          description: payment.description,
+          description: cleanDescription, // استخدام الوصف المنظف
           payment_date: payment.payment_date,
-          notes: payment.notes,
+          notes: cleanNotes,
           discount_amount: this.roundToTwoDecimals(payment.discount_amount || 0),
           tax_amount: this.roundToTwoDecimals(payment.tax_amount || 0),
-          total_amount: this.roundToTwoDecimals(payment.total_amount || pendingAmount)
+          total_amount: this.roundToTwoDecimals(payment.total_amount || pendingAmount),
+          // إضافة حقول للعلاجات
+          treatment_total_cost: payment.treatment_total_cost,
+          treatment_remaining_balance: payment.treatment_remaining_balance,
+          // إضافة حقول للمواعيد
+          appointment_total_cost: payment.appointment_total_cost,
+          appointment_remaining_balance: payment.appointment_remaining_balance
         }
+
+
 
         pendingItems.push(item)
       }

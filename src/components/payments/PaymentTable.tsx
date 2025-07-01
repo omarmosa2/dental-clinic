@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { getTreatmentNameInArabic } from '@/utils/arabicTranslations'
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -216,7 +217,7 @@ export default function PaymentTable({
             <TableRow>
               <TableHead className="text-center">الرقم التسلسلي</TableHead>
               <SortableHeader field="patient_name">المريض</SortableHeader>
-              <TableHead className="text-center">الموعد</TableHead>
+              <TableHead className="text-center">العلاج/الموعد</TableHead>
               <SortableHeader field="amount">المبلغ والرصيد</SortableHeader>
               <SortableHeader field="payment_method">طريقة الدفع</SortableHeader>
               <SortableHeader field="status">الحالة</SortableHeader>
@@ -258,7 +259,7 @@ export default function PaymentTable({
                   <span className="arabic-enhanced font-medium">المريض</span>
                 </SortableHeader>
                 <TableHead className="text-center">
-                  <span className="arabic-enhanced font-medium">الموعد</span>
+                  <span className="arabic-enhanced font-medium">العلاج/الموعد</span>
                 </TableHead>
                 <SortableHeader field="amount">
                   <span className="arabic-enhanced font-medium">المبلغ والرصيد</span>
@@ -292,7 +293,28 @@ export default function PaymentTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    {payment.appointment_id ? (
+                    {payment.tooth_treatment_id ? (
+                      // عرض معلومات العلاج
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium arabic-enhanced text-blue-600 dark:text-blue-400">
+                          السن {payment.tooth_treatment?.tooth_number}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {getTreatmentNameInArabic(payment.tooth_treatment?.treatment_type || '')}
+                        </div>
+                        {payment.treatment_total_cost && (
+                          <div className="text-xs text-muted-foreground">
+                            تكلفة: {formatCurrency(payment.treatment_total_cost)}
+                          </div>
+                        )}
+                        {payment.treatment_remaining_balance !== undefined && payment.treatment_remaining_balance > 0 && (
+                          <div className="text-xs text-orange-600 dark:text-orange-400">
+                            متبقي: {formatCurrency(payment.treatment_remaining_balance)}
+                          </div>
+                        )}
+                      </div>
+                    ) : payment.appointment_id ? (
+                      // عرض معلومات الموعد (للتوافق مع النظام القديم)
                       <div className="space-y-1">
                         {(() => {
                           // تحقق من وجود تاريخ الموعد
@@ -356,7 +378,26 @@ export default function PaymentTable({
                       <div className="font-medium text-lg">
                         {formatCurrency(payment.amount)}
                       </div>
-                      {payment.appointment_id ? (
+                      {payment.tooth_treatment_id ? (
+                        // للمدفوعات المرتبطة بعلاج
+                        <>
+                          {payment.treatment_total_cost && (
+                            <div className="text-xs text-muted-foreground">
+                              من أصل {formatCurrency(payment.treatment_total_cost)}
+                            </div>
+                          )}
+                          {payment.treatment_total_paid && (
+                            <div className="text-xs text-blue-600 dark:text-blue-400">
+                              إجمالي مدفوع: {formatCurrency(payment.treatment_total_paid)}
+                            </div>
+                          )}
+                          {payment.treatment_remaining_balance && payment.treatment_remaining_balance > 0 && (
+                            <div className="text-xs text-orange-600 dark:text-orange-400">
+                              متبقي: {formatCurrency(payment.treatment_remaining_balance)}
+                            </div>
+                          )}
+                        </>
+                      ) : payment.appointment_id ? (
                         // للمدفوعات المرتبطة بموعد
                         <>
                           {payment.total_amount_due && (

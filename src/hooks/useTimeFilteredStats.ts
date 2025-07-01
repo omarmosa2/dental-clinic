@@ -168,12 +168,19 @@ export function useTimeFilteredStats<T extends FilterableData>({
         const totalAmountDue = (item as any).total_amount_due || 0
 
         // للمدفوعات المعلقة، استخدم المبلغ الإجمالي المطلوب أو المتبقي إذا كان متوفراً
-        const remainingBalance = (item as any).remaining_balance || 0
         let pendingAmount = amount
-        if (totalAmountDue > 0) {
+
+        if (item.tooth_treatment_id) {
+          // للمدفوعات المرتبطة بعلاجات، استخدم التكلفة الإجمالية للعلاج
+          const treatmentCost = (item as any).treatment_total_cost || totalAmountDue || 0
+          pendingAmount = treatmentCost
+        } else if (totalAmountDue > 0) {
           pendingAmount = totalAmountDue
-        } else if (remainingBalance > 0) {
-          pendingAmount = remainingBalance
+        } else {
+          const remainingBalance = (item as any).remaining_balance || 0
+          if (remainingBalance > 0) {
+            pendingAmount = remainingBalance
+          }
         }
 
         return sum + (typeof pendingAmount === 'number' ? pendingAmount : parseFloat(pendingAmount) || 0)
@@ -209,14 +216,30 @@ export function useTimeFilteredStats<T extends FilterableData>({
         return sum + (typeof overdueAmount === 'number' ? overdueAmount : parseFloat(overdueAmount) || 0)
       }, 0)
 
-    // حساب المبالغ المتبقية من الدفعات الجزئية بشكل صحيح
-    // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
+    // حساب المبالغ المتبقية من الدفعات الجزئية فقط
+    // تجميع المدفوعات حسب الموعد والعلاج
     const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
+    const treatmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
     let generalRemainingBalance = 0
 
     filteredData.forEach((payment: any) => {
       if (payment.status === 'partial') {
-        if (payment.appointment_id) {
+        if (payment.tooth_treatment_id) {
+          // مدفوعات مرتبطة بعلاجات
+          const treatmentId = payment.tooth_treatment_id
+          const totalDue = payment.treatment_total_cost || payment.total_amount_due || 0
+          const paidAmount = payment.amount || 0
+
+          if (!treatmentGroups.has(treatmentId)) {
+            treatmentGroups.set(treatmentId, {
+              totalDue: typeof totalDue === 'number' ? totalDue : parseFloat(totalDue) || 0,
+              totalPaid: 0
+            })
+          }
+
+          const group = treatmentGroups.get(treatmentId)!
+          group.totalPaid += typeof paidAmount === 'number' ? paidAmount : parseFloat(paidAmount) || 0
+        } else if (payment.appointment_id) {
           // مدفوعات مرتبطة بمواعيد
           const appointmentId = payment.appointment_id
           const totalDue = payment.total_amount_due || payment.appointment_total_cost || 0
@@ -232,7 +255,7 @@ export function useTimeFilteredStats<T extends FilterableData>({
           const group = appointmentGroups.get(appointmentId)!
           group.totalPaid += typeof paidAmount === 'number' ? paidAmount : parseFloat(paidAmount) || 0
         } else {
-          // مدفوعات عامة غير مرتبطة بمواعيد
+          // مدفوعات عامة غير مرتبطة بمواعيد أو علاجات
           const totalDue = payment.total_amount_due || payment.amount || 0
           const paid = payment.amount_paid || payment.amount || 0
           const totalDueNum = typeof totalDue === 'number' ? totalDue : parseFloat(totalDue) || 0
@@ -247,8 +270,13 @@ export function useTimeFilteredStats<T extends FilterableData>({
       return sum + Math.max(0, group.totalDue - group.totalPaid)
     }, 0)
 
+    // حساب إجمالي المبالغ المتبقية من العلاجات
+    const treatmentRemainingBalance = Array.from(treatmentGroups.values()).reduce((sum, group) => {
+      return sum + Math.max(0, group.totalDue - group.totalPaid)
+    }, 0)
+
     // إجمالي المبالغ المتبقية
-    const totalRemainingBalance = appointmentRemainingBalance + generalRemainingBalance
+    const totalRemainingBalance = appointmentRemainingBalance + treatmentRemainingBalance + generalRemainingBalance
 
     return {
       totalRevenue,

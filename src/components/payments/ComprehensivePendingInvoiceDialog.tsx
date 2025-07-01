@@ -328,7 +328,9 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
       const pendingItems = await PendingPaymentsService.getPatientPendingPayments(
         patient.id,
         filter,
-        payments || []
+        payments || [],
+        appointments || [],
+        toothTreatments || []
       )
 
       const dateRange = PendingPaymentsService.calculateDateRange(filter)
@@ -417,18 +419,47 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
           const originalPayment = payments.find(p => p.id === item.id)
           if (!originalPayment) return
 
-          // حساب المبلغ المطلوب دفعه
-          const amountToPay = originalPayment.total_amount_due || originalPayment.remaining_balance || item.amount || 0
+          // حساب المبلغ المطلوب دفعه حسب نوع الدفعة
+          let amountToPay = 0
+          let updateData: any = {
+            status: 'completed' as const,
+            payment_date: new Date().toISOString().split('T')[0],
+            notes: `تم التأكيد عبر الفاتورة الشاملة - ${new Date().toLocaleDateString('ar-SA')}`
+          }
+
+          if (originalPayment.tooth_treatment_id) {
+            // دفعة مرتبطة بعلاج
+            amountToPay = originalPayment.treatment_total_cost || item.amount || 0
+            updateData = {
+              ...updateData,
+              amount: amountToPay,
+              treatment_total_paid: amountToPay,
+              treatment_remaining_balance: 0
+            }
+          } else if (originalPayment.appointment_id) {
+            // دفعة مرتبطة بموعد
+            amountToPay = originalPayment.appointment_total_cost || originalPayment.total_amount_due || item.amount || 0
+            updateData = {
+              ...updateData,
+              amount: amountToPay,
+              appointment_total_paid: amountToPay,
+              appointment_remaining_balance: 0,
+              amount_paid: amountToPay,
+              remaining_balance: 0
+            }
+          } else {
+            // دفعة عامة
+            amountToPay = originalPayment.total_amount_due || originalPayment.remaining_balance || item.amount || 0
+            updateData = {
+              ...updateData,
+              amount: amountToPay,
+              amount_paid: amountToPay,
+              remaining_balance: 0
+            }
+          }
 
           // تحديث الدفعة لتصبح مكتملة مع المبالغ الصحيحة
-          return updatePayment(item.id, {
-            status: 'completed' as const,
-            amount: amountToPay, // تحديث المبلغ المدفوع ليصبح المبلغ المطلوب
-            amount_paid: amountToPay, // إجمالي المبلغ المدفوع
-            remaining_balance: 0, // لا يوجد مبلغ متبقي
-            payment_date: new Date().toISOString().split('T')[0], // تحديث تاريخ الدفع
-            notes: `تم التأكيد عبر الفاتورة الشاملة - ${new Date().toLocaleDateString('ar-SA')}`
-          })
+          return updatePayment(item.id, updateData)
         })
 
       await Promise.all(updatePromises)
@@ -1360,10 +1391,10 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
                   </div>
                 </div>
 
-                {/* تفاصيل المدفوعات المعلقة - مضغوط */}
+                {/* تفاصيل المدفوعات المعلقة الشاملة - مضغوط */}
                 <div className="border rounded-lg p-3">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium">تفاصيل المدفوعات المعلقة</h3>
+                    <h3 className="text-sm font-medium">تفاصيل المدفوعات المعلقة الشاملة</h3>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
                         {pendingSummary.total_items} عنصر
@@ -1375,42 +1406,93 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
                   </div>
 
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {pendingSummary.items.map((item, index) => (
-                      <div key={item.id} className="flex items-center justify-between p-2 border rounded text-xs">
-                        <div className="flex-1">
-                          <div className="flex items-start gap-2">
-                            <span className="font-medium text-xs">{index + 1}.</span>
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">
-                                {item.appointment_title || item.treatment_type || item.description}
-                              </p>
-                              <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                                {item.payment_date && (
-                                  <p>📅 دفعة: {formatDate(item.payment_date)}</p>
-                                )}
-                                {item.appointment_date && (
-                                  <p>📅 موعد: {formatDate(item.appointment_date)}</p>
-                                )}
-                                {item.tooth_name && (
-                                  <p>🦷 {item.tooth_name} ({item.tooth_number})</p>
-                                )}
-                                {item.treatment_type && (
-                                  <p>🔧 {item.treatment_type}</p>
-                                )}
+                    {pendingSummary.items.map((item, index) => {
+                      // تحديد نوع العنصر والتفاصيل
+                      let itemType = 'عام'
+                      let itemIcon = '💰'
+                      let itemTitle = 'دفعة معلقة'
+
+                      // تنظيف الوصف من معرفات العلاج
+                      let cleanDescription = item.description
+                      if (cleanDescription) {
+                        cleanDescription = cleanDescription.replace(/\[علاج:[^\]]+\]/g, '').trim()
+                        cleanDescription = cleanDescription.replace(/^\s*-\s*/, '').trim()
+                      }
+
+                      if (item.tooth_treatment_id) {
+                        itemType = 'علاج'
+                        itemIcon = '🦷'
+                        // أولوية لاسم العلاج بالعربية، ثم الوصف المنظف
+                        itemTitle = item.treatment_type || cleanDescription || 'علاج سن'
+
+                      } else if (item.appointment_id) {
+                        itemType = 'موعد'
+                        itemIcon = '📅'
+                        itemTitle = item.appointment_title || cleanDescription || 'موعد طبي'
+                      } else {
+                        itemTitle = cleanDescription || 'دفعة معلقة'
+                      }
+
+                      return (
+                        <div key={item.id} className="flex items-center justify-between p-2 border rounded text-xs">
+                          <div className="flex-1">
+                            <div className="flex items-start gap-2">
+                              <span className="font-medium text-xs">{index + 1}.</span>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge
+                                    variant={
+                                      itemType === 'علاج' ? 'default' :
+                                      itemType === 'موعد' ? 'secondary' : 'outline'
+                                    }
+                                    className="text-xs px-1 py-0"
+                                  >
+                                    {itemIcon} {itemType}
+                                  </Badge>
+                                  <p className="font-medium text-sm">
+                                    {itemTitle}
+                                  </p>
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                  {item.payment_date && (
+                                    <p>📅 تاريخ الدفعة: {formatDate(item.payment_date)}</p>
+                                  )}
+                                  {item.appointment_date && (
+                                    <p>📅 تاريخ الموعد: {formatDate(item.appointment_date)}</p>
+                                  )}
+                                  {item.tooth_name && (
+                                    <p>🦷 {item.tooth_name} (سن #{item.tooth_number})</p>
+                                  )}
+                                  {item.treatment_type && itemType === 'علاج' && (
+                                    <p>🔧 نوع العلاج: {item.treatment_type}</p>
+                                  )}
+                                  {item.doctor_name && (
+                                    <p>👨‍⚕️ الطبيب: {item.doctor_name}</p>
+                                  )}
+                                  {item.notes && (
+                                    <p>📝 ملاحظات: {item.notes}</p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
+                          <div className="text-left ml-2">
+                            <p className="font-bold text-sm">{formatCurrency(item.amount)}</p>
+                            {item.discount_amount && item.discount_amount > 0 && (
+                              <p className="text-xs text-red-600">
+                                خصم: {formatCurrency(item.discount_amount)}
+                              </p>
+                            )}
+                            {/* عرض المبلغ المتبقي للعلاجات */}
+                            {itemType === 'علاج' && item.treatment_remaining_balance && item.treatment_remaining_balance > 0 && (
+                              <p className="text-xs text-orange-600">
+                                متبقي: {formatCurrency(item.treatment_remaining_balance)}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-left ml-2">
-                          <p className="font-bold text-sm">{formatCurrency(item.amount)}</p>
-                          {item.discount_amount && item.discount_amount > 0 && (
-                            <p className="text-xs text-red-600">
-                              خصم: {formatCurrency(item.discount_amount)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
 

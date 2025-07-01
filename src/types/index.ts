@@ -48,7 +48,8 @@ export interface Appointment {
 export interface Payment {
   id: string
   patient_id: string
-  appointment_id?: string // ربط مباشر بالموعد
+  tooth_treatment_id?: string // ربط مباشر بعلاج السن
+  appointment_id?: string // ربط اختياري بالموعد (للتوافق مع النظام القديم)
   amount: number // المبلغ المدفوع في هذه الدفعة
   payment_method: 'cash' | 'bank_transfer'
   payment_date: string
@@ -60,10 +61,10 @@ export interface Payment {
   tax_amount?: number
   total_amount?: number // المبلغ الإجمالي لهذه الدفعة (amount + tax - discount)
 
-  // حقول تتبع الرصيد لكل موعد
-  appointment_total_cost?: number // التكلفة الإجمالية للموعد
-  appointment_total_paid?: number // إجمالي المدفوع لهذا الموعد حتى الآن
-  appointment_remaining_balance?: number // المتبقي لهذا الموعد
+  // حقول تتبع الرصيد لكل علاج
+  treatment_total_cost?: number // التكلفة الإجمالية للعلاج
+  treatment_total_paid?: number // إجمالي المدفوع لهذا العلاج حتى الآن
+  treatment_remaining_balance?: number // المتبقي لهذا العلاج
 
   // حقول عامة للمدفوعات غير المرتبطة بموعد
   total_amount_due?: number // المبلغ الإجمالي المطلوب (للمدفوعات العامة)
@@ -75,6 +76,13 @@ export interface Payment {
   // Populated fields
   patient?: Patient
   appointment?: Appointment
+  tooth_treatment?: {
+    id: string
+    treatment_type: string
+    tooth_number: number
+    tooth_name?: string
+    cost?: number
+  }
 }
 
 export interface PaymentSummary {
@@ -369,6 +377,7 @@ export interface PendingPaymentItem {
   id: string
   patient_id: string
   appointment_id?: string
+  tooth_treatment_id?: string // ربط مباشر بعلاج السن
   appointment_date?: string
   appointment_title?: string
   treatment_type?: string
@@ -381,6 +390,14 @@ export interface PendingPaymentItem {
   discount_amount?: number
   tax_amount?: number
   total_amount?: number
+  // حقول إضافية للعلاجات
+  treatment_total_cost?: number
+  treatment_remaining_balance?: number
+  // حقول إضافية للمواعيد
+  appointment_total_cost?: number
+  appointment_remaining_balance?: number
+  // حقول إضافية للطبيب
+  doctor_name?: string
 }
 
 export interface PendingPaymentsSummary {

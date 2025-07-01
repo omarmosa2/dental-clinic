@@ -28,7 +28,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     create: (payment) => ipcRenderer.invoke('db:payments:create', payment),
     update: (id, payment) => ipcRenderer.invoke('db:payments:update', id, payment),
     delete: (id) => ipcRenderer.invoke('db:payments:delete', id),
-    search: (query) => ipcRenderer.invoke('db:payments:search', query)
+    search: (query) => ipcRenderer.invoke('db:payments:search', query),
+    getByToothTreatment: (toothTreatmentId) => ipcRenderer.invoke('db:payments:getByToothTreatment', toothTreatmentId),
+    getToothTreatmentSummary: (toothTreatmentId) => ipcRenderer.invoke('db:payments:getToothTreatmentSummary', toothTreatmentId)
   },
 
   // Treatment operations

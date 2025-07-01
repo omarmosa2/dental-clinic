@@ -47,7 +47,9 @@ interface PaymentActions {
   calculatePaymentMethodStats: () => void
   getPaymentsByPatient: (patientId: string) => Payment[]
   getPaymentsByAppointment: (appointmentId: string) => Payment[]
+  getPaymentsByToothTreatment: (toothTreatmentId: string) => Payment[]
   getPaymentsByDateRange: (startDate: Date, endDate: Date) => Payment[]
+  getToothTreatmentPaymentSummary: (toothTreatmentId: string) => Promise<any>
 
   // Payment status operations
   markAsCompleted: (id: string) => Promise<void>
@@ -369,12 +371,19 @@ export const usePaymentStore = create<PaymentStore>()(
             const totalAmountDue = validateAmount(payment.total_amount_due)
 
             // للمدفوعات المعلقة، استخدم المبلغ الإجمالي المطلوب أو المتبقي إذا كان متوفراً
-            const remainingBalance = validateAmount(payment.remaining_balance)
             let pendingAmount = amount
-            if (totalAmountDue > 0) {
+
+            if (payment.tooth_treatment_id) {
+              // للمدفوعات المرتبطة بعلاجات، استخدم التكلفة الإجمالية للعلاج
+              const treatmentCost = validateAmount(payment.treatment_total_cost) || totalAmountDue
+              pendingAmount = treatmentCost
+            } else if (totalAmountDue > 0) {
               pendingAmount = totalAmountDue
-            } else if (remainingBalance > 0) {
-              pendingAmount = remainingBalance
+            } else {
+              const remainingBalance = validateAmount(payment.remaining_balance)
+              if (remainingBalance > 0) {
+                pendingAmount = remainingBalance
+              }
             }
 
             return sum + pendingAmount
@@ -390,8 +399,29 @@ export const usePaymentStore = create<PaymentStore>()(
         const { payments } = get()
         let totalRemaining = 0
 
-        // حساب المبلغ المتبقي من المدفوعات المرتبطة بالمواعيد
-        const appointmentPayments = payments.filter(p => p.appointment_id)
+        // حساب المبلغ المتبقي من المدفوعات المرتبطة بالعلاجات (فقط من الدفعات الجزئية)
+        const treatmentPayments = payments.filter(p => p.tooth_treatment_id && p.status === 'partial')
+        const treatmentGroups: { [treatmentId: string]: Payment[] } = {}
+
+        treatmentPayments.forEach(payment => {
+          if (!treatmentGroups[payment.tooth_treatment_id!]) {
+            treatmentGroups[payment.tooth_treatment_id!] = []
+          }
+          treatmentGroups[payment.tooth_treatment_id!].push(payment)
+        })
+
+        // حساب المتبقي لكل علاج (فقط من الدفعات الجزئية)
+        Object.keys(treatmentGroups).forEach(treatmentId => {
+          const treatmentPaymentsList = treatmentGroups[treatmentId]
+          // استخدام آخر دفعة للحصول على المعلومات المحدثة
+          const latestPayment = treatmentPaymentsList[treatmentPaymentsList.length - 1]
+          if (latestPayment.treatment_remaining_balance !== undefined) {
+            totalRemaining += latestPayment.treatment_remaining_balance
+          }
+        })
+
+        // حساب المبلغ المتبقي من المدفوعات المرتبطة بالمواعيد (فقط من الدفعات الجزئية)
+        const appointmentPayments = payments.filter(p => p.appointment_id && !p.tooth_treatment_id && p.status === 'partial')
         const appointmentGroups: { [appointmentId: string]: Payment[] } = {}
 
         appointmentPayments.forEach(payment => {
@@ -401,18 +431,18 @@ export const usePaymentStore = create<PaymentStore>()(
           appointmentGroups[payment.appointment_id!].push(payment)
         })
 
-        // حساب المتبقي لكل موعد
+        // حساب المتبقي لكل موعد (فقط من الدفعات الجزئية)
         Object.keys(appointmentGroups).forEach(appointmentId => {
           const appointmentPaymentsList = appointmentGroups[appointmentId]
           // استخدام آخر دفعة للحصول على المعلومات المحدثة
           const latestPayment = appointmentPaymentsList[appointmentPaymentsList.length - 1]
-          if (latestPayment.appointment_remaining_balance !== undefined) {
-            totalRemaining += latestPayment.appointment_remaining_balance
+          if (latestPayment.remaining_balance !== undefined) {
+            totalRemaining += latestPayment.remaining_balance
           }
         })
 
-        // حساب المبلغ المتبقي من المدفوعات العامة (غير المرتبطة بمواعيد)
-        const generalPayments = payments.filter(p => !p.appointment_id)
+        // حساب المبلغ المتبقي من المدفوعات العامة (فقط من الدفعات الجزئية)
+        const generalPayments = payments.filter(p => !p.appointment_id && !p.tooth_treatment_id && p.status === 'partial')
         generalPayments.forEach(payment => {
           if (payment.remaining_balance !== undefined && payment.remaining_balance > 0) {
             totalRemaining += payment.remaining_balance
@@ -520,6 +550,11 @@ export const usePaymentStore = create<PaymentStore>()(
         return payments.filter(p => p.appointment_id === appointmentId)
       },
 
+      getPaymentsByToothTreatment: (toothTreatmentId) => {
+        const { payments } = get()
+        return payments.filter(p => p.tooth_treatment_id === toothTreatmentId)
+      },
+
       getPaymentsByDateRange: (startDate, endDate) => {
         const { payments } = get()
 
@@ -527,6 +562,15 @@ export const usePaymentStore = create<PaymentStore>()(
           const paymentDate = new Date(payment.payment_date)
           return paymentDate >= startDate && paymentDate <= endDate
         })
+      },
+
+      getToothTreatmentPaymentSummary: async (toothTreatmentId) => {
+        try {
+          return await window.electronAPI.payments.getToothTreatmentSummary(toothTreatmentId)
+        } catch (error) {
+          console.error('Failed to get tooth treatment payment summary:', error)
+          throw error
+        }
       },
 
       // Payment status operations

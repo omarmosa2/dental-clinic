@@ -497,20 +497,41 @@ export class ReportsService {
         const amount = validateAmount(p.amount)
         const totalAmountDue = validateAmount(p.total_amount_due)
 
-        // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
-        const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
+        let pendingAmount = amount
+
+        if (p.tooth_treatment_id) {
+          // للمدفوعات المرتبطة بعلاجات، استخدم التكلفة الإجمالية للعلاج
+          const treatmentCost = validateAmount(p.treatment_total_cost) || totalAmountDue
+          pendingAmount = treatmentCost
+        } else if (amount === 0 && totalAmountDue > 0) {
+          // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+          pendingAmount = totalAmountDue
+        }
 
         return sum + pendingAmount
       }, 0)
 
-    // حساب إجمالي المبلغ المتبقي من جميع المدفوعات الجزئية بشكل صحيح
-    // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
+    // حساب إجمالي المبلغ المتبقي من الدفعات الجزئية فقط
+    // تجميع المدفوعات حسب الموعد والعلاج
     const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
+    const treatmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
     let generalRemainingBalance = 0
 
     filteredPayments.forEach(payment => {
       if (payment.status === 'partial') {
-        if (payment.appointment_id) {
+        if (payment.tooth_treatment_id) {
+          // مدفوعات مرتبطة بعلاجات
+          const treatmentId = payment.tooth_treatment_id
+          const totalDue = payment.treatment_total_cost || payment.total_amount_due || 0
+          const paidAmount = payment.amount || 0
+
+          if (!treatmentGroups.has(treatmentId)) {
+            treatmentGroups.set(treatmentId, { totalDue: validateAmount(totalDue), totalPaid: 0 })
+          }
+
+          const group = treatmentGroups.get(treatmentId)!
+          group.totalPaid += validateAmount(paidAmount)
+        } else if (payment.appointment_id) {
           // مدفوعات مرتبطة بمواعيد
           const appointmentId = payment.appointment_id
           const totalDue = payment.total_amount_due || payment.appointment_total_cost || 0
@@ -523,7 +544,7 @@ export class ReportsService {
           const group = appointmentGroups.get(appointmentId)!
           group.totalPaid += validateAmount(paidAmount)
         } else {
-          // مدفوعات عامة غير مرتبطة بمواعيد
+          // مدفوعات عامة غير مرتبطة بمواعيد أو علاجات
           const totalDue = payment.total_amount_due || payment.amount || 0
           const paid = payment.amount_paid || payment.amount || 0
           generalRemainingBalance += Math.max(0, validateAmount(totalDue) - validateAmount(paid))
@@ -536,8 +557,13 @@ export class ReportsService {
       return sum + Math.max(0, group.totalDue - group.totalPaid)
     }, 0)
 
+    // حساب إجمالي المبالغ المتبقية من العلاجات
+    const treatmentRemainingBalance = Array.from(treatmentGroups.values()).reduce((sum, group) => {
+      return sum + Math.max(0, group.totalDue - group.totalPaid)
+    }, 0)
+
     // إجمالي المبالغ المتبقية
-    const totalRemaining = appointmentRemainingBalance + generalRemainingBalance
+    const totalRemaining = appointmentRemainingBalance + treatmentRemainingBalance + generalRemainingBalance
 
     const totalOverdue = 0 // لا يوجد مدفوعات متأخرة في النظام الحالي
 

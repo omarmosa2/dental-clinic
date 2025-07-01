@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { usePaymentStore } from '@/store/paymentStore'
 import { usePatientStore } from '@/store/patientStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
+import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
 import { useToast } from '@/hooks/use-toast'
+import { getTreatmentNameInArabic } from '@/utils/arabicTranslations'
 import {
   Select,
   SelectContent,
@@ -31,13 +33,15 @@ interface AddPaymentDialogProps {
 export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatientId }: AddPaymentDialogProps) {
 
   const { toast } = useToast()
-  const { createPayment, isLoading, getPaymentsByPatient, getPaymentsByAppointment } = usePaymentStore()
+  const { createPayment, updatePayment, isLoading, getPaymentsByPatient, getPaymentsByAppointment, getPaymentsByToothTreatment } = usePaymentStore()
   const { patients } = usePatientStore()
   const { appointments } = useAppointmentStore()
+  const { toothTreatments, loadToothTreatmentsByPatient } = useDentalTreatmentStore()
   const { formatAmount } = useCurrency()
 
   const [formData, setFormData] = useState({
     patient_id: '',
+    tooth_treatment_id: 'none',
     appointment_id: 'none',
     amount: '',
     payment_method: 'cash' as 'cash' | 'bank_transfer',
@@ -76,6 +80,13 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     return appointmentPayments.reduce((total, payment) => total + payment.amount, 0)
   }
 
+  // حساب إجمالي المدفوعات السابقة للعلاج المحدد
+  const calculatePreviousPaymentsForTreatment = (toothTreatmentId: string) => {
+    if (!toothTreatmentId || toothTreatmentId === 'none') return 0
+    const treatmentPayments = getPaymentsByToothTreatment(toothTreatmentId)
+    return treatmentPayments.reduce((total, payment) => total + payment.amount, 0)
+  }
+
   // الحصول على المبلغ الإجمالي المطلوب (من الإدخال اليدوي)
   const getTotalAmountDue = () => {
     return parseFloat(formData.total_amount_due) || 0
@@ -100,7 +111,19 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : 0
 
     if (totalAmountDue > 0) {
-      if (formData.appointment_id && formData.appointment_id !== 'none') {
+      if (formData.tooth_treatment_id && formData.tooth_treatment_id !== 'none') {
+        // للمدفوعات المرتبطة بعلاج
+        const previousPayments = autoCalculations.previousPayments
+        const newTotalPaid = previousPayments + amount
+
+        if (newTotalPaid >= totalAmountDue) {
+          return 'completed'
+        } else if (newTotalPaid > 0) {
+          return 'partial'
+        } else {
+          return 'pending'
+        }
+      } else if (formData.appointment_id && formData.appointment_id !== 'none') {
         // للمدفوعات المرتبطة بموعد - استخدام المبلغ الإجمالي المدخل يدوياً
         const previousPayments = autoCalculations.previousPayments
         const newTotalPaid = previousPayments + amount
@@ -142,7 +165,33 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     return amount + taxAmount - discountAmount
   }
 
-  // تحديث الحسابات التلقائية عند تغيير الموعد
+  // تحديث الحسابات التلقائية عند تغيير العلاج
+  useEffect(() => {
+    if (formData.tooth_treatment_id && formData.tooth_treatment_id !== 'none') {
+      setAutoCalculations(prev => ({ ...prev, isCalculating: true }))
+
+      const selectedTreatment = toothTreatments.find(t => t.id === formData.tooth_treatment_id)
+      const treatmentCost = selectedTreatment?.cost || 0
+      const previousPayments = calculatePreviousPaymentsForTreatment(formData.tooth_treatment_id)
+      const suggestedReceiptNumber = generateReceiptNumber()
+
+      setAutoCalculations({
+        previousPayments,
+        suggestedReceiptNumber,
+        isCalculating: false
+      })
+
+      // تحديث المبلغ الإجمالي المطلوب والمبلغ المقترح
+      setFormData(prev => ({
+        ...prev,
+        total_amount_due: treatmentCost.toString(),
+        amount: Math.max(0, treatmentCost - previousPayments).toString(),
+        receipt_number: prev.receipt_number || suggestedReceiptNumber
+      }))
+    }
+  }, [formData.tooth_treatment_id, toothTreatments, getPaymentsByToothTreatment])
+
+  // تحديث الحسابات التلقائية عند تغيير الموعد (للتوافق مع النظام القديم)
   useEffect(() => {
     if (formData.appointment_id && formData.appointment_id !== 'none') {
       setAutoCalculations(prev => ({ ...prev, isCalculating: true }))
@@ -200,6 +249,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     if (!open) {
       setFormData({
         patient_id: '',
+        tooth_treatment_id: 'none',
         appointment_id: 'none',
         amount: '',
         payment_method: 'cash',
@@ -232,6 +282,13 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     }
   }, [open, preSelectedPatientId])
 
+  // تحميل العلاجات عند اختيار المريض
+  useEffect(() => {
+    if (formData.patient_id && formData.patient_id !== '') {
+      loadToothTreatmentsByPatient(formData.patient_id)
+    }
+  }, [formData.patient_id, loadToothTreatmentsByPatient])
+
   // تحديث الحالة تلقائياً عند تغيير المبلغ أو المبلغ الإجمالي
   useEffect(() => {
     // تحديث الحالة إذا كان هناك مبلغ إجمالي مطلوب أو مبلغ مدفوع
@@ -245,7 +302,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
         status: suggestedStatus
       }))
     }
-  }, [formData.amount, formData.total_amount_due, formData.appointment_id, autoCalculations.previousPayments])
+  }, [formData.amount, formData.total_amount_due, formData.tooth_treatment_id, formData.appointment_id, autoCalculations.previousPayments])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -283,7 +340,18 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
     })
 
     // التحقق من صحة المبلغ مع المبلغ الإجمالي
-    if (formData.appointment_id && formData.appointment_id !== 'none') {
+    if (formData.tooth_treatment_id && formData.tooth_treatment_id !== 'none') {
+      // للمدفوعات المرتبطة بعلاج
+      const remainingBeforeThisPayment = totalAmountDue - autoCalculations.previousPayments
+
+      if (totalAmountDue > 0 && amount > remainingBeforeThisPayment) {
+        newErrors.amount = `مبلغ هذه الدفعة لا يمكن أن يكون أكبر من المبلغ المتبقي (${formatAmount(remainingBeforeThisPayment)})`
+      }
+
+      if (amount <= 0 && totalAmountDue > 0) {
+        newErrors.amount = 'يجب أن يكون مبلغ الدفعة أكبر من صفر'
+      }
+    } else if (formData.appointment_id && formData.appointment_id !== 'none') {
       // للمدفوعات المرتبطة بموعد - استخدام المبلغ الإجمالي المدخل
       const remainingBeforeThisPayment = totalAmountDue - autoCalculations.previousPayments
 
@@ -345,8 +413,18 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
       const totalAmountDue = formData.total_amount_due ? parseFloat(formData.total_amount_due) : totalAmount
       paymentData.total_amount_due = totalAmountDue
 
-      // إضافة البيانات الخاصة بالمواعيد أو المدفوعات العامة
-      if (formData.appointment_id && formData.appointment_id !== 'none') {
+      // إضافة البيانات الخاصة بالعلاجات أو المواعيد أو المدفوعات العامة
+      if (formData.tooth_treatment_id && formData.tooth_treatment_id !== 'none') {
+        // دفعة مرتبطة بعلاج
+        paymentData.tooth_treatment_id = formData.tooth_treatment_id
+        paymentData.treatment_total_cost = totalAmountDue
+
+        // حساب المبلغ المدفوع والمتبقي للعلاج
+        const amountPaid = calculateTotalAmountPaid()
+        const remainingBalance = totalAmountDue - amountPaid
+        paymentData.treatment_total_paid = amountPaid
+        paymentData.treatment_remaining_balance = remainingBalance
+      } else if (formData.appointment_id && formData.appointment_id !== 'none') {
         // دفعة مرتبطة بموعد - استخدام المبلغ الإجمالي المدخل يدوياً
         paymentData.appointment_total_cost = totalAmountDue
 
@@ -356,7 +434,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
         paymentData.amount_paid = amountPaid
         paymentData.remaining_balance = remainingBalance
       } else {
-        // دفعة عامة غير مرتبطة بموعد
+        // دفعة عامة غير مرتبطة بعلاج أو موعد
         const amountPaid = calculateTotalAmountPaid()
         const remainingBalance = totalAmountDue - amountPaid
 
@@ -369,17 +447,74 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
       console.log('🔍 Total amount due being sent:', totalAmountDue)
       console.log('🔍 Payment data total_amount_due:', paymentData.total_amount_due)
 
-      const result = await createPayment(paymentData)
-      console.log('✅ Payment created successfully:', result)
+      let result
+
+      // التحقق من وجود دفعة موجودة للعلاج وتحديثها بدلاً من إنشاء دفعة جديدة
+      if (formData.tooth_treatment_id && formData.tooth_treatment_id !== 'none') {
+        const existingPayments = getPaymentsByToothTreatment(formData.tooth_treatment_id)
+
+        if (existingPayments.length > 0) {
+          // البحث عن دفعة معلقة أولاً، وإلا استخدم أول دفعة موجودة
+          const pendingPayment = existingPayments.find(p => p.status === 'pending')
+          const targetPayment = pendingPayment || existingPayments[0]
+
+          // حساب المبلغ الجديد
+          const updatedAmount = targetPayment.amount + amount
+
+          // تحديد الحالة الجديدة
+          let newStatus: 'completed' | 'partial' | 'pending'
+          if (updatedAmount >= totalAmountDue) {
+            newStatus = 'completed'
+          } else if (updatedAmount > 0) {
+            newStatus = 'partial'
+          } else {
+            newStatus = 'pending'
+          }
+
+          const updateData = {
+            amount: updatedAmount,
+            payment_method: formData.payment_method,
+            payment_date: formData.payment_date,
+            description: formData.description || targetPayment.description,
+            receipt_number: formData.receipt_number || autoCalculations.suggestedReceiptNumber || targetPayment.receipt_number,
+            status: newStatus,
+            notes: formData.notes || targetPayment.notes,
+            discount_amount: discountAmount > 0 ? discountAmount : targetPayment.discount_amount,
+            tax_amount: taxAmount > 0 ? taxAmount : targetPayment.tax_amount,
+            total_amount: updatedAmount + (taxAmount || 0) - (discountAmount || 0),
+            total_amount_due: totalAmountDue,
+            treatment_total_cost: totalAmountDue,
+            treatment_total_paid: updatedAmount,
+            treatment_remaining_balance: Math.max(0, totalAmountDue - updatedAmount)
+          }
+
+          console.log('🔄 Updating existing payment for treatment:', targetPayment.id, updateData)
+          result = await updatePayment(targetPayment.id, updateData)
+          console.log('✅ Payment updated successfully:', result)
+        } else {
+          // إنشاء دفعة جديدة إذا لم توجد دفعة للعلاج
+          result = await createPayment(paymentData)
+          console.log('✅ Payment created successfully:', result)
+        }
+      } else {
+        // للمدفوعات غير المرتبطة بعلاج، إنشاء دفعة جديدة
+        result = await createPayment(paymentData)
+        console.log('✅ Payment created successfully:', result)
+      }
+
+      // رسالة نجاح مخصصة حسب نوع العملية
+      const isUpdate = formData.tooth_treatment_id && formData.tooth_treatment_id !== 'none' &&
+                      getPaymentsByToothTreatment(formData.tooth_treatment_id).length > 0
 
       toast({
         title: 'تم بنجاح',
-        description: 'تم تسجيل الدفعة بنجاح',
+        description: isUpdate ? 'تم تحديث الدفعة الموجودة بنجاح' : 'تم تسجيل الدفعة بنجاح',
       })
 
       // إعادة تعيين النموذج
       setFormData({
         patient_id: preSelectedPatientId || '',
+        tooth_treatment_id: 'none',
         appointment_id: 'none',
         amount: '',
         payment_method: 'cash' as 'cash' | 'bank_transfer',
@@ -407,6 +542,27 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
 
   const filteredAppointments = appointments.filter(
     appointment => appointment.patient_id === formData.patient_id
+  )
+
+  const filteredToothTreatments = toothTreatments.filter(
+    treatment => {
+      if (treatment.patient_id !== formData.patient_id) return false
+
+      // التحقق من حالة الدفع للعلاج
+      const treatmentPayments = getPaymentsByToothTreatment(treatment.id)
+      const treatmentCost = treatment.cost || 0
+
+      // إذا لم توجد مدفوعات، اعرض العلاج
+      if (treatmentPayments.length === 0) return true
+
+      // حساب إجمالي المدفوع (فقط المدفوعات المكتملة والجزئية)
+      const totalPaid = treatmentPayments
+        .filter(payment => payment.status === 'completed' || payment.status === 'partial')
+        .reduce((sum, payment) => sum + payment.amount, 0)
+
+      // إخفاء العلاجات المدفوعة بالكامل فقط
+      return totalPaid < treatmentCost
+    }
   )
 
   return (
@@ -459,12 +615,60 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                   )}
                 </div>
 
-                {/* Appointment Selection */}
+                {/* Treatment Selection */}
+                <div className="space-y-2">
+                  <Label className="text-foreground font-medium">العلاج *</Label>
+                  <Select
+                    value={formData.tooth_treatment_id}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      tooth_treatment_id: value,
+                      appointment_id: 'none' // إعادة تعيين الموعد عند اختيار علاج
+                    }))}
+                    disabled={!formData.patient_id}
+                  >
+                    <SelectTrigger className="bg-background border-input text-foreground">
+                      <SelectValue placeholder="اختر العلاج" className="text-muted-foreground" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">بدون علاج محدد</SelectItem>
+                      {filteredToothTreatments.map((treatment) => {
+                        // حساب المبلغ المتبقي للعلاج
+                        const treatmentPayments = getPaymentsByToothTreatment(treatment.id)
+                        const treatmentCost = treatment.cost || 0
+                        const totalPaid = treatmentPayments
+                          .filter(payment => payment.status === 'completed' || payment.status === 'partial')
+                          .reduce((sum, payment) => sum + payment.amount, 0)
+                        const remainingAmount = treatmentCost - totalPaid
+
+                        return (
+                          <SelectItem key={treatment.id} value={treatment.id}>
+                            <div className="flex flex-col">
+                              <span>{`السن ${treatment.tooth_number} - ${getTreatmentNameInArabic(treatment.treatment_type)}`}</span>
+                              <div className="text-xs text-muted-foreground">
+                                <span>التكلفة: {formatAmount(treatmentCost)}</span>
+                                {remainingAmount > 0 && remainingAmount < treatmentCost && (
+                                  <span className="text-orange-600 font-medium"> • متبقي: {formatAmount(remainingAmount)}</span>
+                                )}
+                              </div>
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Appointment Selection (للتوافق مع النظام القديم) */}
                 <div className="space-y-2">
                   <Label className="text-foreground font-medium">الموعد (اختياري)</Label>
                   <Select
                     value={formData.appointment_id}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, appointment_id: value }))}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      appointment_id: value,
+                      tooth_treatment_id: value !== 'none' ? 'none' : prev.tooth_treatment_id // إعادة تعيين العلاج عند اختيار موعد
+                    }))}
                     disabled={!formData.patient_id}
                   >
                     <SelectTrigger className="bg-background border-input text-foreground">

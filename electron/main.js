@@ -509,6 +509,20 @@ ipcMain.handle('db:payments:getAll', async () => {
   }
 })
 
+// Add migration handler for tooth_treatment_id column
+ipcMain.handle('db:migrate:ensureToothTreatmentId', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.ensureToothTreatmentIdColumn()
+    } else {
+      return false
+    }
+  } catch (error) {
+    console.error('Error ensuring tooth_treatment_id column:', error)
+    throw error
+  }
+})
+
 ipcMain.handle('db:payments:create', async (_, payment) => {
   try {
     if (databaseService) {
@@ -571,6 +585,45 @@ ipcMain.handle('db:payments:search', async (_, query) => {
     }
   } catch (error) {
     console.error('Error searching payments:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:payments:getByToothTreatment', async (_, toothTreatmentId) => {
+  try {
+    if (databaseService) {
+      const results = await databaseService.getPaymentsByToothTreatment(toothTreatmentId)
+      console.log('Getting payments by tooth treatment:', toothTreatmentId, 'Results:', results.length)
+      return results
+    } else {
+      console.log('Getting payments by tooth treatment (mock):', toothTreatmentId)
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting payments by tooth treatment:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:payments:getToothTreatmentSummary', async (_, toothTreatmentId) => {
+  try {
+    if (databaseService) {
+      const summary = await databaseService.getToothTreatmentPaymentSummary(toothTreatmentId)
+      console.log('Getting tooth treatment payment summary:', toothTreatmentId)
+      return summary
+    } else {
+      console.log('Getting tooth treatment payment summary (mock):', toothTreatmentId)
+      return {
+        treatmentCost: 0,
+        totalPaid: 0,
+        remainingBalance: 0,
+        paymentCount: 0,
+        status: 'pending',
+        payments: []
+      }
+    }
+  } catch (error) {
+    console.error('Error getting tooth treatment payment summary:', error)
     throw error
   }
 })

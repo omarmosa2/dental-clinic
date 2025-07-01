@@ -75,6 +75,11 @@ class DatabaseService {
 
     // Run migrations to ensure all fields exist
     this.runMigrations()
+
+    // Ensure tooth_treatment_id column exists
+    this.ensureToothTreatmentIdColumn().catch(error => {
+      console.warn('⚠️ Failed to ensure tooth_treatment_id column:', error.message)
+    })
   }
 
   initializeFallbackSchema() {
@@ -130,6 +135,7 @@ class DatabaseService {
       `CREATE TABLE IF NOT EXISTS payments (
         id TEXT PRIMARY KEY,
         patient_id TEXT NOT NULL,
+        tooth_treatment_id TEXT,
         appointment_id TEXT,
         amount DECIMAL(10,2) NOT NULL,
         payment_method TEXT NOT NULL,
@@ -141,9 +147,9 @@ class DatabaseService {
         discount_amount DECIMAL(10,2) DEFAULT 0,
         tax_amount DECIMAL(10,2) DEFAULT 0,
         total_amount DECIMAL(10,2),
-        appointment_total_cost DECIMAL(10,2),
-        appointment_total_paid DECIMAL(10,2),
-        appointment_remaining_balance DECIMAL(10,2),
+        treatment_total_cost DECIMAL(10,2),
+        treatment_total_paid DECIMAL(10,2),
+        treatment_remaining_balance DECIMAL(10,2),
         total_amount_due DECIMAL(10,2),
         amount_paid DECIMAL(10,2),
         remaining_balance DECIMAL(10,2),
@@ -524,6 +530,28 @@ class DatabaseService {
           DROP TABLE dental_treatments_backup;
 
           PRAGMA foreign_keys = ON;
+        `
+      },
+      {
+        version: 10,
+        sql: `
+          -- Add tooth_treatment_id support to payments table
+          -- This migration adds support for linking payments to specific tooth treatments
+
+          -- Check if tooth_treatment_id column exists
+          PRAGMA table_info(payments);
+
+          -- Add tooth_treatment_id column if it doesn't exist
+          ALTER TABLE payments ADD COLUMN tooth_treatment_id TEXT;
+
+          -- Add treatment payment tracking columns
+          ALTER TABLE payments ADD COLUMN treatment_total_cost DECIMAL(10,2);
+          ALTER TABLE payments ADD COLUMN treatment_total_paid DECIMAL(10,2);
+          ALTER TABLE payments ADD COLUMN treatment_remaining_balance DECIMAL(10,2);
+
+          -- Create indexes for better performance
+          CREATE INDEX IF NOT EXISTS idx_payments_tooth_treatment ON payments(tooth_treatment_id);
+          CREATE INDEX IF NOT EXISTS idx_payments_patient_treatment ON payments(patient_id, tooth_treatment_id);
         `
       }
     ]
@@ -1285,21 +1313,53 @@ class DatabaseService {
   async getAllPayments() {
     this.ensureConnection()
 
-    const stmt = this.db.prepare(`
-      SELECT
-        p.*,
-        pt.full_name as patient_name,
-        pt.full_name as patient_full_name,
-        pt.phone as patient_phone,
-        pt.email as patient_email,
-        a.title as appointment_title,
-        a.start_time as appointment_start_time,
-        a.end_time as appointment_end_time
-      FROM payments p
-      LEFT JOIN patients pt ON p.patient_id = pt.id
-      LEFT JOIN appointments a ON p.appointment_id = a.id
-      ORDER BY p.payment_date DESC
-    `)
+    // First check if tooth_treatment_id column exists
+    const tableInfo = this.db.prepare("PRAGMA table_info(payments)").all()
+    const hasToothTreatmentId = tableInfo.some(col => col.name === 'tooth_treatment_id')
+
+    let query
+    if (hasToothTreatmentId) {
+      // Use the full query with tooth_treatments join
+      query = `
+        SELECT
+          p.*,
+          pt.full_name as patient_name,
+          pt.full_name as patient_full_name,
+          pt.phone as patient_phone,
+          pt.email as patient_email,
+          a.title as appointment_title,
+          a.start_time as appointment_start_time,
+          a.end_time as appointment_end_time,
+          tt.treatment_type as treatment_name,
+          tt.tooth_number,
+          tt.tooth_name,
+          tt.cost as treatment_cost
+        FROM payments p
+        LEFT JOIN patients pt ON p.patient_id = pt.id
+        LEFT JOIN appointments a ON p.appointment_id = a.id
+        LEFT JOIN tooth_treatments tt ON p.tooth_treatment_id = tt.id
+        ORDER BY p.payment_date DESC
+      `
+    } else {
+      // Use simplified query without tooth_treatments join
+      query = `
+        SELECT
+          p.*,
+          pt.full_name as patient_name,
+          pt.full_name as patient_full_name,
+          pt.phone as patient_phone,
+          pt.email as patient_email,
+          a.title as appointment_title,
+          a.start_time as appointment_start_time,
+          a.end_time as appointment_end_time
+        FROM payments p
+        LEFT JOIN patients pt ON p.patient_id = pt.id
+        LEFT JOIN appointments a ON p.appointment_id = a.id
+        ORDER BY p.payment_date DESC
+      `
+    }
+
+    const stmt = this.db.prepare(query)
 
     const payments = stmt.all()
 
@@ -1310,10 +1370,11 @@ class DatabaseService {
         total_amount_due: payments[0]?.total_amount_due,
         amount_paid: payments[0]?.amount_paid,
         remaining_balance: payments[0]?.remaining_balance
-      }
+      },
+      hasToothTreatmentId: hasToothTreatmentId
     } : 'No payments found')
 
-    // Transform the data to include patient and appointment objects
+    // Transform the data to include patient, appointment, and treatment objects
     return payments.map(payment => ({
       ...payment,
       patient: payment.patient_id ? {
@@ -1329,6 +1390,13 @@ class DatabaseService {
         title: payment.appointment_title,
         start_time: payment.appointment_start_time,
         end_time: payment.appointment_end_time
+      } : null,
+      tooth_treatment: (hasToothTreatmentId && payment.tooth_treatment_id) ? {
+        id: payment.tooth_treatment_id,
+        treatment_type: payment.treatment_name,
+        tooth_number: payment.tooth_number,
+        tooth_name: payment.tooth_name,
+        cost: payment.treatment_cost
       } : null
     }))
   }
@@ -1340,22 +1408,52 @@ class DatabaseService {
 
     const stmt = this.db.prepare(`
       INSERT INTO payments (
-        id, patient_id, appointment_id, amount, payment_method, payment_date,
+        id, patient_id, tooth_treatment_id, appointment_id, amount, payment_method, payment_date,
         status, description, receipt_number, notes, discount_amount, tax_amount,
-        total_amount, total_amount_due, amount_paid, remaining_balance, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        total_amount, treatment_total_cost, treatment_total_paid, treatment_remaining_balance,
+        total_amount_due, amount_paid, remaining_balance, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     // حساب القيم المطلوبة - التأكد من أن amount ليس null أو undefined
     const amount = payment.amount || 0  // استخدام 0 كقيمة افتراضية إذا كان amount فارغ
     const totalAmount = payment.total_amount || amount
-    const totalAmountDue = payment.total_amount_due || totalAmount
-    const amountPaid = payment.amount_paid || amount
-    const remainingBalance = payment.remaining_balance || Math.max(0, totalAmountDue - amountPaid)
+
+    let treatmentTotalCost = null
+    let treatmentTotalPaid = null
+    let treatmentRemainingBalance = null
+    let totalAmountDue = null
+    let amountPaid = null
+    let remainingBalance = null
+
+    if (payment.tooth_treatment_id) {
+      // دفعة مرتبطة بعلاج - احسب الرصيد للعلاج
+      const treatment = this.db.prepare('SELECT cost FROM tooth_treatments WHERE id = ?').get(payment.tooth_treatment_id)
+      treatmentTotalCost = treatment?.cost || 0
+
+      // احسب إجمالي المدفوع لهذا العلاج حتى الآن
+      const existingPayments = this.db.prepare(`
+        SELECT COALESCE(SUM(amount), 0) as total_paid
+        FROM payments
+        WHERE tooth_treatment_id = ? AND id != ?
+      `).get(payment.tooth_treatment_id, id)
+
+      treatmentTotalPaid = (existingPayments?.total_paid || 0) + amount
+      treatmentRemainingBalance = Math.max(0, treatmentTotalCost - treatmentTotalPaid)
+    } else {
+      // دفعة عامة غير مرتبطة بعلاج محدد
+      totalAmountDue = payment.total_amount_due || totalAmount
+      amountPaid = payment.amount_paid || amount
+      remainingBalance = payment.remaining_balance || Math.max(0, totalAmountDue - amountPaid)
+    }
 
     console.log('🔍 Payment values before insert:', {
       amount,
       totalAmount,
+      tooth_treatment_id: payment.tooth_treatment_id,
+      treatmentTotalCost,
+      treatmentTotalPaid,
+      treatmentRemainingBalance,
       totalAmountDue,
       amountPaid,
       remainingBalance,
@@ -1363,11 +1461,12 @@ class DatabaseService {
     })
 
     const result = stmt.run(
-      id, payment.patient_id, payment.appointment_id, amount,
+      id, payment.patient_id, payment.tooth_treatment_id, payment.appointment_id, amount,
       payment.payment_method, payment.payment_date, payment.status || 'completed',
       payment.description, payment.receipt_number, payment.notes,
       payment.discount_amount || 0, payment.tax_amount || 0,
-      totalAmount, totalAmountDue, amountPaid, remainingBalance, now, now
+      totalAmount, treatmentTotalCost, treatmentTotalPaid, treatmentRemainingBalance,
+      totalAmountDue, amountPaid, remainingBalance, now, now
     )
 
     console.log('🔍 Payment data saved to DB (JS):', {
@@ -1419,18 +1518,75 @@ class DatabaseService {
 
   async updatePayment(id, updates) {
     const now = new Date().toISOString()
-    const fields = Object.keys(updates).filter(key => key !== 'id')
+
+    // Get current payment to calculate new values
+    const currentPayment = this.db.prepare('SELECT * FROM payments WHERE id = ?').get(id)
+    if (!currentPayment) {
+      throw new Error('Payment not found')
+    }
+
+    // حساب القيم الجديدة
+    const amount = updates.amount !== undefined ? updates.amount : currentPayment.amount
+    const totalAmount = updates.total_amount || amount
+
+    let treatmentTotalCost = currentPayment.treatment_total_cost
+    let treatmentTotalPaid = currentPayment.treatment_total_paid
+    let treatmentRemainingBalance = currentPayment.treatment_remaining_balance
+    let totalAmountDue = currentPayment.total_amount_due
+    let amountPaid = currentPayment.amount_paid
+    let remainingBalance = currentPayment.remaining_balance
+
+    if (updates.tooth_treatment_id || currentPayment.tooth_treatment_id) {
+      // دفعة مرتبطة بعلاج - إعادة حساب الرصيد
+      const treatmentId = updates.tooth_treatment_id || currentPayment.tooth_treatment_id
+      const treatment = this.db.prepare('SELECT cost FROM tooth_treatments WHERE id = ?').get(treatmentId)
+      treatmentTotalCost = treatment?.cost || 0
+
+      // احسب إجمالي المدفوع لهذا العلاج (باستثناء هذه الدفعة)
+      const existingPayments = this.db.prepare(`
+        SELECT COALESCE(SUM(amount), 0) as total_paid
+        FROM payments
+        WHERE tooth_treatment_id = ? AND id != ?
+      `).get(treatmentId, id)
+
+      treatmentTotalPaid = (existingPayments?.total_paid || 0) + amount
+      treatmentRemainingBalance = Math.max(0, treatmentTotalCost - treatmentTotalPaid)
+    } else if (updates.appointment_id || currentPayment.appointment_id) {
+      // دفعة مرتبطة بموعد - استخدام القيم المحدثة
+      totalAmountDue = updates.total_amount_due || currentPayment.total_amount_due || totalAmount
+      amountPaid = updates.amount_paid || amount
+      remainingBalance = updates.remaining_balance || Math.max(0, totalAmountDue - amountPaid)
+    } else {
+      // دفعة عامة
+      totalAmountDue = updates.total_amount_due || currentPayment.total_amount_due || totalAmount
+      amountPaid = updates.amount_paid || amount
+      remainingBalance = updates.remaining_balance || Math.max(0, totalAmountDue - amountPaid)
+    }
+
+    // تحديث البيانات
+    const updatedData = {
+      ...updates,
+      treatment_total_cost: treatmentTotalCost,
+      treatment_total_paid: treatmentTotalPaid,
+      treatment_remaining_balance: treatmentRemainingBalance,
+      total_amount_due: totalAmountDue,
+      amount_paid: amountPaid,
+      remaining_balance: remainingBalance,
+      updated_at: now
+    }
+
+    const fields = Object.keys(updatedData).filter(key => key !== 'id')
     const setClause = fields.map(field => `${field} = ?`).join(', ')
-    const values = fields.map(field => updates[field])
+    const values = fields.map(field => updatedData[field])
 
     const stmt = this.db.prepare(`
       UPDATE payments
-      SET ${setClause}, updated_at = ?
+      SET ${setClause}
       WHERE id = ?
     `)
 
-    stmt.run(...values, now, id)
-    return { ...updates, id, updated_at: now }
+    stmt.run(...values, id)
+    return { ...updatedData, id }
   }
 
   async deletePayment(id) {
@@ -1439,7 +1595,8 @@ class DatabaseService {
     return result.changes > 0
   }
 
-  async searchPayments(query) {
+  // دالة للحصول على المدفوعات حسب العلاج
+  async getPaymentsByToothTreatment(toothTreatmentId) {
     const stmt = this.db.prepare(`
       SELECT
         p.*,
@@ -1447,19 +1604,105 @@ class DatabaseService {
         pt.full_name as patient_full_name,
         pt.phone as patient_phone,
         pt.email as patient_email,
-        a.title as appointment_title,
-        a.start_time as appointment_start_time,
-        a.end_time as appointment_end_time
+        tt.treatment_type as treatment_name,
+        tt.tooth_number,
+        tt.tooth_name
       FROM payments p
       LEFT JOIN patients pt ON p.patient_id = pt.id
-      LEFT JOIN appointments a ON p.appointment_id = a.id
-      WHERE pt.full_name LIKE ? OR p.receipt_number LIKE ?
+      LEFT JOIN tooth_treatments tt ON p.tooth_treatment_id = tt.id
+      WHERE p.tooth_treatment_id = ?
       ORDER BY p.payment_date DESC
     `)
+    return stmt.all(toothTreatmentId)
+  }
+
+  // دالة للحصول على ملخص المدفوعات لعلاج محدد
+  async getToothTreatmentPaymentSummary(toothTreatmentId) {
+    // احصل على تكلفة العلاج
+    const treatment = this.db.prepare('SELECT cost FROM tooth_treatments WHERE id = ?').get(toothTreatmentId)
+    const treatmentCost = treatment?.cost || 0
+
+    // احصل على جميع المدفوعات المرتبطة بهذا العلاج
+    const payments = this.db.prepare(`
+      SELECT * FROM payments WHERE tooth_treatment_id = ? ORDER BY created_at ASC
+    `).all(toothTreatmentId)
+
+    const totalPaid = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0)
+    const remainingBalance = Math.max(0, treatmentCost - totalPaid)
+    const paymentCount = payments.length
+
+    let status = 'pending'
+    if (remainingBalance <= 0) {
+      status = 'completed'
+    } else if (totalPaid > 0) {
+      status = 'partial'
+    }
+
+    return {
+      treatmentCost,
+      totalPaid,
+      remainingBalance,
+      paymentCount,
+      status,
+      payments
+    }
+  }
+
+  async searchPayments(query) {
+    this.ensureConnection()
+
+    // First check if tooth_treatment_id column exists
+    const tableInfo = this.db.prepare("PRAGMA table_info(payments)").all()
+    const hasToothTreatmentId = tableInfo.some(col => col.name === 'tooth_treatment_id')
+
+    let sqlQuery
+    if (hasToothTreatmentId) {
+      // Use the full query with tooth_treatments join
+      sqlQuery = `
+        SELECT
+          p.*,
+          pt.full_name as patient_name,
+          pt.full_name as patient_full_name,
+          pt.phone as patient_phone,
+          pt.email as patient_email,
+          a.title as appointment_title,
+          a.start_time as appointment_start_time,
+          a.end_time as appointment_end_time,
+          tt.treatment_type as treatment_name,
+          tt.tooth_number,
+          tt.tooth_name
+        FROM payments p
+        LEFT JOIN patients pt ON p.patient_id = pt.id
+        LEFT JOIN appointments a ON p.appointment_id = a.id
+        LEFT JOIN tooth_treatments tt ON p.tooth_treatment_id = tt.id
+        WHERE pt.full_name LIKE ? OR p.receipt_number LIKE ?
+        ORDER BY p.payment_date DESC
+      `
+    } else {
+      // Use simplified query without tooth_treatments join
+      sqlQuery = `
+        SELECT
+          p.*,
+          pt.full_name as patient_name,
+          pt.full_name as patient_full_name,
+          pt.phone as patient_phone,
+          pt.email as patient_email,
+          a.title as appointment_title,
+          a.start_time as appointment_start_time,
+          a.end_time as appointment_end_time
+        FROM payments p
+        LEFT JOIN patients pt ON p.patient_id = pt.id
+        LEFT JOIN appointments a ON p.appointment_id = a.id
+        WHERE pt.full_name LIKE ? OR p.receipt_number LIKE ?
+        ORDER BY p.payment_date DESC
+      `
+    }
+
+    const stmt = this.db.prepare(sqlQuery)
     const searchTerm = `%${query}%`
     const payments = stmt.all(searchTerm, searchTerm)
 
-    // Transform the data to include patient and appointment objects
+    // Transform the data to include patient, appointment, and treatment objects
     return payments.map(payment => ({
       ...payment,
       patient: payment.patient_id ? {
@@ -1475,6 +1718,12 @@ class DatabaseService {
         title: payment.appointment_title,
         start_time: payment.appointment_start_time,
         end_time: payment.appointment_end_time
+      } : null,
+      tooth_treatment: (hasToothTreatmentId && payment.tooth_treatment_id) ? {
+        id: payment.tooth_treatment_id,
+        treatment_type: payment.treatment_name,
+        tooth_number: payment.tooth_number,
+        tooth_name: payment.tooth_name
       } : null
     }))
   }
@@ -1886,6 +2135,63 @@ class DatabaseService {
   // Check if database is open
   isOpen() {
     return this.db && this.db.open
+  }
+
+  // Manual migration method to add tooth_treatment_id column if missing
+  async ensureToothTreatmentIdColumn() {
+    try {
+      this.ensureConnection()
+
+      // Check if tooth_treatment_id column exists
+      const tableInfo = this.db.prepare("PRAGMA table_info(payments)").all()
+      const hasToothTreatmentId = tableInfo.some(col => col.name === 'tooth_treatment_id')
+
+      if (!hasToothTreatmentId) {
+        console.log('🔧 Adding missing tooth_treatment_id column to payments table...')
+
+        // Add the missing column
+        this.db.exec('ALTER TABLE payments ADD COLUMN tooth_treatment_id TEXT')
+
+        // Add treatment payment tracking columns
+        try {
+          this.db.exec('ALTER TABLE payments ADD COLUMN treatment_total_cost DECIMAL(10,2)')
+        } catch (e) {
+          // Column might already exist
+          console.log('treatment_total_cost column already exists or failed to add:', e.message)
+        }
+
+        try {
+          this.db.exec('ALTER TABLE payments ADD COLUMN treatment_total_paid DECIMAL(10,2)')
+        } catch (e) {
+          // Column might already exist
+          console.log('treatment_total_paid column already exists or failed to add:', e.message)
+        }
+
+        try {
+          this.db.exec('ALTER TABLE payments ADD COLUMN treatment_remaining_balance DECIMAL(10,2)')
+        } catch (e) {
+          // Column might already exist
+          console.log('treatment_remaining_balance column already exists or failed to add:', e.message)
+        }
+
+        // Create indexes for better performance
+        try {
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_payments_tooth_treatment ON payments(tooth_treatment_id)')
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_payments_patient_treatment ON payments(patient_id, tooth_treatment_id)')
+        } catch (e) {
+          console.log('Index creation failed:', e.message)
+        }
+
+        console.log('✅ tooth_treatment_id column and related fields added successfully')
+        return true
+      } else {
+        console.log('✅ tooth_treatment_id column already exists')
+        return false
+      }
+    } catch (error) {
+      console.error('❌ Error ensuring tooth_treatment_id column:', error)
+      throw error
+    }
   }
 
   // Force WAL checkpoint to ensure data is written to main database file

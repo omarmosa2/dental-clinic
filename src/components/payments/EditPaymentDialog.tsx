@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { usePaymentStore } from '@/store/paymentStore'
 import { usePatientStore } from '@/store/patientStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
+import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
 import { useToast } from '@/hooks/use-toast'
+import { getTreatmentNameInArabic } from '@/utils/arabicTranslations'
 import {
   Select,
   SelectContent,
@@ -30,13 +32,15 @@ interface EditPaymentDialogProps {
 
 export default function EditPaymentDialog({ open, onOpenChange, payment }: EditPaymentDialogProps) {
   const { toast } = useToast()
-  const { updatePayment, isLoading, getPaymentsByPatient, getPaymentsByAppointment } = usePaymentStore()
+  const { updatePayment, isLoading, getPaymentsByPatient, getPaymentsByAppointment, getPaymentsByToothTreatment } = usePaymentStore()
   const { patients } = usePatientStore()
   const { appointments } = useAppointmentStore()
+  const { toothTreatments, loadToothTreatmentsByPatient } = useDentalTreatmentStore()
   const { formatAmount } = useCurrency()
 
   const [formData, setFormData] = useState({
     patient_id: '',
+    tooth_treatment_id: 'none',
     appointment_id: 'none',
     amount: '',
     payment_method: 'cash' as 'cash' | 'bank_transfer',
@@ -127,7 +131,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
     }
   }, [formData.appointment_id, payment])
 
-  // تحديث المبلغ المطلوب عند تغيير الموعد
+  // تحديث المبلغ المطلوب عند تغيير الموعد أو العلاج
   useEffect(() => {
     if (formData.appointment_id && formData.appointment_id !== 'none') {
       const appointmentCost = getAppointmentCost(formData.appointment_id)
@@ -139,6 +143,19 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
       }
     }
   }, [formData.appointment_id])
+
+  // تحديث المبلغ المطلوب عند تغيير العلاج
+  useEffect(() => {
+    if (formData.tooth_treatment_id && formData.tooth_treatment_id !== 'none') {
+      const treatment = toothTreatments.find(t => t.id === formData.tooth_treatment_id)
+      if (treatment && treatment.cost) {
+        setFormData(prev => ({
+          ...prev,
+          total_amount_due: treatment.cost.toString()
+        }))
+      }
+    }
+  }, [formData.tooth_treatment_id, toothTreatments])
 
   // تحديث إجمالي المبلغ المدفوع تلقائياً
   useEffect(() => {
@@ -155,6 +172,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
     if (payment && open) {
       setFormData({
         patient_id: payment.patient_id || '',
+        tooth_treatment_id: payment.tooth_treatment_id || 'none',
         appointment_id: payment.appointment_id || 'none',
         amount: payment.amount.toString(),
         payment_method: payment.payment_method,
@@ -168,6 +186,11 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
         total_amount_due: payment.total_amount_due?.toString() || '',
         amount_paid: payment.amount_paid?.toString() || '',
       })
+
+      // تحميل العلاجات للمريض
+      if (payment.patient_id) {
+        loadToothTreatmentsByPatient(payment.patient_id)
+      }
     }
   }, [payment, open])
 
@@ -258,8 +281,14 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
       const amountPaid = calculateTotalAmountPaid() // استخدام الحساب التلقائي
       const remainingBalance = totalAmountDue - amountPaid
 
+      // استخدام معرف العلاج من الدفعة الأصلية إذا كانت مرتبطة بعلاج، وإلا استخدم القيمة من النموذج
+      const treatmentId = payment.tooth_treatment_id && payment.tooth_treatment_id !== 'none'
+        ? payment.tooth_treatment_id
+        : (formData.tooth_treatment_id && formData.tooth_treatment_id !== 'none' ? formData.tooth_treatment_id : undefined)
+
       const paymentData = {
         patient_id: formData.patient_id,
+        tooth_treatment_id: treatmentId,
         appointment_id: formData.appointment_id && formData.appointment_id !== 'none' ? formData.appointment_id : undefined,
         amount: amount,
         payment_method: formData.payment_method,
@@ -299,6 +328,30 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
     appointment => appointment.patient_id === formData.patient_id
   )
 
+  const filteredToothTreatments = toothTreatments.filter(
+    treatment => {
+      if (treatment.patient_id !== formData.patient_id) return false
+
+      // اعرض العلاج الحالي إذا كان مرتبطاً بهذه الدفعة
+      if (payment.tooth_treatment_id === treatment.id) return true
+
+      // التحقق من حالة الدفع للعلاج
+      const treatmentPayments = getPaymentsByToothTreatment(treatment.id)
+      const treatmentCost = treatment.cost || 0
+
+      // إذا لم توجد مدفوعات، اعرض العلاج
+      if (treatmentPayments.length === 0) return true
+
+      // حساب إجمالي المدفوع (فقط المدفوعات المكتملة والجزئية)
+      const totalPaid = treatmentPayments
+        .filter(p => p.status === 'completed' || p.status === 'partial')
+        .reduce((sum, p) => sum + p.amount, 0)
+
+      // إخفاء العلاجات المدفوعة بالكامل فقط
+      return totalPaid < treatmentCost
+    }
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background border-border shadow-2xl" dir="rtl">
@@ -313,6 +366,24 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* تحذير للدفعات المرتبطة بالعلاجات */}
+          {formData.tooth_treatment_id !== 'none' && (
+            <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                <div className="space-y-2">
+                  <h4 className="font-medium text-orange-800 dark:text-orange-200">
+                    دفعة مرتبطة بعلاج
+                  </h4>
+                  <p className="text-sm text-orange-700 dark:text-orange-300">
+                    هذه الدفعة مرتبطة بعلاج محدد. المبلغ الإجمالي المطلوب مرتبط بتكلفة العلاج ولا يمكن تعديله من هنا.
+                    لتعديل المبلغ، قم بتعديل تكلفة العلاج من قسم العلاجات.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Patient and Appointment Selection */}
           <Card className="border-border bg-card shadow-sm">
             <CardHeader>
@@ -343,7 +414,84 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                   </Select>
                 </div>
 
-                {/* Appointment Selection */}
+                {/* Treatment Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="tooth_treatment_id" className="text-foreground font-medium">العلاج</Label>
+                  {payment.tooth_treatment_id && payment.tooth_treatment_id !== 'none' ? (
+                    // عرض العلاج المحدد كنص ثابت عندما تكون الدفعة مرتبطة بعلاج
+                    <div className="space-y-2">
+                      <div className="p-3 bg-muted/50 border border-border rounded-md">
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            {(() => {
+                              const linkedTreatment = toothTreatments.find(t => t.id === payment.tooth_treatment_id)
+                              if (linkedTreatment) {
+                                return (
+                                  <>
+                                    <span className="font-medium text-foreground">
+                                      السن {linkedTreatment.tooth_number} - {getTreatmentNameInArabic(linkedTreatment.treatment_type)}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      التكلفة: {formatAmount(linkedTreatment.cost || 0)}
+                                    </span>
+                                  </>
+                                )
+                              } else {
+                                return <span className="text-muted-foreground">العلاج المرتبط (معرف: {payment.tooth_treatment_id})</span>
+                              }
+                            })()}
+                          </div>
+                          <Badge variant="secondary" className="text-xs">
+                            مرتبط
+                          </Badge>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        ⚠️ لا يمكن تغيير العلاج للمدفوعات المرتبطة بعلاج محدد
+                      </p>
+                      {/* حقل مخفي للحفاظ على قيمة العلاج */}
+                      <input type="hidden" value={payment.tooth_treatment_id} />
+                    </div>
+                  ) : (
+                    // القائمة المنسدلة العادية للمدفوعات غير المرتبطة بعلاج
+                    <Select
+                      value={formData.tooth_treatment_id}
+                      onValueChange={(value) => handleInputChange('tooth_treatment_id', value)}
+                    >
+                      <SelectTrigger className="bg-background border-input text-foreground">
+                        <SelectValue placeholder="اختر العلاج" className="text-muted-foreground" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">بدون علاج محدد</SelectItem>
+                        {filteredToothTreatments.map((treatment) => {
+                          // حساب المبلغ المتبقي للعلاج
+                          const treatmentPayments = getPaymentsByToothTreatment(treatment.id)
+                          const treatmentCost = treatment.cost || 0
+                          const totalPaid = treatmentPayments
+                            .filter(p => p.status === 'completed' || p.status === 'partial')
+                            .reduce((sum, p) => sum + p.amount, 0)
+                          const remainingAmount = treatmentCost - totalPaid
+
+                          return (
+                            <SelectItem key={treatment.id} value={treatment.id}>
+                              <div className="flex flex-col">
+                                <span>{`السن ${treatment.tooth_number} - ${getTreatmentNameInArabic(treatment.treatment_type)}`}</span>
+                                <div className="text-xs text-muted-foreground">
+                                  <span>التكلفة: {formatAmount(treatmentCost)}</span>
+                                  {remainingAmount > 0 && remainingAmount < treatmentCost && (
+                                    <span className="text-orange-600 font-medium"> • متبقي: {formatAmount(remainingAmount)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                {/* Appointment Selection (للتوافق مع النظام القديم) */}
                 <div className="space-y-2">
                   <Label htmlFor="appointment_id" className="text-foreground font-medium">الموعد (اختياري)</Label>
                   <Select
@@ -550,7 +698,12 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-foreground font-medium" htmlFor="total_amount_due">
                     المبلغ الإجمالي المطلوب
-                    {formData.appointment_id !== 'none' && (
+                    {formData.tooth_treatment_id !== 'none' && (
+                      <Badge variant="outline" className="text-xs text-orange-600 border-orange-600">
+                        🔒 مرتبط بالعلاج
+                      </Badge>
+                    )}
+                    {formData.appointment_id !== 'none' && formData.tooth_treatment_id === 'none' && (
                       <Badge variant="secondary" className="text-xs">
                         <Sparkles className="w-3 h-3 ml-1" />
                         تلقائي
@@ -564,10 +717,17 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     value={formData.total_amount_due}
                     onChange={(e) => handleInputChange('total_amount_due', e.target.value)}
                     placeholder="0.00"
-                    className="bg-background border-input text-foreground"
+                    className={`bg-background border-input text-foreground ${
+                      formData.tooth_treatment_id !== 'none'
+                        ? 'opacity-60 cursor-not-allowed bg-muted'
+                        : ''
+                    }`}
+                    disabled={formData.tooth_treatment_id !== 'none'} // تعطيل التعديل للدفعات المرتبطة بالعلاجات
                   />
                   <p className="text-xs text-muted-foreground">
-                    {formData.appointment_id !== 'none'
+                    {formData.tooth_treatment_id !== 'none'
+                      ? '🔒 المبلغ مرتبط بتكلفة العلاج ولا يمكن تعديله هنا. لتعديل المبلغ، قم بتعديل تكلفة العلاج من قسم العلاجات.'
+                      : formData.appointment_id !== 'none'
                       ? 'تم جلب المبلغ من الموعد المحدد تلقائياً'
                       : 'المبلغ الكامل المطلوب للعلاج أو الخدمة'
                     }

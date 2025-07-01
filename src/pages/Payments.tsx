@@ -324,8 +324,8 @@ export default function Payments() {
             </div>
             <p className="text-xs text-muted-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
-                ? 'من المدفوعات المكتملة'
-                : 'من المدفوعات المكتملة في الفترة المحددة'}
+                ? 'من المدفوعات المكتملة والجزئية'
+                : 'من المدفوعات المكتملة والجزئية في الفترة المحددة'}
             </p>
             {paymentStats.trend && (
               <div className={`text-xs flex items-center mt-1 ${
@@ -338,12 +338,12 @@ export default function Payments() {
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("yellow")}>
+        <Card className={getCardStyles("red")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'المبالغ المعلقة' : 'المبالغ المعلقة المفلترة'}
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'المبالغ غير المدفوعة' : 'المبالغ غير المدفوعة المفلترة'}
             </CardTitle>
-            <Clock className={`h-4 w-4 ${getIconStyles("yellow")}`} />
+            <AlertTriangle className={`h-4 w-4 ${getIconStyles("red")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
@@ -353,18 +353,18 @@ export default function Payments() {
             </div>
             <p className="text-xs text-muted-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
-                ? 'في انتظار الدفع'
-                : 'في انتظار الدفع في الفترة المحددة'}
+                ? 'من العلاجات والمواعيد المعلقة'
+                : 'من العلاجات والمواعيد المعلقة في الفترة المحددة'}
             </p>
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("orange")}>
+        <Card className={getCardStyles("yellow")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'المبالغ المتبقية' : 'المبالغ المتبقية المفلترة'}
             </CardTitle>
-            <AlertTriangle className={`h-4 w-4 ${getIconStyles("orange")}`} />
+            <Clock className={`h-4 w-4 ${getIconStyles("yellow")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
@@ -413,17 +413,30 @@ export default function Payments() {
                   return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
                 }
 
-                // حساب المبالغ المتبقية من المدفوعات الجزئية والمعلقة بدقة (نفس منطق التصدير)
-                // تجميع المدفوعات حسب الموعد أولاً للمدفوعات المرتبطة بمواعيد
+                // حساب المبالغ المتبقية من المدفوعات الجزئية بدقة (نفس منطق التصدير المحدث)
+                // تجميع المدفوعات حسب العلاج والموعد
+                const treatmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
                 const appointmentGroups = new Map<string, { totalDue: number, totalPaid: number }>()
                 let generalRemainingBalance = 0
 
                 dataToCalculate.forEach(payment => {
                   if (payment.status === 'partial') {
-                    if (payment.appointment_id) {
-                      // مدفوعات مرتبطة بمواعيد
+                    if (payment.tooth_treatment_id) {
+                      // مدفوعات مرتبطة بعلاجات
+                      const treatmentId = payment.tooth_treatment_id
+                      const totalDue = validateAmount(payment.treatment_total_cost || payment.total_amount_due || 0)
+                      const paidAmount = validateAmount(payment.amount)
+
+                      if (!treatmentGroups.has(treatmentId)) {
+                        treatmentGroups.set(treatmentId, { totalDue, totalPaid: 0 })
+                      }
+
+                      const group = treatmentGroups.get(treatmentId)!
+                      group.totalPaid += paidAmount
+                    } else if (payment.appointment_id) {
+                      // مدفوعات مرتبطة بمواعيد (للتوافق مع النظام القديم)
                       const appointmentId = payment.appointment_id
-                      const totalDue = validateAmount(payment.total_amount_due || payment.appointment_total_cost || 0)
+                      const totalDue = validateAmount(payment.total_amount_due || 0)
                       const paidAmount = validateAmount(payment.amount)
 
                       if (!appointmentGroups.has(appointmentId)) {
@@ -433,21 +446,18 @@ export default function Payments() {
                       const group = appointmentGroups.get(appointmentId)!
                       group.totalPaid += paidAmount
                     } else {
-                      // مدفوعات عامة غير مرتبطة بمواعيد
+                      // مدفوعات عامة غير مرتبطة بمواعيد أو علاجات
                       const totalDue = validateAmount(payment.total_amount_due || payment.amount)
                       const paid = validateAmount(payment.amount_paid || payment.amount)
                       generalRemainingBalance += Math.max(0, totalDue - paid)
                     }
-                  } else if (payment.status === 'pending') {
-                    // إضافة المدفوعات المعلقة
-                    const amount = validateAmount(payment.amount)
-                    const totalAmountDue = validateAmount(payment.total_amount_due)
-
-                    // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
-                    const pendingAmount = (amount === 0 && totalAmountDue > 0) ? totalAmountDue : amount
-                    generalRemainingBalance += pendingAmount
                   }
                 })
+
+                // حساب إجمالي المبالغ المتبقية من العلاجات
+                const treatmentRemainingBalance = Array.from(treatmentGroups.values()).reduce((sum, group) => {
+                  return sum + Math.max(0, group.totalDue - group.totalPaid)
+                }, 0)
 
                 // حساب إجمالي المبالغ المتبقية من المواعيد
                 const appointmentRemainingBalance = Array.from(appointmentGroups.values()).reduce((sum, group) => {
@@ -455,9 +465,11 @@ export default function Payments() {
                 }, 0)
 
                 // إجمالي المبالغ المتبقية
-                const filteredRemainingBalance = validateAmount(appointmentRemainingBalance + generalRemainingBalance)
+                const filteredRemainingBalance = validateAmount(treatmentRemainingBalance + appointmentRemainingBalance + generalRemainingBalance)
 
-                return formatCurrency(filteredRemainingBalance)
+                // استخدام البيانات من الـ store للحالة غير المفلترة
+                const isFiltered = paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate
+                return isFiltered ? formatCurrency(filteredRemainingBalance) : formatCurrency(totalRemainingBalance)
               })()}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -500,43 +512,70 @@ export default function Payments() {
                 }
 
                 const filteredPartialCount = dataToCalculate.filter(p => p.status === 'partial').length
-                const filteredPendingCount = dataToCalculate.filter(p => p.status === 'pending').length
-                const filteredTotalCount = filteredPartialCount + filteredPendingCount
 
                 return paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
-                  ? `${partialPaymentsCount} دفعة جزئية + ${pendingPaymentsCount} دفعة معلقة`
-                  : `${filteredTotalCount} دفعة (${filteredPartialCount} جزئية + ${filteredPendingCount} معلقة)`
+                  ? `من ${partialPaymentsCount} دفعة جزئية`
+                  : `من ${filteredPartialCount} دفعة جزئية في الفترة المحددة`
               })()}
             </p>
           </CardContent>
         </Card>
 
-        <Card className={getCardStyles("blue")}>
+        <Card className={getCardStyles("purple")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'إجمالي المدفوعات' : 'المدفوعات المفلترة'}
+              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate) ? 'معدل الإنجاز' : 'معدل الإنجاز المفلتر'}
             </CardTitle>
-            <TrendingUp className={`h-4 w-4 ${getIconStyles("blue")}`} />
+            <TrendingUp className={`h-4 w-4 ${getIconStyles("purple")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
-                ? payments.length
-                : paymentStats.filteredData.length}
+              {(() => {
+                // حساب معدل الإنجاز (المدفوعات المكتملة / إجمالي المدفوعات)
+                let dataToCalculate = [...payments]
+
+                // تطبيق الفلترة الزمنية
+                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                  const startDate = new Date(paymentStats.timeFilter.startDate)
+                  const endDate = new Date(paymentStats.timeFilter.endDate)
+                  endDate.setHours(23, 59, 59, 999)
+
+                  dataToCalculate = dataToCalculate.filter(payment => {
+                    const paymentDate = new Date(payment.payment_date)
+                    return paymentDate >= startDate && paymentDate <= endDate
+                  })
+                }
+
+                const totalPayments = dataToCalculate.length
+                const completedPayments = dataToCalculate.filter(p => p.status === 'completed').length
+                const successRate = totalPayments > 0 ? ((completedPayments / totalPayments) * 100).toFixed(1) : '0.0'
+
+                return `${successRate}%`
+              })()}
             </div>
             <p className="text-xs text-muted-foreground">
-              {paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
-                ? 'عملية دفع إجمالية'
-                : 'عملية دفع في الفترة المحددة'}
+              {(() => {
+                let dataToCalculate = [...payments]
+
+                if (paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate) {
+                  const startDate = new Date(paymentStats.timeFilter.startDate)
+                  const endDate = new Date(paymentStats.timeFilter.endDate)
+                  endDate.setHours(23, 59, 59, 999)
+
+                  dataToCalculate = dataToCalculate.filter(payment => {
+                    const paymentDate = new Date(payment.payment_date)
+                    return paymentDate >= startDate && paymentDate <= endDate
+                  })
+                }
+
+                const completedCount = dataToCalculate.filter(p => p.status === 'completed').length
+                const totalCount = dataToCalculate.length
+
+                return paymentStats.timeFilter.preset === 'all' || (!paymentStats.timeFilter.startDate && !paymentStats.timeFilter.endDate)
+                  ? `${completedCount} مكتملة من ${totalCount} إجمالي`
+                  : `${completedCount} مكتملة من ${totalCount} في الفترة المحددة`
+              })()}
             </p>
-            {paymentStats.trend && (
-              <div className={`text-xs flex items-center mt-1 ${
-                paymentStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
-              }`}>
-                <TrendingUp className={`w-3 h-3 ml-1 ${paymentStats.trend.isPositive ? '' : 'rotate-180'}`} />
-                <span>{Math.abs(paymentStats.trend.changePercent)}% من الفترة السابقة</span>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>

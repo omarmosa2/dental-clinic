@@ -23,6 +23,8 @@ declare global {
         update: (id: string, payment: any) => Promise<any>
         delete: (id: string) => Promise<boolean>
         search: (query: string) => Promise<any[]>
+        getByToothTreatment: (toothTreatmentId: string) => Promise<any[]>
+        getToothTreatmentSummary: (toothTreatmentId: string) => Promise<any>
       }
       treatments: {
         getAll: () => Promise<any[]>
