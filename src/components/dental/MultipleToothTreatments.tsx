@@ -73,6 +73,10 @@ export default function MultipleToothTreatments({
   const [isAddingTreatment, setIsAddingTreatment] = useState(false)
   const [editingTreatment, setEditingTreatment] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
+  // متغيرات منفصلة لنموذج إضافة العلاج
+  const [addSelectedLab, setAddSelectedLab] = useState<string>('')
+  const [addLabCost, setAddLabCost] = useState<number>(0)
+  // متغيرات منفصلة لنموذج تعديل العلاج (ستُستخدم في EditTreatmentFormContent)
   const [selectedLab, setSelectedLab] = useState<string>('')
   const [labCost, setLabCost] = useState<number>(0)
   const [newTreatment, setNewTreatment] = useState<Partial<ToothTreatment>>({
@@ -114,12 +118,28 @@ export default function MultipleToothTreatments({
 
   // دالة إنشاء دفعة معلقة للعلاج
   const createPendingPaymentForTreatment = async (treatmentId: string) => {
+    console.log('💰 [DEBUG] createPendingPaymentForTreatment called:', {
+      treatmentId,
+      cost: newTreatment.cost,
+      patientId
+    })
+
+    // التحقق من المتطلبات الأساسية
+    if (!treatmentId) {
+      console.error('❌ [DEBUG] Cannot create payment - missing treatment ID')
+      throw new Error('معرف العلاج مطلوب لإنشاء الدفعة')
+    }
+
+    if (!newTreatment.cost || newTreatment.cost <= 0) {
+      console.log('⚠️ [DEBUG] Skipping payment creation - no cost specified')
+      return
+    }
+
     try {
       // الحصول على بيانات المريض
       const patient = patients.find(p => p.id === patientId)
       if (!patient) {
-        notify.error('لم يتم العثور على بيانات المريض')
-        return
+        throw new Error('لم يتم العثور على بيانات المريض')
       }
 
       // إنشاء وصف للدفعة
@@ -135,26 +155,51 @@ export default function MultipleToothTreatments({
         payment_date: new Date().toISOString().split('T')[0],
         description: description, // وصف نظيف بدون معرف العلاج
         status: 'pending' as const,
-        notes: `دفعة معلقة لعلاج سن ${toothName || toothNumber}`, // ملاحظات نظيفة بدون معرف العلاج
-        total_amount_due: newTreatment.cost || 0,
+        notes: `دفعة معلقة للمريض: ${patient.full_name} - السن: ${toothName} - العلاج: ${treatmentTypeInfo?.label || newTreatment.treatment_type}`,
+        total_amount_due: newTreatment.cost,
         amount_paid: 0,
-        remaining_balance: newTreatment.cost || 0,
-        treatment_total_cost: newTreatment.cost || 0,
+        remaining_balance: newTreatment.cost,
+        treatment_total_cost: newTreatment.cost,
         treatment_total_paid: 0,
-        treatment_remaining_balance: newTreatment.cost || 0
+        treatment_remaining_balance: newTreatment.cost
       }
 
+      console.log('💰 [DEBUG] Creating payment with data:', paymentData)
+
       await createPayment(paymentData)
+
+      console.log('✅ [DEBUG] Payment created successfully for treatment:', treatmentId)
       notify.success('تم إنشاء دفعة معلقة في جدول المدفوعات')
+
     } catch (error) {
-      console.error('خطأ في إنشاء الدفعة المعلقة:', error)
-      notify.error('فشل في إنشاء الدفعة المعلقة')
+      console.error('❌ [DEBUG] Payment creation failed:', error)
+      const errorMessage = error instanceof Error ? error.message : 'خطأ غير معروف'
+      notify.error(`فشل في إنشاء الدفعة المعلقة: ${errorMessage}`)
+      throw error // إعادة رمي الخطأ للمعالجة في المستوى الأعلى
     }
   }
 
   // دالة إنشاء طلب مخبر للعلاج
   const createLabOrderForTreatment = async (treatmentId: string) => {
-    if (!selectedLab || labCost <= 0) {
+    console.log('🏭 [DEBUG] createLabOrderForTreatment called:', {
+      treatmentId,
+      addSelectedLab,
+      addLabCost,
+      hasLab: !!addSelectedLab,
+      hasCost: addLabCost > 0
+    })
+
+    // التحقق من المتطلبات الأساسية
+    if (!treatmentId) {
+      console.error('❌ [DEBUG] Cannot create lab order - missing treatment ID')
+      throw new Error('معرف العلاج مطلوب لإنشاء طلب المختبر')
+    }
+
+    if (!addSelectedLab || addLabCost <= 0) {
+      console.log('⚠️ [DEBUG] Skipping lab order creation - missing lab or cost:', {
+        addSelectedLab,
+        addLabCost
+      })
       return // لا نحتاج طلب مخبر إذا لم يتم اختيار مخبر أو تكلفة
     }
 
@@ -162,25 +207,51 @@ export default function MultipleToothTreatments({
       const patient = patients.find(p => p.id === patientId)
       const treatmentType = getTreatmentByValue(newTreatment.treatment_type!)
 
+      // التحقق من وجود بيانات المريض
+      if (!patient) {
+        throw new Error('لم يتم العثور على بيانات المريض')
+      }
+
       const labOrderData = {
-        lab_id: selectedLab,
+        lab_id: addSelectedLab,
         patient_id: patientId,
         tooth_treatment_id: treatmentId,
         tooth_number: toothNumber,
         service_name: `${treatmentType?.label || 'علاج تعويضات'} - السن ${toothNumber}`,
-        cost: labCost,
+        cost: addLabCost,
         order_date: new Date().toISOString().split('T')[0],
         status: 'معلق' as const,
-        notes: `طلب مخبر للمريض: ${patient?.full_name || 'غير محدد'} - السن: ${toothName}`,
+        notes: `طلب مخبر للمريض: ${patient.full_name} - السن: ${toothName} - العلاج: ${treatmentType?.label || newTreatment.treatment_type}`,
         paid_amount: 0,
-        remaining_balance: labCost
+        remaining_balance: addLabCost
       }
 
+      console.log('🏭 [DEBUG] Creating lab order with data:', labOrderData)
+
+      // إنشاء طلب المختبر
       await createLabOrder(labOrderData)
-      notify.success('تم إنشاء طلب المخبر بنجاح')
+
+      // التحقق من نجاح الإنشاء
+      console.log('🔍 [DEBUG] Verifying lab order creation...')
+      const createdOrders = getLabOrdersByTreatment(treatmentId)
+
+      if (createdOrders.length > 0) {
+        console.log('✅ [DEBUG] Lab order creation verified successfully:', {
+          treatmentId,
+          ordersCount: createdOrders.length,
+          latestOrder: createdOrders[createdOrders.length - 1]
+        })
+        notify.success('تم إنشاء طلب المختبر وربطه بالعلاج بنجاح')
+      } else {
+        console.warn('⚠️ [DEBUG] Lab order creation verification failed - no orders found')
+        notify.warning('تم إنشاء طلب المختبر ولكن قد تحتاج لإعادة تحميل الصفحة للتحقق من الربط')
+      }
+
     } catch (error) {
-      console.error('خطأ في إنشاء طلب المخبر:', error)
-      notify.error('فشل في إنشاء طلب المخبر')
+      console.error('❌ [DEBUG] Lab order creation failed:', error)
+      const errorMessage = error instanceof Error ? error.message : 'خطأ غير معروف'
+      notify.error(`فشل في إنشاء طلب المختبر: ${errorMessage}`)
+      throw error // إعادة رمي الخطأ للمعالجة في المستوى الأعلى
     }
   }
 
@@ -190,7 +261,25 @@ export default function MultipleToothTreatments({
       return
     }
 
+    // التحقق من بيانات المختبر للتعويضات
+    if (newTreatment.treatment_category === 'التعويضات' && addLabCost > 0 && !addSelectedLab) {
+      notify.error('يرجى اختيار المختبر عند إدخال تكلفة المختبر للتعويضات')
+      return
+    }
+
+    let createdTreatmentId: string | null = null
+    let createdPaymentId: string | null = null
+
     try {
+      console.log('🚀 [DEBUG] Starting treatment creation process:', {
+        treatmentType: newTreatment.treatment_type,
+        category: newTreatment.treatment_category,
+        cost: newTreatment.cost,
+        isProsthetic: newTreatment.treatment_category === 'التعويضات',
+        hasLabData: !!addSelectedLab && addLabCost > 0
+      })
+
+      // الخطوة 1: إنشاء العلاج
       const treatmentData = {
         ...newTreatment,
         treatment_color: getTreatmentByValue(newTreatment.treatment_type!)?.color || '#22c55e'
@@ -198,33 +287,70 @@ export default function MultipleToothTreatments({
 
       const newTreatmentResult = await onAddTreatment(treatmentData)
 
-      // إنشاء دفعة معلقة إذا تم تعبئة التكلفة وتم إنشاء العلاج بنجاح
-      if (newTreatmentResult && newTreatment.cost && newTreatment.cost > 0) {
-        await createPendingPaymentForTreatment(newTreatmentResult.id)
+      if (!newTreatmentResult) {
+        throw new Error('فشل في إنشاء العلاج')
       }
 
-      // إنشاء طلب مخبر إذا كان العلاج من فئة التعويضات وتم اختيار مخبر
-      if (newTreatmentResult && newTreatment.treatment_category === 'التعويضات') {
-        await createLabOrderForTreatment(newTreatmentResult.id)
+      createdTreatmentId = newTreatmentResult.id
+      console.log('✅ [DEBUG] Treatment created successfully:', createdTreatmentId)
+
+      // الخطوة 2: إنشاء دفعة معلقة إذا تم تعبئة التكلفة
+      if (newTreatment.cost && newTreatment.cost > 0) {
+        console.log('💰 [DEBUG] Creating payment for treatment:', createdTreatmentId)
+        try {
+          await createPendingPaymentForTreatment(createdTreatmentId)
+          console.log('✅ [DEBUG] Payment created successfully for treatment:', createdTreatmentId)
+        } catch (paymentError) {
+          console.error('❌ [DEBUG] Payment creation failed:', paymentError)
+          notify.warning('تم إنشاء العلاج ولكن فشل في إنشاء الدفعة')
+        }
       }
 
-      // Reset form
+      // الخطوة 3: إنشاء طلب مختبر للتعويضات (بعد إنشاء العلاج والدفعة)
+      if (newTreatment.treatment_category === 'التعويضات' && addSelectedLab && addLabCost > 0) {
+        console.log('🏭 [DEBUG] Creating lab order for prosthetic treatment:', {
+          treatmentId: createdTreatmentId,
+          labId: addSelectedLab,
+          cost: addLabCost
+        })
+
+        try {
+          await createLabOrderForTreatment(createdTreatmentId)
+          console.log('✅ [DEBUG] Lab order created successfully for treatment:', createdTreatmentId)
+        } catch (labError) {
+          console.error('❌ [DEBUG] Lab order creation failed:', labError)
+          notify.warning('تم إنشاء العلاج والدفعة ولكن فشل في إنشاء طلب المختبر')
+        }
+      } else if (newTreatment.treatment_category === 'التعويضات') {
+        console.log('ℹ️ [DEBUG] Prosthetic treatment created without lab order (no lab selected or cost = 0)')
+      }
+
+      // إعادة تعيين النموذج
       setNewTreatment({
         patient_id: patientId,
         tooth_number: toothNumber,
         tooth_name: toothName,
         treatment_status: 'planned',
         cost: 0,
-        start_date: new Date().toISOString().split('T')[0] // تحديد التاريخ المحلي تلقائياً
-        // priority will be auto-assigned by the database service
+        start_date: new Date().toISOString().split('T')[0]
       })
       setSelectedCategory('')
-      setSelectedLab('')
-      setLabCost(0)
+      setAddSelectedLab('')
+      setAddLabCost(0)
       setIsAddingTreatment(false)
-      notify.success('تم إضافة العلاج بنجاح')
+
+      notify.success('تم إضافة العلاج بنجاح مع جميع المكونات المطلوبة')
+
     } catch (error) {
-      notify.error('فشل في إضافة العلاج')
+      console.error('❌ [DEBUG] Treatment creation process failed:', error)
+
+      // في حالة الفشل، نحاول تنظيف البيانات المنشأة جزئياً
+      if (createdTreatmentId) {
+        console.log('🧹 [DEBUG] Attempting cleanup of partially created data...')
+        // يمكن إضافة منطق تنظيف هنا إذا لزم الأمر
+      }
+
+      notify.error('فشل في إضافة العلاج - يرجى المحاولة مرة أخرى')
     }
   }
 
@@ -760,8 +886,8 @@ export default function MultipleToothTreatments({
                     🏭 اختيار المخبر
                   </Label>
                   <Select
-                    value={selectedLab}
-                    onValueChange={setSelectedLab}
+                    value={addSelectedLab}
+                    onValueChange={setAddSelectedLab}
                   >
                     <SelectTrigger className={cn(
                       "border-2 transition-colors",
@@ -795,8 +921,8 @@ export default function MultipleToothTreatments({
                     type="number"
                     min="0"
                     step="0.01"
-                    value={labCost || ''}
-                    onChange={(e) => setLabCost(parseFloat(e.target.value) || 0)}
+                    value={addLabCost || ''}
+                    onChange={(e) => setAddLabCost(parseFloat(e.target.value) || 0)}
                     placeholder="0.00"
                     className={cn(
                       "border-2 transition-colors",
@@ -805,7 +931,7 @@ export default function MultipleToothTreatments({
                         : "border-purple-200 bg-white hover:border-purple-300 focus:border-purple-500"
                     )}
                   />
-                  {labCost > 0 && (
+                  {addLabCost > 0 && (
                     <p className={cn(
                       "text-xs",
                       isDarkMode ? "text-purple-300" : "text-purple-600"
@@ -894,7 +1020,7 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
   const { createPayment, updatePayment, getPaymentsByPatient } = usePaymentStore()
   const { patients } = usePatientStore()
   const { labs, loadLabs } = useLabStore()
-  const { createLabOrder, getLabOrdersByTreatment, updateLabOrder, loadLabOrders } = useLabOrderStore()
+  const { createLabOrder, getLabOrdersByTreatment, updateLabOrder, deleteLabOrder, loadLabOrders } = useLabOrderStore()
   const [editData, setEditData] = useState<Partial<ToothTreatment>>({
     treatment_type: treatment.treatment_type,
     treatment_category: treatment.treatment_category,
@@ -909,32 +1035,243 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
   const [selectedLab, setSelectedLab] = useState<string>('')
   const [labCost, setLabCost] = useState<number>(0)
 
+  // دالة مساعدة للحصول على طلبات المخبر مع إعادة المحاولة
+  const getLabOrdersWithRetry = async (treatmentId: string, maxRetries = 2) => {
+    for (let i = 0; i < maxRetries; i++) {
+      await loadLabOrders()
+      await new Promise(resolve => setTimeout(resolve, 50))
+      const orders = getLabOrdersByTreatment(treatmentId)
+
+      if (orders.length > 0 || i === maxRetries - 1) {
+        console.log(`🔍 [DEBUG] Found ${orders.length} lab orders for treatment ${treatmentId} (attempt ${i + 1})`)
+        return orders
+      }
+    }
+    return []
+  }
+
+  // دالة للبحث المباشر في قاعدة البيانات
+  const searchLabOrdersDirectly = async (treatmentId: string, forceRefresh = false) => {
+    try {
+      console.log('🔍 [DEBUG] Searching lab orders directly in database for treatment:', treatmentId, forceRefresh ? '(force refresh)' : '')
+
+      // إضافة انتظار قصير إذا كان هذا بحث بعد تحديث
+      if (forceRefresh) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+
+      const allLabOrders = await window.electronAPI?.labOrders?.getAll() || []
+      const matchingOrders = allLabOrders.filter(order => order.tooth_treatment_id === treatmentId)
+
+      // البحث عن طلبات مخبر غير مرتبطة قد تكون لنفس المريض
+      const unlinkedOrders = allLabOrders.filter(order =>
+        !order.tooth_treatment_id && order.patient_id === treatment.patient_id
+      )
+
+      console.log('📋 [DEBUG] Direct database search results:', {
+        treatmentId,
+        totalOrders: allLabOrders.length,
+        matchingOrders: matchingOrders.length,
+        unlinkedOrders: unlinkedOrders.length,
+        matchingOrdersDetails: matchingOrders.map(o => ({
+          id: o.id,
+          tooth_treatment_id: o.tooth_treatment_id,
+          service_name: o.service_name,
+          lab_id: o.lab_id,
+          cost: o.cost
+        })),
+        unlinkedOrdersDetails: unlinkedOrders.map(o => ({
+          id: o.id,
+          tooth_treatment_id: o.tooth_treatment_id,
+          service_name: o.service_name,
+          lab_id: o.lab_id,
+          cost: o.cost,
+          patient_id: o.patient_id
+        }))
+      })
+
+      return matchingOrders
+    } catch (error) {
+      console.error('❌ [DEBUG] Error in direct database search:', error)
+      return []
+    }
+  }
+
+  // دالة لربط طلب مخبر غير مرتبط بالعلاج
+  const linkUnlinkedLabOrder = async (treatmentId: string) => {
+    try {
+      console.log('🔗 [DEBUG] Attempting to link unlinked lab order to treatment:', treatmentId)
+      const allLabOrders = await window.electronAPI?.labOrders?.getAll() || []
+
+      // البحث عن طلب مخبر غير مرتبط لنفس المريض
+      const unlinkedOrder = allLabOrders.find(order =>
+        !order.tooth_treatment_id &&
+        order.patient_id === treatment.patient_id &&
+        order.service_name?.includes('تعويض') // أو أي شرط آخر للتعرف على طلب المخبر المناسب
+      )
+
+      if (unlinkedOrder) {
+        console.log('🔗 [DEBUG] Found unlinked lab order, attempting to link:', unlinkedOrder.id)
+
+        // ربط طلب المخبر بالعلاج
+        await updateLabOrder(unlinkedOrder.id, {
+          tooth_treatment_id: treatmentId,
+          tooth_number: treatment.tooth_number
+        })
+
+        // انتظار إضافي للتأكد من تحديث البيانات
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // التحقق من نجاح الربط
+        const verificationResults = await searchLabOrdersDirectly(treatmentId, true)
+        console.log('🔍 [DEBUG] Link verification:', {
+          treatmentId,
+          linkedOrdersFound: verificationResults.length,
+          expectedOrderId: unlinkedOrder.id,
+          actualResults: verificationResults.map(o => ({ id: o.id, tooth_treatment_id: o.tooth_treatment_id }))
+        })
+
+        console.log('✅ [DEBUG] Successfully linked lab order to treatment')
+        return true
+      } else {
+        console.log('⚠️ [DEBUG] No unlinked lab order found for this patient')
+        return false
+      }
+    } catch (error) {
+      console.error('❌ [DEBUG] Error linking unlinked lab order:', error)
+      return false
+    }
+  }
+
+  // دالة لإعادة تحميل بيانات المخبر يدوياً
+  const reloadLabData = async () => {
+    console.log('🔄 [DEBUG] Manual reload of lab data requested')
+    if (treatment.treatment_category === 'التعويضات' || selectedCategory === 'التعويضات') {
+      // البحث المباشر في قاعدة البيانات أولاً
+      const directResults = await searchLabOrdersDirectly(treatment.id)
+
+      // ثم البحث عبر store
+      const existingLabOrders = await getLabOrdersWithRetry(treatment.id, 3)
+
+      console.log('🔍 [DEBUG] Comparison of search methods:', {
+        directResults: directResults.length,
+        storeResults: existingLabOrders.length,
+        treatmentId: treatment.id
+      })
+
+      // إذا لم نجد طلبات مرتبطة، حاول ربط طلبات غير مرتبطة
+      if (directResults.length === 0 && existingLabOrders.length === 0) {
+        console.log('🔗 [DEBUG] No linked orders found, attempting to link unlinked orders')
+        const linked = await linkUnlinkedLabOrder(treatment.id)
+
+        if (linked) {
+          // انتظار إضافي للتأكد من تحديث البيانات
+          await new Promise(resolve => setTimeout(resolve, 200))
+
+          // إعادة البحث بعد الربط مع محاولات متعددة
+          let newDirectResults = []
+          let newStoreResults = []
+
+          for (let i = 0; i < 3; i++) {
+            newDirectResults = await searchLabOrdersDirectly(treatment.id, true)
+            newStoreResults = await getLabOrdersWithRetry(treatment.id, 2)
+
+            console.log(`🔍 [DEBUG] Post-link search attempt ${i + 1}:`, {
+              directResults: newDirectResults.length,
+              storeResults: newStoreResults.length
+            })
+
+            if (newDirectResults.length > 0 || newStoreResults.length > 0) {
+              break
+            }
+
+            // انتظار قبل المحاولة التالية
+            await new Promise(resolve => setTimeout(resolve, 200))
+          }
+
+          const ordersToUse = newDirectResults.length > 0 ? newDirectResults : newStoreResults
+
+          if (ordersToUse.length > 0) {
+            const labOrder = ordersToUse[0]
+            setSelectedLab(labOrder.lab_id || '')
+            setLabCost(labOrder.cost || 0)
+            console.log('✅ [DEBUG] Lab data reloaded after linking:', {
+              lab_id: labOrder.lab_id,
+              cost: labOrder.cost,
+              source: 'linked'
+            })
+            notify.success('تم ربط طلب المخبر بالعلاج')
+            return
+          } else {
+            console.log('⚠️ [DEBUG] Still no orders found after linking')
+            notify.warning('تم الربط ولكن قد تحتاج لإعادة تحميل الصفحة')
+          }
+        }
+      }
+
+      // استخدام النتائج المباشرة إذا كانت متوفرة
+      const ordersToUse = directResults.length > 0 ? directResults : existingLabOrders
+
+      if (ordersToUse.length > 0) {
+        const labOrder = ordersToUse[0]
+        setSelectedLab(labOrder.lab_id || '')
+        setLabCost(labOrder.cost || 0)
+        console.log('✅ [DEBUG] Lab data reloaded:', {
+          lab_id: labOrder.lab_id,
+          cost: labOrder.cost,
+          source: directResults.length > 0 ? 'direct' : 'store'
+        })
+      } else {
+        setSelectedLab('')
+        setLabCost(0)
+        console.log('⚠️ [DEBUG] No lab orders found during manual reload')
+      }
+    }
+  }
+
   // تحميل المخابر وطلبات المخابر عند فتح النموذج
   useEffect(() => {
     const loadData = async () => {
       try {
+        console.log('🔄 [DEBUG] Loading data for treatment edit dialog:', treatment.id)
+        console.log('🔄 [DEBUG] Treatment category:', treatment.treatment_category)
+
         // تحميل المخابر أولاً
         await loadLabs()
 
+        // تأكد من تعيين الفئة المختارة
+        setSelectedCategory(treatment.treatment_category || '')
+
         // إذا كان العلاج من فئة التعويضات، حاول تحميل بيانات المخبر الموجودة
         if (treatment.treatment_category === 'التعويضات') {
-          // تحميل طلبات المخابر للتأكد من وجود البيانات المحدثة
-          await loadLabOrders()
+          console.log('🔍 [DEBUG] Loading lab data for prosthetic treatment:', treatment.id)
 
-          // الآن البحث عن طلبات المخبر المرتبطة بهذا العلاج
-          const existingLabOrders = getLabOrdersByTreatment(treatment.id)
-          console.log('🔍 [DEBUG] Looking for lab orders for treatment:', treatment.id)
-          console.log('🔍 [DEBUG] Found lab orders:', existingLabOrders)
+          // البحث المباشر في قاعدة البيانات أولاً
+          const directResults = await searchLabOrdersDirectly(treatment.id)
+
+          // ثم البحث عبر store
+          const storeResults = await getLabOrdersWithRetry(treatment.id, 3)
+
+          console.log('🔍 [DEBUG] Initial load comparison:', {
+            directResults: directResults.length,
+            storeResults: storeResults.length,
+            treatmentId: treatment.id
+          })
+
+          // استخدام النتائج المباشرة إذا كانت متوفرة، وإلا استخدم نتائج store
+          const existingLabOrders = directResults.length > 0 ? directResults : storeResults
 
           if (existingLabOrders.length > 0) {
             const labOrder = existingLabOrders[0] // أخذ أول طلب مخبر
-            console.log('✅ [DEBUG] Setting lab data:', {
+            console.log('✅ [DEBUG] Setting lab data from existing order:', {
               lab_id: labOrder.lab_id,
               cost: labOrder.cost,
+              service_name: labOrder.service_name,
+              source: directResults.length > 0 ? 'direct' : 'store',
               labOrder: labOrder
             })
 
-            // تأكد من أن البيانات موجودة قبل التعبئة
+            // تعبئة بيانات المخبر
             if (labOrder.lab_id) {
               setSelectedLab(labOrder.lab_id)
               console.log('✅ [DEBUG] Lab ID set to:', labOrder.lab_id)
@@ -950,6 +1287,11 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             setSelectedLab('')
             setLabCost(0)
           }
+        } else {
+          // إذا لم يكن العلاج من فئة التعويضات، تأكد من إعادة تعيين القيم
+          console.log('🔍 [DEBUG] Treatment is not prosthetic, resetting lab data')
+          setSelectedLab('')
+          setLabCost(0)
         }
       } catch (error) {
         console.error('❌ [DEBUG] Error loading lab data:', error)
@@ -958,6 +1300,32 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
 
     loadData()
   }, [loadLabs, treatment.id, treatment.treatment_category, getLabOrdersByTreatment, loadLabOrders])
+
+  // مراقبة تغيير الفئة المختارة وتحديث بيانات المخبر
+  useEffect(() => {
+    const updateLabDataOnCategoryChange = async () => {
+      if (selectedCategory === 'التعويضات') {
+        console.log('🔄 [DEBUG] Category changed to prosthetics, loading lab data')
+        const existingLabOrders = await getLabOrdersWithRetry(treatment.id, 2)
+
+        if (existingLabOrders.length > 0) {
+          const labOrder = existingLabOrders[0]
+          setSelectedLab(labOrder.lab_id || '')
+          setLabCost(labOrder.cost || 0)
+          console.log('✅ [DEBUG] Lab data updated from category change:', {
+            lab_id: labOrder.lab_id,
+            cost: labOrder.cost
+          })
+        }
+      } else {
+        console.log('🔄 [DEBUG] Category changed from prosthetics, clearing lab data')
+        setSelectedLab('')
+        setLabCost(0)
+      }
+    }
+
+    updateLabDataOnCategoryChange()
+  }, [selectedCategory, treatment.id])
 
   const filteredTreatmentTypes = selectedCategory
     ? getTreatmentsByCategory(selectedCategory as any)
@@ -1074,26 +1442,89 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
       }
 
       // إدارة طلبات المخبر للتعويضات
-      const existingLabOrders = getLabOrdersByTreatment(treatment.id)
+      // البحث المباشر في قاعدة البيانات أولاً
+      const directResults = await searchLabOrdersDirectly(treatment.id)
+
+      // ثم البحث عبر store
+      const storeResults = await getLabOrdersWithRetry(treatment.id)
+
+      console.log('🔍 [DEBUG] Update comparison:', {
+        directResults: directResults.length,
+        storeResults: storeResults.length,
+        treatmentId: treatment.id
+      })
+
+      // استخدام النتائج المباشرة إذا كانت متوفرة
+      const existingLabOrders = directResults.length > 0 ? directResults : storeResults
+
+      console.log('🔍 [DEBUG] Lab orders management for treatment:', treatment.id)
+      console.log('🔍 [DEBUG] Selected category:', selectedCategory)
+      console.log('🔍 [DEBUG] Lab cost:', labCost)
+      console.log('🔍 [DEBUG] Selected lab:', selectedLab)
+      console.log('🔍 [DEBUG] Existing lab orders:', existingLabOrders)
 
       if (selectedCategory === 'التعويضات') {
         if (labCost > 0 && selectedLab) {
           // إنشاء أو تحديث طلب المخبر
           const treatmentTypeInfo = getTreatmentByValue(editData.treatment_type!)
-          const serviceName = treatmentTypeInfo?.label || editData.treatment_type || 'خدمة مخبر'
+          const serviceName = `${treatmentTypeInfo?.label || editData.treatment_type || 'علاج تعويضات'} - السن ${treatment.tooth_number}`
 
-          if (existingLabOrders.length > 0) {
+          // البحث عن طلب مختبر موجود مرتبط بهذا العلاج تحديداً
+          const existingOrder = existingLabOrders.find(order =>
+            order.tooth_treatment_id === treatment.id
+          )
+
+          if (existingOrder) {
             // تحديث طلب المخبر الموجود
-            const labOrder = existingLabOrders[0]
-            await updateLabOrder(labOrder.id, {
-              lab_id: selectedLab,
-              cost: labCost,
-              service_name: serviceName,
-              notes: `طلب مخبر لعلاج سن ${treatment.tooth_name || treatment.tooth_number} (تم التحديث)`
+            console.log('🔄 [DEBUG] Updating existing lab order:', {
+              orderId: existingOrder.id,
+              currentLab: existingOrder.lab_id,
+              newLab: selectedLab,
+              currentCost: existingOrder.cost,
+              newCost: labCost
             })
-            notify.success('تم تحديث طلب المخبر')
+
+            try {
+              const updateData = {
+                lab_id: selectedLab,
+                cost: labCost,
+                service_name: serviceName,
+                notes: `طلب مخبر للمريض: ${patients.find(p => p.id === treatment.patient_id)?.full_name} - السن: ${treatment.tooth_name || treatment.tooth_number} - العلاج: ${treatmentTypeInfo?.label || editData.treatment_type} (تم التحديث)`,
+                remaining_balance: labCost - (existingOrder.paid_amount || 0)
+              }
+
+              await updateLabOrder(existingOrder.id, updateData)
+
+              // انتظار قصير للتأكد من تحديث البيانات
+              await new Promise(resolve => setTimeout(resolve, 300))
+
+              // التحقق من نجاح التحديث
+              await loadLabOrders()
+              const verificationOrders = getLabOrdersByTreatment(treatment.id)
+              const updatedOrder = verificationOrders.find(order => order.id === existingOrder.id)
+
+              if (updatedOrder && updatedOrder.cost === labCost && updatedOrder.lab_id === selectedLab) {
+                console.log('✅ [DEBUG] Lab order update verified successfully:', {
+                  orderId: updatedOrder.id,
+                  lab_id: updatedOrder.lab_id,
+                  cost: updatedOrder.cost
+                })
+                notify.success('تم تحديث طلب المختبر بنجاح')
+              } else {
+                console.warn('⚠️ [DEBUG] Lab order update verification failed:', {
+                  expected: { lab_id: selectedLab, cost: labCost },
+                  actual: updatedOrder ? { lab_id: updatedOrder.lab_id, cost: updatedOrder.cost } : 'not found'
+                })
+                notify.warning('تم التحديث ولكن قد تحتاج لإعادة تحميل الصفحة للتحقق')
+              }
+            } catch (error) {
+              console.error('❌ [DEBUG] Failed to update lab order:', error)
+              notify.error(`فشل في تحديث طلب المختبر: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`)
+            }
           } else {
             // إنشاء طلب مخبر جديد
+            console.log('➕ [DEBUG] Creating new lab order for treatment:', treatment.id)
+
             const labOrderData = {
               lab_id: selectedLab,
               patient_id: treatment.patient_id,
@@ -1103,27 +1534,65 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
               cost: labCost,
               order_date: new Date().toISOString().split('T')[0],
               status: 'معلق' as const,
-              notes: `طلب مخبر لعلاج سن ${treatment.tooth_name || treatment.tooth_number}`,
-              paid_amount: 0
+              notes: `طلب مخبر للمريض: ${patients.find(p => p.id === treatment.patient_id)?.full_name} - السن: ${treatment.tooth_name || treatment.tooth_number} - العلاج: ${treatmentTypeInfo?.label || editData.treatment_type}`,
+              paid_amount: 0,
+              remaining_balance: labCost
             }
 
-            await createLabOrder(labOrderData)
-            notify.success('تم إنشاء طلب المخبر')
+            try {
+              await createLabOrder(labOrderData)
+
+              // انتظار قصير للتأكد من إنشاء البيانات
+              await new Promise(resolve => setTimeout(resolve, 300))
+
+              // التحقق من نجاح الإنشاء
+              await loadLabOrders()
+              const newOrders = getLabOrdersByTreatment(treatment.id)
+
+              if (newOrders.length > 0) {
+                console.log('✅ [DEBUG] Lab order creation verified successfully:', {
+                  treatmentId: treatment.id,
+                  ordersCount: newOrders.length,
+                  latestOrder: newOrders[newOrders.length - 1]
+                })
+                notify.success('تم إنشاء طلب المختبر بنجاح')
+              } else {
+                console.warn('⚠️ [DEBUG] Lab order creation verification failed')
+                notify.warning('تم الإنشاء ولكن قد تحتاج لإعادة تحميل الصفحة للتحقق')
+              }
+            } catch (error) {
+              console.error('❌ [DEBUG] Failed to create lab order:', error)
+              notify.error(`فشل في إنشاء طلب المختبر: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`)
+            }
           }
         } else if (existingLabOrders.length > 0) {
           // إذا لم يتم تحديد مخبر أو تكلفة، احذف طلبات المخبر الموجودة
-          for (const labOrder of existingLabOrders) {
-            await deleteLabOrder(labOrder.id)
+          console.log('🗑️ [DEBUG] Deleting lab orders due to missing lab or cost')
+
+          try {
+            for (const labOrder of existingLabOrders) {
+              await deleteLabOrder(labOrder.id)
+            }
+            notify.info('تم حذف طلبات المختبر لعدم تحديد مختبر أو تكلفة')
+          } catch (error) {
+            console.error('❌ [DEBUG] Failed to delete lab orders:', error)
+            notify.error('فشل في حذف طلبات المختبر')
           }
-          notify.info('تم حذف طلبات المخبر لعدم تحديد مخبر أو تكلفة')
         }
       } else {
         // إذا تم تغيير التصنيف من التعويضات إلى شيء آخر، احذف طلبات المخبر
         if (existingLabOrders.length > 0) {
-          for (const labOrder of existingLabOrders) {
-            await deleteLabOrder(labOrder.id)
+          console.log('🗑️ [DEBUG] Deleting lab orders due to category change')
+
+          try {
+            for (const labOrder of existingLabOrders) {
+              await deleteLabOrder(labOrder.id)
+            }
+            notify.info('تم حذف طلبات المختبر لتغيير تصنيف العلاج')
+          } catch (error) {
+            console.error('❌ [DEBUG] Failed to delete lab orders:', error)
+            notify.error('فشل في حذف طلبات المختبر')
           }
-          notify.info('تم حذف طلبات المخبر لتغيير تصنيف العلاج')
         }
       }
 
@@ -1288,6 +1757,49 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
                 🏭
               </div>
               <span>معلومات المخبر</span>
+              {/* عرض القيم الحالية للتتبع */}
+              <span className={cn(
+                "text-xs px-2 py-1 rounded",
+                isDarkMode ? "bg-purple-800/30 text-purple-300" : "bg-purple-100 text-purple-600"
+              )}>
+                {selectedLab ? `مخبر: ${labs.find(l => l.id === selectedLab)?.name || selectedLab}` : 'لا يوجد مخبر'}
+                {labCost > 0 && ` | تكلفة: $${labCost}`}
+              </span>
+              {/* زر إعادة تحميل البيانات */}
+              <button
+                type="button"
+                onClick={reloadLabData}
+                className={cn(
+                  "text-xs px-2 py-1 rounded hover:scale-105 transition-all",
+                  isDarkMode
+                    ? "bg-purple-700/50 text-purple-200 hover:bg-purple-600/50"
+                    : "bg-purple-200 text-purple-700 hover:bg-purple-300"
+                )}
+                title="إعادة تحميل بيانات المخبر وربط الطلبات غير المرتبطة"
+              >
+                🔄
+              </button>
+              {/* زر ربط طلبات المخبر */}
+              <button
+                type="button"
+                onClick={async () => {
+                  const linked = await linkUnlinkedLabOrder(treatment.id)
+                  if (linked) {
+                    await reloadLabData()
+                  } else {
+                    notify.info('لا توجد طلبات مخبر غير مرتبطة لهذا المريض')
+                  }
+                }}
+                className={cn(
+                  "text-xs px-2 py-1 rounded hover:scale-105 transition-all",
+                  isDarkMode
+                    ? "bg-blue-700/50 text-blue-200 hover:bg-blue-600/50"
+                    : "bg-blue-200 text-blue-700 hover:bg-blue-300"
+                )}
+                title="ربط طلبات المخبر غير المرتبطة"
+              >
+                🔗
+              </button>
               <div className={cn(
                 "h-px flex-1 ml-2",
                 isDarkMode ? "bg-purple-700/30" : "bg-purple-300/50"
@@ -1304,7 +1816,10 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             </Label>
             <Select
               value={selectedLab}
-              onValueChange={setSelectedLab}
+              onValueChange={(value) => {
+                console.log('🔄 [DEBUG] Lab selection changed to:', value)
+                setSelectedLab(value)
+              }}
             >
               <SelectTrigger className={cn(
                 "border-2 transition-all duration-200 h-11",
@@ -1343,7 +1858,11 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
               min="0"
               step="0.01"
               value={labCost || ''}
-              onChange={(e) => setLabCost(parseFloat(e.target.value) || 0)}
+              onChange={(e) => {
+                const newCost = parseFloat(e.target.value) || 0
+                console.log('🔄 [DEBUG] Lab cost changed to:', newCost)
+                setLabCost(newCost)
+              }}
               placeholder="0.00"
               className={cn(
                 "border-2 transition-all duration-200 h-11",

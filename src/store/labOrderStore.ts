@@ -78,7 +78,35 @@ export const useLabOrderStore = create<LabOrderStore>()(
       loadLabOrders: async () => {
         set({ isLoading: true, error: null })
         try {
+          console.log('🔄 [DEBUG] Loading all lab orders from database...')
           const labOrders = await window.electronAPI?.labOrders?.getAll() || []
+
+          console.log('📋 [DEBUG] Loaded lab orders:', {
+            total: labOrders.length,
+            allOrders: labOrders.map(o => ({
+              id: o.id,
+              tooth_treatment_id: o.tooth_treatment_id,
+              service_name: o.service_name,
+              lab_id: o.lab_id,
+              cost: o.cost,
+              patient_id: o.patient_id
+            })),
+            ordersWithTreatmentId: labOrders.filter(o => o.tooth_treatment_id).map(o => ({
+              id: o.id,
+              tooth_treatment_id: o.tooth_treatment_id,
+              service_name: o.service_name,
+              lab_id: o.lab_id,
+              cost: o.cost
+            })),
+            ordersWithoutTreatmentId: labOrders.filter(o => !o.tooth_treatment_id).map(o => ({
+              id: o.id,
+              tooth_treatment_id: o.tooth_treatment_id,
+              service_name: o.service_name,
+              lab_id: o.lab_id,
+              cost: o.cost,
+              patient_id: o.patient_id
+            }))
+          })
 
           set({
             labOrders,
@@ -88,7 +116,7 @@ export const useLabOrderStore = create<LabOrderStore>()(
           get().calculateStatistics()
           get().filterLabOrders()
         } catch (error) {
-          console.error('Error loading lab orders:', error)
+          console.error('❌ [DEBUG] Error loading lab orders:', error)
           set({
             error: error instanceof Error ? error.message : 'Failed to load lab orders',
             isLoading: false
@@ -99,6 +127,8 @@ export const useLabOrderStore = create<LabOrderStore>()(
       createLabOrder: async (labOrderData) => {
         set({ isLoading: true, error: null })
         try {
+          console.log('➕ [DEBUG] Creating lab order:', labOrderData)
+
           // Calculate remaining balance
           const remainingBalance = labOrderData.cost - (labOrderData.paid_amount || 0)
           const orderWithBalance = {
@@ -108,11 +138,22 @@ export const useLabOrderStore = create<LabOrderStore>()(
 
           const newLabOrder = await window.electronAPI?.labOrders?.create(orderWithBalance)
           if (newLabOrder) {
-            // Reload all lab orders to ensure proper lab data population
-            await get().loadLabOrders()
+            console.log('✅ [DEBUG] Lab order created successfully:', newLabOrder)
+
+            // Add the new lab order to the local state instead of reloading all data
+            const { labOrders } = get()
+            const updatedLabOrders = [...labOrders, newLabOrder]
+
+            set({
+              labOrders: updatedLabOrders,
+              isLoading: false
+            })
+
+            get().calculateStatistics()
+            get().filterLabOrders()
           }
         } catch (error) {
-          console.error('Error creating lab order:', error)
+          console.error('❌ [DEBUG] Error creating lab order:', error)
           set({
             error: error instanceof Error ? error.message : 'Failed to create lab order',
             isLoading: false
@@ -124,6 +165,8 @@ export const useLabOrderStore = create<LabOrderStore>()(
       updateLabOrder: async (id, labOrderData) => {
         set({ isLoading: true, error: null })
         try {
+          console.log('🔄 [DEBUG] Updating lab order:', id, labOrderData)
+
           // Recalculate remaining balance if cost or paid amount changed
           const currentOrder = get().labOrders.find(order => order.id === id)
           if (currentOrder && (labOrderData.cost !== undefined || labOrderData.paid_amount !== undefined)) {
@@ -134,11 +177,23 @@ export const useLabOrderStore = create<LabOrderStore>()(
 
           const updatedLabOrder = await window.electronAPI?.labOrders?.update(id, labOrderData)
           if (updatedLabOrder) {
-            // Reload all lab orders to ensure proper lab data population
+            console.log('✅ [DEBUG] Lab order updated successfully:', updatedLabOrder)
+
+            // Force reload from database to ensure consistency
+            console.log('🔄 [DEBUG] Force reloading lab orders after update...')
             await get().loadLabOrders()
+
+            // Verify the update worked
+            const verifyOrder = get().labOrders.find(order => order.id === id)
+            console.log('🔍 [DEBUG] Verification after update:', {
+              orderId: id,
+              found: !!verifyOrder,
+              tooth_treatment_id: verifyOrder?.tooth_treatment_id,
+              updatedData: labOrderData
+            })
           }
         } catch (error) {
-          console.error('Error updating lab order:', error)
+          console.error('❌ [DEBUG] Error updating lab order:', error)
           set({
             error: error instanceof Error ? error.message : 'Failed to update lab order',
             isLoading: false
@@ -289,7 +344,21 @@ export const useLabOrderStore = create<LabOrderStore>()(
       },
 
       getLabOrdersByTreatment: (treatmentId) => {
-        return get().labOrders.filter(order => order.tooth_treatment_id === treatmentId)
+        const allOrders = get().labOrders
+        const matchingOrders = allOrders.filter(order => order.tooth_treatment_id === treatmentId)
+
+        console.log('🔍 [DEBUG] getLabOrdersByTreatment called:', {
+          treatmentId,
+          totalOrders: allOrders.length,
+          matchingOrders: matchingOrders.length,
+          allOrdersWithTreatmentId: allOrders.filter(o => o.tooth_treatment_id).map(o => ({
+            id: o.id,
+            tooth_treatment_id: o.tooth_treatment_id,
+            service_name: o.service_name
+          }))
+        })
+
+        return matchingOrders
       }
     }),
     {

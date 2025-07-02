@@ -2762,44 +2762,68 @@ export class DatabaseService {
   }
 
   async updateLabOrder(id: string, labOrder: Partial<LabOrder>): Promise<LabOrder> {
-    const now = new Date().toISOString()
+    try {
+      console.log(`🔄 [DB] Updating lab order: ${id}`, labOrder)
 
-    const stmt = this.db.prepare(`
-      UPDATE lab_orders SET
-        lab_id = COALESCE(?, lab_id),
-        patient_id = COALESCE(?, patient_id),
-        appointment_id = COALESCE(?, appointment_id),
-        tooth_treatment_id = COALESCE(?, tooth_treatment_id),
-        tooth_number = COALESCE(?, tooth_number),
-        service_name = COALESCE(?, service_name),
-        cost = COALESCE(?, cost),
-        order_date = COALESCE(?, order_date),
-        expected_delivery_date = COALESCE(?, expected_delivery_date),
-        actual_delivery_date = COALESCE(?, actual_delivery_date),
-        status = COALESCE(?, status),
-        notes = COALESCE(?, notes),
-        paid_amount = COALESCE(?, paid_amount),
-        remaining_balance = COALESCE(?, remaining_balance),
-        priority = COALESCE(?, priority),
-        lab_instructions = COALESCE(?, lab_instructions),
-        material_type = COALESCE(?, material_type),
-        color_shade = COALESCE(?, color_shade),
-        updated_at = ?
-      WHERE id = ?
-    `)
+      const now = new Date().toISOString()
 
-    stmt.run(
-      labOrder.lab_id, labOrder.patient_id, labOrder.appointment_id,
-      labOrder.tooth_treatment_id, labOrder.tooth_number, labOrder.service_name,
-      labOrder.cost, labOrder.order_date, labOrder.expected_delivery_date,
-      labOrder.actual_delivery_date, labOrder.status, labOrder.notes,
-      labOrder.paid_amount, labOrder.remaining_balance, labOrder.priority,
-      labOrder.lab_instructions, labOrder.material_type, labOrder.color_shade,
-      now, id
-    )
+      // Check if the lab order exists first
+      const checkStmt = this.db.prepare('SELECT id FROM lab_orders WHERE id = ?')
+      const existingOrder = checkStmt.get(id)
 
-    const getStmt = this.db.prepare('SELECT * FROM lab_orders WHERE id = ?')
-    return getStmt.get(id) as LabOrder
+      if (!existingOrder) {
+        throw new Error(`Lab order with id ${id} not found`)
+      }
+
+      const stmt = this.db.prepare(`
+        UPDATE lab_orders SET
+          lab_id = COALESCE(?, lab_id),
+          patient_id = COALESCE(?, patient_id),
+          appointment_id = COALESCE(?, appointment_id),
+          tooth_treatment_id = COALESCE(?, tooth_treatment_id),
+          tooth_number = COALESCE(?, tooth_number),
+          service_name = COALESCE(?, service_name),
+          cost = COALESCE(?, cost),
+          order_date = COALESCE(?, order_date),
+          expected_delivery_date = COALESCE(?, expected_delivery_date),
+          actual_delivery_date = COALESCE(?, actual_delivery_date),
+          status = COALESCE(?, status),
+          notes = COALESCE(?, notes),
+          paid_amount = COALESCE(?, paid_amount),
+          remaining_balance = COALESCE(?, remaining_balance),
+          priority = COALESCE(?, priority),
+          lab_instructions = COALESCE(?, lab_instructions),
+          material_type = COALESCE(?, material_type),
+          color_shade = COALESCE(?, color_shade),
+          updated_at = ?
+        WHERE id = ?
+      `)
+
+      const result = stmt.run(
+        labOrder.lab_id, labOrder.patient_id, labOrder.appointment_id,
+        labOrder.tooth_treatment_id, labOrder.tooth_number, labOrder.service_name,
+        labOrder.cost, labOrder.order_date, labOrder.expected_delivery_date,
+        labOrder.actual_delivery_date, labOrder.status, labOrder.notes,
+        labOrder.paid_amount, labOrder.remaining_balance, labOrder.priority,
+        labOrder.lab_instructions, labOrder.material_type, labOrder.color_shade,
+        now, id
+      )
+
+      console.log(`✅ [DB] Lab order ${id} updated successfully. Affected rows: ${result.changes}`)
+
+      // Force WAL checkpoint to ensure data is written
+      this.db.pragma('wal_checkpoint(TRUNCATE)')
+
+      const getStmt = this.db.prepare('SELECT * FROM lab_orders WHERE id = ?')
+      const updatedOrder = getStmt.get(id) as LabOrder
+
+      console.log(`📋 [DB] Updated lab order data:`, updatedOrder)
+
+      return updatedOrder
+    } catch (error) {
+      console.error(`❌ [DB] Failed to update lab order ${id}:`, error)
+      throw new Error(`Failed to update lab order: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
   async deleteLabOrder(id: string): Promise<boolean> {
