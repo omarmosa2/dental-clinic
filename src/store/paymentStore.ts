@@ -573,8 +573,22 @@ export const usePaymentStore = create<PaymentStore>()(
         const { payments } = get()
 
         return payments.filter(payment => {
-          const paymentDate = new Date(payment.payment_date)
-          return paymentDate >= startDate && paymentDate <= endDate
+          const paymentDateStr = payment.payment_date
+          if (!paymentDateStr) return false
+
+          const paymentDate = new Date(paymentDateStr)
+
+          // للتواريخ التي تحتوي على وقت، نحتاج لمقارنة التاريخ فقط
+          let paymentDateForComparison: Date
+          if (paymentDateStr.includes('T') || paymentDateStr.includes(' ')) {
+            // التاريخ يحتوي على وقت، استخدمه كما هو
+            paymentDateForComparison = paymentDate
+          } else {
+            // التاريخ بدون وقت، اعتبره في بداية اليوم
+            paymentDateForComparison = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate(), 0, 0, 0, 0)
+          }
+
+          return paymentDateForComparison >= startDate && paymentDateForComparison <= endDate
         })
       },
 

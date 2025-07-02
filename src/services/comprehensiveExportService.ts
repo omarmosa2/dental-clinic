@@ -31,11 +31,13 @@ export function getDateRangeForPeriod(period: TimePeriod, customStart?: string, 
 
   switch (period) {
     case 'today':
-      return { startDate: today, endDate: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1) }
+      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+      return { startDate: today, endDate: todayEnd }
 
     case 'yesterday':
-      const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
-      return { startDate: yesterday, endDate: new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1) }
+      const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
+      const yesterdayEnd = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999)
+      return { startDate: yesterday, endDate: yesterdayEnd }
 
     case 'this_week':
       const startOfWeek = new Date(today)
@@ -81,16 +83,20 @@ export function getDateRangeForPeriod(period: TimePeriod, customStart?: string, 
       return { startDate: lastYearStart, endDate: lastYearEnd }
 
     case 'last_30_days':
-      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-      return { startDate: thirtyDaysAgo, endDate: now }
+      const thirtyDaysAgo = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
+      const todayEnd30 = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+      return { startDate: thirtyDaysAgo, endDate: todayEnd30 }
 
     case 'last_90_days':
-      const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
-      return { startDate: ninetyDaysAgo, endDate: now }
+      const ninetyDaysAgo = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 90)
+      const todayEnd90 = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+      return { startDate: ninetyDaysAgo, endDate: todayEnd90 }
 
     case 'custom':
       if (customStart && customEnd) {
-        return { startDate: new Date(customStart), endDate: new Date(customEnd) }
+        const startDate = new Date(customStart + 'T00:00:00')
+        const endDate = new Date(customEnd + 'T23:59:59.999')
+        return { startDate, endDate }
       }
       return { startDate: new Date(0), endDate: now }
 
@@ -334,8 +340,19 @@ export class ComprehensiveExportService {
 
     const isInDateRange = (dateStr: string) => {
       if (!dateStr) return false
-      const date = new Date(dateStr)
-      return date >= dateRange.startDate && date <= dateRange.endDate
+      const itemDate = new Date(dateStr)
+
+      // للتواريخ التي تحتوي على وقت، نحتاج لمقارنة التاريخ فقط
+      let itemDateForComparison: Date
+      if (dateStr.includes('T') || dateStr.includes(' ')) {
+        // التاريخ يحتوي على وقت، استخدمه كما هو
+        itemDateForComparison = itemDate
+      } else {
+        // التاريخ بدون وقت، اعتبره في بداية اليوم
+        itemDateForComparison = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), 0, 0, 0, 0)
+      }
+
+      return itemDateForComparison >= dateRange.startDate && itemDateForComparison <= dateRange.endDate
     }
 
     return {
@@ -348,7 +365,7 @@ export class ComprehensiveExportService {
       ),
       inventory: data.inventory, // المخزون لا يتم فلترته حسب التاريخ
       treatments: data.treatments?.filter(treatment =>
-        isInDateRange(treatment.start_date) || isInDateRange(treatment.created_at)
+        isInDateRange(treatment.start_date || '') || isInDateRange(treatment.created_at || '')
       ) || [],
       prescriptions: data.prescriptions?.filter(prescription =>
         isInDateRange(prescription.created_at)

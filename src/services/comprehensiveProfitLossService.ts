@@ -28,26 +28,58 @@ export class ComprehensiveProfitLossService {
    */
   private static filterByDateRange<T extends { created_at?: string; payment_date?: string; order_date?: string }>(
     data: T[],
-    dateRange: { startDate?: string; endDate?: string },
+    dateRange: { start?: string; end?: string; startDate?: string; endDate?: string },
     dateField: keyof T
   ): T[] {
-    if (!dateRange.startDate && !dateRange.endDate) {
+    // دعم كلا من التنسيقين: start/end و startDate/endDate
+    const startDate = dateRange.start || dateRange.startDate
+    const endDate = dateRange.end || dateRange.endDate
+
+    if (!startDate && !endDate) {
       return data
     }
 
-    return data.filter(item => {
+    const filtered = data.filter(item => {
       const itemDate = item[dateField] as string
-      if (!itemDate) return true
+      if (!itemDate) {
+        return false // استبعاد العناصر التي لا تحتوي على تاريخ عند الفلترة
+      }
 
-      const date = new Date(itemDate)
-      const startDate = dateRange.startDate ? new Date(dateRange.startDate) : null
-      const endDate = dateRange.endDate ? new Date(dateRange.endDate) : null
+      // تحسين معالجة التواريخ لتجنب مشاكل المنطقة الزمنية
+      const itemDateObj = new Date(itemDate)
 
-      if (startDate && date < startDate) return false
-      if (endDate && date > endDate) return false
+      // إنشاء تواريخ البداية والنهاية مع ضبط المنطقة الزمنية المحلية
+      let start: Date | null = null
+      let end: Date | null = null
 
-      return true
+      if (startDate) {
+        start = new Date(startDate)
+        // التأكد من أن التاريخ في المنطقة الزمنية المحلية
+        start = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0)
+      }
+
+      if (endDate) {
+        end = new Date(endDate)
+        // التأكد من أن التاريخ في المنطقة الزمنية المحلية
+        end = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999)
+      }
+
+      // للتواريخ التي تحتوي على وقت، نحتاج لمقارنة التاريخ فقط
+      let itemDateForComparison: Date
+      if (itemDate.includes('T') || itemDate.includes(' ')) {
+        // التاريخ يحتوي على وقت، استخدمه كما هو
+        itemDateForComparison = itemDateObj
+      } else {
+        // التاريخ بدون وقت، اعتبره في بداية اليوم
+        itemDateForComparison = new Date(itemDateObj.getFullYear(), itemDateObj.getMonth(), itemDateObj.getDate(), 0, 0, 0, 0)
+      }
+
+      const isInRange = (!start || itemDateForComparison >= start) && (!end || itemDateForComparison <= end)
+
+      return isInRange
     })
+
+    return filtered
   }
 
   /**
@@ -215,6 +247,8 @@ export class ComprehensiveProfitLossService {
     expenses?: any[] // مصروفات العيادة المباشرة
   ): ComprehensiveProfitLossReport {
 
+
+
     // فلترة البيانات حسب التاريخ إذا كان الفلتر موجود
     const filteredPayments = filter?.dateRange
       ? this.filterByDateRange(payments, filter.dateRange, 'payment_date')
@@ -232,6 +266,16 @@ export class ComprehensiveProfitLossService {
       ? this.filterByDateRange(appointments, filter.dateRange, 'created_at')
       : appointments
 
+    // فلترة المخزون حسب تاريخ الإنشاء
+    const filteredInventoryItems = filter?.dateRange
+      ? this.filterByDateRange(inventoryItems, filter.dateRange, 'created_at')
+      : inventoryItems
+
+    // فلترة مصروفات العيادة المباشرة حسب تاريخ الدفع
+    const filteredExpenses = filter?.dateRange && expenses
+      ? this.filterByDateRange(expenses, filter.dateRange, 'payment_date')
+      : expenses
+
     // حساب الإيرادات
     const revenue = this.calculateRevenueStats(filteredPayments)
 
@@ -239,8 +283,8 @@ export class ComprehensiveProfitLossService {
     const expenseStats = this.calculateExpenseStats(
       filteredLabOrders,
       filteredClinicNeeds,
-      inventoryItems,
-      expenses // تمرير مصروفات العيادة المباشرة
+      filteredInventoryItems, // استخدام المخزون المفلتر
+      filteredExpenses // استخدام المصروفات المفلترة
     )
 
     // حساب إجمالي الدخل والمصروفات
@@ -256,6 +300,8 @@ export class ComprehensiveProfitLossService {
       totalAppointments: filteredAppointments.length,
       totalLabOrders: filteredLabOrders.length,
       totalClinicNeeds: filteredClinicNeeds.length,
+      totalInventoryItems: filteredInventoryItems.length,
+      totalExpenses: filteredExpenses ? filteredExpenses.length : 0,
       averageRevenuePerPatient: patients.length > 0 ? totalIncome / patients.length : 0,
       averageRevenuePerAppointment: filteredAppointments.length > 0 ? totalIncome / filteredAppointments.length : 0
     }
@@ -263,10 +309,10 @@ export class ComprehensiveProfitLossService {
     // معلومات الفلترة
     const filterInfo = {
       dateRange: filter?.dateRange
-        ? `${filter.dateRange.startDate || 'البداية'} - ${filter.dateRange.endDate || 'النهاية'}`
+        ? `${filter.dateRange.start || filter.dateRange.startDate || 'البداية'} - ${filter.dateRange.end || filter.dateRange.endDate || 'النهاية'}`
         : 'جميع البيانات',
-      totalRecords: payments.length + labOrders.length + clinicNeeds.length + appointments.length,
-      filteredRecords: filteredPayments.length + filteredLabOrders.length + filteredClinicNeeds.length + filteredAppointments.length
+      totalRecords: payments.length + labOrders.length + clinicNeeds.length + appointments.length + inventoryItems.length + (expenses ? expenses.length : 0),
+      filteredRecords: filteredPayments.length + filteredLabOrders.length + filteredClinicNeeds.length + filteredAppointments.length + filteredInventoryItems.length + (filteredExpenses ? filteredExpenses.length : 0)
     }
 
     return {

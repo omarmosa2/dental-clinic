@@ -40,10 +40,18 @@ export function TimeFilter({
     startDate: '',
     endDate: ''
   }
+  // دالة مساعدة لتحويل التاريخ إلى تنسيق محلي YYYY-MM-DD
+  const formatDateToLocal = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const handlePresetChange = (preset: TimeFilterOptions['preset']) => {
     const today = new Date()
     let startDate = ''
-    let endDate = today.toISOString().split('T')[0]
+    let endDate = formatDateToLocal(today)
 
     switch (preset) {
       case 'all':
@@ -51,19 +59,19 @@ export function TimeFilter({
         endDate = ''
         break
       case 'today':
-        startDate = today.toISOString().split('T')[0]
+        startDate = formatDateToLocal(today)
         break
       case 'week':
         const weekStart = getWeekStart(today)
-        startDate = weekStart.toISOString().split('T')[0]
+        startDate = formatDateToLocal(weekStart)
         break
       case 'month':
         const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-        startDate = monthStart.toISOString().split('T')[0]
+        startDate = formatDateToLocal(monthStart)
         break
       case 'year':
         const yearStart = new Date(today.getFullYear(), 0, 1)
-        startDate = yearStart.toISOString().split('T')[0]
+        startDate = formatDateToLocal(yearStart)
         break
       case 'custom':
         // Keep existing dates for custom

@@ -305,11 +305,30 @@ export const useExpensesStore = create<ExpensesState & ExpensesActions>((set, ge
 
     // Date range filter
     if (filters.dateRange.start && filters.dateRange.end) {
-      const startDate = new Date(filters.dateRange.start)
-      const endDate = new Date(filters.dateRange.end)
+      // إنشاء تواريخ البداية والنهاية مع ضبط المنطقة الزمنية المحلية
+      const start = new Date(filters.dateRange.start)
+      const startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0)
+
+      const end = new Date(filters.dateRange.end)
+      const endLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999)
+
       filtered = filtered.filter(expense => {
-        const expenseDate = new Date(expense.payment_date)
-        return expenseDate >= startDate && expenseDate <= endDate
+        const expenseDateStr = expense.payment_date
+        if (!expenseDateStr) return false
+
+        const expenseDate = new Date(expenseDateStr)
+
+        // للتواريخ التي تحتوي على وقت، نحتاج لمقارنة التاريخ فقط
+        let expenseDateForComparison: Date
+        if (expenseDateStr.includes('T') || expenseDateStr.includes(' ')) {
+          // التاريخ يحتوي على وقت، استخدمه كما هو
+          expenseDateForComparison = expenseDate
+        } else {
+          // التاريخ بدون وقت، اعتبره في بداية اليوم
+          expenseDateForComparison = new Date(expenseDate.getFullYear(), expenseDate.getMonth(), expenseDate.getDate(), 0, 0, 0, 0)
+        }
+
+        return expenseDateForComparison >= startLocal && expenseDateForComparison <= endLocal
       })
     }
 
@@ -319,7 +338,7 @@ export const useExpensesStore = create<ExpensesState & ExpensesActions>((set, ge
   // Analytics
   calculateAnalytics: () => {
     const { expenses } = get()
-    
+
     const totalExpenses = expenses.length
     const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0)
     const paidAmount = expenses

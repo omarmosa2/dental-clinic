@@ -1292,6 +1292,45 @@ export class PdfService {
   }
 
   /**
+   * فلترة البيانات حسب التاريخ
+   */
+  private static filterDataByDateRange<T extends { created_at?: string; payment_date?: string; order_date?: string }>(
+    data: T[],
+    filter: any,
+    dateField: keyof T
+  ): T[] {
+    if (!filter || !filter.start || !filter.end) {
+      return data
+    }
+
+    // إنشاء تواريخ البداية والنهاية مع ضبط المنطقة الزمنية المحلية
+    const start = new Date(filter.start)
+    const startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0)
+
+    const end = new Date(filter.end)
+    const endLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999)
+
+    return data.filter(item => {
+      const itemDateStr = item[dateField] as string
+      if (!itemDateStr) return false
+
+      const itemDate = new Date(itemDateStr)
+
+      // للتواريخ التي تحتوي على وقت، نحتاج لمقارنة التاريخ فقط
+      let itemDateForComparison: Date
+      if (itemDateStr.includes('T') || itemDateStr.includes(' ')) {
+        // التاريخ يحتوي على وقت، استخدمه كما هو
+        itemDateForComparison = itemDate
+      } else {
+        // التاريخ بدون وقت، اعتبره في بداية اليوم
+        itemDateForComparison = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), 0, 0, 0, 0)
+      }
+
+      return itemDateForComparison >= startLocal && itemDateForComparison <= endLocal
+    })
+  }
+
+  /**
    * تصدير تقرير الأرباح والخسائر الشامل كـ PDF
    */
   static async exportProfitLossReport(data: {
@@ -1307,7 +1346,31 @@ export class PdfService {
     currency: string
   }, settings?: ClinicSettings | null): Promise<void> {
     try {
-      const htmlContent = EnhancedPdfReports.createEnhancedProfitLossReportHTML(data, settings)
+      const { reportData, payments, labOrders, clinicNeeds, inventoryItems, clinicExpenses, patients, appointments, filter, currency } = data
+
+      // فلترة البيانات حسب التاريخ إذا كان الفلتر موجود
+      const filteredPayments = this.filterDataByDateRange(payments, filter, 'payment_date')
+      const filteredLabOrders = this.filterDataByDateRange(labOrders, filter, 'order_date')
+      const filteredClinicNeeds = this.filterDataByDateRange(clinicNeeds, filter, 'created_at')
+      const filteredAppointments = this.filterDataByDateRange(appointments, filter, 'created_at')
+      const filteredInventoryItems = inventoryItems // المخزون لا يتم فلترته حسب التاريخ
+      const filteredClinicExpenses = clinicExpenses ? this.filterDataByDateRange(clinicExpenses, filter, 'payment_date') : []
+
+      // إنشاء البيانات المفلترة للتصدير
+      const filteredData = {
+        reportData,
+        payments: filteredPayments,
+        labOrders: filteredLabOrders,
+        clinicNeeds: filteredClinicNeeds,
+        inventoryItems: filteredInventoryItems,
+        clinicExpenses: filteredClinicExpenses,
+        patients,
+        appointments: filteredAppointments,
+        filter,
+        currency
+      }
+
+      const htmlContent = EnhancedPdfReports.createEnhancedProfitLossReportHTML(filteredData, settings)
       const fileName = this.generatePDFFileName('profit-loss')
       await this.convertHTMLToPDF(htmlContent, fileName)
     } catch (error) {

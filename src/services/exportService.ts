@@ -3524,6 +3524,45 @@ export class ExportService {
   }
 
   /**
+   * فلترة البيانات حسب التاريخ
+   */
+  private static filterDataByDateRange<T extends { created_at?: string; payment_date?: string; order_date?: string }>(
+    data: T[],
+    filter: any,
+    dateField: keyof T
+  ): T[] {
+    if (!filter || !filter.start || !filter.end) {
+      return data
+    }
+
+    // إنشاء تواريخ البداية والنهاية مع ضبط المنطقة الزمنية المحلية
+    const start = new Date(filter.start)
+    const startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0)
+
+    const end = new Date(filter.end)
+    const endLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999)
+
+    return data.filter(item => {
+      const itemDateStr = item[dateField] as string
+      if (!itemDateStr) return false
+
+      const itemDate = new Date(itemDateStr)
+
+      // للتواريخ التي تحتوي على وقت، نحتاج لمقارنة التاريخ فقط
+      let itemDateForComparison: Date
+      if (itemDateStr.includes('T') || itemDateStr.includes(' ')) {
+        // التاريخ يحتوي على وقت، استخدمه كما هو
+        itemDateForComparison = itemDate
+      } else {
+        // التاريخ بدون وقت، اعتبره في بداية اليوم
+        itemDateForComparison = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), 0, 0, 0, 0)
+      }
+
+      return itemDateForComparison >= startLocal && itemDateForComparison <= endLocal
+    })
+  }
+
+  /**
    * تصدير تقرير الأرباح والخسائر الشامل إلى Excel
    */
   static async exportProfitLossToExcel(data: {
@@ -3539,6 +3578,14 @@ export class ExportService {
     currency: string
   }): Promise<void> {
     const { reportData, payments, labOrders, clinicNeeds, inventoryItems, clinicExpenses, patients, appointments, filter, currency } = data
+
+    // فلترة البيانات حسب التاريخ إذا كان الفلتر موجود
+    const filteredPayments = this.filterDataByDateRange(payments, filter, 'payment_date')
+    const filteredLabOrders = this.filterDataByDateRange(labOrders, filter, 'order_date')
+    const filteredClinicNeeds = this.filterDataByDateRange(clinicNeeds, filter, 'created_at')
+    const filteredAppointments = this.filterDataByDateRange(appointments, filter, 'created_at')
+    const filteredInventoryItems = inventoryItems // المخزون لا يتم فلترته حسب التاريخ
+    const filteredClinicExpenses = clinicExpenses ? this.filterDataByDateRange(clinicExpenses, filter, 'payment_date') : []
 
     // إنشاء بيانات التقرير الشامل
     const profitLossData = {
@@ -3572,16 +3619,16 @@ export class ExportService {
         inventoryExpenses: reportData.expenses.inventoryExpenses,
         clinicExpensesTotal: reportData.expenses.clinicExpensesTotal || 0
       },
-      // البيانات التفصيلية
-      payments: payments,
-      labOrders: labOrders,
-      clinicNeeds: clinicNeeds,
-      inventoryItems: inventoryItems,
-      clinicExpenses: clinicExpenses || [],
+      // البيانات التفصيلية المفلترة
+      payments: filteredPayments,
+      labOrders: filteredLabOrders,
+      clinicNeeds: filteredClinicNeeds,
+      inventoryItems: filteredInventoryItems,
+      clinicExpenses: filteredClinicExpenses,
       patients: patients,
-      appointments: appointments,
-      filterInfo: `تقرير الأرباح والخسائر - ${reportData.filterInfo.dateRange} - ${payments.length} دفعة، ${labOrders.length} طلب مختبر، ${clinicNeeds.length} احتياج، ${inventoryItems.length} عنصر مخزون، ${(clinicExpenses || []).length} مصروف`,
-      dataCount: payments.length + labOrders.length + clinicNeeds.length + inventoryItems.length + (clinicExpenses || []).length
+      appointments: filteredAppointments,
+      filterInfo: `تقرير الأرباح والخسائر - ${reportData.filterInfo.dateRange} - ${filteredPayments.length} دفعة، ${filteredLabOrders.length} طلب مختبر، ${filteredClinicNeeds.length} احتياج، ${filteredInventoryItems.length} عنصر مخزون، ${filteredClinicExpenses.length} مصروف`,
+      dataCount: filteredPayments.length + filteredLabOrders.length + filteredClinicNeeds.length + filteredInventoryItems.length + filteredClinicExpenses.length
     }
 
     const options: ReportExportOptions = {

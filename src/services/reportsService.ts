@@ -115,13 +115,30 @@ export class ReportsService {
     dateRange: ReportFilter['dateRange'],
     dateField: keyof T = 'created_at' as keyof T
   ): T[] {
+    // إنشاء تواريخ البداية والنهاية مع ضبط المنطقة الزمنية المحلية
     const start = new Date(dateRange.start)
+    const startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0)
+
     const end = new Date(dateRange.end)
-    end.setHours(23, 59, 59, 999) // Include the entire end date
+    const endLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999)
 
     return data.filter(item => {
-      const itemDate = new Date(item[dateField] as string)
-      return itemDate >= start && itemDate <= end
+      const itemDateStr = item[dateField] as string
+      if (!itemDateStr) return false
+
+      const itemDate = new Date(itemDateStr)
+
+      // للتواريخ التي تحتوي على وقت، نحتاج لمقارنة التاريخ فقط
+      let itemDateForComparison: Date
+      if (itemDateStr.includes('T') || itemDateStr.includes(' ')) {
+        // التاريخ يحتوي على وقت، استخدمه كما هو
+        itemDateForComparison = itemDate
+      } else {
+        // التاريخ بدون وقت، اعتبره في بداية اليوم
+        itemDateForComparison = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), 0, 0, 0, 0)
+      }
+
+      return itemDateForComparison >= startLocal && itemDateForComparison <= endLocal
     })
   }
 

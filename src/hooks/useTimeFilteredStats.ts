@@ -49,16 +49,31 @@ export function useTimeFilteredStats<T extends FilterableData>({
       return data
     }
 
-    const startDate = new Date(timeFilter.startDate)
-    const endDate = new Date(timeFilter.endDate)
-    endDate.setHours(23, 59, 59, 999) // Include the entire end date
+    // إنشاء تواريخ البداية والنهاية مع ضبط المنطقة الزمنية المحلية
+    const start = new Date(timeFilter.startDate)
+    const startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0)
+
+    const end = new Date(timeFilter.endDate)
+    const endLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999)
 
     return data.filter(item => {
       const itemDateValue = item[dateField]
       if (!itemDateValue) return false
 
-      const itemDate = new Date(itemDateValue as string)
-      return itemDate >= startDate && itemDate <= endDate
+      const itemDateStr = itemDateValue as string
+      const itemDate = new Date(itemDateStr)
+
+      // للتواريخ التي تحتوي على وقت، نحتاج لمقارنة التاريخ فقط
+      let itemDateForComparison: Date
+      if (itemDateStr.includes('T') || itemDateStr.includes(' ')) {
+        // التاريخ يحتوي على وقت، استخدمه كما هو
+        itemDateForComparison = itemDate
+      } else {
+        // التاريخ بدون وقت، اعتبره في بداية اليوم
+        itemDateForComparison = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate(), 0, 0, 0, 0)
+      }
+
+      return itemDateForComparison >= startLocal && itemDateForComparison <= endLocal
     })
   }, [data, timeFilter, dateField])
 

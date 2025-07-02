@@ -6,7 +6,6 @@ import { Separator } from '@/components/ui/separator'
 import {
   TrendingUp,
   TrendingDown,
-  DollarSign,
   Calculator,
   FileText,
   Download,
@@ -14,14 +13,10 @@ import {
   Calendar,
   Building2,
   Package,
-  AlertTriangle,
-  CheckCircle,
   BarChart3,
   PieChart,
   Receipt,
-  Clock,
-  Plus,
-  Minus
+  Filter
 } from 'lucide-react'
 import {
   BarChart,
@@ -33,11 +28,7 @@ import {
   ResponsiveContainer,
   PieChart as RechartsPieChart,
   Pie,
-  Cell,
-  LineChart,
-  Line,
-  Area,
-  AreaChart
+  Cell
 } from 'recharts'
 import { usePaymentStore } from '@/store/paymentStore'
 import { useExpensesStore } from '@/store/expensesStore'
@@ -50,13 +41,16 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useTheme } from '@/contexts/ThemeContext'
 import { ComprehensiveProfitLossService } from '@/services/comprehensiveProfitLossService'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
-import { formatCurrency, getChartColors } from '@/lib/utils'
+
 import CurrencyDisplay from '@/components/ui/currency-display'
-import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { ExportService } from '@/services/exportService'
 import { PdfService } from '@/services/pdfService'
 import { notify } from '@/services/notificationService'
-import type { ComprehensiveProfitLossReport, ReportFilter } from '@/types'
+import { TIME_PERIODS, TimePeriod } from '@/services/comprehensiveExportService'
+import type { ComprehensiveProfitLossReport } from '@/types'
 
 export default function ComprehensiveProfitLossReport() {
   const { payments } = usePaymentStore()
@@ -70,25 +64,143 @@ export default function ComprehensiveProfitLossReport() {
   const { isDarkMode } = useTheme()
 
   const [reportData, setReportData] = useState<ComprehensiveProfitLossReport | null>(null)
-  const [timeFilter, setTimeFilter] = useState<TimeFilterOptions>({
-    preset: 'all',
-    startDate: '',
-    endDate: ''
-  })
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('this_month')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+
+  // دالة مساعدة لتحويل التاريخ إلى تنسيق محلي YYYY-MM-DD
+  const formatDateToLocal = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // دالة لتحويل TimePeriod إلى نطاق تاريخ
+  const getDateRangeFromPeriod = (period: TimePeriod, customStart?: string, customEnd?: string) => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+    switch (period) {
+      case 'all':
+        return null
+
+      case 'today':
+        return {
+          start: formatDateToLocal(today),
+          end: formatDateToLocal(today)
+        }
+
+      case 'yesterday':
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+        return {
+          start: formatDateToLocal(yesterday),
+          end: formatDateToLocal(yesterday)
+        }
+
+      case 'this_week':
+        const weekStart = new Date(today)
+        weekStart.setDate(today.getDate() - today.getDay())
+        return {
+          start: formatDateToLocal(weekStart),
+          end: formatDateToLocal(today)
+        }
+
+      case 'last_week':
+        const lastWeekEnd = new Date(today)
+        lastWeekEnd.setDate(today.getDate() - today.getDay() - 1)
+        const lastWeekStart = new Date(lastWeekEnd)
+        lastWeekStart.setDate(lastWeekEnd.getDate() - 6)
+        return {
+          start: formatDateToLocal(lastWeekStart),
+          end: formatDateToLocal(lastWeekEnd)
+        }
+
+      case 'this_month':
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+        return {
+          start: formatDateToLocal(monthStart),
+          end: formatDateToLocal(today)
+        }
+
+      case 'last_month':
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
+        return {
+          start: formatDateToLocal(lastMonthStart),
+          end: formatDateToLocal(lastMonthEnd)
+        }
+
+      case 'this_quarter':
+        const quarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1)
+        return {
+          start: formatDateToLocal(quarterStart),
+          end: formatDateToLocal(today)
+        }
+
+      case 'last_quarter':
+        const lastQuarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3 - 3, 1)
+        const lastQuarterEnd = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 0)
+        return {
+          start: formatDateToLocal(lastQuarterStart),
+          end: formatDateToLocal(lastQuarterEnd)
+        }
+
+      case 'this_year':
+        const yearStart = new Date(today.getFullYear(), 0, 1)
+        return {
+          start: formatDateToLocal(yearStart),
+          end: formatDateToLocal(today)
+        }
+
+      case 'last_year':
+        const lastYearStart = new Date(today.getFullYear() - 1, 0, 1)
+        const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31)
+        return {
+          start: formatDateToLocal(lastYearStart),
+          end: formatDateToLocal(lastYearEnd)
+        }
+
+      case 'last_30_days':
+        const thirtyDaysAgo = new Date(today)
+        thirtyDaysAgo.setDate(today.getDate() - 30)
+        return {
+          start: formatDateToLocal(thirtyDaysAgo),
+          end: formatDateToLocal(today)
+        }
+
+      case 'last_90_days':
+        const ninetyDaysAgo = new Date(today)
+        ninetyDaysAgo.setDate(today.getDate() - 90)
+        return {
+          start: formatDateToLocal(ninetyDaysAgo),
+          end: formatDateToLocal(today)
+        }
+
+      case 'custom':
+        if (customStart && customEnd) {
+          return {
+            start: customStart,
+            end: customEnd
+          }
+        }
+        return null
+
+      default:
+        return null
+    }
+  }
 
   // إنشاء التقرير
   const generateReport = async () => {
     setIsLoading(true)
     try {
-      // تحويل TimeFilterOptions إلى ReportFilter
-      const reportFilter = timeFilter.preset === 'all' ? undefined : {
-        dateRange: {
-          start: timeFilter.startDate || '',
-          end: timeFilter.endDate || ''
-        }
-      }
+      // تحويل TimePeriod إلى ReportFilter
+      const dateRange = getDateRangeFromPeriod(selectedPeriod, customStartDate, customEndDate)
+      const reportFilter = dateRange ? { dateRange } : undefined
 
       const report = ComprehensiveProfitLossService.generateComprehensiveProfitLossReport(
         payments,
@@ -126,7 +238,7 @@ export default function ComprehensiveProfitLossReport() {
         clinicExpenses,
         patients,
         appointments,
-        filter: timeFilter,
+        filter: getDateRangeFromPeriod(selectedPeriod, customStartDate, customEndDate),
         currency
       })
       notify.success('تم تصدير تقرير الأرباح والخسائر إلى Excel بنجاح')
@@ -156,7 +268,7 @@ export default function ComprehensiveProfitLossReport() {
         clinicExpenses,
         patients,
         appointments,
-        filter: timeFilter,
+        filter: getDateRangeFromPeriod(selectedPeriod, customStartDate, customEndDate),
         currency
       }, settings)
       notify.success('تم تصدير تقرير الأرباح والخسائر إلى PDF بنجاح')
@@ -171,7 +283,7 @@ export default function ComprehensiveProfitLossReport() {
   // إنشاء التقرير عند تحميل المكون أو تغيير الفلتر
   useEffect(() => {
     generateReport()
-  }, [timeFilter, payments, clinicExpenses, labOrders, clinicNeeds, inventoryItems, patients, appointments])
+  }, [selectedPeriod, customStartDate, customEndDate, payments, clinicExpenses, labOrders, clinicNeeds, inventoryItems, patients, appointments])
 
   if (isLoading || !reportData) {
     return (
@@ -222,16 +334,59 @@ export default function ComprehensiveProfitLossReport() {
       </div>
 
       {/* Time Filter */}
-      <Card>
+      <Card className={getCardStyles("blue")}>
         <CardHeader>
-          <CardTitle className="text-lg">فلترة التقرير</CardTitle>
+          <CardTitle className="flex items-center gap-3">
+            <Filter className={`w-5 h-5 ${getIconStyles("blue")}`} />
+            فلترة التقرير
+          </CardTitle>
+          <CardDescription>
+            اختر الفترة الزمنية للتقرير الشامل للأرباح والخسائر
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <TimeFilter
-            value={timeFilter}
-            onChange={setTimeFilter}
-            title="اختر الفترة الزمنية للتقرير"
-          />
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Period Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="period">الفترة الزمنية</Label>
+              <Select value={selectedPeriod} onValueChange={(value: TimePeriod) => setSelectedPeriod(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر الفترة الزمنية" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TIME_PERIODS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Custom Date Range */}
+            {selectedPeriod === 'custom' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">تاريخ البداية</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="endDate">تاريخ النهاية</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -436,9 +591,13 @@ export default function ComprehensiveProfitLossReport() {
           <CardTitle className="text-lg">معلومات التقرير</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">الفترة الزمنية: </span>
+              <span className="text-muted-foreground">الفترة المحددة: </span>
+              <span className="font-medium">{TIME_PERIODS[selectedPeriod]}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">نطاق التواريخ: </span>
               <span className="font-medium">{filterInfo.dateRange}</span>
             </div>
             <div>
