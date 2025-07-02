@@ -32,6 +32,8 @@ import UsageDialog from '../components/UsageDialog'
 import InventoryAlerts from '../components/InventoryAlerts'
 import UsageHistoryDialog from '../components/UsageHistoryDialog'
 import InventoryTable from '../components/inventory/InventoryTable'
+import { useCurrency } from '@/contexts/CurrencyContext'
+import CurrencyDisplay from '@/components/ui/currency-display'
 
 export default function Inventory() {
   // Enable real-time synchronization for automatic updates
@@ -113,12 +115,7 @@ export default function Inventory() {
     }
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount)
-  }
+
 
 
 
@@ -235,7 +232,7 @@ export default function Inventory() {
             />
             <StatCard
               title="قيمة المخزون"
-              value={formatCurrency(totalValue)}
+              value={<CurrencyDisplay amount={totalValue} />}
               icon={<DollarSign />}
               color="green"
             />

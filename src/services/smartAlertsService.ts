@@ -7,6 +7,7 @@ import type {
   ToothTreatment,
   Prescription
 } from '@/types'
+import { formatCurrency, getDefaultCurrency } from '@/lib/utils'
 
 /**
  * نظام الأحداث للتحديث في الوقت الفعلي
@@ -140,6 +141,32 @@ class AlertsEventSystem {
  * مع دعم التحديث في الوقت الفعلي
  */
 export class SmartAlertsService {
+
+  /**
+   * تنسيق المبلغ بالعملة الديناميكية
+   */
+  private static formatAmount(amount: number): string {
+    try {
+      // محاولة الحصول على العملة من مصادر متعددة
+      let currency = getDefaultCurrency()
+
+      // محاولة الحصول على العملة من الإعدادات
+      try {
+        const settingsCurrency = window.electronAPI?.settings?.getCurrency?.()
+        if (settingsCurrency) {
+          currency = settingsCurrency
+        }
+      } catch (settingsError) {
+        // تجاهل خطأ الإعدادات والمتابعة بالعملة الافتراضية
+      }
+
+      return formatCurrency(amount, currency)
+    } catch (error) {
+      // في حالة الفشل، استخدام العملة الافتراضية مع تنسيق بسيط
+      console.warn('Error formatting currency in alerts:', error)
+      return formatCurrency(amount, getDefaultCurrency())
+    }
+  }
 
   /**
    * جلب جميع التنبيهات الذكية مع معالجة محسنة للأخطاء
@@ -503,7 +530,7 @@ export class SmartAlertsService {
               type: 'payment',
               priority: daysOverdue > 7 ? 'high' : 'medium',
               title: `دفعة معلقة - ${patientName}`,
-              description: `دفعة معلقة منذ ${daysOverdue} يوم - المبلغ: ${payment.remaining_balance}$`,
+              description: `دفعة معلقة منذ ${daysOverdue} يوم - المبلغ: ${this.formatAmount(payment.remaining_balance)}`,
               patientId: patientId,
               patientName: patientName !== 'مريض غير محدد' ? patientName : null,
               relatedData: {
@@ -529,7 +556,7 @@ export class SmartAlertsService {
             type: 'payment',
             priority: 'medium',
             title: `دفعة جزئية - ${patientName}`,
-            description: `تم دفع ${payment.amount}$ من أصل ${payment.amount + payment.remaining_balance}$ - المتبقي: ${payment.remaining_balance}$`,
+            description: `تم دفع ${this.formatAmount(payment.amount)} من أصل ${this.formatAmount(payment.amount + payment.remaining_balance)} - المتبقي: ${this.formatAmount(payment.remaining_balance)}`,
             patientId: patientId,
             patientName: patientName !== 'مريض غير محدد' ? patientName : null,
             relatedData: {
@@ -1502,7 +1529,7 @@ export class SmartAlertsService {
             type: 'payment',
             priority: 'medium',
             title: `دفعة مختبر معلقة - ${order.service_name}`,
-            description: `المبلغ المتبقي: $${order.remaining_balance}${order.patient?.full_name ? ` - ${order.patient.full_name}` : ''}`,
+            description: `المبلغ المتبقي: ${this.formatAmount(order.remaining_balance)}${order.patient?.full_name ? ` - ${order.patient.full_name}` : ''}`,
             patientId: order.patient_id,
             patientName: order.patient?.full_name,
             relatedData: {

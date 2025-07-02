@@ -31,7 +31,8 @@ import {
   CheckCircle,
   Clock
 } from 'lucide-react'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
+import { useCurrency } from '@/contexts/CurrencyContext'
 
 interface InventoryTableProps {
   items: InventoryItem[]
@@ -52,6 +53,7 @@ export default function InventoryTable({
   onViewDetails
 }: InventoryTableProps) {
   const { toast } = useToast()
+  const { formatAmount } = useCurrency()
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [currentPage, setCurrentPage] = useState(1)
@@ -435,13 +437,13 @@ export default function InventoryTable({
                   </TableCell>
                   <TableCell className="text-center">
                     {item.cost_per_unit ? (
-                      <span className="font-medium">{formatCurrency(item.cost_per_unit)}</span>
+                      <span className="font-medium">{formatAmount(item.cost_per_unit)}</span>
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className="font-medium">{formatCurrency(item.total_value)}</span>
+                    <span className="font-medium">{formatAmount(item.total_value)}</span>
                   </TableCell>
                   <TableCell className="text-center">
                     {getStatusBadge(item)}

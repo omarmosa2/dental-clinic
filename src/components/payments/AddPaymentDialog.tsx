@@ -578,12 +578,12 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Patient and Appointment Selection */}
+          {/* Patient Selection */}
           <Card className="border-border bg-card shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center text-lg text-card-foreground">
                 <Receipt className="w-4 h-4 ml-2 text-primary" />
-                معلومات المريض والموعد
+                معلومات المريض
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -659,8 +659,8 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                   </Select>
                 </div>
 
-                {/* Appointment Selection (للتوافق مع النظام القديم) */}
-                <div className="space-y-2">
+                {/* Appointment Selection (للتوافق مع النظام القديم) - مخفي */}
+                <div className="space-y-2 hidden">
                   <Label className="text-foreground font-medium">الموعد (اختياري)</Label>
                   <Select
                     value={formData.appointment_id}
