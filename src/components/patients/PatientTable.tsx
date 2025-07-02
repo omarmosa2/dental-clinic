@@ -331,7 +331,7 @@ export default function PatientTable({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="action-btn-invoice text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      className="action-btn-invoice"
                       onClick={() => onViewPendingInvoice(patient)}
                       title="فاتورة المعلقات"
                     >

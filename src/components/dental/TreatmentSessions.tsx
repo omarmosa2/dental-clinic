@@ -123,7 +123,7 @@ export default function TreatmentSessions({
           onClick={() => setIsAddingSession(true)}
           size="sm"
           className={cn(
-            "transition-all duration-200",
+            "action-btn-sessions sessions-selected",
             isDarkMode
               ? "bg-blue-600 hover:bg-blue-700 text-white"
               : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -275,7 +275,7 @@ export default function TreatmentSessions({
             <p className="text-muted-foreground">لا توجد جلسات مسجلة لهذا العلاج</p>
             <Button
               onClick={() => setIsAddingSession(true)}
-              className="mt-4"
+              className="mt-4 action-btn-sessions sessions-outline"
               variant="outline"
             >
               <Plus className="w-4 h-4 ml-2" />

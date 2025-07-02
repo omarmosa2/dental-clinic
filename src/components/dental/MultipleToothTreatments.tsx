@@ -590,10 +590,10 @@ export default function MultipleToothTreatments({
                         selectedTreatmentForSessions === treatment.id ? null : treatment.id
                       )}
                       className={cn(
-                        "transition-all duration-200 gap-1.5",
+                        "action-btn-sessions gap-1.5",
                         selectedTreatmentForSessions === treatment.id
-                          ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                          : "border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                          ? "sessions-selected bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                          : "sessions-outline border-blue-200 text-blue-700 dark:border-blue-700 dark:text-blue-300"
                       )}
                       title="إدارة جلسات العلاج"
                     >
