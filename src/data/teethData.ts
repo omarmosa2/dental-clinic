@@ -201,7 +201,7 @@ export const TREATMENT_TYPES = [
   { value: 'zirconia_post_core', label: 'قلب ووتد زركونيا', color: '#a855f7', category: 'التعويضات' },
 
   // فينير
-  { value: 'veneer', label: 'فينير', color: '#f8fafc', category: 'التعويضات' },
+  { value: 'veneer', label: 'فينير', color: '#a855f7', category: 'التعويضات' },
 ] as const
 
 export type TreatmentType = typeof TREATMENT_TYPES[number]['value']

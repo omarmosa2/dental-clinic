@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLabel, SelectSeparator, SelectGroup } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTheme } from '@/contexts/ThemeContext'
 import { cn } from '@/lib/utils'
@@ -367,6 +367,38 @@ export default function MultipleToothTreatments({
   const filteredTreatmentTypes = selectedCategory
     ? getTreatmentsByCategory(selectedCategory as any)
     : TREATMENT_TYPES
+
+  // تجميع علاجات التعويضات في مجموعات لتحسين العرض
+  const groupProstheticTreatments = (treatments: typeof TREATMENT_TYPES) => {
+    if (selectedCategory !== 'التعويضات') {
+      return treatments
+    }
+
+    const groups = {
+      crowns: treatments.filter(t =>
+        t.value.includes('crown') && !t.value.includes('implant')
+      ),
+      bridges: treatments.filter(t =>
+        t.value.includes('bridge')
+      ),
+      dentures: treatments.filter(t =>
+        t.value.includes('denture')
+      ),
+      implants: treatments.filter(t =>
+        t.value.includes('implant')
+      ),
+      posts: treatments.filter(t =>
+        t.value.includes('post') || t.value.includes('core')
+      ),
+      veneers: treatments.filter(t =>
+        t.value.includes('veneer')
+      )
+    }
+
+    return { groups, isGrouped: true }
+  }
+
+  const groupedTreatments = groupProstheticTreatments(filteredTreatmentTypes)
 
   // Treatment Sessions functions
   const loadTreatmentSessions = async (treatmentId: string) => {
@@ -746,18 +778,148 @@ export default function MultipleToothTreatments({
                   )}>
                     <SelectValue placeholder="اختر نوع العلاج" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {filteredTreatmentTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: type.color }}
-                          />
-                          <span>{type.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-80">
+                    {selectedCategory === 'التعويضات' && groupedTreatments.isGrouped ? (
+                      <>
+                        {/* التيجان */}
+                        {groupedTreatments.groups.crowns.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                              👑 التيجان
+                            </SelectLabel>
+                            {groupedTreatments.groups.crowns.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: type.color }}
+                                  />
+                                  <span>{type.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                            <SelectSeparator />
+                          </SelectGroup>
+                        )}
+
+                        {/* الجسور */}
+                        {groupedTreatments.groups.bridges.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                              🌉 الجسور
+                            </SelectLabel>
+                            {groupedTreatments.groups.bridges.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: type.color }}
+                                  />
+                                  <span>{type.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                            <SelectSeparator />
+                          </SelectGroup>
+                        )}
+
+                        {/* الأجهزة المتحركة */}
+                        {groupedTreatments.groups.dentures.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                              🦷 الأجهزة المتحركة
+                            </SelectLabel>
+                            {groupedTreatments.groups.dentures.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: type.color }}
+                                  />
+                                  <span>{type.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                            <SelectSeparator />
+                          </SelectGroup>
+                        )}
+
+                        {/* تعويضات الزرعات */}
+                        {groupedTreatments.groups.implants.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                              🔩 تعويضات الزرعات
+                            </SelectLabel>
+                            {groupedTreatments.groups.implants.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: type.color }}
+                                  />
+                                  <span>{type.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                            <SelectSeparator />
+                          </SelectGroup>
+                        )}
+
+                        {/* القلوب والأوتاد */}
+                        {groupedTreatments.groups.posts.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                              🔧 القلوب والأوتاد
+                            </SelectLabel>
+                            {groupedTreatments.groups.posts.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: type.color }}
+                                  />
+                                  <span>{type.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                            <SelectSeparator />
+                          </SelectGroup>
+                        )}
+
+                        {/* الفينير */}
+                        {groupedTreatments.groups.veneers.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="flex items-center gap-2 text-pink-600 dark:text-pink-400">
+                              ✨ الفينير
+                            </SelectLabel>
+                            {groupedTreatments.groups.veneers.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: type.color }}
+                                  />
+                                  <span>{type.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
+                      </>
+                    ) : (
+                      // العرض العادي للتصنيفات الأخرى
+                      filteredTreatmentTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: type.color }}
+                            />
+                            <span>{type.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -842,11 +1004,34 @@ export default function MultipleToothTreatments({
 
             {/* حقول المخبر - تظهر فقط لعلاجات التعويضات */}
             {selectedCategory === 'التعويضات' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800/30">
-                <div className="space-y-2">
-                  <Label className={cn(
-                    "font-medium flex items-center gap-2",
+              <div className={cn(
+                "grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-xl border-2 shadow-sm transition-all duration-200",
+                isDarkMode
+                  ? "bg-gradient-to-br from-purple-950/40 to-purple-900/30 border-purple-700/50 shadow-purple-900/20"
+                  : "bg-gradient-to-br from-purple-50 to-purple-100/60 border-purple-300/70 shadow-purple-200/30"
+              )}>
+                {/* عنوان الكارد */}
+                <div className="md:col-span-2 mb-3">
+                  <div className={cn(
+                    "flex items-center gap-3 text-sm font-semibold",
                     isDarkMode ? "text-purple-200" : "text-purple-800"
+                  )}>
+                    <div className={cn(
+                      "w-8 h-8 rounded-lg flex items-center justify-center text-lg",
+                      isDarkMode
+                        ? "bg-purple-800/50 text-purple-200"
+                        : "bg-purple-200/80 text-purple-800"
+                    )}>
+                      🏭
+                    </div>
+                    <span>إعدادات المخبر</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className={cn(
+                    "font-medium flex items-center gap-2 text-sm",
+                    isDarkMode ? "text-purple-100" : "text-purple-900"
                   )}>
                     🏭 اختيار المخبر
                   </Label>
@@ -855,14 +1040,18 @@ export default function MultipleToothTreatments({
                     onValueChange={setAddSelectedLab}
                   >
                     <SelectTrigger className={cn(
-                      "border-2 transition-colors",
+                      "border-2 transition-all duration-200 h-11",
                       isDarkMode
-                        ? "border-purple-800/50 bg-purple-950/30 hover:border-purple-700 focus:border-purple-600"
-                        : "border-purple-200 bg-white hover:border-purple-300 focus:border-purple-500"
+                        ? "border-purple-700/50 bg-purple-950/40 hover:border-purple-600 focus:border-purple-500 text-purple-100"
+                        : "border-purple-300/70 bg-white hover:border-purple-400 focus:border-purple-500 text-purple-900"
                     )}>
                       <SelectValue placeholder="اختر المخبر" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className={cn(
+                      isDarkMode
+                        ? "bg-purple-950 border-purple-700"
+                        : "bg-white border-purple-200"
+                    )}>
                       {labs.map((lab) => (
                         <SelectItem key={lab.id} value={lab.id}>
                           <div className="flex items-center gap-2">
@@ -875,10 +1064,10 @@ export default function MultipleToothTreatments({
                   </Select>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label className={cn(
-                    "font-medium flex items-center gap-2",
-                    isDarkMode ? "text-purple-200" : "text-purple-800"
+                    "font-medium flex items-center gap-2 text-sm",
+                    isDarkMode ? "text-purple-100" : "text-purple-900"
                   )}>
                     💰 تكلفة المخبر ($)
                   </Label>
@@ -890,19 +1079,22 @@ export default function MultipleToothTreatments({
                     onChange={(e) => setAddLabCost(parseFloat(e.target.value) || 0)}
                     placeholder="0.00"
                     className={cn(
-                      "border-2 transition-colors",
+                      "border-2 transition-all duration-200 h-11",
                       isDarkMode
-                        ? "border-purple-800/50 bg-purple-950/30 hover:border-purple-700 focus:border-purple-600"
-                        : "border-purple-200 bg-white hover:border-purple-300 focus:border-purple-500"
+                        ? "border-purple-700/50 bg-purple-950/40 hover:border-purple-600 focus:border-purple-500 text-purple-100 placeholder:text-purple-400"
+                        : "border-purple-300/70 bg-white hover:border-purple-400 focus:border-purple-500 text-purple-900 placeholder:text-purple-500"
                     )}
                   />
                   {addLabCost > 0 && (
-                    <p className={cn(
-                      "text-xs",
-                      isDarkMode ? "text-purple-300" : "text-purple-600"
+                    <div className={cn(
+                      "flex items-center gap-2 p-2 rounded-lg text-xs",
+                      isDarkMode
+                        ? "bg-purple-900/30 text-purple-200 border border-purple-700/30"
+                        : "bg-purple-100/60 text-purple-700 border border-purple-200/50"
                     )}>
-                      🏭 سيتم إنشاء طلب مخبر تلقائياً
-                    </p>
+                      <span className="text-sm">🏭</span>
+                      <span>سيتم إنشاء طلب مخبر تلقائياً</span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1134,6 +1326,38 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
     ? getTreatmentsByCategory(selectedCategory as any)
     : []
 
+  // تجميع علاجات التعويضات في مجموعات لتحسين العرض
+  const groupProstheticTreatments = (treatments: typeof TREATMENT_TYPES) => {
+    if (selectedCategory !== 'التعويضات') {
+      return treatments
+    }
+
+    const groups = {
+      crowns: treatments.filter(t =>
+        t.value.includes('crown') && !t.value.includes('implant')
+      ),
+      bridges: treatments.filter(t =>
+        t.value.includes('bridge')
+      ),
+      dentures: treatments.filter(t =>
+        t.value.includes('denture')
+      ),
+      implants: treatments.filter(t =>
+        t.value.includes('implant')
+      ),
+      posts: treatments.filter(t =>
+        t.value.includes('post') || t.value.includes('core')
+      ),
+      veneers: treatments.filter(t =>
+        t.value.includes('veneer')
+      )
+    }
+
+    return { groups, isGrouped: true }
+  }
+
+  const groupedTreatments = groupProstheticTreatments(filteredTreatmentTypes)
+
   // دالة تحديث المدفوعات المرتبطة بالعلاج المُعدّل
   const updatePaymentsForEditedTreatment = async () => {
     try {
@@ -1358,18 +1582,148 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             <SelectTrigger>
               <SelectValue placeholder="اختر نوع العلاج" />
             </SelectTrigger>
-            <SelectContent>
-              {filteredTreatmentTypes.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: type.color }}
-                    />
-                    <span>{type.label}</span>
-                  </div>
-                </SelectItem>
-              ))}
+            <SelectContent className="max-h-80">
+              {selectedCategory === 'التعويضات' && groupedTreatments.isGrouped ? (
+                <>
+                  {/* التيجان */}
+                  {groupedTreatments.groups.crowns.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                        👑 التيجان
+                      </SelectLabel>
+                      {groupedTreatments.groups.crowns.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: type.color }}
+                            />
+                            <span>{type.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                      <SelectSeparator />
+                    </SelectGroup>
+                  )}
+
+                  {/* الجسور */}
+                  {groupedTreatments.groups.bridges.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                        🌉 الجسور
+                      </SelectLabel>
+                      {groupedTreatments.groups.bridges.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: type.color }}
+                            />
+                            <span>{type.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                      <SelectSeparator />
+                    </SelectGroup>
+                  )}
+
+                  {/* الأجهزة المتحركة */}
+                  {groupedTreatments.groups.dentures.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                        🦷 الأجهزة المتحركة
+                      </SelectLabel>
+                      {groupedTreatments.groups.dentures.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: type.color }}
+                            />
+                            <span>{type.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                      <SelectSeparator />
+                    </SelectGroup>
+                  )}
+
+                  {/* تعويضات الزرعات */}
+                  {groupedTreatments.groups.implants.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                        🔩 تعويضات الزرعات
+                      </SelectLabel>
+                      {groupedTreatments.groups.implants.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: type.color }}
+                            />
+                            <span>{type.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                      <SelectSeparator />
+                    </SelectGroup>
+                  )}
+
+                  {/* القلوب والأوتاد */}
+                  {groupedTreatments.groups.posts.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                        🔧 القلوب والأوتاد
+                      </SelectLabel>
+                      {groupedTreatments.groups.posts.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: type.color }}
+                            />
+                            <span>{type.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                      <SelectSeparator />
+                    </SelectGroup>
+                  )}
+
+                  {/* الفينير */}
+                  {groupedTreatments.groups.veneers.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="flex items-center gap-2 text-pink-600 dark:text-pink-400">
+                        ✨ الفينير
+                      </SelectLabel>
+                      {groupedTreatments.groups.veneers.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: type.color }}
+                            />
+                            <span>{type.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                </>
+              ) : (
+                // العرض العادي للتصنيفات الأخرى
+                filteredTreatmentTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: type.color }}
+                      />
+                      <span>{type.label}</span>
+                    </div>
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
