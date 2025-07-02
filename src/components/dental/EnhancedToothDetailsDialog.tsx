@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { CurrencyDisplay } from '@/components/ui/currency-display'
 import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
 import { usePatientStore } from '@/store/patientStore'
 import { getToothInfo, getTreatmentColor, IMAGE_TYPE_OPTIONS, getTreatmentByValue } from '@/data/teethData'
@@ -22,6 +23,8 @@ import { notify } from '@/services/notificationService'
 import MultipleToothTreatments from './MultipleToothTreatments'
 import DentalImage from './DentalImage'
 import './dental-images.css'
+import { cn } from '@/lib/utils'
+import { useTheme } from '@/contexts/ThemeContext'
 import {
   Layers,
   Camera,
@@ -77,6 +80,7 @@ export default function EnhancedToothDetailsDialog({
     clearToothTreatmentImages
   } = useDentalTreatmentStore()
 
+  const { isDarkMode } = useTheme()
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('treatments')
   const [selectedImages, setSelectedImages] = useState<Array<{file: File, type: string, treatmentId?: string}>>([])
@@ -519,7 +523,10 @@ export default function EnhancedToothDetailsDialog({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <CheckCircle className={cn(
+                    "w-5 h-5",
+                    isDarkMode ? "text-green-400" : "text-green-600"
+                  )} />
                   العلاجات المكتملة
                 </CardTitle>
                 <CardDescription>
@@ -539,30 +546,52 @@ export default function EnhancedToothDetailsDialog({
                       .filter(t => t.treatment_status === 'completed')
                       .sort((a, b) => a.priority - b.priority)
                       .map((treatment) => (
-                        <Card key={treatment.id} className="border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800">
+                        <Card key={treatment.id} className={cn(
+                          "transition-all duration-200 hover:shadow-md",
+                          isDarkMode
+                            ? "border-green-700/50 bg-green-950/30 hover:bg-green-950/40"
+                            : "border-green-200 bg-green-50 hover:bg-green-100/50"
+                        )}>
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div
-                                  className="w-4 h-4 rounded-full border border-white/50"
+                                  className={cn(
+                                    "w-4 h-4 rounded-full border",
+                                    isDarkMode ? "border-white/30" : "border-white/50"
+                                  )}
                                   style={{ backgroundColor: treatment.treatment_color }}
                                 />
                                 <div>
-                                  <h4 className="font-medium text-green-800 dark:text-green-200">
+                                  <h4 className={cn(
+                                    "font-medium",
+                                    isDarkMode ? "text-green-200" : "text-green-800"
+                                  )}>
                                     {getTreatmentByValue(treatment.treatment_type)?.label || treatment.treatment_type}
                                   </h4>
-                                  <p className="text-sm text-green-600 dark:text-green-400">
+                                  <p className={cn(
+                                    "text-sm",
+                                    isDarkMode ? "text-green-300" : "text-green-600"
+                                  )}>
                                     الأولوية: {treatment.priority}
                                   </p>
                                 </div>
                               </div>
                               <div className="text-right">
-                                <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                <Badge variant="secondary" className={cn(
+                                  "transition-colors",
+                                  isDarkMode
+                                    ? "bg-green-900/50 text-green-200 border-green-700/50"
+                                    : "bg-green-100 text-green-800 border-green-200"
+                                )}>
                                   <CheckCircle className="w-3 h-3 ml-1" />
                                   مكتمل
                                 </Badge>
                                 {treatment.completion_date && (
-                                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                  <p className={cn(
+                                    "text-xs mt-1",
+                                    isDarkMode ? "text-green-300" : "text-green-600"
+                                  )}>
                                     تاريخ الإكمال: {(() => {
                                       const date = new Date(treatment.completion_date)
                                       const day = date.getDate().toString().padStart(2, '0')
@@ -575,13 +604,29 @@ export default function EnhancedToothDetailsDialog({
                               </div>
                             </div>
                             {treatment.notes && (
-                              <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/20 rounded text-sm text-green-700 dark:text-green-300">
+                              <div className={cn(
+                                "mt-3 p-3 rounded-lg text-sm transition-colors",
+                                isDarkMode
+                                  ? "bg-green-900/30 text-green-200 border border-green-700/30"
+                                  : "bg-green-100 text-green-700 border border-green-200"
+                              )}>
                                 <strong>ملاحظات:</strong> {treatment.notes}
                               </div>
                             )}
                             {treatment.cost && (
-                              <div className="mt-2 text-sm text-green-600 dark:text-green-400">
-                                <strong>التكلفة:</strong> {treatment.cost} ريال
+                              <div className={cn(
+                                "mt-3 p-3 rounded-lg text-sm font-medium transition-colors",
+                                isDarkMode
+                                  ? "bg-blue-900/30 text-blue-200 border border-blue-700/30"
+                                  : "bg-blue-50 text-blue-700 border border-blue-200"
+                              )}>
+                                <div className="flex items-center justify-between">
+                                  <span>التكلفة:</span>
+                                  <CurrencyDisplay
+                                    amount={treatment.cost}
+                                    className="font-semibold"
+                                  />
+                                </div>
                               </div>
                             )}
                           </CardContent>
