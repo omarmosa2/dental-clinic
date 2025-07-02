@@ -363,7 +363,9 @@ export class ComprehensiveExportService {
       payments: data.payments.filter(payment =>
         isInDateRange(payment.payment_date) || isInDateRange(payment.created_at)
       ),
-      inventory: data.inventory, // المخزون لا يتم فلترته حسب التاريخ
+      inventory: data.inventory.filter(item =>
+        isInDateRange(item.created_at) || isInDateRange(item.updated_at)
+      ), // فلترة المخزون حسب تاريخ الإنشاء أو التحديث
       treatments: data.treatments?.filter(treatment =>
         isInDateRange(treatment.start_date || '') || isInDateRange(treatment.created_at || '')
       ) || [],
@@ -860,21 +862,23 @@ export class ComprehensiveExportService {
         const patientName = payment.patient?.full_name || payment.patient?.name || 'غير محدد'
         const description = payment.description || 'غير محدد'
 
-        // حساب المبالغ بناءً على نوع الدفعة
+        // حساب المبالغ بناءً على نوع الدفعة مثل تقرير الربح والخسائر
         let totalAmount, amountPaid, remainingBalance
 
         if (payment.status === 'partial') {
-          // للدفعات الجزئية: استخدم المبالغ المحسوبة من النظام
-          totalAmount = formatCurrency(Number(payment.total_amount_due || payment.amount) || 0)
-          amountPaid = formatCurrency(Number(payment.amount_paid || payment.amount) || 0)
-          remainingBalance = formatCurrency(Number(payment.remaining_balance || 0))
-        } else if (payment.appointment_id && payment.appointment_total_cost) {
-          // للمدفوعات المرتبطة بمواعيد: استخدم بيانات الموعد
-          totalAmount = formatCurrency(Number(payment.appointment_total_cost) || 0)
-          amountPaid = formatCurrency(Number(payment.appointment_total_paid || payment.amount) || 0)
-          remainingBalance = formatCurrency(Number(payment.appointment_remaining_balance || 0))
+          // للدفعات الجزئية: المبلغ الإجمالي هو total_amount_due، المدفوع هو amount، المتبقي هو الفرق
+          const totalDue = Number(payment.total_amount_due || payment.amount) || 0
+          const paid = Number(payment.amount_paid || payment.amount) || 0
+          totalAmount = formatCurrency(totalDue)
+          amountPaid = formatCurrency(paid)
+          remainingBalance = formatCurrency(Math.max(0, totalDue - paid))
+        } else if (payment.appointment_id && payment.treatment_total_cost) {
+          // للمدفوعات المرتبطة بعلاجات: استخدم بيانات العلاج
+          totalAmount = formatCurrency(Number(payment.treatment_total_cost) || 0)
+          amountPaid = formatCurrency(Number(payment.treatment_total_paid || payment.amount) || 0)
+          remainingBalance = formatCurrency(Number(payment.treatment_remaining_balance || 0))
         } else {
-          // للمدفوعات العادية
+          // للمدفوعات العادية المكتملة
           totalAmount = formatCurrency(Number(payment.amount) || 0)
           amountPaid = formatCurrency(Number(payment.amount) || 0)
           remainingBalance = formatCurrency(0)
@@ -1299,7 +1303,11 @@ export class ComprehensiveExportService {
 
       // إضافة المصروفات إلى البيانات المفلترة
       if (data.expenses) {
-        (filteredData as any).expenses = this.filterByDateRange(data.expenses, dateRange, 'payment_date')
+        (filteredData as any).expenses = data.expenses.filter(expense => {
+          if (!expense.payment_date) return false
+          const expenseDate = new Date(expense.payment_date)
+          return expenseDate >= dateRange.startDate && expenseDate <= dateRange.endDate
+        })
       }
 
       // التحقق من صحة البيانات قبل التصدير
@@ -1334,12 +1342,20 @@ export class ComprehensiveExportService {
         stats: comprehensiveStats
       })
 
-      // تحويل إلى Excel مباشرة مع التنسيقات والألوان
-      await ExportService.convertCSVToExcel(csvContent, 'comprehensive', {
-        format: 'excel',
-        includeCharts: false,
-        includeDetails: true,
-        language: 'ar'
+      // تصدير إلى Excel مع صفحات متعددة مثل تقرير الربح والخسارة
+      await this.exportComprehensiveReportToExcel({
+        patients: data.patients,
+        appointments: filteredData.appointments,
+        payments: filteredData.payments,
+        inventory: filteredData.inventory,
+        treatments: filteredData.treatments,
+        prescriptions: filteredData.prescriptions,
+        labOrders: filteredData.labOrders,
+        clinicNeeds: filteredData.clinicNeeds,
+        expenses: (filteredData as any).expenses || [],
+        timePeriod: data.timePeriod,
+        stats: comprehensiveStats,
+        dateRange: dateRange
       })
 
     } catch (error) {
@@ -1780,5 +1796,1107 @@ export class ComprehensiveExportService {
     const year = date.getFullYear()
 
     return `${day}/${month}/${year}`
+  }
+
+  /**
+   * تصدير التقرير الشامل إلى Excel مع صفحات متعددة
+   */
+  static async exportComprehensiveReportToExcel(data: {
+    patients: Patient[]
+    appointments: Appointment[]
+    payments: Payment[]
+    inventory: InventoryItem[]
+    treatments: ToothTreatment[]
+    prescriptions: Prescription[]
+    labOrders: LabOrder[]
+    clinicNeeds: ClinicNeed[]
+    expenses: any[]
+    timePeriod: TimePeriod
+    stats: any
+    dateRange: any
+  }): Promise<void> {
+    const ExcelJS = (await import('exceljs')).default
+    const workbook = new ExcelJS.Workbook()
+
+    // إعداد خصائص الملف
+    workbook.creator = 'نظام إدارة العيادة'
+    workbook.created = new Date()
+    workbook.modified = new Date()
+    workbook.title = 'التقرير الشامل المفصل'
+    workbook.description = 'تقرير شامل لجميع جوانب العيادة'
+
+    // إنشاء الصفحات
+    await this.createSummarySheet(workbook, data)
+    await this.createPatientsSheet(workbook, data)
+    await this.createAppointmentsSheet(workbook, data)
+    await this.createPaymentsSheet(workbook, data)
+    await this.createInventorySheet(workbook, data)
+    await this.createLabOrdersSheet(workbook, data)
+    await this.createClinicNeedsSheet(workbook, data)
+    await this.createExpensesSheet(workbook, data)
+    await this.createProfitLossSheet(workbook, data)
+
+    // حفظ الملف
+    const fileName = `التقرير_الشامل_المفصل_${TIME_PERIODS[data.timePeriod]}_${new Date().toISOString().split('T')[0]}`
+
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    })
+
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `${fileName}.xlsx`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    console.log('✅ تم تصدير التقرير الشامل المفصل بنجاح')
+  }
+
+  /**
+   * إنشاء صفحة الملخص العام
+   */
+  private static async createSummarySheet(workbook: any, data: any): Promise<void> {
+    try {
+      console.log('Creating summary sheet with data:', data)
+
+      const worksheet = workbook.addWorksheet('الملخص العام')
+
+      // تنسيق العنوان الرئيسي
+      worksheet.mergeCells('A1:H1')
+      const headerCell = worksheet.getCell('A1')
+      headerCell.value = 'التقرير الشامل المفصل - عيادة الأسنان'
+      headerCell.font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } }
+      headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E8B57' } }
+      headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+      headerCell.border = {
+        top: { style: 'thick' }, left: { style: 'thick' },
+        bottom: { style: 'thick' }, right: { style: 'thick' }
+      }
+
+      // معلومات التقرير
+      worksheet.getCell('A3').value = `تاريخ التقرير: ${formatDate(new Date())}`
+      worksheet.getCell('A3').font = { size: 12, italic: true }
+
+      const timePeriodText = data.timePeriod && TIME_PERIODS[data.timePeriod as keyof typeof TIME_PERIODS]
+        ? TIME_PERIODS[data.timePeriod as keyof typeof TIME_PERIODS]
+        : data.timePeriod || 'غير محدد'
+      worksheet.getCell('A4').value = `الفترة الزمنية: ${timePeriodText}`
+      worksheet.getCell('A4').font = { size: 12, italic: true }
+
+      let currentRow = 6
+
+      // التحقق من وجود البيانات وإضافة قيم افتراضية
+      const patients = Array.isArray(data.patients) ? data.patients : []
+      const appointments = Array.isArray(data.appointments) ? data.appointments : []
+      const payments = Array.isArray(data.payments) ? data.payments : []
+      const inventory = Array.isArray(data.inventory) ? data.inventory : []
+      const labOrders = Array.isArray(data.labOrders) ? data.labOrders : []
+      const clinicNeeds = Array.isArray(data.clinicNeeds) ? data.clinicNeeds : []
+      const expenses = Array.isArray(data.expenses) ? data.expenses : []
+
+      console.log('Data arrays lengths:', {
+        patients: patients.length,
+        appointments: appointments.length,
+        payments: payments.length,
+        inventory: inventory.length,
+        labOrders: labOrders.length,
+        clinicNeeds: clinicNeeds.length,
+        expenses: expenses.length
+      })
+
+      // الإحصائيات الأساسية
+      const summaryData = [
+        ['إجمالي المرضى', patients.length],
+        ['إجمالي المواعيد', appointments.length],
+        ['إجمالي المدفوعات', payments.length],
+        ['إجمالي عناصر المخزون', inventory.length],
+        ['إجمالي طلبات المختبرات', labOrders.length],
+        ['إجمالي احتياجات العيادة', clinicNeeds.length],
+        ['إجمالي مصروفات العيادة', expenses.length]
+      ]
+
+      // إضافة عنوان القسم
+      worksheet.getCell(`A${currentRow}`).value = 'الإحصائيات الأساسية'
+      worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FF2E8B57' } }
+      currentRow += 2
+
+      // إضافة البيانات
+      if (Array.isArray(summaryData)) {
+        summaryData.forEach(([label, value]) => {
+          worksheet.getCell(`A${currentRow}`).value = label
+          worksheet.getCell(`B${currentRow}`).value = value
+          worksheet.getCell(`A${currentRow}`).font = { bold: true }
+
+          // تنسيق الخلايا
+          const columns = ['A', 'B']
+          columns.forEach((col: string) => {
+            const cell = worksheet.getCell(`${col}${currentRow}`)
+            cell.border = {
+              top: { style: 'thin' }, left: { style: 'thin' },
+              bottom: { style: 'thin' }, right: { style: 'thin' }
+            }
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } }
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+          })
+          currentRow++
+        })
+      }
+
+      // الإحصائيات المالية
+      currentRow += 2
+      worksheet.getCell(`A${currentRow}`).value = 'الإحصائيات المالية'
+      worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FF2E8B57' } }
+      currentRow += 2
+
+      const financialStats = data.stats || {}
+      const financialData = [
+        ['إجمالي الإيرادات', formatCurrency(financialStats.totalRevenue || 0)],
+        ['المدفوعات المكتملة', formatCurrency(financialStats.completedPayments || 0)],
+        ['المدفوعات الجزئية', formatCurrency(financialStats.partialPayments || 0)],
+        ['المبالغ المعلقة', formatCurrency(financialStats.pendingAmount || 0)],
+        ['إجمالي المصروفات', formatCurrency(financialStats.totalExpenses || 0)],
+        ['صافي الربح/الخسارة', formatCurrency(financialStats.netProfit || 0)]
+      ]
+
+      if (Array.isArray(financialData)) {
+        financialData.forEach(([label, value]) => {
+          worksheet.getCell(`A${currentRow}`).value = label
+          worksheet.getCell(`B${currentRow}`).value = value
+          worksheet.getCell(`A${currentRow}`).font = { bold: true }
+
+          // تنسيق الخلايا
+          const columns = ['A', 'B']
+          columns.forEach((col: string) => {
+            const cell = worksheet.getCell(`${col}${currentRow}`)
+            cell.border = {
+              top: { style: 'thin' }, left: { style: 'thin' },
+              bottom: { style: 'thin' }, right: { style: 'thin' }
+            }
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+          })
+          currentRow++
+        })
+      }
+
+      // تنسيق عرض الأعمدة
+      worksheet.getColumn('A').width = 30
+      worksheet.getColumn('B').width = 20
+
+      console.log('Summary sheet created successfully')
+    } catch (error) {
+      console.error('Error creating summary sheet:', error)
+      throw error
+    }
+  }
+
+  /**
+   * إنشاء صفحة المرضى
+   */
+  private static async createPatientsSheet(workbook: any, data: any): Promise<void> {
+    const worksheet = workbook.addWorksheet('المرضى')
+
+    // العنوان
+    worksheet.mergeCells('A1:G1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'تقرير المرضى'
+    headerCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+    let currentRow = 3
+
+    // التحقق من وجود البيانات
+    const patients = data.patients || []
+
+    // إحصائيات المرضى
+    const patientStats = [
+      ['إجمالي المرضى', patients.length],
+      ['المرضى الذكور', patients.filter((p: any) => p.gender === 'male').length],
+      ['المرضى الإناث', patients.filter((p: any) => p.gender === 'female').length],
+      ['متوسط العمر', patients.length > 0 ? Math.round(patients.reduce((sum: number, p: any) => sum + (p.age || 0), 0) / patients.length) : 0]
+    ]
+
+    worksheet.getCell(`A${currentRow}`).value = 'إحصائيات المرضى'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    patientStats.forEach(([label, value]) => {
+      worksheet.getCell(`A${currentRow}`).value = label
+      worksheet.getCell(`B${currentRow}`).value = value
+      currentRow++
+    })
+
+    currentRow += 2
+
+    // جدول تفاصيل المرضى
+    worksheet.getCell(`A${currentRow}`).value = 'تفاصيل المرضى'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    // رؤوس الجدول
+    const headers = ['الرقم التسلسلي', 'الاسم الكامل', 'الجنس', 'العمر', 'الهاتف', 'البريد الإلكتروني', 'تاريخ التسجيل']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(currentRow, index + 1)
+      cell.value = header
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = {
+        top: { style: 'medium' }, left: { style: 'medium' },
+        bottom: { style: 'medium' }, right: { style: 'medium' }
+      }
+    })
+    currentRow++
+
+    // بيانات المرضى
+    patients.forEach((patient: any, index: number) => {
+      const rowData = [
+        patient.serial_number || '',
+        patient.full_name || '',
+        patient.gender === 'male' ? 'ذكر' : patient.gender === 'female' ? 'أنثى' : 'غير محدد',
+        patient.age || '',
+        patient.phone || '',
+        patient.email || '',
+        patient.created_at ? formatDate(patient.created_at) : ''
+      ]
+
+      rowData.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1)
+        cell.value = value
+        cell.border = {
+          top: { style: 'thin' }, left: { style: 'thin' },
+          bottom: { style: 'thin' }, right: { style: 'thin' }
+        }
+        cell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+        if (index % 2 === 0) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } }
+        }
+      })
+      currentRow++
+    })
+
+    // تنسيق عرض الأعمدة
+    worksheet.columns.forEach((column: any) => {
+      column.width = 15
+    })
+  }
+
+  /**
+   * إنشاء صفحة المواعيد
+   */
+  private static async createAppointmentsSheet(workbook: any, data: any): Promise<void> {
+    const worksheet = workbook.addWorksheet('المواعيد')
+
+    // العنوان
+    worksheet.mergeCells('A1:H1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'تقرير المواعيد'
+    headerCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF8B5CF6' } }
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+    let currentRow = 3
+
+    // التحقق من وجود البيانات
+    const appointments = Array.isArray(data.appointments) ? data.appointments : []
+
+    // إحصائيات المواعيد
+    const appointmentStats = [
+      ['إجمالي المواعيد', appointments.length],
+      ['المواعيد المكتملة', appointments.filter((a: any) => a.status === 'completed').length],
+      ['المواعيد الملغية', appointments.filter((a: any) => a.status === 'cancelled').length],
+      ['المواعيد المجدولة', appointments.filter((a: any) => a.status === 'scheduled').length]
+    ]
+
+    worksheet.getCell(`A${currentRow}`).value = 'إحصائيات المواعيد'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    appointmentStats.forEach(([label, value]) => {
+      worksheet.getCell(`A${currentRow}`).value = label
+      worksheet.getCell(`B${currentRow}`).value = value
+      currentRow++
+    })
+
+    currentRow += 2
+
+    // جدول تفاصيل المواعيد
+    worksheet.getCell(`A${currentRow}`).value = 'تفاصيل المواعيد'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    // رؤوس الجدول
+    const headers = ['التاريخ', 'الوقت', 'اسم المريض', 'نوع العلاج', 'التكلفة', 'الحالة', 'الطبيب', 'ملاحظات']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(currentRow, index + 1)
+      cell.value = header
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF8B5CF6' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = {
+        top: { style: 'medium' }, left: { style: 'medium' },
+        bottom: { style: 'medium' }, right: { style: 'medium' }
+      }
+    })
+    currentRow++
+
+    // بيانات المواعيد
+    if (Array.isArray(appointments)) {
+      appointments.forEach((appointment: any, index: number) => {
+        const rowData = [
+          appointment.start_time ? formatDate(appointment.start_time) : '',
+          appointment.start_time ? new Date(appointment.start_time).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '',
+          appointment.patient?.full_name || 'غير محدد',
+          appointment.title || 'غير محدد',
+          appointment.cost ? formatCurrency(appointment.cost) : '0',
+          this.getStatusInArabic(appointment.status),
+          appointment.doctor_name || 'غير محدد',
+          appointment.notes || ''
+        ]
+
+        rowData.forEach((value, colIndex) => {
+          const cell = worksheet.getCell(currentRow, colIndex + 1)
+          cell.value = value
+          cell.border = {
+            top: { style: 'thin' }, left: { style: 'thin' },
+            bottom: { style: 'thin' }, right: { style: 'thin' }
+          }
+          cell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+          if (index % 2 === 0) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } }
+          }
+        })
+        currentRow++
+      })
+    }
+
+    // تنسيق عرض الأعمدة
+    worksheet.columns.forEach((column: any) => {
+      column.width = 15
+    })
+  }
+
+  /**
+   * إنشاء صفحة المدفوعات
+   */
+  private static async createPaymentsSheet(workbook: any, data: any): Promise<void> {
+    const worksheet = workbook.addWorksheet('المدفوعات')
+
+    // العنوان
+    worksheet.mergeCells('A1:I1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'تقرير المدفوعات'
+    headerCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } }
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+    let currentRow = 3
+
+    // التحقق من وجود البيانات
+    const payments = Array.isArray(data.payments) ? data.payments : []
+
+    // إحصائيات المدفوعات
+    const totalRevenue = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
+    const completedPayments = payments.filter((p: any) => p.status === 'completed')
+    const partialPayments = payments.filter((p: any) => p.status === 'partial')
+    const pendingPayments = payments.filter((p: any) => p.status === 'pending')
+
+    const paymentStats = [
+      ['إجمالي المدفوعات', payments.length],
+      ['إجمالي الإيرادات', formatCurrency(totalRevenue)],
+      ['المدفوعات المكتملة', completedPayments.length],
+      ['المدفوعات الجزئية', partialPayments.length],
+      ['المدفوعات المعلقة', pendingPayments.length]
+    ]
+
+    worksheet.getCell(`A${currentRow}`).value = 'إحصائيات المدفوعات'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    paymentStats.forEach(([label, value]) => {
+      worksheet.getCell(`A${currentRow}`).value = label
+      worksheet.getCell(`B${currentRow}`).value = value
+      currentRow++
+    })
+
+    currentRow += 2
+
+    // جدول تفاصيل المدفوعات
+    worksheet.getCell(`A${currentRow}`).value = 'تفاصيل المدفوعات'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    // رؤوس الجدول
+    const headers = ['تاريخ الدفع', 'اسم المريض', 'الوصف', 'المبلغ', 'المبلغ المدفوع', 'الرصيد المتبقي', 'طريقة الدفع', 'الحالة', 'رقم الإيصال']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(currentRow, index + 1)
+      cell.value = header
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = {
+        top: { style: 'medium' }, left: { style: 'medium' },
+        bottom: { style: 'medium' }, right: { style: 'medium' }
+      }
+    })
+    currentRow++
+
+    // بيانات المدفوعات
+    if (Array.isArray(payments)) {
+      payments.forEach((payment: any, index: number) => {
+        // حساب المبالغ بناءً على نوع الدفعة مثل تقرير الربح والخسائر
+        let totalAmount, amountPaid, remainingBalance
+
+        if (payment.status === 'partial') {
+          // للدفعات الجزئية: المبلغ الإجمالي هو total_amount_due، المدفوع هو amount، المتبقي هو الفرق
+          totalAmount = Number(payment.total_amount_due || payment.amount) || 0
+          amountPaid = Number(payment.amount_paid || payment.amount) || 0
+          remainingBalance = Math.max(0, totalAmount - amountPaid)
+        } else if (payment.appointment_id && payment.appointment_total_cost) {
+          // للمدفوعات المرتبطة بمواعيد
+          totalAmount = Number(payment.appointment_total_cost) || 0
+          amountPaid = Number(payment.appointment_total_paid || payment.amount) || 0
+          remainingBalance = Number(payment.appointment_remaining_balance || 0)
+        } else {
+          // للمدفوعات العادية المكتملة
+          totalAmount = Number(payment.amount) || 0
+          amountPaid = Number(payment.amount) || 0
+          remainingBalance = 0
+        }
+
+        const rowData = [
+          payment.payment_date ? formatDate(payment.payment_date) : '',
+          payment.patient?.full_name || 'غير محدد',
+          payment.description || 'غير محدد',
+          formatCurrency(totalAmount),
+          formatCurrency(amountPaid),
+          formatCurrency(remainingBalance),
+          payment.payment_method || 'غير محدد',
+          this.getPaymentStatusInArabic(payment.status),
+          payment.receipt_number || ''
+        ]
+
+        rowData.forEach((value, colIndex) => {
+          const cell = worksheet.getCell(currentRow, colIndex + 1)
+          cell.value = value
+          cell.border = {
+            top: { style: 'thin' }, left: { style: 'thin' },
+            bottom: { style: 'thin' }, right: { style: 'thin' }
+          }
+          cell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+          if (index % 2 === 0) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } }
+          }
+
+          // تمييز الأعمدة المالية
+          if (colIndex >= 3 && colIndex <= 5) {
+            cell.font = { bold: true }
+            if (!cell.fill) {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }
+            }
+          }
+        })
+        currentRow++
+      })
+    }
+
+    // تنسيق عرض الأعمدة
+    worksheet.columns.forEach((column: any) => {
+      column.width = 15
+    })
+  }
+
+  /**
+   * إنشاء صفحة المخزون
+   */
+  private static async createInventorySheet(workbook: any, data: any): Promise<void> {
+    const worksheet = workbook.addWorksheet('المخزون')
+
+    // العنوان
+    worksheet.mergeCells('A1:F1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'تقرير المخزون'
+    headerCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } }
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+    let currentRow = 3
+
+    // التحقق من وجود البيانات
+    const inventory = Array.isArray(data.inventory) ? data.inventory : []
+
+    // إحصائيات المخزون
+    const totalValue = inventory.reduce((sum: number, item: any) => sum + ((item.cost || 0) * (item.quantity || 0)), 0)
+    const lowStockItems = inventory.filter((item: any) => (item.quantity || 0) <= 5).length
+
+    const inventoryStats = [
+      ['إجمالي العناصر', inventory.length],
+      ['القيمة الإجمالية', formatCurrency(totalValue)],
+      ['عناصر منخفضة المخزون', lowStockItems],
+      ['عناصر نفدت من المخزون', inventory.filter((item: any) => (item.quantity || 0) === 0).length]
+    ]
+
+    worksheet.getCell(`A${currentRow}`).value = 'إحصائيات المخزون'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    inventoryStats.forEach(([label, value]) => {
+      worksheet.getCell(`A${currentRow}`).value = label
+      worksheet.getCell(`B${currentRow}`).value = value
+      currentRow++
+    })
+
+    currentRow += 2
+
+    // جدول تفاصيل المخزون
+    worksheet.getCell(`A${currentRow}`).value = 'تفاصيل المخزون'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    // رؤوس الجدول
+    const headers = ['اسم المنتج', 'الفئة', 'الكمية', 'التكلفة', 'القيمة الإجمالية', 'تاريخ الانتهاء']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(currentRow, index + 1)
+      cell.value = header
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = {
+        top: { style: 'medium' }, left: { style: 'medium' },
+        bottom: { style: 'medium' }, right: { style: 'medium' }
+      }
+    })
+    currentRow++
+
+    // بيانات المخزون
+    if (Array.isArray(inventory)) {
+      inventory.forEach((item: any, index: number) => {
+        const rowData = [
+          item.name || '',
+          item.category || '',
+          item.quantity || 0,
+          formatCurrency(item.cost || 0),
+          formatCurrency((item.cost || 0) * (item.quantity || 0)),
+          item.expiry_date ? formatDate(item.expiry_date) : ''
+        ]
+
+        rowData.forEach((value, colIndex) => {
+          const cell = worksheet.getCell(currentRow, colIndex + 1)
+          cell.value = value
+          cell.border = {
+            top: { style: 'thin' }, left: { style: 'thin' },
+            bottom: { style: 'thin' }, right: { style: 'thin' }
+          }
+          cell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+          if (index % 2 === 0) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } }
+          }
+
+          // تمييز العناصر منخفضة المخزون
+          if (colIndex === 2 && (item.quantity || 0) <= 5) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFECACA' } }
+            cell.font = { bold: true, color: { argb: 'FFDC2626' } }
+          }
+        })
+        currentRow++
+      })
+    }
+
+    // تنسيق عرض الأعمدة
+    worksheet.columns.forEach((column: any) => {
+      column.width = 15
+    })
+  }
+
+  /**
+   * إنشاء صفحة طلبات المختبرات
+   */
+  private static async createLabOrdersSheet(workbook: any, data: any): Promise<void> {
+    const worksheet = workbook.addWorksheet('طلبات المختبرات')
+
+    // العنوان
+    worksheet.mergeCells('A1:H1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'تقرير طلبات المختبرات'
+    headerCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF14B8A6' } }
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+    let currentRow = 3
+
+    // التحقق من وجود البيانات
+    const labOrders = Array.isArray(data.labOrders) ? data.labOrders : []
+
+    // إحصائيات طلبات المختبرات
+    const totalCost = labOrders.reduce((sum: number, order: any) => sum + (order.cost || 0), 0)
+    const totalPaid = labOrders.reduce((sum: number, order: any) => sum + (order.paid_amount || 0), 0)
+    const totalRemaining = totalCost - totalPaid
+
+    const labStats = [
+      ['إجمالي الطلبات', labOrders.length],
+      ['إجمالي التكلفة', formatCurrency(totalCost)],
+      ['إجمالي المدفوع', formatCurrency(totalPaid)],
+      ['إجمالي المتبقي', formatCurrency(totalRemaining)]
+    ]
+
+    worksheet.getCell(`A${currentRow}`).value = 'إحصائيات طلبات المختبرات'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    labStats.forEach(([label, value]) => {
+      worksheet.getCell(`A${currentRow}`).value = label
+      worksheet.getCell(`B${currentRow}`).value = value
+      currentRow++
+    })
+
+    currentRow += 2
+
+    // جدول تفاصيل طلبات المختبرات
+    worksheet.getCell(`A${currentRow}`).value = 'تفاصيل طلبات المختبرات'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    // رؤوس الجدول
+    const headers = ['تاريخ الطلب', 'المختبر', 'اسم المريض', 'الخدمة', 'التكلفة', 'المدفوع', 'المتبقي', 'الحالة']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(currentRow, index + 1)
+      cell.value = header
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF14B8A6' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = {
+        top: { style: 'medium' }, left: { style: 'medium' },
+        bottom: { style: 'medium' }, right: { style: 'medium' }
+      }
+    })
+    currentRow++
+
+    // بيانات طلبات المختبرات
+    if (Array.isArray(labOrders)) {
+      labOrders.forEach((order: any, index: number) => {
+        const patients = Array.isArray(data.patients) ? data.patients : []
+        const patient = patients.find((p: any) => p.id === order.patient_id)
+        const rowData = [
+          order.order_date ? formatDate(order.order_date) : '',
+          order.lab?.name || 'غير محدد',
+          patient?.full_name || 'غير محدد',
+          order.service_name || 'غير محدد',
+          formatCurrency(order.cost || 0),
+          formatCurrency(order.paid_amount || 0),
+          formatCurrency((order.cost || 0) - (order.paid_amount || 0)),
+          order.status || 'غير محدد'
+        ]
+
+        rowData.forEach((value, colIndex) => {
+          const cell = worksheet.getCell(currentRow, colIndex + 1)
+          cell.value = value
+          cell.border = {
+            top: { style: 'thin' }, left: { style: 'thin' },
+            bottom: { style: 'thin' }, right: { style: 'thin' }
+          }
+          cell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+          if (index % 2 === 0) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } }
+          }
+
+          // تمييز الأعمدة المالية
+          if (colIndex >= 4 && colIndex <= 6) {
+            cell.font = { bold: true }
+            if (!cell.fill) {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }
+            }
+          }
+        })
+        currentRow++
+      })
+    }
+
+    // تنسيق عرض الأعمدة
+    worksheet.columns.forEach((column: any) => {
+      column.width = 15
+    })
+  }
+
+  /**
+   * إنشاء صفحة احتياجات العيادة
+   */
+  private static async createClinicNeedsSheet(workbook: any, data: any): Promise<void> {
+    const worksheet = workbook.addWorksheet('احتياجات العيادة')
+
+    // العنوان
+    worksheet.mergeCells('A1:H1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'تقرير احتياجات العيادة'
+    headerCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEC4899' } }
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+    let currentRow = 3
+
+    // إحصائيات احتياجات العيادة
+    const totalCost = data.clinicNeeds.reduce((sum: number, need: any) => sum + ((need.price || 0) * (need.quantity || 0)), 0)
+    const urgentNeeds = data.clinicNeeds.filter((need: any) => need.priority === 'urgent').length
+    const pendingNeeds = data.clinicNeeds.filter((need: any) => need.status === 'pending').length
+
+    const needsStats = [
+      ['إجمالي الاحتياجات', data.clinicNeeds.length],
+      ['إجمالي التكلفة المتوقعة', formatCurrency(totalCost)],
+      ['الاحتياجات العاجلة', urgentNeeds],
+      ['الاحتياجات المعلقة', pendingNeeds]
+    ]
+
+    worksheet.getCell(`A${currentRow}`).value = 'إحصائيات احتياجات العيادة'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    needsStats.forEach(([label, value]) => {
+      worksheet.getCell(`A${currentRow}`).value = label
+      worksheet.getCell(`B${currentRow}`).value = value
+      currentRow++
+    })
+
+    currentRow += 2
+
+    // جدول تفاصيل احتياجات العيادة
+    worksheet.getCell(`A${currentRow}`).value = 'تفاصيل احتياجات العيادة'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    // رؤوس الجدول
+    const headers = ['تاريخ الطلب', 'اسم الصنف', 'الفئة', 'الكمية', 'السعر المتوقع', 'القيمة الإجمالية', 'الأولوية', 'الحالة']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(currentRow, index + 1)
+      cell.value = header
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEC4899' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = {
+        top: { style: 'medium' }, left: { style: 'medium' },
+        bottom: { style: 'medium' }, right: { style: 'medium' }
+      }
+    })
+    currentRow++
+
+    // بيانات احتياجات العيادة
+    data.clinicNeeds.forEach((need: any, index: number) => {
+      const priorityLabels = {
+        urgent: 'عاجل',
+        high: 'عالي',
+        medium: 'متوسط',
+        low: 'منخفض'
+      }
+
+      const statusLabels = {
+        pending: 'معلق',
+        ordered: 'تم الطلب',
+        received: 'تم الاستلام'
+      }
+
+      const rowData = [
+        need.created_at ? formatDate(need.created_at) : '',
+        need.name || 'غير محدد',
+        need.category || 'غير محدد',
+        need.quantity || 0,
+        formatCurrency(need.price || 0),
+        formatCurrency((need.price || 0) * (need.quantity || 0)),
+        priorityLabels[need.priority as keyof typeof priorityLabels] || need.priority || 'غير محدد',
+        statusLabels[need.status as keyof typeof statusLabels] || need.status || 'غير محدد'
+      ]
+
+      rowData.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1)
+        cell.value = value
+        cell.border = {
+          top: { style: 'thin' }, left: { style: 'thin' },
+          bottom: { style: 'thin' }, right: { style: 'thin' }
+        }
+        cell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+        if (index % 2 === 0) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } }
+        }
+
+        // تمييز الاحتياجات العاجلة
+        if (need.priority === 'urgent') {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFECACA' } }
+          cell.font = { bold: true, color: { argb: 'FFDC2626' } }
+        }
+      })
+      currentRow++
+    })
+
+    // تنسيق عرض الأعمدة
+    worksheet.columns.forEach((column: any) => {
+      column.width = 15
+    })
+  }
+
+  /**
+   * إنشاء صفحة مصروفات العيادة
+   */
+  private static async createExpensesSheet(workbook: any, data: any): Promise<void> {
+    const worksheet = workbook.addWorksheet('مصروفات العيادة')
+
+    // العنوان
+    worksheet.mergeCells('A1:G1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'تقرير مصروفات العيادة'
+    headerCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEF4444' } }
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+    let currentRow = 3
+
+    // إحصائيات مصروفات العيادة
+    const totalExpenses = data.expenses.reduce((sum: number, expense: any) => sum + (expense.amount || 0), 0)
+    const paidExpenses = data.expenses.filter((expense: any) => expense.status === 'paid')
+    const pendingExpenses = data.expenses.filter((expense: any) => expense.status === 'pending')
+
+    const expenseStats = [
+      ['إجمالي المصروفات', data.expenses.length],
+      ['إجمالي المبلغ', formatCurrency(totalExpenses)],
+      ['المصروفات المدفوعة', paidExpenses.length],
+      ['المصروفات المعلقة', pendingExpenses.length]
+    ]
+
+    worksheet.getCell(`A${currentRow}`).value = 'إحصائيات مصروفات العيادة'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    expenseStats.forEach(([label, value]) => {
+      worksheet.getCell(`A${currentRow}`).value = label
+      worksheet.getCell(`B${currentRow}`).value = value
+      currentRow++
+    })
+
+    currentRow += 2
+
+    // جدول تفاصيل مصروفات العيادة
+    worksheet.getCell(`A${currentRow}`).value = 'تفاصيل مصروفات العيادة'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true }
+    currentRow += 2
+
+    // رؤوس الجدول
+    const headers = ['تاريخ الدفع', 'اسم المصروف', 'النوع', 'المبلغ', 'طريقة الدفع', 'المورد', 'الحالة']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(currentRow, index + 1)
+      cell.value = header
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEF4444' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = {
+        top: { style: 'medium' }, left: { style: 'medium' },
+        bottom: { style: 'medium' }, right: { style: 'medium' }
+      }
+    })
+    currentRow++
+
+    // بيانات مصروفات العيادة
+    data.expenses.forEach((expense: any, index: number) => {
+      const typeMapping = {
+        'salary': 'رواتب',
+        'utilities': 'مرافق',
+        'rent': 'إيجار',
+        'maintenance': 'صيانة',
+        'supplies': 'مستلزمات',
+        'insurance': 'تأمين',
+        'other': 'أخرى'
+      }
+
+      const methodMapping = {
+        'cash': 'نقداً',
+        'bank_transfer': 'تحويل بنكي',
+        'check': 'شيك',
+        'credit_card': 'بطاقة ائتمان'
+      }
+
+      const rowData = [
+        expense.payment_date ? formatDate(expense.payment_date) : '',
+        expense.expense_name || 'غير محدد',
+        typeMapping[expense.expense_type as keyof typeof typeMapping] || expense.expense_type || 'غير محدد',
+        formatCurrency(expense.amount || 0),
+        methodMapping[expense.payment_method as keyof typeof methodMapping] || expense.payment_method || 'غير محدد',
+        expense.vendor || 'غير محدد',
+        expense.status === 'paid' ? 'مدفوع' : 'معلق'
+      ]
+
+      rowData.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1)
+        cell.value = value
+        cell.border = {
+          top: { style: 'thin' }, left: { style: 'thin' },
+          bottom: { style: 'thin' }, right: { style: 'thin' }
+        }
+        cell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+        if (index % 2 === 0) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } }
+        }
+
+        // تمييز عمود المبلغ
+        if (colIndex === 3) {
+          cell.font = { bold: true }
+          if (!cell.fill) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }
+          }
+        }
+      })
+      currentRow++
+    })
+
+    // تنسيق عرض الأعمدة
+    worksheet.columns.forEach((column: any) => {
+      column.width = 15
+    })
+  }
+
+  /**
+   * إنشاء صفحة الأرباح والخسائر
+   */
+  private static async createProfitLossSheet(workbook: any, data: any): Promise<void> {
+    const worksheet = workbook.addWorksheet('الأرباح والخسائر')
+
+    // العنوان
+    worksheet.mergeCells('A1:H1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'تقرير الأرباح والخسائر'
+    headerCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } }
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+    let currentRow = 3
+
+    // حساب الإحصائيات المالية
+    const totalRevenue = data.payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
+    const totalLabCosts = data.labOrders.reduce((sum: number, order: any) => sum + (order.cost || 0), 0)
+    const totalClinicNeeds = data.clinicNeeds.reduce((sum: number, need: any) => sum + ((need.price || 0) * (need.quantity || 0)), 0)
+    const totalInventoryCosts = data.inventory.reduce((sum: number, item: any) => sum + ((item.cost || 0) * (item.quantity || 0)), 0)
+    const totalDirectExpenses = data.expenses.reduce((sum: number, expense: any) => sum + (expense.amount || 0), 0)
+
+    const totalExpenses = totalLabCosts + totalClinicNeeds + totalInventoryCosts + totalDirectExpenses
+    const netProfit = totalRevenue - totalExpenses
+    const isProfit = netProfit >= 0
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
+
+    // ملخص الأرباح والخسائر
+    worksheet.getCell(`A${currentRow}`).value = 'ملخص الأرباح والخسائر'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FF7C3AED' } }
+    currentRow += 2
+
+    const summaryData = [
+      ['إجمالي الإيرادات', formatCurrency(totalRevenue)],
+      ['إجمالي المصروفات', formatCurrency(totalExpenses)],
+      ['صافي الربح/الخسارة', formatCurrency(Math.abs(netProfit))],
+      ['نسبة الربح', `${profitMargin.toFixed(2)}%`],
+      ['الحالة المالية', isProfit ? 'ربح' : 'خسارة']
+    ]
+
+    summaryData.forEach(([label, value]) => {
+      worksheet.getCell(`A${currentRow}`).value = label
+      worksheet.getCell(`B${currentRow}`).value = value
+      worksheet.getCell(`A${currentRow}`).font = { bold: true }
+
+      // تنسيق خاص للحالة المالية
+      if (label === 'الحالة المالية') {
+        worksheet.getCell(`B${currentRow}`).font = {
+          bold: true,
+          color: { argb: isProfit ? 'FF10B981' : 'FFEF4444' }
+        }
+      }
+
+      currentRow++
+    })
+
+    currentRow += 2
+
+    // تفصيل الإيرادات
+    worksheet.getCell(`A${currentRow}`).value = 'تفصيل الإيرادات'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FF10B981' } }
+    currentRow += 2
+
+    const completedPayments = data.payments.filter((p: any) => p.status === 'completed')
+    const partialPayments = data.payments.filter((p: any) => p.status === 'partial')
+    const pendingPayments = data.payments.filter((p: any) => p.status === 'pending')
+
+    const revenueData = [
+      ['المدفوعات المكتملة', `${completedPayments.length} (${formatCurrency(completedPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0))})`],
+      ['المدفوعات الجزئية', `${partialPayments.length} (${formatCurrency(partialPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0))})`],
+      ['المدفوعات المعلقة', `${pendingPayments.length} (${formatCurrency(pendingPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0))})`]
+    ]
+
+    revenueData.forEach(([label, value]) => {
+      worksheet.getCell(`A${currentRow}`).value = label
+      worksheet.getCell(`B${currentRow}`).value = value
+      currentRow++
+    })
+
+    currentRow += 2
+
+    // تفصيل المصروفات
+    worksheet.getCell(`A${currentRow}`).value = 'تفصيل المصروفات'
+    worksheet.getCell(`A${currentRow}`).font = { size: 14, bold: true, color: { argb: 'FFEF4444' } }
+    currentRow += 2
+
+    const expenseData = [
+      ['تكاليف المختبرات', formatCurrency(totalLabCosts)],
+      ['احتياجات العيادة', formatCurrency(totalClinicNeeds)],
+      ['تكاليف المخزون', formatCurrency(totalInventoryCosts)],
+      ['مصروفات مباشرة', formatCurrency(totalDirectExpenses)]
+    ]
+
+    expenseData.forEach(([label, value]) => {
+      worksheet.getCell(`A${currentRow}`).value = label
+      worksheet.getCell(`B${currentRow}`).value = value
+      currentRow++
+    })
+
+    // تنسيق عرض الأعمدة
+    worksheet.getColumn('A').width = 30
+    worksheet.getColumn('B').width = 20
+  }
+
+
+
+  /**
+   * دالة مساعدة للحصول على حالة الدفع بالعربية
+   */
+  private static getPaymentStatusInArabic(status: string): string {
+    const statusMap: { [key: string]: string } = {
+      'completed': 'مكتمل',
+      'partial': 'جزئي',
+      'pending': 'معلق',
+      'overdue': 'متأخر',
+      'cancelled': 'ملغي'
+    }
+    return statusMap[status] || status
+  }
+
+  /**
+   * دالة مساعدة لفلترة البيانات حسب التاريخ
+   */
+  private static filterByDateRange(data: any[], dateRange: any, dateField: string): any[] {
+    if (!dateRange || !dateRange.start || !dateRange.end) {
+      return data
+    }
+
+    const startDate = new Date(dateRange.start)
+    const endDate = new Date(dateRange.end)
+    endDate.setHours(23, 59, 59, 999) // نهاية اليوم
+
+    return data.filter(item => {
+      const itemDate = new Date(item[dateField])
+      return itemDate >= startDate && itemDate <= endDate
+    })
   }
 }

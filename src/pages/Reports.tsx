@@ -67,7 +67,7 @@ import { notify } from '@/services/notificationService'
 
 export default function Reports() {
   const { currency } = useSettingsStore()
-  const { totalRevenue, pendingAmount, overdueAmount, payments } = usePaymentStore()
+  const { payments } = usePaymentStore()
   const { expenses } = useExpensesStore()
   const { appointments } = useAppointmentStore()
   const { items: inventoryItems } = useInventoryStore()
@@ -87,7 +87,7 @@ export default function Reports() {
     isExporting,
     error,
     activeReportType,
-    currentFilter,
+    currentFilter: storeCurrentFilter,
     generateReport,
     generateAllReports,
     setActiveReportType,
@@ -104,30 +104,177 @@ export default function Reports() {
   const [customEndDate, setCustomEndDate] = useState('')
   const [isComprehensiveExporting, setIsComprehensiveExporting] = useState(false)
 
-  // Time filtering for different data types in overview (excluding patients)
-  const appointmentStats = useTimeFilteredStats({
-    data: appointments,
-    dateField: 'start_time',
-    initialFilter: { preset: 'all', startDate: '', endDate: '' }
+  // Create time filter object from selected period
+  const getTimeFilterFromPeriod = () => {
+    if (selectedPeriod === 'custom') {
+      return {
+        preset: 'custom' as const,
+        startDate: customStartDate,
+        endDate: customEndDate
+      }
+    } else {
+      // Map comprehensive report periods to time filter periods
+      const periodMapping: Record<string, 'all' | 'today' | 'week' | 'month' | 'year'> = {
+        'all': 'all',
+        'today': 'today',
+        'this_week': 'week',
+        'this_month': 'month',
+        'this_year': 'year',
+        'last_week': 'week',
+        'last_month': 'month',
+        'last_year': 'year',
+        'last_30_days': 'month',
+        'last_90_days': 'month'
+      }
+
+      return {
+        preset: periodMapping[selectedPeriod] || 'all',
+        startDate: '',
+        endDate: ''
+      }
+    }
+  }
+
+  // Apply filtering directly based on selected period
+  const getFilteredData = (data: any[], dateField: string) => {
+    if (selectedPeriod === 'all') return data
+
+    const now = new Date()
+    let startDate: Date
+    let endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+
+    switch (selectedPeriod) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+        break
+      case 'this_week':
+        const dayOfWeek = now.getDay()
+        startDate = new Date(now.getTime() - (dayOfWeek * 24 * 60 * 60 * 1000))
+        startDate.setHours(0, 0, 0, 0)
+        break
+      case 'this_month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+        break
+      case 'this_year':
+        startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0)
+        break
+      case 'last_week':
+        const lastWeekEnd = new Date(now.getTime() - (now.getDay() * 24 * 60 * 60 * 1000))
+        lastWeekEnd.setHours(23, 59, 59, 999)
+        endDate = lastWeekEnd
+        startDate = new Date(lastWeekEnd.getTime() - (6 * 24 * 60 * 60 * 1000))
+        startDate.setHours(0, 0, 0, 0)
+        break
+      case 'last_month':
+        const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1
+        const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
+        startDate = new Date(lastMonthYear, lastMonth, 1, 0, 0, 0)
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+        break
+      case 'last_year':
+        startDate = new Date(now.getFullYear() - 1, 0, 1, 0, 0, 0)
+        endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59)
+        break
+      case 'last_30_days':
+        startDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000))
+        startDate.setHours(0, 0, 0, 0)
+        break
+      case 'last_90_days':
+        startDate = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000))
+        startDate.setHours(0, 0, 0, 0)
+        break
+      case 'custom':
+        if (!customStartDate || !customEndDate) return data
+        startDate = new Date(customStartDate)
+        endDate = new Date(customEndDate)
+        endDate.setHours(23, 59, 59, 999)
+        break
+      default:
+        return data
+    }
+
+    return data.filter(item => {
+      const itemDate = new Date(item[dateField])
+      return itemDate >= startDate && itemDate <= endDate
+    })
+  }
+
+  // Get filtered data for each type
+  const filteredAppointments = getFilteredData(appointments, 'start_time')
+  const filteredPayments = getFilteredData(payments, 'payment_date')
+  const filteredInventory = getFilteredData(inventoryItems, 'created_at')
+  const filteredClinicNeeds = getFilteredData(clinicNeeds, 'created_at')
+  const filteredExpenses = getFilteredData(expenses, 'payment_date')
+
+  // Calculate pending payments for the filtered period
+  const filteredPendingPayments = filteredPayments.filter((p: any) => {
+    // تحقق من جميع الحالات المحتملة للمدفوعات المعلقة
+    const status = p.status?.toLowerCase()
+    return status === 'pending' || status === 'معلق' || status === 'unpaid' ||
+           (!p.status && p.amount > 0 && !p.amount_paid)
   })
 
-  const paymentStats = useTimeFilteredStats({
-    data: payments,
-    dateField: 'payment_date',
-    initialFilter: { preset: 'all', startDate: '', endDate: '' }
-  })
+  // Calculate total amount for filtered pending payments
+  const filteredPendingAmount = filteredPendingPayments.reduce((sum: number, p: any) => {
+    // للمدفوعات المعلقة، استخدم المبلغ الإجمالي المطلوب أو تكلفة العلاج
+    let pendingAmount = p.amount || 0
 
-  const inventoryStats = useTimeFilteredStats({
-    data: inventoryItems,
-    dateField: 'created_at',
-    initialFilter: { preset: 'all', startDate: '', endDate: '' }
-  })
+    if (p.tooth_treatment_id) {
+      // للمدفوعات المرتبطة بعلاجات، استخدم التكلفة الإجمالية للعلاج
+      const treatmentCost = p.treatment_total_cost || p.total_amount_due || 0
+      pendingAmount = treatmentCost
+    } else if (pendingAmount === 0 && (p.total_amount_due || 0) > 0) {
+      // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+      pendingAmount = p.total_amount_due
+    } else if (pendingAmount === 0 && (p.remaining_balance || 0) > 0) {
+      // استخدم الرصيد المتبقي إذا كان متوفراً
+      pendingAmount = p.remaining_balance
+    }
 
-  // Time filtering for clinic needs
-  const clinicNeedsStats = useTimeFilteredStats({
-    data: clinicNeeds,
-    dateField: 'created_at',
-    initialFilter: { preset: 'all', startDate: '', endDate: '' }
+    return sum + pendingAmount
+  }, 0)
+
+  // Debug: تسجيل البيانات للتحقق من المشكلة
+  console.log('🔍 Debug Pending Payments:', {
+    totalPayments: payments.length,
+    filteredPayments: filteredPayments.length,
+    filteredPendingPayments: filteredPendingPayments.length,
+    filteredPendingAmount,
+    selectedPeriod,
+    allPayments: payments.map(p => ({
+      id: p.id,
+      status: p.status,
+      amount: p.amount,
+      date: p.payment_date,
+      patient: p.patient?.full_name
+    })),
+    filteredPendingDetails: filteredPendingPayments.map(p => {
+      // حساب المبلغ المعلق لكل دفعة (نفس المنطق المستخدم في الحساب أعلاه)
+      let calculatedPendingAmount = p.amount || 0
+
+      if (p.tooth_treatment_id) {
+        const treatmentCost = p.treatment_total_cost || p.total_amount_due || 0
+        calculatedPendingAmount = treatmentCost
+      } else if (calculatedPendingAmount === 0 && (p.total_amount_due || 0) > 0) {
+        calculatedPendingAmount = p.total_amount_due
+      } else if (calculatedPendingAmount === 0 && (p.remaining_balance || 0) > 0) {
+        calculatedPendingAmount = p.remaining_balance
+      }
+
+      return {
+        id: p.id,
+        status: p.status,
+        amount: p.amount,
+        total_amount_due: p.total_amount_due,
+        treatment_total_cost: p.treatment_total_cost,
+        amount_paid: p.amount_paid,
+        remaining_balance: p.remaining_balance,
+        calculatedPendingAmount,
+        date: p.payment_date,
+        patient: p.patient?.full_name,
+        tooth_treatment_id: p.tooth_treatment_id
+      }
+    })
   })
 
   useEffect(() => {
@@ -312,7 +459,7 @@ export default function Reports() {
     }
   }
 
-  // Handle comprehensive export
+  // Handle comprehensive export with time filtering
   const handleComprehensiveExport = async () => {
     setIsComprehensiveExporting(true)
     try {
@@ -340,7 +487,9 @@ export default function Reports() {
         loadPrescriptions()
       ])
 
-      console.log('✅ All data loaded, starting export...')
+      console.log('✅ All data loaded, starting filtered export...')
+
+      // Apply time filtering to the export based on selected period
       await ComprehensiveExportService.exportComprehensiveReport({
         patients,
         appointments,
@@ -523,7 +672,7 @@ export default function Reports() {
             <ClipboardList className="w-4 h-4" />
             <span>احتياجات العيادة</span>
           </TabsTrigger>
-         
+
         </TabsList>
 
         {/* Comprehensive Report Tab */}
@@ -631,8 +780,8 @@ export default function Reports() {
                       <Calendar className={`w-6 h-6 ${getIconStyles("purple")}`} />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">إجمالي المواعيد</p>
-                      <p className="text-2xl font-bold">{appointments.length}</p>
+                      <p className="text-sm text-muted-foreground">المواعيد المفلترة</p>
+                      <p className="text-2xl font-bold">{filteredAppointments.length}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -645,9 +794,12 @@ export default function Reports() {
                       <DollarSign className={`w-6 h-6 ${getIconStyles("green")}`} />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">إجمالي الإيرادات</p>
+                      <p className="text-sm text-muted-foreground">الإيرادات المفلترة</p>
                       <p className="text-xl font-bold">
-                        <CurrencyDisplay amount={totalRevenue || 0} currency={currency} />
+                        <CurrencyDisplay
+                          amount={filteredPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0)}
+                          currency={currency}
+                        />
                       </p>
                     </div>
                   </div>
@@ -661,8 +813,8 @@ export default function Reports() {
                       <Package className={`w-6 h-6 ${getIconStyles("orange")}`} />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">عناصر المخزون</p>
-                      <p className="text-2xl font-bold">{inventoryItems.length}</p>
+                      <p className="text-sm text-muted-foreground">عناصر المخزون المفلترة</p>
+                      <p className="text-2xl font-bold">{filteredInventory.length}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -680,21 +832,44 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center p-4 bg-green-50/80 dark:bg-green-950/50 border border-green-200/50 dark:border-green-700/50 rounded-lg backdrop-blur-sm">
-                    <span className="text-sm font-medium text-green-800 dark:text-green-200">إجمالي الإيرادات</span>
+                    <span className="text-sm font-medium text-green-800 dark:text-green-200">الإيرادات المفلترة</span>
                     <span className="text-lg font-bold text-green-700 dark:text-green-100">
-                      <CurrencyDisplay amount={totalRevenue || 0} currency={currency} />
+                      <CurrencyDisplay
+                        amount={filteredPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0)}
+                        currency={currency}
+                      />
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-4 bg-yellow-50/80 dark:bg-yellow-950/50 border border-yellow-200/50 dark:border-yellow-700/50 rounded-lg backdrop-blur-sm">
-                    <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">المبالغ المعلقة</span>
+                    <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">المدفوعات المعلقة المفلترة</span>
                     <span className="text-lg font-bold text-yellow-700 dark:text-yellow-100">
-                      <CurrencyDisplay amount={pendingAmount || 0} currency={currency} />
+                      <CurrencyDisplay
+                        amount={filteredPendingAmount}
+                        currency={currency}
+                      />
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-orange-50/80 dark:bg-orange-950/50 border border-orange-200/50 dark:border-orange-700/50 rounded-lg backdrop-blur-sm">
+                    <span className="text-sm font-medium text-orange-800 dark:text-orange-200">المدفوعات الجزئية المفلترة</span>
+                    <span className="text-lg font-bold text-orange-700 dark:text-orange-100">
+                      <CurrencyDisplay
+                        amount={filteredPayments.filter((p: any) => p.status === 'partial').reduce((sum: number, p: any) => {
+                          // للمدفوعات الجزئية: المبلغ المتبقي = المبلغ الإجمالي - المدفوع
+                          const totalAmount = Number(p.total_amount_due || p.amount) || 0
+                          const paidAmount = Number(p.amount_paid || p.amount) || 0
+                          return sum + Math.max(0, totalAmount - paidAmount)
+                        }, 0)}
+                        currency={currency}
+                      />
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-4 bg-red-50/80 dark:bg-red-950/50 border border-red-200/50 dark:border-red-700/50 rounded-lg backdrop-blur-sm">
-                    <span className="text-sm font-medium text-red-800 dark:text-red-200">المبالغ المتأخرة</span>
+                    <span className="text-sm font-medium text-red-800 dark:text-red-200">المصروفات المفلترة</span>
                     <span className="text-lg font-bold text-red-700 dark:text-red-100">
-                      <CurrencyDisplay amount={overdueAmount || 0} currency={currency} />
+                      <CurrencyDisplay
+                        amount={filteredExpenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)}
+                        currency={currency}
+                      />
                     </span>
                   </div>
                 </CardContent>
@@ -711,27 +886,27 @@ export default function Reports() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center p-4 bg-blue-50/80 dark:bg-blue-950/50 border border-blue-200/50 dark:border-blue-700/50 rounded-lg backdrop-blur-sm">
                       <div className="text-2xl font-bold text-blue-700 dark:text-blue-100">
-                        {appointmentReports?.completedAppointments || 0}
+                        {filteredAppointments.filter((a: any) => a.status === 'completed').length}
                       </div>
-                      <div className="text-xs text-blue-600 dark:text-blue-200 mt-1 font-medium">مواعيد مكتملة</div>
+                      <div className="text-xs text-blue-600 dark:text-blue-200 mt-1 font-medium">مواعيد مكتملة مفلترة</div>
                     </div>
                     <div className="text-center p-4 bg-purple-50/80 dark:bg-purple-950/50 border border-purple-200/50 dark:border-purple-700/50 rounded-lg backdrop-blur-sm">
                       <div className="text-2xl font-bold text-purple-700 dark:text-purple-100">
-                        {appointmentReports?.pendingAppointments || 0}
+                        {filteredAppointments.filter((a: any) => a.status === 'scheduled').length}
                       </div>
-                      <div className="text-xs text-purple-600 dark:text-purple-200 mt-1 font-medium">مواعيد معلقة</div>
+                      <div className="text-xs text-purple-600 dark:text-purple-200 mt-1 font-medium">مواعيد مجدولة مفلترة</div>
                     </div>
                     <div className="text-center p-4 bg-emerald-50/80 dark:bg-emerald-950/50 border border-emerald-200/50 dark:border-emerald-700/50 rounded-lg backdrop-blur-sm">
                       <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-100">
-                        {patientReports?.activePatients || 0}
+                        {filteredClinicNeeds.length}
                       </div>
-                      <div className="text-xs text-emerald-600 dark:text-emerald-200 mt-1 font-medium">مرضى نشطون</div>
+                      <div className="text-xs text-emerald-600 dark:text-emerald-200 mt-1 font-medium">احتياجات العيادة المفلترة</div>
                     </div>
                     <div className="text-center p-4 bg-orange-50/80 dark:bg-orange-950/50 border border-orange-200/50 dark:border-orange-700/50 rounded-lg backdrop-blur-sm">
                       <div className="text-2xl font-bold text-orange-700 dark:text-orange-100">
-                        {inventoryReports?.lowStockItems || 0}
+                        {filteredExpenses.length}
                       </div>
-                      <div className="text-xs text-orange-600 dark:text-orange-200 mt-1 font-medium">مخزون منخفض</div>
+                      <div className="text-xs text-orange-600 dark:text-orange-200 mt-1 font-medium">مصروفات مفلترة</div>
                     </div>
                   </div>
                 </CardContent>
@@ -781,8 +956,8 @@ export default function Reports() {
                   <div className="flex items-center gap-3">
                     <ClipboardList className={`w-6 h-6 ${getIconStyles("gray")}`} />
                     <div>
-                      <p className="text-sm text-muted-foreground">احتياجات العيادة</p>
-                      <p className="text-xl font-bold">{clinicNeeds?.length || 0}</p>
+                      <p className="text-sm text-muted-foreground">احتياجات العيادة المفلترة</p>
+                      <p className="text-xl font-bold">{filteredClinicNeeds.length}</p>
                     </div>
                   </div>
                 </CardContent>
