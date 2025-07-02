@@ -40,22 +40,16 @@ export const useLabStore = create<LabStore>()(
 
       // Data operations
       loadLabs: async () => {
-        console.log('🔍 [DEBUG] labStore.loadLabs() called')
         set({ isLoading: true, error: null })
         try {
-          console.log('📡 [DEBUG] Calling window.electronAPI.labs.getAll...')
           const labs = await window.electronAPI?.labs?.getAll() || []
-          console.log('📨 [DEBUG] Received labs from electronAPI:', labs)
-          console.log('📊 [DEBUG] Labs count:', labs.length)
 
           set({
             labs,
             filteredLabs: labs,
             isLoading: false
           })
-          console.log('✅ [DEBUG] Labs loaded successfully into store')
         } catch (error) {
-          console.error('❌ [DEBUG] Error in labStore.loadLabs:', error)
           set({
             error: error instanceof Error ? error.message : 'Failed to load labs',
             isLoading: false

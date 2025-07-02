@@ -78,35 +78,7 @@ export const useLabOrderStore = create<LabOrderStore>()(
       loadLabOrders: async () => {
         set({ isLoading: true, error: null })
         try {
-          console.log('🔄 [DEBUG] Loading all lab orders from database...')
           const labOrders = await window.electronAPI?.labOrders?.getAll() || []
-
-          console.log('📋 [DEBUG] Loaded lab orders:', {
-            total: labOrders.length,
-            allOrders: labOrders.map(o => ({
-              id: o.id,
-              tooth_treatment_id: o.tooth_treatment_id,
-              service_name: o.service_name,
-              lab_id: o.lab_id,
-              cost: o.cost,
-              patient_id: o.patient_id
-            })),
-            ordersWithTreatmentId: labOrders.filter(o => o.tooth_treatment_id).map(o => ({
-              id: o.id,
-              tooth_treatment_id: o.tooth_treatment_id,
-              service_name: o.service_name,
-              lab_id: o.lab_id,
-              cost: o.cost
-            })),
-            ordersWithoutTreatmentId: labOrders.filter(o => !o.tooth_treatment_id).map(o => ({
-              id: o.id,
-              tooth_treatment_id: o.tooth_treatment_id,
-              service_name: o.service_name,
-              lab_id: o.lab_id,
-              cost: o.cost,
-              patient_id: o.patient_id
-            }))
-          })
 
           set({
             labOrders,
@@ -345,20 +317,7 @@ export const useLabOrderStore = create<LabOrderStore>()(
 
       getLabOrdersByTreatment: (treatmentId) => {
         const allOrders = get().labOrders
-        const matchingOrders = allOrders.filter(order => order.tooth_treatment_id === treatmentId)
-
-        console.log('🔍 [DEBUG] getLabOrdersByTreatment called:', {
-          treatmentId,
-          totalOrders: allOrders.length,
-          matchingOrders: matchingOrders.length,
-          allOrdersWithTreatmentId: allOrders.filter(o => o.tooth_treatment_id).map(o => ({
-            id: o.id,
-            tooth_treatment_id: o.tooth_treatment_id,
-            service_name: o.service_name
-          }))
-        })
-
-        return matchingOrders
+        return allOrders.filter(order => order.tooth_treatment_id === treatmentId)
       }
     }),
     {

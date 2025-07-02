@@ -181,25 +181,12 @@ export default function MultipleToothTreatments({
 
   // دالة إنشاء طلب مخبر للعلاج
   const createLabOrderForTreatment = async (treatmentId: string) => {
-    console.log('🏭 [DEBUG] createLabOrderForTreatment called:', {
-      treatmentId,
-      addSelectedLab,
-      addLabCost,
-      hasLab: !!addSelectedLab,
-      hasCost: addLabCost > 0
-    })
-
     // التحقق من المتطلبات الأساسية
     if (!treatmentId) {
-      console.error('❌ [DEBUG] Cannot create lab order - missing treatment ID')
       throw new Error('معرف العلاج مطلوب لإنشاء طلب المختبر')
     }
 
     if (!addSelectedLab || addLabCost <= 0) {
-      console.log('⚠️ [DEBUG] Skipping lab order creation - missing lab or cost:', {
-        addSelectedLab,
-        addLabCost
-      })
       return // لا نحتاج طلب مخبر إذا لم يتم اختيار مخبر أو تكلفة
     }
 
@@ -226,24 +213,15 @@ export default function MultipleToothTreatments({
         remaining_balance: addLabCost
       }
 
-      console.log('🏭 [DEBUG] Creating lab order with data:', labOrderData)
-
       // إنشاء طلب المختبر
       await createLabOrder(labOrderData)
 
       // التحقق من نجاح الإنشاء
-      console.log('🔍 [DEBUG] Verifying lab order creation...')
       const createdOrders = getLabOrdersByTreatment(treatmentId)
 
       if (createdOrders.length > 0) {
-        console.log('✅ [DEBUG] Lab order creation verified successfully:', {
-          treatmentId,
-          ordersCount: createdOrders.length,
-          latestOrder: createdOrders[createdOrders.length - 1]
-        })
         notify.success('تم إنشاء طلب المختبر وربطه بالعلاج بنجاح')
       } else {
-        console.warn('⚠️ [DEBUG] Lab order creation verification failed - no orders found')
         notify.warning('تم إنشاء طلب المختبر ولكن قد تحتاج لإعادة تحميل الصفحة للتحقق من الربط')
       }
 
@@ -308,21 +286,11 @@ export default function MultipleToothTreatments({
 
       // الخطوة 3: إنشاء طلب مختبر للتعويضات (بعد إنشاء العلاج والدفعة)
       if (newTreatment.treatment_category === 'التعويضات' && addSelectedLab && addLabCost > 0) {
-        console.log('🏭 [DEBUG] Creating lab order for prosthetic treatment:', {
-          treatmentId: createdTreatmentId,
-          labId: addSelectedLab,
-          cost: addLabCost
-        })
-
         try {
           await createLabOrderForTreatment(createdTreatmentId)
-          console.log('✅ [DEBUG] Lab order created successfully for treatment:', createdTreatmentId)
         } catch (labError) {
-          console.error('❌ [DEBUG] Lab order creation failed:', labError)
           notify.warning('تم إنشاء العلاج والدفعة ولكن فشل في إنشاء طلب المختبر')
         }
-      } else if (newTreatment.treatment_category === 'التعويضات') {
-        console.log('ℹ️ [DEBUG] Prosthetic treatment created without lab order (no lab selected or cost = 0)')
       }
 
       // إعادة تعيين النموذج
@@ -342,11 +310,8 @@ export default function MultipleToothTreatments({
       notify.success('تم إضافة العلاج بنجاح مع جميع المكونات المطلوبة')
 
     } catch (error) {
-      console.error('❌ [DEBUG] Treatment creation process failed:', error)
-
       // في حالة الفشل، نحاول تنظيف البيانات المنشأة جزئياً
       if (createdTreatmentId) {
-        console.log('🧹 [DEBUG] Attempting cleanup of partially created data...')
         // يمكن إضافة منطق تنظيف هنا إذا لزم الأمر
       }
 
@@ -1044,45 +1009,15 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
     return orders.find(order => order.tooth_treatment_id === treatmentId) || null
   }
 
-  // دالة بسيطة للبحث المباشر في قاعدة البيانات مع تشخيص مفصل
+  // دالة بسيطة للبحث المباشر في قاعدة البيانات
   const findLabOrderDirectly = async (treatmentId: string) => {
-    console.log('🔍 [DEBUG] findLabOrderDirectly called with treatmentId:', treatmentId)
-
     try {
-      console.log('📡 [DEBUG] Calling window.electronAPI.labOrders.getAll...')
-
-      if (!window.electronAPI?.labOrders?.getAll) {
-        console.error('❌ [DEBUG] window.electronAPI.labOrders.getAll is not available')
-        return null
-      }
-
-      const allLabOrders = await window.electronAPI.labOrders.getAll()
-      console.log('📨 [DEBUG] Received lab orders from electronAPI:', allLabOrders)
-      console.log('📊 [DEBUG] Lab orders count:', allLabOrders?.length || 0)
-
-      if (!allLabOrders || !Array.isArray(allLabOrders)) {
-        console.error('❌ [DEBUG] Invalid lab orders response:', allLabOrders)
-        return null
-      }
-
-      console.log('🔍 [DEBUG] Searching in all lab orders:', {
-        treatmentId,
-        totalOrders: allLabOrders.length,
-        allOrdersDetails: allLabOrders.map(order => ({
-          id: order.id,
-          tooth_treatment_id: order.tooth_treatment_id,
-          patient_id: order.patient_id,
-          service_name: order.service_name,
-          lab_id: order.lab_id,
-          cost: order.cost
-        }))
-      })
+      const allLabOrders = await window.electronAPI?.labOrders?.getAll() || []
 
       // البحث عن طلب مرتبط بالعلاج
       const linkedOrder = allLabOrders.find(order => order.tooth_treatment_id === treatmentId)
 
       if (linkedOrder) {
-        console.log('✅ Found linked lab order:', linkedOrder)
         return linkedOrder
       }
 
@@ -1093,8 +1028,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
       )
 
       if (unlinkedOrder) {
-        console.log('🔗 Found unlinked lab order for same patient:', unlinkedOrder)
-
         // ربط الطلب بالعلاج تلقائياً
         try {
           await updateLabOrder(unlinkedOrder.id, {
@@ -1102,18 +1035,14 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             tooth_number: treatment.tooth_number
           })
 
-          console.log('✅ Successfully linked lab order to treatment')
           return { ...unlinkedOrder, tooth_treatment_id: treatmentId }
         } catch (linkError) {
-          console.error('❌ Failed to link lab order:', linkError)
           return unlinkedOrder // إرجاع الطلب حتى لو فشل الربط
         }
       }
 
-      console.log('⚠️ No lab order found (linked or unlinked) for treatment:', treatmentId)
       return null
     } catch (error) {
-      console.error('❌ Error finding lab order:', error)
       return null
     }
   }
@@ -1122,15 +1051,12 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
 
   // دالة بسيطة لإعادة تحميل بيانات المختبر
   const reloadLabData = async () => {
-    console.log('🔄 Reloading lab data for treatment:', treatment.id)
-
     if (treatment.treatment_category === 'التعويضات') {
       const labOrder = await findLabOrderDirectly(treatment.id)
 
       if (labOrder) {
         setSelectedLab(labOrder.lab_id || '')
         setLabCost(labOrder.cost || 0)
-        console.log('✅ Lab data reloaded:', { lab_id: labOrder.lab_id, cost: labOrder.cost })
         notify.success('تم إعادة تحميل بيانات المختبر')
       } else {
         setSelectedLab('')
@@ -1147,7 +1073,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
     const loadLabData = async () => {
       try {
         setIsLabDataLoaded(false)
-        console.log('🔄 Loading data for treatment:', treatment.id, 'Category:', treatment.treatment_category)
 
         // تحميل المخابر أولاً
         await loadLabs()
@@ -1157,24 +1082,14 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
 
         // إذا كان العلاج من فئة التعويضات، ابحث عن طلب المختبر المرتبط
         if (treatment.treatment_category === 'التعويضات') {
-          console.log('🔍 Searching for lab order for prosthetic treatment:', treatment.id)
-
           // البحث المباشر عن طلب المختبر المرتبط بهذا العلاج
           const labOrder = await findLabOrderDirectly(treatment.id)
 
           if (labOrder) {
-            console.log('✅ Found lab order:', {
-              id: labOrder.id,
-              lab_id: labOrder.lab_id,
-              cost: labOrder.cost
-            })
-
             // تعيين البيانات مباشرة
             setSelectedLab(labOrder.lab_id || '')
             setLabCost(labOrder.cost || 0)
-            console.log('✅ Lab data set:', { lab_id: labOrder.lab_id, cost: labOrder.cost })
           } else {
-            console.log('⚠️ No lab order found for treatment:', treatment.id)
             setSelectedLab('')
             setLabCost(0)
           }
@@ -1186,7 +1101,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
 
         setIsLabDataLoaded(true)
       } catch (error) {
-        console.error('❌ Error loading lab data:', error)
         setSelectedLab('')
         setLabCost(0)
         setIsLabDataLoaded(true)
@@ -1341,8 +1255,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
 
           if (existingOrder) {
             // تحديث طلب المختبر الموجود
-            console.log('🔄 Updating existing lab order:', existingOrder.id)
-
             try {
               await updateLabOrder(existingOrder.id, {
                 lab_id: selectedLab,
@@ -1353,13 +1265,10 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
 
               notify.success('تم تحديث طلب المختبر بنجاح')
             } catch (error) {
-              console.error('❌ Failed to update lab order:', error)
               notify.error('فشل في تحديث طلب المختبر')
             }
           } else {
             // إنشاء طلب مختبر جديد
-            console.log('➕ Creating new lab order for treatment:', treatment.id)
-
             try {
               await createLabOrder({
                 lab_id: selectedLab,
@@ -1376,7 +1285,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
 
               notify.success('تم إنشاء طلب المختبر بنجاح')
             } catch (error) {
-              console.error('❌ Failed to create lab order:', error)
               notify.error('فشل في إنشاء طلب المختبر')
             }
           }
@@ -1388,7 +1296,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
               await deleteLabOrder(existingOrder.id)
               notify.info('تم حذف طلب المختبر')
             } catch (error) {
-              console.error('❌ Failed to delete lab order:', error)
               notify.error('فشل في حذف طلب المختبر')
             }
           }
@@ -1401,7 +1308,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             await deleteLabOrder(existingOrder.id)
             notify.info('تم حذف طلب المختبر لتغيير تصنيف العلاج')
           } catch (error) {
-            console.error('❌ Failed to delete lab order:', error)
             notify.error('فشل في حذف طلب المختبر')
           }
         }
@@ -1539,14 +1445,7 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
       </div>
 
       {/* حقول المخبر - تظهر فقط لعلاجات التعويضات */}
-      {(() => {
-        console.log('🔍 [DEBUG] Lab card condition check:', {
-          selectedCategory,
-          treatmentCategory: treatment.treatment_category,
-          shouldShow: selectedCategory === 'التعويضات' || treatment.treatment_category === 'التعويضات'
-        })
-        return (selectedCategory === 'التعويضات' || treatment.treatment_category === 'التعويضات')
-      })() && (
+      {(selectedCategory === 'التعويضات' || treatment.treatment_category === 'التعويضات') && (
         <div className={cn(
           "grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-xl border-2 shadow-sm transition-all duration-200",
           isDarkMode
@@ -1568,24 +1467,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
                 🏭
               </div>
               <span>معلومات المخبر</span>
-              {/* عرض القيم الحالية للتتبع */}
-              <span className={cn(
-                "text-xs px-2 py-1 rounded",
-                isDarkMode ? "bg-purple-800/30 text-purple-300" : "bg-purple-100 text-purple-600"
-              )}>
-                {isLabDataLoaded ? (
-                  selectedLab ? (
-                    <>
-                      <span className="font-medium">مخبر:</span> {labs.find(l => l.id === selectedLab)?.name || selectedLab}
-                      {labCost > 0 && <span className="ml-2"><span className="font-medium">تكلفة:</span> ${labCost}</span>}
-                    </>
-                  ) : (
-                    <span className="text-orange-500">⚠️ لا يوجد مخبر محدد</span>
-                  )
-                ) : (
-                  <span className="text-blue-500 animate-pulse">🔄 جاري تحميل بيانات المختبر...</span>
-                )}
-              </span>
               {/* زر إعادة تحميل البيانات */}
               <button
                 type="button"
@@ -1639,10 +1520,7 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             <Select
               key={`lab-select-${treatment.id}-${selectedLab}`}
               value={selectedLab}
-              onValueChange={(value) => {
-                console.log('🔄 Lab selection changed to:', value)
-                setSelectedLab(value)
-              }}
+              onValueChange={setSelectedLab}
             >
               <SelectTrigger className={cn(
                 "border-2 transition-all duration-200 h-11",
@@ -1669,6 +1547,7 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             </Select>
           </div>
 
+
           <div className="space-y-3">
             <Label className={cn(
               "font-medium flex items-center gap-2 text-sm",
@@ -1684,7 +1563,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
               value={labCost || ''}
               onChange={(e) => {
                 const newCost = parseFloat(e.target.value) || 0
-                console.log('🔄 Lab cost changed to:', newCost)
                 setLabCost(newCost)
               }}
               placeholder="0.00"
