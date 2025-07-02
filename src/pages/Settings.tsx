@@ -407,52 +407,54 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Auto Backup Settings */}
-          <div className="bg-card rounded-lg shadow border border-border">
-            <div className="p-6 border-b border-border">
-              <h3 className="text-lg font-medium text-foreground">النسخ الاحتياطية التلقائية</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                إعدادات النسخ الاحتياطية التلقائية
-              </p>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-medium text-foreground">تفعيل النسخ التلقائية</label>
-                  <p className="text-sm text-muted-foreground">إنشاء نسخ احتياطية تلقائياً حسب الجدولة المحددة</p>
-                </div>
-                <button
-                  onClick={() => setAutoBackupEnabled(!autoBackupEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    autoBackupEnabled ? 'bg-primary' : 'bg-muted'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${
-                      autoBackupEnabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
+          {/* Auto Backup Settings - Hidden */}
+          {false && (
+            <div className="bg-card rounded-lg shadow border border-border">
+              <div className="p-6 border-b border-border">
+                <h3 className="text-lg font-medium text-foreground">النسخ الاحتياطية التلقائية</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  إعدادات النسخ الاحتياطية التلقائية
+                </p>
               </div>
-
-              {autoBackupEnabled && (
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    تكرار النسخ الاحتياطية
-                  </label>
-                  <select
-                    value={backupFrequency}
-                    onChange={(e) => setBackupFrequency(e.target.value as 'daily' | 'weekly' | 'monthly')}
-                    className="w-full p-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-foreground">تفعيل النسخ التلقائية</label>
+                    <p className="text-sm text-muted-foreground">إنشاء نسخ احتياطية تلقائياً حسب الجدولة المحددة</p>
+                  </div>
+                  <button
+                    onClick={() => setAutoBackupEnabled(!autoBackupEnabled)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      autoBackupEnabled ? 'bg-primary' : 'bg-muted'
+                    }`}
                   >
-                    <option value="daily">يومياً</option>
-                    <option value="weekly">أسبوعياً</option>
-                    <option value="monthly">شهرياً</option>
-                  </select>
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${
+                        autoBackupEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
-              )}
+
+                {autoBackupEnabled && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      تكرار النسخ الاحتياطية
+                    </label>
+                    <select
+                      value={backupFrequency}
+                      onChange={(e) => setBackupFrequency(e.target.value as 'daily' | 'weekly' | 'monthly')}
+                      className="w-full p-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <option value="daily">يومياً</option>
+                      <option value="weekly">أسبوعياً</option>
+                      <option value="monthly">شهرياً</option>
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Backup List */}
           <div className="bg-card rounded-lg shadow border border-border">
