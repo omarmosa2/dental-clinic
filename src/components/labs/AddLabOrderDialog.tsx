@@ -50,12 +50,21 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
   const [formData, setFormData] = useState({
     lab_id: '',
     patient_id: '',
+    appointment_id: '',
+    tooth_treatment_id: '',
+    tooth_number: '',
     service_name: '',
     cost: '',
     order_date: '',
+    expected_delivery_date: '',
+    actual_delivery_date: '',
     status: 'معلق' as const,
     notes: '',
-    paid_amount: ''
+    paid_amount: '',
+    priority: '1',
+    lab_instructions: '',
+    material_type: '',
+    color_shade: ''
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -67,12 +76,21 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
         setFormData({
           lab_id: editingOrder.lab_id || '',
           patient_id: editingOrder.patient_id || 'none',
+          appointment_id: editingOrder.appointment_id || '',
+          tooth_treatment_id: editingOrder.tooth_treatment_id || '',
+          tooth_number: editingOrder.tooth_number?.toString() || '',
           service_name: editingOrder.service_name || '',
           cost: editingOrder.cost?.toString() || '',
           order_date: editingOrder.order_date || '',
+          expected_delivery_date: editingOrder.expected_delivery_date || '',
+          actual_delivery_date: editingOrder.actual_delivery_date || '',
           status: editingOrder.status || 'معلق',
           notes: editingOrder.notes || '',
-          paid_amount: editingOrder.paid_amount?.toString() || '0'
+          paid_amount: editingOrder.paid_amount?.toString() || '0',
+          priority: editingOrder.priority?.toString() || '1',
+          lab_instructions: editingOrder.lab_instructions || '',
+          material_type: editingOrder.material_type || '',
+          color_shade: editingOrder.color_shade || ''
         })
       } else {
         // Set default date to today
@@ -80,12 +98,21 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
         setFormData({
           lab_id: '',
           patient_id: 'none',
+          appointment_id: '',
+          tooth_treatment_id: '',
+          tooth_number: '',
           service_name: '',
           cost: '',
           order_date: today,
+          expected_delivery_date: '',
+          actual_delivery_date: '',
           status: 'معلق',
           notes: '',
-          paid_amount: '0'
+          paid_amount: '0',
+          priority: '1',
+          lab_instructions: '',
+          material_type: '',
+          color_shade: ''
         })
       }
       setErrors({})
@@ -147,13 +174,22 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
       const orderData = {
         lab_id: formData.lab_id,
         patient_id: formData.patient_id === 'none' ? undefined : formData.patient_id || undefined,
+        appointment_id: formData.appointment_id || undefined,
+        tooth_treatment_id: formData.tooth_treatment_id || undefined,
+        tooth_number: formData.tooth_number ? parseInt(formData.tooth_number) : undefined,
         service_name: formData.service_name.trim(),
         cost,
         order_date: formData.order_date,
+        expected_delivery_date: formData.expected_delivery_date || undefined,
+        actual_delivery_date: formData.actual_delivery_date || undefined,
         status: formData.status,
         notes: formData.notes.trim() || undefined,
         paid_amount: paidAmount,
-        remaining_balance: remainingBalance
+        remaining_balance: remainingBalance,
+        priority: parseInt(formData.priority) || 1,
+        lab_instructions: formData.lab_instructions.trim() || undefined,
+        material_type: formData.material_type.trim() || undefined,
+        color_shade: formData.color_shade.trim() || undefined
       }
 
       if (editingOrder) {
@@ -382,6 +418,120 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Additional Fields Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Expected Delivery Date */}
+            <div className="space-y-2">
+              <Label htmlFor="expected_delivery_date" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <Calendar className="h-4 w-4 text-orange-600" />
+                <span>تاريخ التسليم المتوقع</span>
+              </Label>
+              <Input
+                id="expected_delivery_date"
+                type="date"
+                value={formData.expected_delivery_date}
+                onChange={(e) => handleInputChange('expected_delivery_date', e.target.value)}
+                className="text-right"
+                disabled={isLoading}
+                dir="rtl"
+              />
+            </div>
+
+            {/* Actual Delivery Date */}
+            <div className="space-y-2">
+              <Label htmlFor="actual_delivery_date" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <Calendar className="h-4 w-4 text-green-600" />
+                <span>تاريخ التسليم الفعلي</span>
+              </Label>
+              <Input
+                id="actual_delivery_date"
+                type="date"
+                value={formData.actual_delivery_date}
+                onChange={(e) => handleInputChange('actual_delivery_date', e.target.value)}
+                className="text-right"
+                disabled={isLoading}
+                dir="rtl"
+              />
+            </div>
+
+            {/* Priority */}
+            <div className="space-y-2">
+              <Label htmlFor="priority" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <Calculator className="h-4 w-4 text-red-600" />
+                <span>الأولوية</span>
+              </Label>
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => handleInputChange('priority', value)}
+                disabled={isLoading}
+                dir="rtl"
+              >
+                <SelectTrigger className="text-right bg-background border-input text-foreground">
+                  <SelectValue className="text-muted-foreground" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">عالية (1)</SelectItem>
+                  <SelectItem value="2">متوسطة (2)</SelectItem>
+                  <SelectItem value="3">منخفضة (3)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Material and Color Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Material Type */}
+            <div className="space-y-2">
+              <Label htmlFor="material_type" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <Building2 className="h-4 w-4 text-purple-600" />
+                <span>نوع المادة</span>
+              </Label>
+              <Input
+                id="material_type"
+                value={formData.material_type}
+                onChange={(e) => handleInputChange('material_type', e.target.value)}
+                placeholder="مثال: زيركونيا، بورسلين، أكريل"
+                className="text-right"
+                disabled={isLoading}
+                dir="rtl"
+              />
+            </div>
+
+            {/* Color Shade */}
+            <div className="space-y-2">
+              <Label htmlFor="color_shade" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+                <Microscope className="h-4 w-4 text-blue-600" />
+                <span>درجة اللون</span>
+              </Label>
+              <Input
+                id="color_shade"
+                value={formData.color_shade}
+                onChange={(e) => handleInputChange('color_shade', e.target.value)}
+                placeholder="مثال: A1، B2، C3"
+                className="text-right"
+                disabled={isLoading}
+                dir="rtl"
+              />
+            </div>
+          </div>
+
+          {/* Lab Instructions */}
+          <div className="space-y-2">
+            <Label htmlFor="lab_instructions" className="flex items-center gap-2 justify-start text-right font-medium" dir="rtl">
+              <FileText className="h-4 w-4 text-indigo-600" />
+              <span>تعليمات للمختبر</span>
+            </Label>
+            <Textarea
+              id="lab_instructions"
+              value={formData.lab_instructions}
+              onChange={(e) => handleInputChange('lab_instructions', e.target.value)}
+              placeholder="تعليمات خاصة للمختبر..."
+              className="text-right min-h-[80px] resize-none"
+              disabled={isLoading}
+              dir="rtl"
+            />
           </div>
 
           {/* Notes */}

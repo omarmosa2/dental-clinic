@@ -1,254 +1,0 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>اختبار علاجات التعويضات الجديدة</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
-            direction: rtl;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            color: #2563eb;
-            margin-bottom: 30px;
-        }
-        .treatment-category {
-            margin-bottom: 30px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 20px;
-        }
-        .category-title {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #8b5cf6;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .treatment-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 15px;
-        }
-        .treatment-card {
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            padding: 15px;
-            background: #f9fafb;
-        }
-        .treatment-name {
-            font-weight: bold;
-            color: #1f2937;
-            margin-bottom: 5px;
-        }
-        .treatment-details {
-            font-size: 0.9em;
-            color: #6b7280;
-        }
-        .treatment-price {
-            color: #059669;
-            font-weight: bold;
-        }
-        .treatment-duration {
-            color: #7c3aed;
-        }
-        .color-indicator {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-left: 10px;
-        }
-        .success-message {
-            background: #d1fae5;
-            border: 1px solid #10b981;
-            color: #065f46;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🦷 اختبار علاجات التعويضات الجديدة</h1>
-            <p>تم إضافة 11 نوع جديد من علاجات التعويضات إلى النظام</p>
-        </div>
-
-        <div class="success-message">
-            ✅ تم تحديث النظام بنجاح! العلاجات الجديدة متاحة الآن في جميع أجزاء التطبيق.
-        </div>
-
-        <div class="treatment-category">
-            <div class="category-title">
-                👑 التعويضات - علاجات جديدة
-            </div>
-            
-            <div class="treatment-grid">
-                <!-- أجهزة متحركة -->
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #94a3b8;"></span>
-                        جهاز متحرك كامل أكريل
-                    </div>
-                    <div class="treatment-details">
-                        جهاز أسنان متحرك كامل مصنوع من الأكريل<br>
-                        <span class="treatment-price">السعر: 1200 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 180 دقيقة</span>
-                    </div>
-                </div>
-
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #64748b;"></span>
-                        جهاز متحرك جزئي أكريل
-                    </div>
-                    <div class="treatment-details">
-                        جهاز أسنان متحرك جزئي مصنوع من الأكريل<br>
-                        <span class="treatment-price">السعر: 800 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 150 دقيقة</span>
-                    </div>
-                </div>
-
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #475569;"></span>
-                        جهاز متحرك كامل فيتاليوم
-                    </div>
-                    <div class="treatment-details">
-                        جهاز أسنان متحرك كامل مصنوع من الفيتاليوم<br>
-                        <span class="treatment-price">السعر: 1800 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 200 دقيقة</span>
-                    </div>
-                </div>
-
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #334155;"></span>
-                        جهاز متحرك جزئي فيتاليوم
-                    </div>
-                    <div class="treatment-details">
-                        جهاز أسنان متحرك جزئي مصنوع من الفيتاليوم<br>
-                        <span class="treatment-price">السعر: 1400 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 180 دقيقة</span>
-                    </div>
-                </div>
-
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #e879f9;"></span>
-                        جهاز متحرك كامل مرن
-                    </div>
-                    <div class="treatment-details">
-                        جهاز أسنان متحرك كامل مصنوع من مواد مرنة<br>
-                        <span class="treatment-price">السعر: 1500 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 160 دقيقة</span>
-                    </div>
-                </div>
-
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #d946ef;"></span>
-                        جهاز متحرك جزئي مرن
-                    </div>
-                    <div class="treatment-details">
-                        جهاز أسنان متحرك جزئي مصنوع من مواد مرنة<br>
-                        <span class="treatment-price">السعر: 1000 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 140 دقيقة</span>
-                    </div>
-                </div>
-
-                <!-- تعويضات فوق الزرعات -->
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #a855f7;"></span>
-                        تعويض زركونيا فوق زرعة
-                    </div>
-                    <div class="treatment-details">
-                        تاج زركونيا مثبت فوق زرعة سنية<br>
-                        <span class="treatment-price">السعر: 1500 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 120 دقيقة</span>
-                    </div>
-                </div>
-
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #8b5cf6;"></span>
-                        تعويض خزف فوق زرعة
-                    </div>
-                    <div class="treatment-details">
-                        تاج خزفي مثبت فوق زرعة سنية<br>
-                        <span class="treatment-price">السعر: 1200 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 120 دقيقة</span>
-                    </div>
-                </div>
-
-                <!-- قلوب وأوتاد -->
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #6b7280;"></span>
-                        قلب ووتد مصبوب معدني
-                    </div>
-                    <div class="treatment-details">
-                        قلب ووتد معدني مصبوب لتقوية السن<br>
-                        <span class="treatment-price">السعر: 400 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 90 دقيقة</span>
-                    </div>
-                </div>
-
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #a855f7;"></span>
-                        قلب ووتد زركونيا
-                    </div>
-                    <div class="treatment-details">
-                        قلب ووتد مصنوع من الزركونيا<br>
-                        <span class="treatment-price">السعر: 600 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 90 دقيقة</span>
-                    </div>
-                </div>
-
-                <!-- فينير -->
-                <div class="treatment-card">
-                    <div class="treatment-name">
-                        <span class="color-indicator" style="background-color: #f8fafc;"></span>
-                        فينير
-                    </div>
-                    <div class="treatment-details">
-                        قشور خزفية رقيقة للأسنان الأمامية<br>
-                        <span class="treatment-price">السعر: 800 ليرة</span> | 
-                        <span class="treatment-duration">المدة: 120 دقيقة</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div style="text-align: center; margin-top: 30px; padding: 20px; background: #eff6ff; border-radius: 8px;">
-            <h3>🎉 تم التحديث بنجاح!</h3>
-            <p>جميع العلاجات الجديدة متاحة الآن في:</p>
-            <ul style="list-style: none; padding: 0;">
-                <li>✅ واجهة إضافة العلاجات للأسنان</li>
-                <li>✅ نظام إدارة المواعيد</li>
-                <li>✅ نظام الدفعات والفواتير</li>
-                <li>✅ التقارير والإحصائيات</li>
-                <li>✅ نظام جلسات العلاج</li>
-            </ul>
-        </div>
-    </div>
-</body>
-</html>

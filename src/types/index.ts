@@ -158,6 +158,7 @@ export interface LabOrder {
   patient_id?: string
   appointment_id?: string // ربط طلب المختبر بموعد محدد
   tooth_treatment_id?: string // ربط طلب المختبر بعلاج سن محدد
+  tooth_number?: number // رقم السن المرتبط بالطلب
   service_name: string
   cost: number
   order_date: string
@@ -167,6 +168,10 @@ export interface LabOrder {
   notes?: string
   paid_amount?: number
   remaining_balance?: number
+  priority?: number // أولوية الطلب
+  lab_instructions?: string // تعليمات خاصة للمختبر
+  material_type?: string // نوع المادة المطلوبة
+  color_shade?: string // درجة اللون المطلوبة
   created_at: string
   updated_at?: string
   // Populated fields
@@ -177,6 +182,7 @@ export interface LabOrder {
     id: string
     tooth_number: number
     treatment_type: string
+    tooth_name?: string
   }
 }
 

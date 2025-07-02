@@ -42,6 +42,10 @@ export class DatabaseService {
       this.runIntegrationMigration()
       console.log('✅ Integration migration completed')
 
+      // Ensure lab_orders table has all required columns
+      await this.ensureLabOrdersColumns()
+      console.log('✅ Lab orders columns verification completed')
+
       // Test database connection
       const testQuery = this.db.prepare('SELECT COUNT(*) as count FROM patients')
       const result = testQuery.get() as { count: number }
@@ -2728,16 +2732,21 @@ export class DatabaseService {
 
       const stmt = this.db.prepare(`
         INSERT INTO lab_orders (
-          id, lab_id, patient_id, service_name, cost, order_date, status,
-          notes, paid_amount, remaining_balance, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, lab_id, patient_id, appointment_id, tooth_treatment_id, tooth_number,
+          service_name, cost, order_date, expected_delivery_date, actual_delivery_date,
+          status, notes, paid_amount, remaining_balance, priority, lab_instructions,
+          material_type, color_shade, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       const result = stmt.run(
-        id, labOrder.lab_id, labOrder.patient_id, labOrder.service_name,
-        labOrder.cost, labOrder.order_date, labOrder.status,
-        labOrder.notes, labOrder.paid_amount || 0, labOrder.remaining_balance || labOrder.cost,
-        now, now
+        id, labOrder.lab_id, labOrder.patient_id, labOrder.appointment_id,
+        labOrder.tooth_treatment_id, labOrder.tooth_number, labOrder.service_name,
+        labOrder.cost, labOrder.order_date, labOrder.expected_delivery_date,
+        labOrder.actual_delivery_date, labOrder.status, labOrder.notes,
+        labOrder.paid_amount || 0, labOrder.remaining_balance || labOrder.cost,
+        labOrder.priority || 1, labOrder.lab_instructions, labOrder.material_type,
+        labOrder.color_shade, now, now
       )
 
       console.log('✅ Lab order created successfully:', { id, changes: result.changes })
@@ -2759,21 +2768,33 @@ export class DatabaseService {
       UPDATE lab_orders SET
         lab_id = COALESCE(?, lab_id),
         patient_id = COALESCE(?, patient_id),
+        appointment_id = COALESCE(?, appointment_id),
+        tooth_treatment_id = COALESCE(?, tooth_treatment_id),
+        tooth_number = COALESCE(?, tooth_number),
         service_name = COALESCE(?, service_name),
         cost = COALESCE(?, cost),
         order_date = COALESCE(?, order_date),
+        expected_delivery_date = COALESCE(?, expected_delivery_date),
+        actual_delivery_date = COALESCE(?, actual_delivery_date),
         status = COALESCE(?, status),
         notes = COALESCE(?, notes),
         paid_amount = COALESCE(?, paid_amount),
         remaining_balance = COALESCE(?, remaining_balance),
+        priority = COALESCE(?, priority),
+        lab_instructions = COALESCE(?, lab_instructions),
+        material_type = COALESCE(?, material_type),
+        color_shade = COALESCE(?, color_shade),
         updated_at = ?
       WHERE id = ?
     `)
 
     stmt.run(
-      labOrder.lab_id, labOrder.patient_id, labOrder.service_name,
-      labOrder.cost, labOrder.order_date, labOrder.status,
-      labOrder.notes, labOrder.paid_amount, labOrder.remaining_balance,
+      labOrder.lab_id, labOrder.patient_id, labOrder.appointment_id,
+      labOrder.tooth_treatment_id, labOrder.tooth_number, labOrder.service_name,
+      labOrder.cost, labOrder.order_date, labOrder.expected_delivery_date,
+      labOrder.actual_delivery_date, labOrder.status, labOrder.notes,
+      labOrder.paid_amount, labOrder.remaining_balance, labOrder.priority,
+      labOrder.lab_instructions, labOrder.material_type, labOrder.color_shade,
       now, id
     )
 
@@ -3395,6 +3416,150 @@ export class DatabaseService {
     } catch (error) {
       console.error('❌ خطأ في تطبيق integration migration:', error)
       // لا نرمي الخطأ لتجنب توقف التطبيق
+    }
+  }
+
+  /**
+   * التأكد من وجود جميع الأعمدة المطلوبة في جدول lab_orders
+   */
+  private async ensureLabOrdersColumns(): Promise<boolean> {
+    try {
+      // التحقق من وجود الجدول
+      const tableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='lab_orders'
+      `).get()
+
+      if (!tableExists) {
+        console.log('🔧 lab_orders table does not exist, creating it...')
+        // إنشاء الجدول مع جميع الأعمدة المطلوبة
+        this.db.exec(`
+          CREATE TABLE lab_orders (
+            id TEXT PRIMARY KEY,
+            lab_id TEXT NOT NULL,
+            patient_id TEXT,
+            appointment_id TEXT,
+            tooth_treatment_id TEXT,
+            tooth_number INTEGER,
+            service_name TEXT NOT NULL,
+            cost REAL NOT NULL,
+            order_date TEXT NOT NULL,
+            expected_delivery_date TEXT,
+            actual_delivery_date TEXT,
+            status TEXT NOT NULL CHECK (status IN ('معلق', 'مكتمل', 'ملغي')),
+            notes TEXT,
+            paid_amount REAL DEFAULT 0,
+            remaining_balance REAL,
+            priority INTEGER DEFAULT 1,
+            lab_instructions TEXT,
+            material_type TEXT,
+            color_shade TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (lab_id) REFERENCES labs(id) ON DELETE CASCADE,
+            FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL,
+            FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
+            FOREIGN KEY (tooth_treatment_id) REFERENCES tooth_treatments(id) ON DELETE CASCADE
+          )
+        `)
+        console.log('✅ lab_orders table created successfully')
+        return true
+      }
+
+      // فحص الأعمدة الموجودة
+      const tableInfo = this.db.prepare("PRAGMA table_info(lab_orders)").all() as any[]
+      const columnNames = tableInfo.map(col => col.name)
+
+      console.log('🔍 Current lab_orders columns:', columnNames)
+
+      // قائمة الأعمدة المطلوبة مع تعريفاتها
+      const requiredColumns = [
+        { name: 'tooth_number', definition: 'INTEGER' },
+        { name: 'appointment_id', definition: 'TEXT' },
+        { name: 'tooth_treatment_id', definition: 'TEXT' },
+        { name: 'expected_delivery_date', definition: 'TEXT' },
+        { name: 'actual_delivery_date', definition: 'TEXT' },
+        { name: 'paid_amount', definition: 'REAL DEFAULT 0' },
+        { name: 'remaining_balance', definition: 'REAL' },
+        { name: 'priority', definition: 'INTEGER DEFAULT 1' },
+        { name: 'lab_instructions', definition: 'TEXT' },
+        { name: 'material_type', definition: 'TEXT' },
+        { name: 'color_shade', definition: 'TEXT' },
+        { name: 'created_at', definition: 'DATETIME DEFAULT CURRENT_TIMESTAMP' },
+        { name: 'updated_at', definition: 'DATETIME DEFAULT CURRENT_TIMESTAMP' }
+      ]
+
+      let columnsAdded = false
+
+      // إضافة الأعمدة المفقودة
+      for (const column of requiredColumns) {
+        if (!columnNames.includes(column.name)) {
+          try {
+            console.log(`🔧 Adding missing ${column.name} column to lab_orders table...`)
+            this.db.exec(`ALTER TABLE lab_orders ADD COLUMN ${column.name} ${column.definition}`)
+            console.log(`✅ ${column.name} column added successfully`)
+            columnsAdded = true
+          } catch (e: any) {
+            console.log(`⚠️ Failed to add ${column.name} column:`, e.message)
+          }
+        }
+      }
+
+      // إنشاء الفهارس إذا تم إضافة أعمدة
+      if (columnsAdded) {
+        try {
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_lab_orders_treatment ON lab_orders(tooth_treatment_id)')
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_lab_orders_appointment ON lab_orders(appointment_id)')
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_lab_orders_tooth ON lab_orders(tooth_number)')
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_lab_orders_patient_tooth ON lab_orders(patient_id, tooth_number)')
+          this.db.exec('CREATE INDEX IF NOT EXISTS idx_lab_orders_priority ON lab_orders(priority)')
+          console.log('✅ lab_orders indexes created successfully')
+        } catch (e: any) {
+          console.log('⚠️ Index creation failed:', e.message)
+        }
+
+        // إنشاء triggers لتعبئة tooth_number تلقائياً
+        try {
+          this.db.exec(`
+            CREATE TRIGGER IF NOT EXISTS update_lab_order_tooth_number
+            AFTER UPDATE OF tooth_treatment_id ON lab_orders
+            WHEN NEW.tooth_treatment_id IS NOT NULL AND NEW.tooth_number IS NULL
+            BEGIN
+                UPDATE lab_orders
+                SET tooth_number = (
+                    SELECT tooth_number
+                    FROM tooth_treatments
+                    WHERE id = NEW.tooth_treatment_id
+                )
+                WHERE id = NEW.id;
+            END
+          `)
+
+          this.db.exec(`
+            CREATE TRIGGER IF NOT EXISTS insert_lab_order_tooth_number
+            AFTER INSERT ON lab_orders
+            WHEN NEW.tooth_treatment_id IS NOT NULL AND NEW.tooth_number IS NULL
+            BEGIN
+                UPDATE lab_orders
+                SET tooth_number = (
+                    SELECT tooth_number
+                    FROM tooth_treatments
+                    WHERE id = NEW.tooth_treatment_id
+                )
+                WHERE id = NEW.id;
+            END
+          `)
+          console.log('✅ lab_orders triggers created successfully')
+        } catch (e: any) {
+          console.log('⚠️ Trigger creation failed:', e.message)
+        }
+      }
+
+      console.log('✅ lab_orders table structure verified and updated')
+      return columnsAdded
+    } catch (error) {
+      console.error('❌ Error ensuring lab_orders columns:', error)
+      throw error
     }
   }
 

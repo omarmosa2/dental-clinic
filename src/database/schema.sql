@@ -294,6 +294,7 @@ CREATE TABLE IF NOT EXISTS lab_orders (
     patient_id TEXT,
     appointment_id TEXT, -- ربط طلب المختبر بموعد محدد
     tooth_treatment_id TEXT, -- ربط طلب المختبر بعلاج سن محدد
+    tooth_number INTEGER, -- رقم السن المرتبط بالطلب
     service_name TEXT NOT NULL,
     cost REAL NOT NULL,
     order_date TEXT NOT NULL,
@@ -303,6 +304,10 @@ CREATE TABLE IF NOT EXISTS lab_orders (
     notes TEXT,
     paid_amount REAL DEFAULT 0,
     remaining_balance REAL,
+    priority INTEGER DEFAULT 1, -- أولوية الطلب
+    lab_instructions TEXT, -- تعليمات خاصة للمختبر
+    material_type TEXT, -- نوع المادة المطلوبة
+    color_shade TEXT, -- درجة اللون المطلوبة
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (lab_id) REFERENCES labs(id) ON DELETE CASCADE,
@@ -321,6 +326,11 @@ CREATE INDEX IF NOT EXISTS idx_lab_orders_service ON lab_orders(service_name);
 CREATE INDEX IF NOT EXISTS idx_lab_orders_lab_date ON lab_orders(lab_id, order_date);
 CREATE INDEX IF NOT EXISTS idx_lab_orders_patient_date ON lab_orders(patient_id, order_date);
 CREATE INDEX IF NOT EXISTS idx_lab_orders_status_date ON lab_orders(status, order_date);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_treatment ON lab_orders(tooth_treatment_id);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_appointment ON lab_orders(appointment_id);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_tooth ON lab_orders(tooth_number);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_patient_tooth ON lab_orders(patient_id, tooth_number);
+CREATE INDEX IF NOT EXISTS idx_lab_orders_priority ON lab_orders(priority);
 
 -- Medications tables
 -- Medications table for managing medication information
@@ -548,6 +558,33 @@ CREATE INDEX IF NOT EXISTS idx_treatment_plans_dates ON treatment_plans(start_da
 CREATE INDEX IF NOT EXISTS idx_treatment_plan_items_plan ON treatment_plan_items(treatment_plan_id);
 CREATE INDEX IF NOT EXISTS idx_treatment_plan_items_sequence ON treatment_plan_items(treatment_plan_id, sequence_order);
 CREATE INDEX IF NOT EXISTS idx_treatment_plan_items_status ON treatment_plan_items(status);
+
+-- Triggers for automatic tooth_number population in lab_orders
+CREATE TRIGGER IF NOT EXISTS update_lab_order_tooth_number
+AFTER UPDATE OF tooth_treatment_id ON lab_orders
+WHEN NEW.tooth_treatment_id IS NOT NULL AND NEW.tooth_number IS NULL
+BEGIN
+    UPDATE lab_orders
+    SET tooth_number = (
+        SELECT tooth_number
+        FROM tooth_treatments
+        WHERE id = NEW.tooth_treatment_id
+    )
+    WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS insert_lab_order_tooth_number
+AFTER INSERT ON lab_orders
+WHEN NEW.tooth_treatment_id IS NOT NULL AND NEW.tooth_number IS NULL
+BEGIN
+    UPDATE lab_orders
+    SET tooth_number = (
+        SELECT tooth_number
+        FROM tooth_treatments
+        WHERE id = NEW.tooth_treatment_id
+    )
+    WHERE id = NEW.id;
+END;
 
 -- Prescription medications indexes for relationship queries
 CREATE INDEX IF NOT EXISTS idx_prescription_medications_prescription ON prescription_medications(prescription_id);
