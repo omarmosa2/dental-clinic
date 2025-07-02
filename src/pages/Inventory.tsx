@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useRealTimeSync } from '@/hooks/useRealTimeSync'
 import { notify } from '@/services/notificationService'
+import { ExportService } from '@/services/exportService'
 import {
   Package,
   Plus,
@@ -164,7 +165,7 @@ export default function Inventory() {
         <div className="flex items-center space-x-2 space-x-reverse">
           <Button
             variant="outline"
-            onClick={() => {
+            onClick={async () => {
               // Export inventory data
               if (filteredItems.length === 0) {
                 notify.noDataToExport('لا توجد بيانات مخزون للتصدير')
@@ -172,25 +173,23 @@ export default function Inventory() {
               }
 
               try {
-                // تصدير بسيط للبيانات
-                const csvData = filteredItems.map(item => ({
-                  'اسم المنتج': item.name,
-                  'الفئة': item.category || '-',
-                  'الكمية': item.quantity,
-                  'السعر': item.cost_per_unit || 0,
-                  'تاريخ الانتهاء': item.expiry_date || '-'
-                }))
+                // التحقق من العناصر التي لا تحتوي على أسعار
+                const itemsWithoutCost = filteredItems.filter(item => {
+                  const costPerUnit = parseFloat(String(item.cost_per_unit || 0)) || 0
+                  const unitPrice = parseFloat(String(item.unit_price || 0)) || 0
+                  return costPerUnit === 0 && unitPrice === 0
+                })
 
-                const csvContent = 'data:text/csv;charset=utf-8,' +
-                  Object.keys(csvData[0]).join(',') + '\n' +
-                  csvData.map(row => Object.values(row).join(',')).join('\n')
+                // تصدير إلى Excel مع التنسيق الجميل والمقروء
+                await ExportService.exportInventoryToExcel(filteredItems)
 
-                const link = document.createElement('a')
-                link.href = encodeURI(csvContent)
-                link.download = `inventory-${new Date().toISOString().split('T')[0]}.csv`
-                link.click()
+                let successMessage = `تم تصدير ${filteredItems.length} عنصر مخزون بنجاح إلى ملف Excel مع التنسيق الجميل!`
 
-                notify.exportSuccess(`تم تصدير ${filteredItems.length} عنصر مخزون بنجاح!`)
+                if (itemsWithoutCost.length > 0) {
+                  successMessage += ` (تنبيه: ${itemsWithoutCost.length} عنصر لا يحتوي على سعر - يمكنك تعديل العناصر لإضافة الأسعار)`
+                }
+
+                notify.exportSuccess(successMessage)
               } catch (error) {
                 console.error('Error exporting inventory:', error)
                 notify.exportError('فشل في تصدير بيانات المخزون')

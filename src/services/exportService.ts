@@ -1104,7 +1104,7 @@ export class ExportService {
     })
   }
 
-  static async addInventoryReportToExcel(workbook: ExcelJS.Workbook, data: InventoryReportData, options: ReportExportOptions): Promise<void> {
+  static async addInventoryReportToExcel(workbook: ExcelJS.Workbook, data: any, options: ReportExportOptions): Promise<void> {
     const worksheet = workbook.addWorksheet('تقرير المخزون')
 
     // Header and summary
@@ -1118,14 +1118,33 @@ export class ExportService {
     worksheet.getCell('A3').value = 'ملخص إحصائيات المخزون'
     worksheet.getCell('A3').font = { bold: true }
 
+    // Handle both data structures (direct properties or summary object)
+    const summary = data.summary || data
+
     worksheet.getCell('A4').value = 'إجمالي العناصر:'
-    worksheet.getCell('B4').value = data.totalItems || 0
+    worksheet.getCell('B4').value = summary['إجمالي العناصر'] || data.totalItems || 0
     worksheet.getCell('A5').value = 'القيمة الإجمالية:'
-    worksheet.getCell('B5').value = `${formatCurrency(data.totalValue || 0)}`
+    worksheet.getCell('B5').value = summary['القيمة الإجمالية'] || formatCurrency(data.totalValue || 0)
     worksheet.getCell('A6').value = 'عناصر منخفضة المخزون:'
-    worksheet.getCell('B6').value = data.lowStockItems || 0
+    worksheet.getCell('B6').value = summary['عناصر منخفضة المخزون'] || data.lowStockItems || 0
     worksheet.getCell('A7').value = 'عناصر منتهية الصلاحية:'
-    worksheet.getCell('B7').value = data.expiredItems || 0
+    worksheet.getCell('B7').value = summary['عناصر منتهية الصلاحية'] || data.expiredItems || 0
+
+    // Add additional fields if they exist
+    if (summary['عناصر نفدت من المخزون'] !== undefined) {
+      worksheet.getCell('A8').value = 'عناصر نفدت من المخزون:'
+      worksheet.getCell('B8').value = summary['عناصر نفدت من المخزون']
+    }
+
+    if (summary['عناصر بدون أسعار'] !== undefined) {
+      worksheet.getCell('A9').value = 'عناصر بدون أسعار:'
+      worksheet.getCell('B9').value = summary['عناصر بدون أسعار']
+    }
+
+    if (summary['تاريخ التقرير']) {
+      worksheet.getCell('A10').value = 'تاريخ التقرير:'
+      worksheet.getCell('B10').value = summary['تاريخ التقرير']
+    }
 
     worksheet.columns.forEach(column => {
       column.width = 20
@@ -2872,8 +2891,31 @@ export class ExportService {
   static async exportInventoryToExcel(items: InventoryItem[]): Promise<void> {
     // Calculate statistics from the provided data
     const totalItems = items.length
-    const totalValue = items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price || 0)), 0)
-    const lowStockItems = items.filter(item => Number(item.quantity) <= Number(item.min_quantity || 0)).length
+
+    // Check for items without cost data (using more precise parsing)
+    const itemsWithoutCost = items.filter(item => {
+      const costPerUnit = parseFloat(String(item.cost_per_unit || 0)) || 0
+      const unitPrice = parseFloat(String(item.unit_price || 0)) || 0
+      return costPerUnit === 0 && unitPrice === 0
+    })
+
+    if (itemsWithoutCost.length > 0) {
+      console.warn(`⚠️ ${itemsWithoutCost.length} عنصر لا يحتوي على سعر:`,
+        itemsWithoutCost.map(item => item.name))
+    }
+
+    const totalValue = items.reduce((sum, item) => {
+      // تحويل أكثر دقة للأرقام
+      const quantity = parseFloat(String(item.quantity || 0)) || 0
+      const costPerUnit = parseFloat(String(item.cost_per_unit || 0)) || 0
+      const unitPrice = parseFloat(String(item.unit_price || 0)) || 0
+      const cost = costPerUnit || unitPrice
+      const itemValue = quantity * cost
+
+      return sum + itemValue
+    }, 0)
+
+    const lowStockItems = items.filter(item => Number(item.quantity) <= Number(item.minimum_stock || 0)).length
     const outOfStockItems = items.filter(item => Number(item.quantity) === 0).length
     const expiredItems = items.filter(item =>
       item.expiry_date && new Date(item.expiry_date) < new Date()
@@ -2886,10 +2928,11 @@ export class ExportService {
         'عناصر منخفضة المخزون': lowStockItems,
         'عناصر نفدت من المخزون': outOfStockItems,
         'عناصر منتهية الصلاحية': expiredItems,
+        'عناصر بدون أسعار': itemsWithoutCost.length,
         'تاريخ التقرير': formatDate(new Date())
       },
       items: items,
-      filterInfo: `البيانات المصدرة: ${items.length} عنصر`,
+      filterInfo: `البيانات المصدرة: ${items.length} عنصر${itemsWithoutCost.length > 0 ? ` (${itemsWithoutCost.length} بدون أسعار)` : ''}`,
       dataCount: items.length
     }
 
