@@ -50,7 +50,7 @@ export default function FinancialAccuracyVerification() {
 
   const performComprehensiveVerification = async () => {
     setIsVerifying(true)
-    
+
     try {
       // التحقق من صحة جميع البيانات المالية
       const comprehensiveValidation = FinancialValidator.validateAllFinancialData({
@@ -73,22 +73,25 @@ export default function FinancialAccuracyVerification() {
           .reduce((sum, e) => sum + validateAmount(e.amount), 0)
       )
 
+      const safeInventoryItems = Array.isArray(inventoryItems) ? inventoryItems : []
       const inventoryExpenses = validateAmount(
-        inventoryItems.reduce((sum, item) => {
+        safeInventoryItems.reduce((sum, item) => {
           const cost = validateAmount(item.cost_per_unit || 0)
           const quantity = validateAmount(item.quantity || 0)
           return sum + (cost * quantity)
         }, 0)
       )
 
+      const safeClinicNeeds = Array.isArray(clinicNeeds) ? clinicNeeds : []
       const clinicNeedsExpenses = validateAmount(
-        clinicNeeds
+        safeClinicNeeds
           .filter(need => need.status === 'received' || need.status === 'ordered')
           .reduce((sum, need) => sum + (validateAmount(need.quantity) * validateAmount(need.price)), 0)
       )
 
+      const safeLabOrders = Array.isArray(labOrders) ? labOrders : []
       const labOrdersExpenses = validateAmount(
-        labOrders.reduce((sum, order) => sum + validateAmount(order.paid_amount || 0), 0)
+        safeLabOrders.reduce((sum, order) => sum + validateAmount(order.paid_amount || 0), 0)
       )
 
       const totalExpenses = directExpenses + inventoryExpenses + clinicNeedsExpenses + labOrdersExpenses
@@ -110,9 +113,9 @@ export default function FinancialAccuracyVerification() {
         profitMatch: Math.abs(netProfit - (financialStats.netProfit || financialStats.lossAmount)) < 0.01
       }
 
-      const isAccurate = comprehensiveValidation.isValid && 
-                        calculationAccuracy.revenueMatch && 
-                        calculationAccuracy.expensesMatch && 
+      const isAccurate = comprehensiveValidation.isValid &&
+                        calculationAccuracy.revenueMatch &&
+                        calculationAccuracy.expensesMatch &&
                         calculationAccuracy.profitMatch
 
       setVerificationResult({
@@ -191,7 +194,7 @@ export default function FinancialAccuracyVerification() {
               فحص شامل لضمان دقة 100% في جميع الحسابات المالية
             </CardDescription>
           </div>
-          <Button 
+          <Button
             onClick={performComprehensiveVerification}
             disabled={isVerifying}
             size="sm"

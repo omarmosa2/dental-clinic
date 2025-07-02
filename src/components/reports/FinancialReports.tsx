@@ -563,11 +563,11 @@ export default function FinancialReports() {
 
   const reportData = getReportData()
   const stats = {
-    totalTransactions: reportData.totalTransactions || payments.length,
-    completedCount: reportData.completedCount || payments.filter(p => p.status === 'completed').length,
-    pendingCount: reportData.pendingCount || payments.filter(p => p.status === 'pending').length,
-    failedCount: reportData.failedCount || payments.filter(p => p.status === 'failed').length,
-    refundedCount: reportData.refundedCount || payments.filter(p => p.status === 'refunded').length,
+    totalTransactions: reportData.totalTransactions || (payments || []).length,
+    completedCount: reportData.completedCount || (payments || []).filter(p => p.status === 'completed').length,
+    pendingCount: reportData.pendingCount || (payments || []).filter(p => p.status === 'pending').length,
+    failedCount: reportData.failedCount || (payments || []).filter(p => p.status === 'failed').length,
+    refundedCount: reportData.refundedCount || (payments || []).filter(p => p.status === 'refunded').length,
     successRate: reportData.successRate || '0.0',
     averageTransaction: reportData.averageTransaction || '0.00'
   }
@@ -592,7 +592,7 @@ export default function FinancialReports() {
   // حساب جميع أنواع المصروفات (مخزون + احتياجات عيادة + طلبات مختبر + مصروفات مباشرة)
   // مع ضمان دقة 100% في الحسابات
   const inventoryExpenses = validateAmount(
-    inventoryItems.reduce((sum, item) => {
+    (inventoryItems || []).reduce((sum, item) => {
       const cost = validateAmount(item.cost_per_unit || 0)
       const quantity = validateAmount(item.quantity || 0)
       return sum + (cost * quantity)
@@ -600,13 +600,13 @@ export default function FinancialReports() {
   )
 
   const clinicNeedsExpenses = validateAmount(
-    clinicNeeds
+    (clinicNeeds || [])
       .filter(need => need.status === 'received' || need.status === 'ordered')
       .reduce((sum, need) => sum + (validateAmount(need.quantity) * validateAmount(need.price)), 0)
   )
 
   const labOrdersExpenses = validateAmount(
-    labOrders.reduce((sum, order) => sum + validateAmount(order.paid_amount || 0), 0)
+    (labOrders || []).reduce((sum, order) => sum + validateAmount(order.paid_amount || 0), 0)
   )
 
   // إجمالي المصروفات من جميع المصادر (هذا هو المبلغ الصحيح للخسائر)
@@ -633,11 +633,11 @@ export default function FinancialReports() {
       profitMargin: reportData.totalRevenue > 0 ? ((reportData.totalRevenue - totalExpenses) / reportData.totalRevenue) * 100 : 0
     },
     dataIntegrity: {
-      paymentsCount: payments.length,
-      expensesCount: expenses.length,
-      inventoryItemsCount: inventoryItems.length,
-      clinicNeedsCount: clinicNeeds.length,
-      labOrdersCount: labOrders.length
+      paymentsCount: (payments || []).length,
+      expensesCount: (expenses || []).length,
+      inventoryItemsCount: (inventoryItems || []).length,
+      clinicNeedsCount: (clinicNeeds || []).length,
+      labOrdersCount: (labOrders || []).length
     }
   })
 
@@ -652,11 +652,11 @@ export default function FinancialReports() {
 
   // التحقق الشامل من دقة البيانات المالية
   const comprehensiveValidation = FinancialValidator.validateAllFinancialData({
-    payments: payments,
-    expenses: filteredExpenses,
-    inventory: inventoryItems,
-    labOrders: labOrders,
-    clinicNeeds: clinicNeeds
+    payments: payments || [],
+    expenses: filteredExpenses || [],
+    inventory: inventoryItems || [],
+    labOrders: labOrders || [],
+    clinicNeeds: clinicNeeds || []
   })
 
   // عرض تحذيرات إذا كانت هناك مشاكل في التحقق الشامل
@@ -785,7 +785,8 @@ export default function FinancialReports() {
       }
 
       // Always use filtered data for accurate calculations
-      const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+      const safePayments = payments || []
+      const dataToUse = (paymentStats?.filteredData?.length > 0) ? paymentStats.filteredData : safePayments
 
       if (dataToUse.length === 0) {
         return []
@@ -841,7 +842,8 @@ export default function FinancialReports() {
       }
 
       // Always use filtered data for accurate calculations
-      const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+      const safePayments = payments || []
+      const dataToUse = (paymentStats?.filteredData?.length > 0) ? paymentStats.filteredData : safePayments
 
       if (dataToUse.length === 0) {
         return []
@@ -940,7 +942,8 @@ export default function FinancialReports() {
   const statusData = (() => {
     try {
       // Always use filtered data for accurate calculations
-      const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+      const safePayments = payments || []
+      const dataToUse = (paymentStats?.filteredData?.length > 0) ? paymentStats.filteredData : safePayments
 
       if (dataToUse.length === 0) {
         return []

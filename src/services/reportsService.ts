@@ -552,9 +552,10 @@ export class ReportsService {
           group.totalPaid += validateAmount(paidAmount)
         } else {
           // مدفوعات عامة غير مرتبطة بمواعيد أو علاجات
-          const totalDue = payment.total_amount_due || payment.amount || 0
-          const paid = payment.amount_paid || payment.amount || 0
-          generalRemainingBalance += Math.max(0, validateAmount(totalDue) - validateAmount(paid))
+          const totalDue = payment.total_amount_due || 0
+          // استخدم إجمالي المدفوع للعلاج وليس مبلغ هذه الدفعة فقط
+          const totalPaid = payment.amount_paid || payment.treatment_total_paid || payment.amount || 0
+          generalRemainingBalance += Math.max(0, validateAmount(totalDue) - validateAmount(totalPaid))
         }
       }
     })

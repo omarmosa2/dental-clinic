@@ -1222,7 +1222,8 @@ export class EnhancedPdfReports {
       try {
         const date = new Date(dateString)
         if (isNaN(date.getTime())) return 'غير محدد'
-        return date.toLocaleDateString('ar-SA')
+        // Use Gregorian date format instead of Arabic
+        return date.toLocaleDateString('en-GB')
       } catch {
         return 'غير محدد'
       }
@@ -1370,6 +1371,10 @@ export class EnhancedPdfReports {
               <span>${formatCurrency(reportData.revenue.partialPayments)}</span>
             </div>
             <div class="breakdown-item">
+              <span>المبالغ المعلقة (غير مدفوعة):</span>
+              <span>${formatCurrency(reportData.revenue.pendingAmount || 0)}</span>
+            </div>
+            <div class="breakdown-item">
               <span>المبالغ المتبقية:</span>
               <span>${formatCurrency(reportData.revenue.remainingBalances)}</span>
             </div>
@@ -1454,27 +1459,72 @@ export class EnhancedPdfReports {
           <table class="details-table">
             <thead>
               <tr>
-                <th>رقم المريض</th>
                 <th>اسم المريض</th>
-                <th>المبلغ</th>
+                <th>المبلغ المدفوع</th>
+                <th>المبلغ الإجمالي</th>
+                <th>المبلغ المتبقي</th>
                 <th>الحالة</th>
                 <th>طريقة الدفع</th>
                 <th>تاريخ الدفع</th>
               </tr>
             </thead>
             <tbody>
-              ${payments.slice(0, 20).map(payment => `
+              ${payments.slice(0, 20).map(payment => {
+                const paidAmount = payment.amount || 0
+
+                // حساب المبلغ الإجمالي والمتبقي بناءً على حالة الدفعة
+                let totalAmount = 0
+                let remainingAmount = 0
+
+                if (payment.status === 'partial') {
+                  totalAmount = payment.total_amount_due || payment.treatment_total_cost || 0
+                  const totalPaidForTreatment = payment.amount_paid || payment.treatment_total_paid || paidAmount
+                  remainingAmount = Math.max(0, totalAmount - totalPaidForTreatment)
+                } else if (payment.status === 'pending') {
+                  totalAmount = payment.total_amount_due || payment.treatment_total_cost || paidAmount
+                  remainingAmount = totalAmount
+                } else {
+                  totalAmount = paidAmount
+                  remainingAmount = 0
+                }
+                return `
                 <tr>
-                  <td>${payment.patient_id || ''}</td>
                   <td>${payment.patient_name || ''}</td>
-                  <td>${formatCurrency(payment.amount || 0)}</td>
+                  <td>${formatCurrency(paidAmount)}</td>
+                  <td>${formatCurrency(totalAmount)}</td>
+                  <td>${formatCurrency(remainingAmount)}</td>
                   <td>${payment.status === 'completed' ? 'مكتمل' : payment.status === 'partial' ? 'جزئي' : 'معلق'}</td>
                   <td>${payment.payment_method || ''}</td>
                   <td>${payment.payment_date ? formatDate(payment.payment_date) : ''}</td>
                 </tr>
-              `).join('')}
+                `
+              }).join('')}
             </tbody>
           </table>
+
+          <!-- ملخص المدفوعات المعلقة والمتبقية -->
+          <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px;">
+            <h4>📊 ملخص المدفوعات المعلقة والمتبقية</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+              <div>
+                <strong>إجمالي المدفوعات المعلقة:</strong><br>
+                ${formatCurrency(payments.filter(p => p.status === 'pending').reduce((sum, p) => {
+                  // للمدفوعات المعلقة، استخدم المبلغ الإجمالي المطلوب
+                  const totalAmountDue = p.total_amount_due || p.treatment_total_cost || 0
+                  return sum + totalAmountDue
+                }, 0))}
+              </div>
+              <div>
+                <strong>إجمالي المبالغ المتبقية من الدفعات الجزئية:</strong><br>
+                ${formatCurrency(payments.filter(p => p.status === 'partial').reduce((sum, p) => {
+                  const totalAmountDue = p.total_amount_due || p.treatment_total_cost || 0
+                  // استخدم إجمالي المدفوع للعلاج وليس مبلغ هذه الدفعة فقط
+                  const totalPaidForTreatment = p.amount_paid || p.treatment_total_paid || p.amount || 0
+                  return sum + Math.max(0, totalAmountDue - totalPaidForTreatment)
+                }, 0))}
+              </div>
+            </div>
+          </div>
         </div>
         ` : ''}
 
@@ -1508,6 +1558,53 @@ export class EnhancedPdfReports {
               `).join('')}
             </tbody>
           </table>
+        </div>
+        ` : ''}
+
+        ${clinicNeeds && clinicNeeds.length > 0 ? `
+        <!-- تفاصيل احتياجات العيادة -->
+        <div class="section">
+          <h3>🏥 تفاصيل احتياجات العيادة (أحدث 15 احتياج)</h3>
+          <table class="details-table">
+            <thead>
+              <tr>
+                <th>اسم العنصر</th>
+                <th>الكمية</th>
+                <th>سعر الوحدة</th>
+                <th>التكلفة الإجمالية</th>
+                <th>الأولوية</th>
+                <th>الحالة</th>
+                <th>تاريخ الطلب</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${clinicNeeds.slice(0, 15).map(need => {
+                const quantity = need.quantity || 0
+                const unitPrice = need.price || 0
+                const totalCost = quantity * unitPrice
+                return `
+                <tr>
+                  <td>${need.need_name || need.item_name || ''}</td>
+                  <td>${quantity}</td>
+                  <td>${formatCurrency(unitPrice)}</td>
+                  <td>${formatCurrency(totalCost)}</td>
+                  <td>${need.priority === 'urgent' ? 'عاجل' : need.priority === 'high' ? 'عالي' : need.priority === 'medium' ? 'متوسط' : 'منخفض'}</td>
+                  <td>${need.status === 'received' ? 'مستلم' : need.status === 'ordered' ? 'مطلوب' : 'معلق'}</td>
+                  <td>${need.created_at ? formatDate(need.created_at) : ''}</td>
+                </tr>
+                `
+              }).join('')}
+            </tbody>
+          </table>
+
+          <!-- إجمالي تكلفة احتياجات العيادة -->
+          <div style="margin-top: 15px; padding: 10px; background: #f1f5f9; border-radius: 5px;">
+            <strong>إجمالي تكلفة احتياجات العيادة: ${formatCurrency(clinicNeeds.reduce((sum, need) => {
+              const quantity = need.quantity || 0
+              const unitPrice = need.price || 0
+              return sum + (quantity * unitPrice)
+            }, 0))}</strong>
+          </div>
         </div>
         ` : ''}
 

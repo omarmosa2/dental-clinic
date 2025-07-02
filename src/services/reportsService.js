@@ -412,13 +412,13 @@ class ReportsService {
       return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
     }
 
-    // Basic financial stats
+    // Basic financial stats - include both completed and partial payments
     const totalRevenue = filteredPayments
-      .filter(p => p.status === 'completed')
+      .filter(p => p.status === 'completed' || p.status === 'partial')
       .reduce((sum, p) => sum + validateAmount(p.amount), 0)
 
     const totalPaid = filteredPayments
-      .filter(p => p.status === 'completed')
+      .filter(p => p.status === 'completed' || p.status === 'partial')
       .reduce((sum, p) => sum + validateAmount(p.amount), 0)
 
     const totalPending = filteredPayments

@@ -24,7 +24,6 @@ import FinancialReports from '@/components/reports/FinancialReports'
 import TreatmentReports from '@/components/reports/TreatmentReports'
 import ClinicNeedsReports from '@/components/reports/ClinicNeedsReports'
 import ComprehensiveProfitLossReport from '@/components/reports/ComprehensiveProfitLossReport'
-import FinancialIntegrationTest from '@/components/test/FinancialIntegrationTest'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { ComprehensiveExportService, TIME_PERIODS, TimePeriod } from '@/services/comprehensiveExportService'
 import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
@@ -204,6 +203,14 @@ export default function Reports() {
         const { loadPayments } = usePaymentStore.getState()
         const { loadLabOrders } = useLabOrderStore.getState()
         await Promise.all([loadPayments(), loadLabOrders()])
+      } else if (value === 'profitLoss') {
+        // Load all financial data for comprehensive profit/loss analysis
+        const { loadPayments } = usePaymentStore.getState()
+        const { loadExpenses } = useExpensesStore.getState()
+        const { loadLabOrders } = useLabOrderStore.getState()
+        const { loadNeeds } = useClinicNeedsStore.getState()
+        const { loadItems } = useInventoryStore.getState()
+        await Promise.all([loadPayments(), loadExpenses(), loadLabOrders(), loadNeeds(), loadItems()])
       } else if (value === 'patients') {
         const { loadPatients } = usePatientStore.getState()
         await loadPatients()
@@ -483,10 +490,14 @@ export default function Reports() {
 
       {/* Reports Tabs */}
       <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="flex items-center space-x-2 space-x-reverse">
             <Calculator className="w-4 h-4" />
             <span>التقرير الشامل المفصل</span>
+          </TabsTrigger>
+           <TabsTrigger value="profitLoss" className="flex items-center space-x-2 space-x-reverse">
+            <TrendingUp className="w-4 h-4" />
+            <span>المالية</span>
           </TabsTrigger>
           <TabsTrigger value="patients" className="flex items-center space-x-2 space-x-reverse">
             <Users className="w-4 h-4" />
@@ -496,10 +507,10 @@ export default function Reports() {
             <Calendar className="w-4 h-4" />
             <span>المواعيد</span>
           </TabsTrigger>
-          <TabsTrigger value="financial" className="flex items-center space-x-2 space-x-reverse">
+          {/* <TabsTrigger value="financial" className="flex items-center space-x-2 space-x-reverse">
             <DollarSign className="w-4 h-4" />
             <span>المالية</span>
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="treatments" className="flex items-center space-x-2 space-x-reverse">
             <Stethoscope className="w-4 h-4" />
             <span>العلاجات</span>
@@ -512,10 +523,7 @@ export default function Reports() {
             <ClipboardList className="w-4 h-4" />
             <span>احتياجات العيادة</span>
           </TabsTrigger>
-          <TabsTrigger value="profitLoss" className="flex items-center space-x-2 space-x-reverse">
-            <TrendingUp className="w-4 h-4" />
-            <span>الأرباح والخسائر</span>
-          </TabsTrigger>
+         
         </TabsList>
 
         {/* Comprehensive Report Tab */}
@@ -814,10 +822,7 @@ export default function Reports() {
         </TabsContent>
 
         <TabsContent value="profitLoss" dir="rtl">
-          <div className="space-y-6">
-            <ComprehensiveProfitLossReport />
-            <FinancialIntegrationTest />
-          </div>
+          <ComprehensiveProfitLossReport />
         </TabsContent>
       </Tabs>
     </div>

@@ -13,11 +13,11 @@ import { FinancialValidator } from '@/utils/financialValidation'
 import { ComprehensiveExportService } from '@/services/comprehensiveExportService'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import CurrencyDisplay from '@/components/ui/currency-display'
-import { 
-  CheckCircle, 
-  XCircle, 
-  AlertTriangle, 
-  RefreshCw, 
+import {
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  RefreshCw,
   Activity,
   TrendingUp,
   TrendingDown,
@@ -76,7 +76,7 @@ export default function FinancialSystemStatus() {
 
   const analyzeSystemHealth = async () => {
     setIsAnalyzing(true)
-    
+
     try {
       const startTime = Date.now()
       const issues: string[] = []
@@ -85,28 +85,34 @@ export default function FinancialSystemStatus() {
 
       // 1. Data Integrity Analysis
       let dataIntegrityScore = 100
-      
-      if (payments.length === 0) {
+
+      const safePayments = Array.isArray(payments) ? payments : []
+      const safeExpenses = Array.isArray(expenses) ? expenses : []
+      const safeInventoryItems = Array.isArray(inventoryItems) ? inventoryItems : []
+      const safeLabOrders = Array.isArray(labOrders) ? labOrders : []
+      const safeClinicNeeds = Array.isArray(clinicNeeds) ? clinicNeeds : []
+
+      if (safePayments.length === 0) {
         warnings.push('لا توجد مدفوعات في النظام')
         dataIntegrityScore -= 20
       }
 
-      if (expenses.length === 0) {
+      if (safeExpenses.length === 0) {
         warnings.push('لا توجد مصروفات مسجلة')
         dataIntegrityScore -= 10
       }
 
       // 2. Financial Validation
       const comprehensiveValidation = FinancialValidator.validateAllFinancialData({
-        payments,
-        expenses,
-        inventory: inventoryItems,
-        labOrders,
-        clinicNeeds
+        payments: safePayments,
+        expenses: safeExpenses,
+        inventory: safeInventoryItems,
+        labOrders: safeLabOrders,
+        clinicNeeds: safeClinicNeeds
       })
 
       let calculationAccuracyScore = comprehensiveValidation.isValid ? 100 : 70
-      
+
       if (!comprehensiveValidation.isValid) {
         issues.push(...comprehensiveValidation.errors)
         calculationAccuracyScore -= comprehensiveValidation.errors.length * 10
@@ -130,7 +136,7 @@ export default function FinancialSystemStatus() {
       // 4. Performance Analysis
       const analysisTime = Date.now() - startTime
       let performanceScore = 100
-      
+
       if (analysisTime > 1000) {
         performanceScore -= 20
         warnings.push('تحليل النظام يستغرق وقتاً أطول من المتوقع')
@@ -138,11 +144,11 @@ export default function FinancialSystemStatus() {
 
       // 5. Real-time Sync Score
       let realTimeSyncScore = 100
-      
+
       // Check if data is recent (within last hour)
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
       const recentPayments = payments.filter(p => new Date(p.payment_date) > oneHourAgo)
-      
+
       if (payments.length > 0 && recentPayments.length === 0) {
         realTimeSyncScore -= 10
         warnings.push('لا توجد مدفوعات حديثة في الساعة الماضية')
@@ -259,7 +265,7 @@ export default function FinancialSystemStatus() {
           </div>
           <div className="flex items-center gap-2">
             {systemStatus && getHealthBadge(systemStatus.isHealthy)}
-            <Button 
+            <Button
               onClick={analyzeSystemHealth}
               disabled={isAnalyzing}
               size="sm"
@@ -300,12 +306,12 @@ export default function FinancialSystemStatus() {
                     {systemStatus.metrics.dataIntegrity}%
                   </span>
                 </div>
-                <Progress 
-                  value={systemStatus.metrics.dataIntegrity} 
+                <Progress
+                  value={systemStatus.metrics.dataIntegrity}
                   className="h-2"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>دقة الحسابات</span>
@@ -313,12 +319,12 @@ export default function FinancialSystemStatus() {
                     {systemStatus.metrics.calculationAccuracy}%
                   </span>
                 </div>
-                <Progress 
-                  value={systemStatus.metrics.calculationAccuracy} 
+                <Progress
+                  value={systemStatus.metrics.calculationAccuracy}
                   className="h-2"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>التزامن الفوري</span>
@@ -326,12 +332,12 @@ export default function FinancialSystemStatus() {
                     {systemStatus.metrics.realTimeSync}%
                   </span>
                 </div>
-                <Progress 
-                  value={systemStatus.metrics.realTimeSync} 
+                <Progress
+                  value={systemStatus.metrics.realTimeSync}
                   className="h-2"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>الأداء</span>
@@ -339,8 +345,8 @@ export default function FinancialSystemStatus() {
                     {systemStatus.metrics.performanceScore}%
                   </span>
                 </div>
-                <Progress 
-                  value={systemStatus.metrics.performanceScore} 
+                <Progress
+                  value={systemStatus.metrics.performanceScore}
                   className="h-2"
                 />
               </div>
@@ -357,7 +363,7 @@ export default function FinancialSystemStatus() {
                   <CurrencyDisplay amount={systemStatus.financialSummary.totalRevenue} currency={currentCurrency} />
                 </div>
               </div>
-              
+
               <div className="p-4 border rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <Minus className="h-4 w-4 text-red-600" />
@@ -367,7 +373,7 @@ export default function FinancialSystemStatus() {
                   <CurrencyDisplay amount={systemStatus.financialSummary.totalExpenses} currency={currentCurrency} />
                 </div>
               </div>
-              
+
               <div className="p-4 border rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   {systemStatus.financialSummary.netProfit >= 0 ? (
@@ -381,7 +387,7 @@ export default function FinancialSystemStatus() {
                   <CurrencyDisplay amount={systemStatus.financialSummary.netProfit} currency={currentCurrency} />
                 </div>
               </div>
-              
+
               <div className="p-4 border rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   {systemStatus.financialSummary.profitMargin >= 0 ? (

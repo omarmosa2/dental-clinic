@@ -71,15 +71,54 @@ export class ComprehensiveProfitLossService {
     // حساب المبالغ المتبقية من المدفوعات الجزئية
     const remainingBalances = this.validateAmount(
       payments
-        .filter(p => p.status === 'partial' && p.appointment_remaining_balance)
-        .reduce((sum, p) => sum + this.validateAmount(p.appointment_remaining_balance), 0)
+        .filter(p => p.status === 'partial')
+        .reduce((sum, p) => {
+          // حساب المبلغ المتبقي بناءً على المبلغ الإجمالي وإجمالي المدفوع
+          const totalAmountDue = this.validateAmount(p.total_amount_due || p.treatment_total_cost || p.appointment_total_cost || 0)
+          const totalPaid = this.validateAmount(p.amount_paid || p.treatment_total_paid || p.appointment_total_paid || p.amount || 0)
+          const remaining = Math.max(0, totalAmountDue - totalPaid)
+
+          // إذا لم يكن هناك مبلغ إجمالي، استخدم الرصيد المتبقي المحفوظ
+          if (totalAmountDue === 0) {
+            return sum + this.validateAmount(p.remaining_balance || p.treatment_remaining_balance || p.appointment_remaining_balance || 0)
+          }
+
+          return sum + remaining
+        }, 0)
+    )
+
+    // حساب المبالغ المعلقة (غير المدفوعة)
+    const pendingAmount = this.validateAmount(
+      payments
+        .filter(p => p.status === 'pending')
+        .reduce((sum, payment) => {
+          const amount = this.validateAmount(payment.amount)
+          const totalAmountDue = this.validateAmount(payment.total_amount_due)
+
+          let pendingAmount = amount
+
+          if (payment.tooth_treatment_id) {
+            // للمدفوعات المرتبطة بعلاجات، استخدم التكلفة الإجمالية للعلاج
+            const treatmentCost = this.validateAmount(payment.treatment_total_cost) || totalAmountDue
+            pendingAmount = treatmentCost
+          } else if (amount === 0 && totalAmountDue > 0) {
+            // إذا كان المبلغ المدفوع 0 والمبلغ الإجمالي المطلوب أكبر من 0، استخدم المبلغ الإجمالي
+            pendingAmount = totalAmountDue
+          } else if (payment.remaining_balance && payment.remaining_balance > 0) {
+            // استخدم الرصيد المتبقي إذا كان متوفراً
+            pendingAmount = this.validateAmount(payment.remaining_balance)
+          }
+
+          return sum + pendingAmount
+        }, 0)
     )
 
     return {
       completedPayments,
       totalRevenue,
       partialPayments,
-      remainingBalances
+      remainingBalances,
+      pendingAmount
     }
   }
 

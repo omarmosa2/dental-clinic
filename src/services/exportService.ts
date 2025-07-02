@@ -1010,7 +1010,8 @@ export class ExportService {
       // Data rows
       data.patients.forEach((patient: any) => {
         const genderLabel = patient.gender === 'male' ? 'ذكر' : 'أنثى'
-        const registrationDate = patient.created_at ? new Date(patient.created_at).toLocaleDateString('ar-SA') : ''
+        // Use Gregorian date format instead of Arabic
+        const registrationDate = patient.created_at ? new Date(patient.created_at).toLocaleDateString('en-GB') : ''
 
         worksheet.getCell(row, 1).value = patient.serial_number || ''
         worksheet.getCell(row, 2).value = patient.full_name || ''
@@ -1143,7 +1144,8 @@ export class ExportService {
         worksheet.getCell(currentRow, 2).value = typeMapping[expense.expense_type] || expense.expense_type || 'غير محدد'
         worksheet.getCell(currentRow, 3).value = `${formatCurrency(expense.amount || 0)}`
         worksheet.getCell(currentRow, 4).value = methodMapping[expense.payment_method] || expense.payment_method || 'غير محدد'
-        worksheet.getCell(currentRow, 5).value = expense.payment_date ? new Date(expense.payment_date).toLocaleDateString('ar-SA') : 'غير محدد'
+        // Use Gregorian date format instead of Arabic
+        worksheet.getCell(currentRow, 5).value = expense.payment_date ? new Date(expense.payment_date).toLocaleDateString('en-GB') : 'غير محدد'
         worksheet.getCell(currentRow, 6).value = expense.vendor || 'غير محدد'
         currentRow++
       })
@@ -1421,7 +1423,8 @@ export class ExportService {
           `$${order.cost}`,
           `$${order.paid_amount || 0}`,
           `$${order.remaining_balance || 0}`,
-          new Date(order.order_date).toLocaleDateString('ar-SA'),
+          // Use Gregorian date format instead of Arabic
+          new Date(order.order_date).toLocaleDateString('en-GB'),
           order.status,
           order.notes || ''
         ]
@@ -1499,8 +1502,8 @@ export class ExportService {
       right: { style: 'thick' }
     }
 
-    // Date and time
-    worksheet.getCell('A2').value = `تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}`
+    // Date and time - Use Gregorian date format
+    worksheet.getCell('A2').value = `تاريخ التقرير: ${new Date().toLocaleDateString('en-GB')}`
     worksheet.getCell('A2').font = { size: 12, italic: true }
     worksheet.getCell('A2').alignment = { horizontal: 'right' }
 
@@ -1587,8 +1590,9 @@ export class ExportService {
           need.quantity_needed,
           priorityLabels[need.priority] || need.priority,
           statusLabels[need.status] || need.status,
-          new Date(need.date_needed).toLocaleDateString('ar-SA'),
-          need.date_received ? new Date(need.date_received).toLocaleDateString('ar-SA') : '',
+          // Use Gregorian date format instead of Arabic
+          new Date(need.date_needed).toLocaleDateString('en-GB'),
+          need.date_received ? new Date(need.date_received).toLocaleDateString('en-GB') : '',
           need.notes || ''
         ]
 
@@ -1731,25 +1735,48 @@ export class ExportService {
     // Revenue breakdown
     if (data.revenue) {
       worksheet.getCell(currentRow, 1).value = 'تفاصيل الإيرادات'
-      worksheet.getCell(currentRow, 1).font = { bold: true, size: 12 }
+      worksheet.getCell(currentRow, 1).font = { bold: true, size: 12, color: { argb: 'FF059669' } }
+      worksheet.getCell(currentRow, 1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6F7E6' }
+      }
       currentRow += 2
 
       worksheet.getCell(currentRow, 1).value = 'المدفوعات المكتملة:'
       worksheet.getCell(currentRow, 2).value = formatCurrency(data.revenue.completedPayments || 0)
+      worksheet.getCell(currentRow, 1).font = { bold: true }
       currentRow++
 
       worksheet.getCell(currentRow, 1).value = 'المدفوعات الجزئية:'
       worksheet.getCell(currentRow, 2).value = formatCurrency(data.revenue.partialPayments || 0)
+      worksheet.getCell(currentRow, 1).font = { bold: true }
       currentRow++
 
-      worksheet.getCell(currentRow, 1).value = 'المبالغ المتبقية:'
+      worksheet.getCell(currentRow, 1).value = 'المبالغ المعلقة:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.revenue.pendingPayments || 0)
+      worksheet.getCell(currentRow, 1).font = { bold: true }
+      currentRow++
+
+      worksheet.getCell(currentRow, 1).value = 'المبالغ المتبقية من الجزئية:'
       worksheet.getCell(currentRow, 2).value = formatCurrency(data.revenue.remainingBalances || 0)
+      worksheet.getCell(currentRow, 1).font = { bold: true }
       currentRow++
 
       worksheet.getCell(currentRow, 1).value = 'إجمالي الإيرادات:'
       worksheet.getCell(currentRow, 2).value = formatCurrency(data.revenue.totalRevenue || 0)
-      worksheet.getCell(currentRow, 1).font = { bold: true }
-      worksheet.getCell(currentRow, 2).font = { bold: true }
+      worksheet.getCell(currentRow, 1).font = { bold: true, color: { argb: 'FF059669' } }
+      worksheet.getCell(currentRow, 2).font = { bold: true, color: { argb: 'FF059669' } }
+      worksheet.getCell(currentRow, 1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFFF2CC' }
+      }
+      worksheet.getCell(currentRow, 2).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFFF2CC' }
+      }
       currentRow += 3
     }
 
@@ -1828,8 +1855,34 @@ export class ExportService {
   private static addPaymentsDetailSheet(workbook: ExcelJS.Workbook, payments: any[]): void {
     const worksheet = workbook.addWorksheet('تفاصيل المدفوعات')
 
-    // Headers
-    const headers = ['رقم المريض', 'اسم المريض', 'المبلغ', 'الحالة', 'طريقة الدفع', 'تاريخ الدفع', 'ملاحظات']
+    // Calculate pending payments using total_amount and partial payment remaining amounts
+    const pendingPayments = payments.filter(p => p.status === 'pending')
+    const partialPayments = payments.filter(p => p.status === 'partial')
+
+    // Calculate total pending amount using treatment total cost, not payment amount
+    const totalPendingAmount = pendingPayments.reduce((sum, p) => {
+      const treatmentTotalCost = p.treatment_total_cost || p.total_amount_due || 0
+      return sum + treatmentTotalCost
+    }, 0)
+
+    // Calculate remaining amounts from partial payments
+    const totalRemainingFromPartial = partialPayments.reduce((sum, p) => {
+      const treatmentTotalCost = p.total_amount_due || p.treatment_total_cost || 0
+
+      // إذا كان هناك مبلغ إجمالي للعلاج، احسب المتبقي
+      if (treatmentTotalCost > 0) {
+        // استخدم إجمالي المدفوع للعلاج وليس مبلغ هذه الدفعة فقط
+        const totalPaidForTreatment = p.amount_paid || p.treatment_total_paid || p.amount || 0
+        return sum + Math.max(0, treatmentTotalCost - totalPaidForTreatment)
+      }
+
+      // إذا لم يكن هناك مبلغ إجمالي، استخدم الرصيد المتبقي المحفوظ
+      const remainingBalance = p.treatment_remaining_balance || p.remaining_balance || 0
+      return sum + remainingBalance
+    }, 0)
+
+    // Headers - removed patient ID, kept only patient name
+    const headers = ['اسم المريض', 'المبلغ المدفوع', 'المبلغ الإجمالي', 'المبلغ المتبقي', 'الحالة', 'طريقة الدفع', 'تاريخ الدفع', 'ملاحظات']
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(1, index + 1)
       cell.value = header
@@ -1840,15 +1893,98 @@ export class ExportService {
     // Data
     payments.forEach((payment, index) => {
       const row = index + 2
-      worksheet.getCell(row, 1).value = payment.patient_id || ''
-      worksheet.getCell(row, 2).value = payment.patient_name || ''
-      worksheet.getCell(row, 3).value = formatCurrency(payment.amount || 0)
-      worksheet.getCell(row, 4).value = payment.status === 'completed' ? 'مكتمل' :
+
+      // المبلغ المدفوع في هذه الدفعة
+      const paidAmount = payment.amount || 0
+
+      // المبلغ الإجمالي للعلاج أو الموعد
+      let treatmentTotalCost = 0
+      let remainingAmount = 0
+
+      if (payment.status === 'partial') {
+        // للدفعات الجزئية: استخدم المبلغ الإجمالي المطلوب
+        treatmentTotalCost = payment.total_amount_due || payment.treatment_total_cost || 0
+
+        // إذا كان هناك مبلغ إجمالي، احسب المتبقي
+        if (treatmentTotalCost > 0) {
+          // للدفعات الجزئية، المبلغ المتبقي = المبلغ الإجمالي - إجمالي المدفوع (وليس مبلغ هذه الدفعة فقط)
+          const totalPaidForTreatment = payment.amount_paid || payment.treatment_total_paid || paidAmount
+          remainingAmount = Math.max(0, treatmentTotalCost - totalPaidForTreatment)
+        } else {
+          // استخدم الرصيد المتبقي المحفوظ
+          remainingAmount = payment.remaining_balance || payment.treatment_remaining_balance || 0
+        }
+      } else if (payment.status === 'pending') {
+        // للدفعات المعلقة: المبلغ الإجمالي هو المبلغ المطلوب والمتبقي هو نفس المبلغ
+        treatmentTotalCost = payment.total_amount_due || payment.treatment_total_cost || paidAmount
+        remainingAmount = treatmentTotalCost
+      } else {
+        // للدفعات المكتملة: المبلغ الإجمالي = المبلغ المدفوع والمتبقي = 0
+        treatmentTotalCost = paidAmount
+        remainingAmount = 0
+      }
+
+      worksheet.getCell(row, 1).value = payment.patient_name || ''
+      worksheet.getCell(row, 2).value = formatCurrency(paidAmount)
+      worksheet.getCell(row, 3).value = formatCurrency(treatmentTotalCost)
+      worksheet.getCell(row, 4).value = formatCurrency(remainingAmount)
+      worksheet.getCell(row, 5).value = payment.status === 'completed' ? 'مكتمل' :
                                        payment.status === 'partial' ? 'جزئي' : 'معلق'
-      worksheet.getCell(row, 5).value = payment.payment_method || ''
-      worksheet.getCell(row, 6).value = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('ar-SA') : ''
-      worksheet.getCell(row, 7).value = payment.notes || ''
+      worksheet.getCell(row, 6).value = payment.payment_method || ''
+      // Use Gregorian date format instead of Arabic
+      worksheet.getCell(row, 7).value = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-GB') : ''
+      worksheet.getCell(row, 8).value = payment.notes || ''
     })
+
+    // Add summary rows for pending and remaining balances
+    const summaryStartRow = payments.length + 4
+    worksheet.getCell(summaryStartRow, 1).value = 'ملخص المدفوعات المعلقة والمتبقية'
+    worksheet.getCell(summaryStartRow, 1).font = { bold: true, size: 14 }
+    worksheet.mergeCells(summaryStartRow, 1, summaryStartRow, 8)
+
+    worksheet.getCell(summaryStartRow + 2, 1).value = 'إجمالي المدفوعات المعلقة:'
+    worksheet.getCell(summaryStartRow + 2, 2).value = formatCurrency(totalPendingAmount)
+    worksheet.getCell(summaryStartRow + 2, 1).font = { bold: true }
+    worksheet.getCell(summaryStartRow + 2, 2).font = { bold: true }
+
+    worksheet.getCell(summaryStartRow + 3, 1).value = 'إجمالي المبالغ المتبقية من الدفعات الجزئية:'
+    worksheet.getCell(summaryStartRow + 3, 2).value = formatCurrency(totalRemainingFromPartial)
+    worksheet.getCell(summaryStartRow + 3, 1).font = { bold: true }
+    worksheet.getCell(summaryStartRow + 3, 2).font = { bold: true }
+
+    // Add total outstanding balance
+    const totalOutstanding = totalPendingAmount + totalRemainingFromPartial
+    worksheet.getCell(summaryStartRow + 4, 1).value = 'إجمالي المبالغ غير المدفوعة:'
+    worksheet.getCell(summaryStartRow + 4, 2).value = formatCurrency(totalOutstanding)
+    worksheet.getCell(summaryStartRow + 4, 1).font = { bold: true, color: { argb: 'FFDC2626' } }
+    worksheet.getCell(summaryStartRow + 4, 2).font = { bold: true, color: { argb: 'FFDC2626' } }
+
+    // Add styling to summary section
+    for (let row = summaryStartRow; row <= summaryStartRow + 4; row++) {
+      for (let col = 1; col <= 2; col++) {
+        const cell = worksheet.getCell(row, col)
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        }
+        if (row === summaryStartRow) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF4472C4' }
+          }
+          cell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
+        } else if (row > summaryStartRow + 1) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8F9FA' }
+          }
+        }
+      }
+    }
 
     worksheet.columns.forEach(column => {
       column.width = 15
@@ -1878,7 +2014,8 @@ export class ExportService {
       worksheet.getCell(row, 6).value = formatCurrency((order.cost || 0) - (order.paid_amount || 0))
       worksheet.getCell(row, 7).value = order.status === 'completed' ? 'مكتمل' :
                                        order.status === 'pending' ? 'معلق' : 'ملغي'
-      worksheet.getCell(row, 8).value = order.order_date ? new Date(order.order_date).toLocaleDateString('ar-SA') : ''
+      // Use Gregorian date format instead of Arabic
+      worksheet.getCell(row, 8).value = order.order_date ? new Date(order.order_date).toLocaleDateString('en-GB') : ''
     })
 
     worksheet.columns.forEach(column => {
@@ -1889,8 +2026,8 @@ export class ExportService {
   private static addClinicNeedsDetailSheet(workbook: ExcelJS.Workbook, clinicNeeds: any[]): void {
     const worksheet = workbook.addWorksheet('تفاصيل احتياجات العيادة')
 
-    // Headers
-    const headers = ['اسم العنصر', 'الكمية', 'الأولوية', 'الحالة', 'التاريخ المطلوب', 'التاريخ المستلم', 'ملاحظات']
+    // Headers - added cost/price field
+    const headers = ['اسم العنصر', 'الكمية', 'سعر الوحدة', 'التكلفة الإجمالية', 'الأولوية', 'الحالة', 'التاريخ المطلوب', 'التاريخ المستلم', 'ملاحظات']
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(1, index + 1)
       cell.value = header
@@ -1901,16 +2038,37 @@ export class ExportService {
     // Data
     clinicNeeds.forEach((need, index) => {
       const row = index + 2
-      worksheet.getCell(row, 1).value = need.item_name || ''
-      worksheet.getCell(row, 2).value = need.quantity || 0
-      worksheet.getCell(row, 3).value = need.priority === 'urgent' ? 'عاجل' :
-                                       need.priority === 'high' ? 'عالي' : 'عادي'
-      worksheet.getCell(row, 4).value = need.status === 'received' ? 'مستلم' :
+      const quantity = need.quantity || 0
+      const unitPrice = need.price || 0
+      const totalCost = quantity * unitPrice
+
+      worksheet.getCell(row, 1).value = need.need_name || need.item_name || ''
+      worksheet.getCell(row, 2).value = quantity
+      worksheet.getCell(row, 3).value = formatCurrency(unitPrice)
+      worksheet.getCell(row, 4).value = formatCurrency(totalCost)
+      worksheet.getCell(row, 5).value = need.priority === 'urgent' ? 'عاجل' :
+                                       need.priority === 'high' ? 'عالي' :
+                                       need.priority === 'medium' ? 'متوسط' : 'منخفض'
+      worksheet.getCell(row, 6).value = need.status === 'received' ? 'مستلم' :
                                        need.status === 'ordered' ? 'مطلوب' : 'معلق'
-      worksheet.getCell(row, 5).value = need.date_needed ? new Date(need.date_needed).toLocaleDateString('ar-SA') : ''
-      worksheet.getCell(row, 6).value = need.date_received ? new Date(need.date_received).toLocaleDateString('ar-SA') : ''
-      worksheet.getCell(row, 7).value = need.notes || ''
+      // Use Gregorian date format instead of Arabic
+      worksheet.getCell(row, 7).value = need.date_needed ? new Date(need.date_needed).toLocaleDateString('en-GB') : ''
+      worksheet.getCell(row, 8).value = need.date_received ? new Date(need.date_received).toLocaleDateString('en-GB') : ''
+      worksheet.getCell(row, 9).value = need.notes || ''
     })
+
+    // Add total cost summary
+    const totalCost = clinicNeeds.reduce((sum, need) => {
+      const quantity = need.quantity || 0
+      const unitPrice = need.price || 0
+      return sum + (quantity * unitPrice)
+    }, 0)
+
+    const summaryRow = clinicNeeds.length + 3
+    worksheet.getCell(summaryRow, 1).value = 'إجمالي تكلفة احتياجات العيادة:'
+    worksheet.getCell(summaryRow, 4).value = formatCurrency(totalCost)
+    worksheet.getCell(summaryRow, 1).font = { bold: true }
+    worksheet.getCell(summaryRow, 4).font = { bold: true }
 
     worksheet.columns.forEach(column => {
       column.width = 15
@@ -1943,7 +2101,8 @@ export class ExportService {
       worksheet.getCell(row, 3).value = formatCurrency(cost)
       worksheet.getCell(row, 4).value = formatCurrency(totalValue)
       worksheet.getCell(row, 5).value = item.minimum_stock || 0
-      worksheet.getCell(row, 6).value = item.expiry_date ? new Date(item.expiry_date).toLocaleDateString('ar-SA') : ''
+      // Use Gregorian date format instead of Arabic
+      worksheet.getCell(row, 6).value = item.expiry_date ? new Date(item.expiry_date).toLocaleDateString('en-GB') : ''
       worksheet.getCell(row, 7).value = item.category || ''
     })
 
@@ -1971,7 +2130,8 @@ export class ExportService {
       worksheet.getCell(row, 2).value = expense.expense_type || ''
       worksheet.getCell(row, 3).value = formatCurrency(expense.amount || 0)
       worksheet.getCell(row, 4).value = expense.payment_method || ''
-      worksheet.getCell(row, 5).value = expense.payment_date ? new Date(expense.payment_date).toLocaleDateString('ar-SA') : ''
+      // Use Gregorian date format instead of Arabic
+      worksheet.getCell(row, 5).value = expense.payment_date ? new Date(expense.payment_date).toLocaleDateString('en-GB') : ''
       worksheet.getCell(row, 6).value = expense.vendor || ''
       worksheet.getCell(row, 7).value = expense.notes || ''
     })
@@ -3400,6 +3560,7 @@ export class ExportService {
         completedPayments: reportData.revenue.completedPayments,
         partialPayments: reportData.revenue.partialPayments,
         remainingBalances: reportData.revenue.remainingBalances,
+        pendingPayments: reportData.revenue.pendingAmount || 0,
         totalRevenue: reportData.revenue.totalRevenue
       },
       // تفاصيل المصروفات

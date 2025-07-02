@@ -3161,7 +3161,8 @@ export class PdfService {
       if (!dateStr) return 'غير محدد'
       const date = new Date(dateStr)
       if (isNaN(date.getTime())) return 'غير محدد'
-      return date.toLocaleDateString('ar-SA')
+      // Use Gregorian date format instead of Arabic
+      return date.toLocaleDateString('en-GB')
     }
 
     return `
@@ -3512,7 +3513,8 @@ export class PdfService {
                   <td>${expense.payment_date ? (() => {
                     try {
                       const date = new Date(expense.payment_date)
-                      return date.toLocaleDateString('ar-SA')
+                      // Use Gregorian date format instead of Arabic
+                      return date.toLocaleDateString('en-GB')
                     } catch {
                       return expense.payment_date
                     }

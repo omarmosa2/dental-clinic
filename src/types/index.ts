@@ -625,6 +625,7 @@ export interface ComprehensiveProfitLossReport {
     totalRevenue: number // إجمالي الإيرادات
     partialPayments: number // المدفوعات الجزئية
     remainingBalances: number // المبالغ المتبقية من المدفوعات الجزئية
+    pendingAmount: number // المبالغ المعلقة (غير المدفوعة)
   }
 
   // المصروفات
