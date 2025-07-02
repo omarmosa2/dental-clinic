@@ -1353,7 +1353,8 @@ export class PdfService {
       const filteredLabOrders = this.filterDataByDateRange(labOrders, filter, 'order_date')
       const filteredClinicNeeds = this.filterDataByDateRange(clinicNeeds, filter, 'created_at')
       const filteredAppointments = this.filterDataByDateRange(appointments, filter, 'created_at')
-      const filteredInventoryItems = inventoryItems // المخزون لا يتم فلترته حسب التاريخ
+      // فلترة المخزون حسب تاريخ الإنشاء مثل باقي البيانات
+      const filteredInventoryItems = this.filterDataByDateRange(inventoryItems, filter, 'created_at')
       const filteredClinicExpenses = clinicExpenses ? this.filterDataByDateRange(clinicExpenses, filter, 'payment_date') : []
 
       // إنشاء البيانات المفلترة للتصدير
