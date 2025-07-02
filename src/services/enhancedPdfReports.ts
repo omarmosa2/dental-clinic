@@ -1264,10 +1264,11 @@ export class EnhancedPdfReports {
             margin: 30px 0;
           }
           .revenue-section, .expenses-section {
-            background: #f8fafc;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
             padding: 20px;
             border-radius: 10px;
-            border: 1px solid #e2e8f0;
+            border: 2px solid #1a365d;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
           }
           .revenue-section h3 {
             color: #059669;
@@ -1288,10 +1289,12 @@ export class EnhancedPdfReports {
           .breakdown-item:last-child {
             border-bottom: none;
             font-weight: bold;
-            background: #f1f5f9;
+            background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
+            color: white;
             padding: 12px;
             margin-top: 10px;
             border-radius: 5px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
           }
           .details-table {
             width: 100%;
@@ -1306,8 +1309,10 @@ export class EnhancedPdfReports {
             text-align: right;
           }
           .details-table th {
-            background: #f1f5f9;
+            background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
+            color: white;
             font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
           }
           .details-table tr:nth-child(even) {
             background: #f8fafc;
@@ -1319,11 +1324,12 @@ export class EnhancedPdfReports {
             margin: 20px 0;
           }
           .stat-card {
-            background: white;
-            border: 1px solid #e2e8f0;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border: 2px solid #1a365d;
             border-radius: 8px;
             padding: 15px;
             text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
           }
           .stat-number {
             font-size: 24px;
@@ -1503,7 +1509,7 @@ export class EnhancedPdfReports {
           </table>
 
           <!-- ملخص المدفوعات المعلقة والمتبقية -->
-          <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px;">
+          <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%); border: 2px solid #1a365d; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <h4>📊 ملخص المدفوعات المعلقة والمتبقية</h4>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
               <div>
