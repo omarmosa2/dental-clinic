@@ -2582,7 +2582,8 @@ ipcMain.handle('reports:generateFinancialReport', async (_, filter) => {
     if (databaseService && reportsService) {
       const payments = await databaseService.getAllPayments()
       const treatments = await databaseService.getAllTreatments()
-      return await reportsService.generateFinancialReport(payments, treatments, filter)
+      const expenses = await databaseService.getAllClinicExpenses()
+      return await reportsService.generateFinancialReport(payments, treatments, filter, expenses)
     } else {
       throw new Error('Database or Reports service not initialized')
     }
@@ -2666,10 +2667,11 @@ ipcMain.handle('reports:generateOverviewReport', async (_, filter) => {
       const treatments = await databaseService.getAllTreatments()
       const inventory = await databaseService.getAllInventoryItems()
 
+      const expenses = await databaseService.getAllClinicExpenses()
       const [patientReport, appointmentReport, financialReport, inventoryReport] = await Promise.all([
         reportsService.generatePatientReport(patients, appointments, filter),
         reportsService.generateAppointmentReport(appointments, treatments, filter),
-        reportsService.generateFinancialReport(payments, treatments, filter),
+        reportsService.generateFinancialReport(payments, treatments, filter, expenses),
         reportsService.generateInventoryReport(inventory, [], filter)
       ])
 
@@ -3831,6 +3833,184 @@ ipcMain.handle('db:smartAlerts:deleteByRelatedData', async (_, relatedDataKey, r
     }
   } catch (error) {
     console.error('Error deleting smart alerts by related data:', error)
+    throw error
+  }
+})
+
+// Clinic Expenses IPC Handlers
+ipcMain.handle('db:clinicExpenses:getAll', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAllClinicExpenses()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting all clinic expenses:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicExpenses:create', async (_, expense) => {
+  try {
+    if (databaseService) {
+      console.log('Creating clinic expense:', expense)
+      const result = await databaseService.createClinicExpense(expense)
+      console.log('Clinic expense created successfully:', result.id)
+      return result
+    } else {
+      const newExpense = { ...expense, id: Date.now().toString() }
+      console.log('Creating clinic expense (mock):', newExpense)
+      return newExpense
+    }
+  } catch (error) {
+    console.error('Error creating clinic expense:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicExpenses:update', async (_, id, expense) => {
+  try {
+    if (databaseService) {
+      console.log('Updating clinic expense:', id, expense)
+      const result = await databaseService.updateClinicExpense(id, expense)
+      console.log('Clinic expense updated successfully:', id)
+      return result
+    } else {
+      const updatedExpense = { ...expense, id }
+      console.log('Updating clinic expense (mock):', updatedExpense)
+      return updatedExpense
+    }
+  } catch (error) {
+    console.error('Error updating clinic expense:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicExpenses:delete', async (_, id) => {
+  try {
+    if (databaseService) {
+      console.log('Deleting clinic expense:', id)
+      const result = await databaseService.deleteClinicExpense(id)
+      console.log('Clinic expense deleted successfully:', id)
+      return result
+    } else {
+      console.log('Deleting clinic expense (mock):', id)
+      return true
+    }
+  } catch (error) {
+    console.error('Error deleting clinic expense:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicExpenses:search', async (_, query) => {
+  try {
+    if (databaseService) {
+      return await databaseService.searchClinicExpenses(query)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error searching clinic expenses:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicExpenses:getByType', async (_, expenseType) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getClinicExpensesByType(expenseType)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting clinic expenses by type:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicExpenses:getByStatus', async (_, status) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getClinicExpensesByStatus(status)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting clinic expenses by status:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicExpenses:getRecurring', async () => {
+  try {
+    if (databaseService) {
+      return await databaseService.getRecurringExpenses()
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting recurring clinic expenses:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:clinicExpenses:getStatistics', async () => {
+  try {
+    if (databaseService) {
+      const expenses = await databaseService.getAllClinicExpenses()
+
+      // Calculate statistics
+      const totalExpenses = expenses.length
+      const totalAmount = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0)
+      const paidAmount = expenses
+        .filter(expense => expense.status === 'paid')
+        .reduce((sum, expense) => sum + (expense.amount || 0), 0)
+      const pendingAmount = expenses
+        .filter(expense => expense.status === 'pending')
+        .reduce((sum, expense) => sum + (expense.amount || 0), 0)
+      const overdueAmount = expenses
+        .filter(expense => expense.status === 'overdue')
+        .reduce((sum, expense) => sum + (expense.amount || 0), 0)
+      const recurringExpenses = expenses.filter(expense => expense.is_recurring).length
+
+      // Group by type
+      const expensesByType = expenses.reduce((acc, expense) => {
+        acc[expense.expense_type] = (acc[expense.expense_type] || 0) + (expense.amount || 0)
+        return acc
+      }, {})
+
+      // Group by status
+      const expensesByStatus = expenses.reduce((acc, expense) => {
+        acc[expense.status] = (acc[expense.status] || 0) + (expense.amount || 0)
+        return acc
+      }, {})
+
+      return {
+        totalExpenses,
+        totalAmount,
+        paidAmount,
+        pendingAmount,
+        overdueAmount,
+        recurringExpenses,
+        expensesByType,
+        expensesByStatus
+      }
+    } else {
+      return {
+        totalExpenses: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        pendingAmount: 0,
+        overdueAmount: 0,
+        recurringExpenses: 0,
+        expensesByType: {},
+        expensesByStatus: {}
+      }
+    }
+  } catch (error) {
+    console.error('Error getting clinic expenses statistics:', error)
     throw error
   }
 })

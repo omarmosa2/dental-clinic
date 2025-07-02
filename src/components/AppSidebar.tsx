@@ -13,6 +13,7 @@ import {
   Heart,
   Stethoscope,
   ClipboardList,
+  Receipt,
 } from "lucide-react"
 
 import {
@@ -78,6 +79,11 @@ const navigationItems = [
     title: "احتياجات العيادة",
     url: "clinic-needs",
     icon: ClipboardList,
+  },
+  {
+    title: "مصروفات العيادة",
+    url: "expenses",
+    icon: Receipt,
   },
   {
     title: "التقارير",

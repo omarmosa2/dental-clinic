@@ -3,10 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
   Calculator,
   FileText,
   Download,
@@ -18,6 +18,7 @@ import {
   CheckCircle
 } from 'lucide-react'
 import { usePaymentStore } from '@/store/paymentStore'
+import { useExpensesStore } from '@/store/expensesStore'
 import { useLabOrderStore } from '@/store/labOrderStore'
 import { useClinicNeedsStore } from '@/store/clinicNeedsStore'
 import { useInventoryStore } from '@/store/inventoryStore'
@@ -28,29 +29,43 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { ComprehensiveProfitLossService } from '@/services/comprehensiveProfitLossService'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import CurrencyDisplay from '@/components/ui/currency-display'
-import TimeFilter from '@/components/ui/time-filter'
+import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
+import { ExportService } from '@/services/exportService'
+import { PdfService } from '@/services/pdfService'
+import { notify } from '@/services/notificationService'
 import type { ComprehensiveProfitLossReport, ReportFilter } from '@/types'
 
 export default function ComprehensiveProfitLossReport() {
   const { payments } = usePaymentStore()
+  const { expenses: clinicExpenses } = useExpensesStore()
   const { labOrders } = useLabOrderStore()
   const { needs: clinicNeeds } = useClinicNeedsStore()
   const { items: inventoryItems } = useInventoryStore()
   const { patients } = usePatientStore()
   const { appointments } = useAppointmentStore()
-  const { currency } = useSettingsStore()
-  const { isDarkMode } = useTheme()
+  const { currency, settings } = useSettingsStore()
 
   const [reportData, setReportData] = useState<ComprehensiveProfitLossReport | null>(null)
-  const [filter, setFilter] = useState<ReportFilter>({
-    dateRange: { startDate: '', endDate: '' }
+  const [timeFilter, setTimeFilter] = useState<TimeFilterOptions>({
+    preset: 'all',
+    startDate: '',
+    endDate: ''
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   // إنشاء التقرير
   const generateReport = async () => {
     setIsLoading(true)
     try {
+      // تحويل TimeFilterOptions إلى ReportFilter
+      const reportFilter = timeFilter.preset === 'all' ? undefined : {
+        dateRange: {
+          start: timeFilter.startDate || '',
+          end: timeFilter.endDate || ''
+        }
+      }
+
       const report = ComprehensiveProfitLossService.generateComprehensiveProfitLossReport(
         payments,
         labOrders,
@@ -58,7 +73,8 @@ export default function ComprehensiveProfitLossReport() {
         inventoryItems,
         patients,
         appointments,
-        filter
+        reportFilter,
+        clinicExpenses // تمرير مصروفات العيادة المباشرة
       )
       setReportData(report)
     } catch (error) {
@@ -68,10 +84,70 @@ export default function ComprehensiveProfitLossReport() {
     }
   }
 
+  // تصدير Excel
+  const handleExportExcel = async () => {
+    if (!reportData) {
+      notify.error('لا توجد بيانات للتصدير')
+      return
+    }
+
+    setIsExporting(true)
+    try {
+      await ExportService.exportProfitLossToExcel({
+        reportData,
+        payments,
+        labOrders,
+        clinicNeeds,
+        inventoryItems,
+        clinicExpenses,
+        patients,
+        appointments,
+        filter: timeFilter,
+        currency
+      })
+      notify.success('تم تصدير تقرير الأرباح والخسائر إلى Excel بنجاح')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+      notify.error('فشل في تصدير التقرير إلى Excel')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // تصدير PDF
+  const handleExportPDF = async () => {
+    if (!reportData) {
+      notify.error('لا توجد بيانات للتصدير')
+      return
+    }
+
+    setIsExporting(true)
+    try {
+      await PdfService.exportProfitLossReport({
+        reportData,
+        payments,
+        labOrders,
+        clinicNeeds,
+        inventoryItems,
+        clinicExpenses,
+        patients,
+        appointments,
+        filter: timeFilter,
+        currency
+      }, settings)
+      notify.success('تم تصدير تقرير الأرباح والخسائر إلى PDF بنجاح')
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+      notify.error('فشل في تصدير التقرير إلى PDF')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   // إنشاء التقرير عند تحميل المكون أو تغيير الفلتر
   useEffect(() => {
     generateReport()
-  }, [filter, payments, labOrders, clinicNeeds, inventoryItems, patients, appointments])
+  }, [timeFilter, payments, clinicExpenses, labOrders, clinicNeeds, inventoryItems, patients, appointments])
 
   if (isLoading || !reportData) {
     return (
@@ -100,13 +176,23 @@ export default function ComprehensiveProfitLossReport() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            disabled={isExporting || !reportData}
+          >
             <Download className="w-4 h-4 ml-2" />
-            تصدير PDF
+            {isExporting ? 'جاري التصدير...' : 'تصدير PDF'}
           </Button>
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={isExporting || !reportData}
+          >
             <FileText className="w-4 h-4 ml-2" />
-            تصدير اكسل
+            {isExporting ? 'جاري التصدير...' : 'تصدير اكسل'}
           </Button>
         </div>
       </div>
@@ -118,9 +204,9 @@ export default function ComprehensiveProfitLossReport() {
         </CardHeader>
         <CardContent>
           <TimeFilter
-            value={filter.dateRange}
-            onChange={(dateRange) => setFilter({ ...filter, dateRange })}
-            placeholder="اختر الفترة الزمنية للتقرير"
+            value={timeFilter}
+            onChange={setTimeFilter}
+            title="اختر الفترة الزمنية للتقرير"
           />
         </CardContent>
       </Card>
@@ -157,7 +243,7 @@ export default function ComprehensiveProfitLossReport() {
             )}
           </div>
           <p className="text-sm text-muted-foreground mt-2">
-            {calculations.isProfit 
+            {calculations.isProfit
               ? `صافي الربح بنسبة ${calculations.profitMargin.toFixed(1)}%`
               : `إجمالي الخسارة من العمليات`
             }
@@ -179,9 +265,9 @@ export default function ComprehensiveProfitLossReport() {
             <div className="text-2xl font-bold">
               <CurrencyDisplay amount={revenue.totalRevenue} currency={currency} />
             </div>
-            
+
             <Separator />
-            
+
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">المدفوعات المكتملة</span>
@@ -211,9 +297,9 @@ export default function ComprehensiveProfitLossReport() {
             <div className="text-2xl font-bold">
               <CurrencyDisplay amount={calculations.totalExpenses} currency={currency} />
             </div>
-            
+
             <Separator />
-            
+
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">مدفوعات المخابر</span>
@@ -234,6 +320,10 @@ export default function ComprehensiveProfitLossReport() {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">قيمة المخزون</span>
                 <CurrencyDisplay amount={expenses.inventoryExpenses} currency={currency} />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">مصروفات العيادة المباشرة</span>
+                <CurrencyDisplay amount={expenses.clinicExpensesTotal || 0} currency={currency} />
               </div>
             </div>
           </CardContent>

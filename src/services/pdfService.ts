@@ -1292,6 +1292,31 @@ export class PdfService {
   }
 
   /**
+   * تصدير تقرير الأرباح والخسائر الشامل كـ PDF
+   */
+  static async exportProfitLossReport(data: {
+    reportData: any
+    payments: any[]
+    labOrders: any[]
+    clinicNeeds: any[]
+    inventoryItems: any[]
+    clinicExpenses: any[]
+    patients: any[]
+    appointments: any[]
+    filter: any
+    currency: string
+  }, settings?: ClinicSettings | null): Promise<void> {
+    try {
+      const htmlContent = EnhancedPdfReports.createEnhancedProfitLossReportHTML(data, settings)
+      const fileName = this.generatePDFFileName('profit-loss')
+      await this.convertHTMLToPDF(htmlContent, fileName)
+    } catch (error) {
+      console.error('Error exporting profit/loss report:', error)
+      throw new Error('فشل في تصدير تقرير الأرباح والخسائر')
+    }
+  }
+
+  /**
    * تصدير فاتورة المدفوعات المعلقة الشاملة كـ PDF
    */
   static async exportComprehensivePendingInvoice(invoiceData: any): Promise<void> {
@@ -3112,7 +3137,7 @@ export class PdfService {
     `
   }
 
-  // Create comprehensive financial report HTML
+  // Create comprehensive financial report HTML with expenses
   private static createComprehensiveFinancialReportHTML(data: any, settings?: ClinicSettings | null): string {
     const formatCurrency = (amount: number) => {
       try {
@@ -3352,6 +3377,7 @@ export class PdfService {
             <div>
               <div class="subsection-title">المصروفات</div>
               <table>
+                <tr><td>مصروفات العيادة المباشرة</td><td>${formatCurrency(data.clinicExpensesTotal || 0)}</td></tr>
                 <tr><td>مصروفات المخابر</td><td>${formatCurrency(data.labOrdersTotal || 0)}</td></tr>
                 <tr><td>مصروفات الاحتياجات</td><td>${formatCurrency(data.clinicNeedsTotal || 0)}</td></tr>
                 <tr><td>مصروفات المخزون</td><td>${formatCurrency(data.inventoryExpenses || 0)}</td></tr>
@@ -3410,6 +3436,88 @@ export class PdfService {
                   <td>${method.method}</td>
                   <td>${formatCurrency(method.amount)}</td>
                   <td>${method.percentage.toFixed(2)}%</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <!-- توزيع المصروفات حسب النوع -->
+        ${data.expensesByType && data.expensesByType.length > 0 ? `
+        <div class="section">
+          <div class="section-title">توزيع المصروفات حسب النوع</div>
+          <table>
+            <thead>
+              <tr>
+                <th>نوع المصروف</th>
+                <th>المبلغ</th>
+                <th>النسبة المئوية</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.expensesByType.map(expense => `
+                <tr>
+                  <td>${expense.type}</td>
+                  <td>${formatCurrency(expense.amount)}</td>
+                  <td>${expense.percentage.toFixed(2)}%</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <!-- تفاصيل المصروفات الحديثة -->
+        ${data.expenses && data.expenses.length > 0 ? `
+        <div class="section">
+          <div class="section-title">المصروفات الحديثة (آخر 10 مصروفات)</div>
+          <table>
+            <thead>
+              <tr>
+                <th>اسم المصروف</th>
+                <th>النوع</th>
+                <th>المبلغ</th>
+                <th>طريقة الدفع</th>
+                <th>تاريخ الدفع</th>
+                <th>المورد</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.expenses.slice(0, 10).map(expense => `
+                <tr>
+                  <td>${expense.expense_name || 'غير محدد'}</td>
+                  <td>${(() => {
+                    const typeMapping = {
+                      'salary': 'رواتب',
+                      'utilities': 'مرافق',
+                      'rent': 'إيجار',
+                      'maintenance': 'صيانة',
+                      'supplies': 'مستلزمات',
+                      'insurance': 'تأمين',
+                      'other': 'أخرى'
+                    }
+                    return typeMapping[expense.expense_type] || expense.expense_type || 'غير محدد'
+                  })()}</td>
+                  <td>${formatCurrency(expense.amount || 0)}</td>
+                  <td>${(() => {
+                    const methodMapping = {
+                      'cash': 'نقداً',
+                      'bank_transfer': 'تحويل بنكي',
+                      'check': 'شيك',
+                      'credit_card': 'بطاقة ائتمان'
+                    }
+                    return methodMapping[expense.payment_method] || expense.payment_method || 'غير محدد'
+                  })()}</td>
+                  <td>${expense.payment_date ? (() => {
+                    try {
+                      const date = new Date(expense.payment_date)
+                      return date.toLocaleDateString('ar-SA')
+                    } catch {
+                      return expense.payment_date
+                    }
+                  })() : 'غير محدد'}</td>
+                  <td>${expense.vendor || 'غير محدد'}</td>
                 </tr>
               `).join('')}
             </tbody>

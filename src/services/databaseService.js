@@ -2868,6 +2868,44 @@ class DatabaseService {
       // Create indexes if they don't exist
       this.createClinicNeedsIndexes()
 
+      // Check if clinic_expenses table exists
+      const clinicExpensesTableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='clinic_expenses'
+      `).get()
+
+      // Create clinic_expenses table if it doesn't exist
+      if (!clinicExpensesTableExists) {
+        console.log('🏗️ [DEBUG] Creating clinic_expenses table...')
+        this.db.exec(`
+          CREATE TABLE clinic_expenses (
+            id TEXT PRIMARY KEY,
+            expense_name TEXT NOT NULL,
+            amount DECIMAL(10,2) NOT NULL,
+            expense_type TEXT NOT NULL,
+            category TEXT,
+            description TEXT,
+            payment_method TEXT NOT NULL,
+            payment_date DATETIME NOT NULL,
+            due_date DATETIME,
+            is_recurring BOOLEAN DEFAULT 0,
+            recurring_frequency TEXT,
+            recurring_end_date DATETIME,
+            status TEXT DEFAULT 'pending',
+            receipt_number TEXT,
+            vendor TEXT,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `)
+        console.log('✅ [DEBUG] Clinic expenses table created successfully')
+      } else {
+        console.log('✅ [DEBUG] Clinic expenses table already exists')
+      }
+
+      // Create indexes for clinic_expenses if they don't exist
+      this.createClinicExpensesIndexes()
+
     } catch (error) {
       console.error('❌ [DEBUG] Error in ensureClinicNeedsTableExists:', error)
       console.error('❌ [DEBUG] Error stack:', error.stack)
@@ -2900,6 +2938,35 @@ class DatabaseService {
       console.log('✅ Clinic needs indexes created successfully')
     } catch (error) {
       console.error('❌ Error creating clinic needs indexes:', error)
+    }
+  }
+
+  createClinicExpensesIndexes() {
+    try {
+      console.log('🔍 Creating clinic expenses indexes...')
+
+      const indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_clinic_expenses_expense_name ON clinic_expenses(expense_name)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_expenses_expense_type ON clinic_expenses(expense_type)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_expenses_status ON clinic_expenses(status)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_expenses_payment_date ON clinic_expenses(payment_date)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_expenses_due_date ON clinic_expenses(due_date)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_expenses_is_recurring ON clinic_expenses(is_recurring)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_expenses_vendor ON clinic_expenses(vendor)',
+        'CREATE INDEX IF NOT EXISTS idx_clinic_expenses_created_at ON clinic_expenses(created_at)'
+      ]
+
+      indexes.forEach(indexSql => {
+        try {
+          this.db.exec(indexSql)
+        } catch (error) {
+          console.warn('Clinic expenses index creation warning:', error.message)
+        }
+      })
+
+      console.log('✅ Clinic expenses indexes created successfully')
+    } catch (error) {
+      console.error('❌ Error creating clinic expenses indexes:', error)
     }
   }
 
@@ -4829,6 +4896,201 @@ class DatabaseService {
       WHERE ts.id = ?
     `)
     return stmt.get(id)
+  }
+
+  // ==================== CLINIC EXPENSES METHODS ====================
+
+  ensureClinicExpensesTableExists() {
+    try {
+      // Check if clinic_expenses table exists
+      const tableExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='clinic_expenses'
+      `).get()
+
+      if (!tableExists) {
+        console.log('🏗️ Creating clinic_expenses table...')
+        this.db.exec(`
+          CREATE TABLE clinic_expenses (
+            id TEXT PRIMARY KEY,
+            expense_name TEXT NOT NULL,
+            amount DECIMAL(10,2) NOT NULL,
+            expense_type TEXT NOT NULL,
+            category TEXT,
+            description TEXT,
+            payment_method TEXT NOT NULL,
+            payment_date DATETIME NOT NULL,
+            due_date DATETIME,
+            is_recurring BOOLEAN DEFAULT 0,
+            recurring_frequency TEXT,
+            recurring_end_date DATETIME,
+            status TEXT DEFAULT 'pending',
+            receipt_number TEXT,
+            vendor TEXT,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `)
+        this.createClinicExpensesIndexes()
+        console.log('✅ Clinic expenses table created successfully')
+      }
+    } catch (error) {
+      console.error('❌ Error ensuring clinic expenses table exists:', error)
+      throw error
+    }
+  }
+
+  async getAllClinicExpenses() {
+    this.ensureConnection()
+    this.ensureClinicExpensesTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM clinic_expenses
+      ORDER BY payment_date DESC, created_at DESC
+    `)
+    return stmt.all()
+  }
+
+  async createClinicExpense(expenseData) {
+    this.ensureConnection()
+    this.ensureClinicExpensesTableExists()
+
+    const id = uuidv4()
+    const now = new Date().toISOString()
+
+    const stmt = this.db.prepare(`
+      INSERT INTO clinic_expenses (
+        id, expense_name, amount, expense_type, category, description,
+        payment_method, payment_date, due_date, is_recurring, recurring_frequency,
+        recurring_end_date, status, receipt_number, vendor, notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      id,
+      expenseData.expense_name,
+      expenseData.amount,
+      expenseData.expense_type,
+      expenseData.category || null,
+      expenseData.description || null,
+      expenseData.payment_method,
+      expenseData.payment_date,
+      expenseData.due_date || null,
+      expenseData.is_recurring ? 1 : 0,
+      expenseData.recurring_frequency || null,
+      expenseData.recurring_end_date || null,
+      expenseData.status || 'pending',
+      expenseData.receipt_number || null,
+      expenseData.vendor || null,
+      expenseData.notes || null,
+      now,
+      now
+    )
+
+    return this.getClinicExpenseById(id)
+  }
+
+  async updateClinicExpense(id, updates) {
+    this.ensureConnection()
+    this.ensureClinicExpensesTableExists()
+
+    const now = new Date().toISOString()
+
+    const allowedColumns = [
+      'expense_name', 'amount', 'expense_type', 'category', 'description',
+      'payment_method', 'payment_date', 'due_date', 'is_recurring',
+      'recurring_frequency', 'recurring_end_date', 'status', 'receipt_number',
+      'vendor', 'notes'
+    ]
+
+    const updateColumns = Object.keys(updates).filter(key => allowedColumns.includes(key))
+
+    if (updateColumns.length === 0) {
+      throw new Error('No valid columns to update')
+    }
+
+    const setClause = updateColumns.map(col => `${col} = ?`).join(', ')
+    const values = updateColumns.map(col => {
+      if (col === 'is_recurring') {
+        return updates[col] ? 1 : 0
+      }
+      return updates[col]
+    })
+
+    const stmt = this.db.prepare(`
+      UPDATE clinic_expenses
+      SET ${setClause}, updated_at = ?
+      WHERE id = ?
+    `)
+
+    stmt.run(...values, now, id)
+    return this.getClinicExpenseById(id)
+  }
+
+  async deleteClinicExpense(id) {
+    this.ensureConnection()
+    this.ensureClinicExpensesTableExists()
+
+    const stmt = this.db.prepare('DELETE FROM clinic_expenses WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  async getClinicExpenseById(id) {
+    this.ensureConnection()
+    this.ensureClinicExpensesTableExists()
+
+    const stmt = this.db.prepare('SELECT * FROM clinic_expenses WHERE id = ?')
+    return stmt.get(id)
+  }
+
+  async searchClinicExpenses(query) {
+    this.ensureConnection()
+    this.ensureClinicExpensesTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM clinic_expenses
+      WHERE expense_name LIKE ? OR description LIKE ? OR vendor LIKE ? OR notes LIKE ?
+      ORDER BY payment_date DESC, created_at DESC
+    `)
+    const searchTerm = `%${query}%`
+    return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm)
+  }
+
+  async getClinicExpensesByType(expenseType) {
+    this.ensureConnection()
+    this.ensureClinicExpensesTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM clinic_expenses
+      WHERE expense_type = ?
+      ORDER BY payment_date DESC, created_at DESC
+    `)
+    return stmt.all(expenseType)
+  }
+
+  async getClinicExpensesByStatus(status) {
+    this.ensureConnection()
+    this.ensureClinicExpensesTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM clinic_expenses
+      WHERE status = ?
+      ORDER BY payment_date DESC, created_at DESC
+    `)
+    return stmt.all(status)
+  }
+
+  async getRecurringExpenses() {
+    this.ensureConnection()
+    this.ensureClinicExpensesTableExists()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM clinic_expenses
+      WHERE is_recurring = 1
+      ORDER BY payment_date DESC, created_at DESC
+    `)
+    return stmt.all()
   }
 }
 

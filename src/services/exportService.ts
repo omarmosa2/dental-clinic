@@ -939,6 +939,9 @@ export class ExportService {
       case 'clinic-needs':
         await this.addClinicNeedsReportToExcel(workbook, data, options)
         break
+      case 'profit-loss':
+        await this.addProfitLossReportToExcel(workbook, data, options)
+        break
       case 'overview':
         await this.addOverviewReportToExcel(workbook, data, options)
         break
@@ -1030,9 +1033,9 @@ export class ExportService {
     const worksheet = workbook.addWorksheet('التقرير المالي')
 
     // Header
-    worksheet.mergeCells('A1:F1')
+    worksheet.mergeCells('A1:H1')
     const headerCell = worksheet.getCell('A1')
-    headerCell.value = 'التقرير المالي - عيادة الأسنان الحديثة'
+    headerCell.value = 'التقرير المالي الشامل - عيادة الأسنان الحديثة'
     headerCell.font = { size: 16, bold: true }
     headerCell.alignment = { horizontal: 'center' }
 
@@ -1049,24 +1052,100 @@ export class ExportService {
     worksheet.getCell('A7').value = 'المدفوعات المتأخرة:'
     worksheet.getCell('B7').value = `${formatCurrency(data.overduePayments || 0)}`
 
-    // Payment methods
-    if (data.paymentMethodStats) {
-      let row = 10
-      worksheet.getCell(`A${row}`).value = 'توزيع طرق الدفع'
-      worksheet.getCell(`A${row}`).font = { bold: true }
-      row += 2
+    // Expenses and Profit/Loss section
+    worksheet.getCell('D4').value = 'إجمالي المصروفات:'
+    worksheet.getCell('E4').value = `${formatCurrency(data.totalExpenses || 0)}`
+    worksheet.getCell('D5').value = 'صافي الربح:'
+    worksheet.getCell('E5').value = `${formatCurrency(data.netProfit || 0)}`
+    worksheet.getCell('D6').value = 'هامش الربح:'
+    worksheet.getCell('E6').value = `${(data.profitMargin || 0).toFixed(2)}%`
+    worksheet.getCell('D7').value = 'حالة الربحية:'
+    worksheet.getCell('E7').value = (data.netProfit || 0) >= 0 ? 'ربح' : 'خسارة'
 
-      worksheet.getCell(row, 1).value = 'طريقة الدفع'
-      worksheet.getCell(row, 2).value = 'المبلغ'
-      worksheet.getCell(row, 3).value = 'عدد المعاملات'
-      worksheet.getRow(row).font = { bold: true }
-      row++
+    // Payment methods
+    let currentRow = 10
+    if (data.paymentMethodStats) {
+      worksheet.getCell(`A${currentRow}`).value = 'توزيع طرق الدفع'
+      worksheet.getCell(`A${currentRow}`).font = { bold: true }
+      currentRow += 2
+
+      worksheet.getCell(currentRow, 1).value = 'طريقة الدفع'
+      worksheet.getCell(currentRow, 2).value = 'المبلغ'
+      worksheet.getCell(currentRow, 3).value = 'عدد المعاملات'
+      worksheet.getRow(currentRow).font = { bold: true }
+      currentRow++
 
       data.paymentMethodStats.forEach((method: any) => {
-        worksheet.getCell(row, 1).value = method.method
-        worksheet.getCell(row, 2).value = `${formatCurrency(method.amount)}`
-        worksheet.getCell(row, 3).value = method.count
-        row++
+        worksheet.getCell(currentRow, 1).value = method.method
+        worksheet.getCell(currentRow, 2).value = `${formatCurrency(method.amount)}`
+        worksheet.getCell(currentRow, 3).value = method.count
+        currentRow++
+      })
+      currentRow += 2
+    }
+
+    // Expenses by type
+    if (data.expensesByType && data.expensesByType.length > 0) {
+      worksheet.getCell(`D${currentRow}`).value = 'توزيع المصروفات حسب النوع'
+      worksheet.getCell(`D${currentRow}`).font = { bold: true }
+      currentRow += 2
+
+      worksheet.getCell(currentRow, 4).value = 'نوع المصروف'
+      worksheet.getCell(currentRow, 5).value = 'المبلغ'
+      worksheet.getCell(currentRow, 6).value = 'النسبة المئوية'
+      worksheet.getRow(currentRow).font = { bold: true }
+      currentRow++
+
+      data.expensesByType.forEach((expense: any) => {
+        worksheet.getCell(currentRow, 4).value = expense.type
+        worksheet.getCell(currentRow, 5).value = `${formatCurrency(expense.amount)}`
+        worksheet.getCell(currentRow, 6).value = `${expense.percentage.toFixed(2)}%`
+        currentRow++
+      })
+      currentRow += 2
+    }
+
+    // Recent expenses details
+    if (data.recentExpenses && data.recentExpenses.length > 0) {
+      worksheet.getCell(`A${currentRow}`).value = 'المصروفات الحديثة (آخر 10 مصروفات)'
+      worksheet.getCell(`A${currentRow}`).font = { bold: true }
+      currentRow += 2
+
+      // Headers for expenses table
+      worksheet.getCell(currentRow, 1).value = 'اسم المصروف'
+      worksheet.getCell(currentRow, 2).value = 'النوع'
+      worksheet.getCell(currentRow, 3).value = 'المبلغ'
+      worksheet.getCell(currentRow, 4).value = 'طريقة الدفع'
+      worksheet.getCell(currentRow, 5).value = 'تاريخ الدفع'
+      worksheet.getCell(currentRow, 6).value = 'المورد'
+      worksheet.getRow(currentRow).font = { bold: true }
+      currentRow++
+
+      data.recentExpenses.slice(0, 10).forEach((expense: any) => {
+        const typeMapping = {
+          'salary': 'رواتب',
+          'utilities': 'مرافق',
+          'rent': 'إيجار',
+          'maintenance': 'صيانة',
+          'supplies': 'مستلزمات',
+          'insurance': 'تأمين',
+          'other': 'أخرى'
+        }
+
+        const methodMapping = {
+          'cash': 'نقداً',
+          'bank_transfer': 'تحويل بنكي',
+          'check': 'شيك',
+          'credit_card': 'بطاقة ائتمان'
+        }
+
+        worksheet.getCell(currentRow, 1).value = expense.expense_name || 'غير محدد'
+        worksheet.getCell(currentRow, 2).value = typeMapping[expense.expense_type] || expense.expense_type || 'غير محدد'
+        worksheet.getCell(currentRow, 3).value = `${formatCurrency(expense.amount || 0)}`
+        worksheet.getCell(currentRow, 4).value = methodMapping[expense.payment_method] || expense.payment_method || 'غير محدد'
+        worksheet.getCell(currentRow, 5).value = expense.payment_date ? new Date(expense.payment_date).toLocaleDateString('ar-SA') : 'غير محدد'
+        worksheet.getCell(currentRow, 6).value = expense.vendor || 'غير محدد'
+        currentRow++
       })
     }
 
@@ -1619,6 +1698,289 @@ export class ExportService {
     }
   }
 
+  /**
+   * إضافة تقرير الأرباح والخسائر الشامل إلى Excel
+   */
+  static async addProfitLossReportToExcel(workbook: ExcelJS.Workbook, data: any, options: ReportExportOptions): Promise<void> {
+    const worksheet = workbook.addWorksheet('تقرير الأرباح والخسائر')
+
+    // Header
+    worksheet.mergeCells('A1:H1')
+    const headerCell = worksheet.getCell('A1')
+    headerCell.value = 'التقرير الشامل للأرباح والخسائر - عيادة الأسنان'
+    headerCell.font = { size: 16, bold: true }
+    headerCell.alignment = { horizontal: 'center' }
+
+    // Summary section
+    worksheet.getCell('A3').value = 'ملخص الأرباح والخسائر'
+    worksheet.getCell('A3').font = { bold: true, size: 14 }
+
+    let currentRow = 5
+
+    // Financial summary
+    if (data.summary) {
+      Object.entries(data.summary).forEach(([key, value]) => {
+        worksheet.getCell(currentRow, 1).value = key
+        worksheet.getCell(currentRow, 2).value = value
+        worksheet.getCell(currentRow, 1).font = { bold: true }
+        currentRow++
+      })
+      currentRow += 2
+    }
+
+    // Revenue breakdown
+    if (data.revenue) {
+      worksheet.getCell(currentRow, 1).value = 'تفاصيل الإيرادات'
+      worksheet.getCell(currentRow, 1).font = { bold: true, size: 12 }
+      currentRow += 2
+
+      worksheet.getCell(currentRow, 1).value = 'المدفوعات المكتملة:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.revenue.completedPayments || 0)
+      currentRow++
+
+      worksheet.getCell(currentRow, 1).value = 'المدفوعات الجزئية:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.revenue.partialPayments || 0)
+      currentRow++
+
+      worksheet.getCell(currentRow, 1).value = 'المبالغ المتبقية:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.revenue.remainingBalances || 0)
+      currentRow++
+
+      worksheet.getCell(currentRow, 1).value = 'إجمالي الإيرادات:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.revenue.totalRevenue || 0)
+      worksheet.getCell(currentRow, 1).font = { bold: true }
+      worksheet.getCell(currentRow, 2).font = { bold: true }
+      currentRow += 3
+    }
+
+    // Expenses breakdown
+    if (data.expenses) {
+      worksheet.getCell(currentRow, 1).value = 'تفاصيل المصروفات'
+      worksheet.getCell(currentRow, 1).font = { bold: true, size: 12 }
+      currentRow += 2
+
+      worksheet.getCell(currentRow, 1).value = 'مدفوعات المخابر:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.expenses.labOrdersTotal || 0)
+      currentRow++
+
+      worksheet.getCell(currentRow, 1).value = 'متبقي المخابر:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.expenses.labOrdersRemaining || 0)
+      currentRow++
+
+      worksheet.getCell(currentRow, 1).value = 'احتياجات العيادة:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.expenses.clinicNeedsTotal || 0)
+      currentRow++
+
+      worksheet.getCell(currentRow, 1).value = 'متبقي الاحتياجات:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.expenses.clinicNeedsRemaining || 0)
+      currentRow++
+
+      worksheet.getCell(currentRow, 1).value = 'قيمة المخزون:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.expenses.inventoryExpenses || 0)
+      currentRow++
+
+      worksheet.getCell(currentRow, 1).value = 'مصروفات العيادة المباشرة:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(data.expenses.clinicExpensesTotal || 0)
+      currentRow++
+
+      const totalExpenses = (data.expenses.labOrdersTotal || 0) +
+                           (data.expenses.labOrdersRemaining || 0) +
+                           (data.expenses.clinicNeedsTotal || 0) +
+                           (data.expenses.clinicNeedsRemaining || 0) +
+                           (data.expenses.inventoryExpenses || 0) +
+                           (data.expenses.clinicExpensesTotal || 0)
+
+      worksheet.getCell(currentRow, 1).value = 'إجمالي المصروفات:'
+      worksheet.getCell(currentRow, 2).value = formatCurrency(totalExpenses)
+      worksheet.getCell(currentRow, 1).font = { bold: true }
+      worksheet.getCell(currentRow, 2).font = { bold: true }
+      currentRow += 3
+    }
+
+    // Detailed data sheets
+    if (data.payments && data.payments.length > 0) {
+      this.addPaymentsDetailSheet(workbook, data.payments)
+    }
+
+    if (data.labOrders && data.labOrders.length > 0) {
+      this.addLabOrdersDetailSheet(workbook, data.labOrders)
+    }
+
+    if (data.clinicNeeds && data.clinicNeeds.length > 0) {
+      this.addClinicNeedsDetailSheet(workbook, data.clinicNeeds)
+    }
+
+    if (data.inventoryItems && data.inventoryItems.length > 0) {
+      this.addInventoryDetailSheet(workbook, data.inventoryItems)
+    }
+
+    if (data.clinicExpenses && data.clinicExpenses.length > 0) {
+      this.addClinicExpensesDetailSheet(workbook, data.clinicExpenses)
+    }
+
+    // Auto-fit columns
+    worksheet.columns.forEach(column => {
+      column.width = 25
+    })
+  }
+
+  // Helper methods for detailed sheets
+  private static addPaymentsDetailSheet(workbook: ExcelJS.Workbook, payments: any[]): void {
+    const worksheet = workbook.addWorksheet('تفاصيل المدفوعات')
+
+    // Headers
+    const headers = ['رقم المريض', 'اسم المريض', 'المبلغ', 'الحالة', 'طريقة الدفع', 'تاريخ الدفع', 'ملاحظات']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(1, index + 1)
+      cell.value = header
+      cell.font = { bold: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }
+    })
+
+    // Data
+    payments.forEach((payment, index) => {
+      const row = index + 2
+      worksheet.getCell(row, 1).value = payment.patient_id || ''
+      worksheet.getCell(row, 2).value = payment.patient_name || ''
+      worksheet.getCell(row, 3).value = formatCurrency(payment.amount || 0)
+      worksheet.getCell(row, 4).value = payment.status === 'completed' ? 'مكتمل' :
+                                       payment.status === 'partial' ? 'جزئي' : 'معلق'
+      worksheet.getCell(row, 5).value = payment.payment_method || ''
+      worksheet.getCell(row, 6).value = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('ar-SA') : ''
+      worksheet.getCell(row, 7).value = payment.notes || ''
+    })
+
+    worksheet.columns.forEach(column => {
+      column.width = 15
+    })
+  }
+
+  private static addLabOrdersDetailSheet(workbook: ExcelJS.Workbook, labOrders: any[]): void {
+    const worksheet = workbook.addWorksheet('تفاصيل طلبات المخابر')
+
+    // Headers
+    const headers = ['رقم الطلب', 'اسم المختبر', 'اسم المريض', 'التكلفة', 'المدفوع', 'المتبقي', 'الحالة', 'تاريخ الطلب']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(1, index + 1)
+      cell.value = header
+      cell.font = { bold: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }
+    })
+
+    // Data
+    labOrders.forEach((order, index) => {
+      const row = index + 2
+      worksheet.getCell(row, 1).value = order.id || ''
+      worksheet.getCell(row, 2).value = order.lab?.name || ''
+      worksheet.getCell(row, 3).value = order.patient?.full_name || ''
+      worksheet.getCell(row, 4).value = formatCurrency(order.cost || 0)
+      worksheet.getCell(row, 5).value = formatCurrency(order.paid_amount || 0)
+      worksheet.getCell(row, 6).value = formatCurrency((order.cost || 0) - (order.paid_amount || 0))
+      worksheet.getCell(row, 7).value = order.status === 'completed' ? 'مكتمل' :
+                                       order.status === 'pending' ? 'معلق' : 'ملغي'
+      worksheet.getCell(row, 8).value = order.order_date ? new Date(order.order_date).toLocaleDateString('ar-SA') : ''
+    })
+
+    worksheet.columns.forEach(column => {
+      column.width = 15
+    })
+  }
+
+  private static addClinicNeedsDetailSheet(workbook: ExcelJS.Workbook, clinicNeeds: any[]): void {
+    const worksheet = workbook.addWorksheet('تفاصيل احتياجات العيادة')
+
+    // Headers
+    const headers = ['اسم العنصر', 'الكمية', 'الأولوية', 'الحالة', 'التاريخ المطلوب', 'التاريخ المستلم', 'ملاحظات']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(1, index + 1)
+      cell.value = header
+      cell.font = { bold: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }
+    })
+
+    // Data
+    clinicNeeds.forEach((need, index) => {
+      const row = index + 2
+      worksheet.getCell(row, 1).value = need.item_name || ''
+      worksheet.getCell(row, 2).value = need.quantity || 0
+      worksheet.getCell(row, 3).value = need.priority === 'urgent' ? 'عاجل' :
+                                       need.priority === 'high' ? 'عالي' : 'عادي'
+      worksheet.getCell(row, 4).value = need.status === 'received' ? 'مستلم' :
+                                       need.status === 'ordered' ? 'مطلوب' : 'معلق'
+      worksheet.getCell(row, 5).value = need.date_needed ? new Date(need.date_needed).toLocaleDateString('ar-SA') : ''
+      worksheet.getCell(row, 6).value = need.date_received ? new Date(need.date_received).toLocaleDateString('ar-SA') : ''
+      worksheet.getCell(row, 7).value = need.notes || ''
+    })
+
+    worksheet.columns.forEach(column => {
+      column.width = 15
+    })
+  }
+
+  private static addInventoryDetailSheet(workbook: ExcelJS.Workbook, inventoryItems: any[]): void {
+    const worksheet = workbook.addWorksheet('تفاصيل المخزون')
+
+    // Headers
+    const headers = ['اسم العنصر', 'الكمية', 'سعر الوحدة', 'القيمة الإجمالية', 'الحد الأدنى', 'تاريخ الانتهاء', 'الفئة']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(1, index + 1)
+      cell.value = header
+      cell.font = { bold: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }
+    })
+
+    // Data
+    inventoryItems.forEach((item, index) => {
+      const row = index + 2
+      const costPerUnit = parseFloat(String(item.cost_per_unit || 0)) || 0
+      const unitPrice = parseFloat(String(item.unit_price || 0)) || 0
+      const cost = costPerUnit || unitPrice
+      const quantity = parseFloat(String(item.quantity || 0)) || 0
+      const totalValue = quantity * cost
+
+      worksheet.getCell(row, 1).value = item.name || ''
+      worksheet.getCell(row, 2).value = quantity
+      worksheet.getCell(row, 3).value = formatCurrency(cost)
+      worksheet.getCell(row, 4).value = formatCurrency(totalValue)
+      worksheet.getCell(row, 5).value = item.minimum_stock || 0
+      worksheet.getCell(row, 6).value = item.expiry_date ? new Date(item.expiry_date).toLocaleDateString('ar-SA') : ''
+      worksheet.getCell(row, 7).value = item.category || ''
+    })
+
+    worksheet.columns.forEach(column => {
+      column.width = 15
+    })
+  }
+
+  private static addClinicExpensesDetailSheet(workbook: ExcelJS.Workbook, clinicExpenses: any[]): void {
+    const worksheet = workbook.addWorksheet('تفاصيل مصروفات العيادة')
+
+    // Headers
+    const headers = ['اسم المصروف', 'النوع', 'المبلغ', 'طريقة الدفع', 'تاريخ الدفع', 'المورد', 'ملاحظات']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(1, index + 1)
+      cell.value = header
+      cell.font = { bold: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }
+    })
+
+    // Data
+    clinicExpenses.forEach((expense, index) => {
+      const row = index + 2
+      worksheet.getCell(row, 1).value = expense.expense_name || ''
+      worksheet.getCell(row, 2).value = expense.expense_type || ''
+      worksheet.getCell(row, 3).value = formatCurrency(expense.amount || 0)
+      worksheet.getCell(row, 4).value = expense.payment_method || ''
+      worksheet.getCell(row, 5).value = expense.payment_date ? new Date(expense.payment_date).toLocaleDateString('ar-SA') : ''
+      worksheet.getCell(row, 6).value = expense.vendor || ''
+      worksheet.getCell(row, 7).value = expense.notes || ''
+    })
+
+    worksheet.columns.forEach(column => {
+      column.width = 15
+    })
+  }
+
   // CSV Export Functions
   static async exportToCSV(type: string, data: any, options: ReportExportOptions): Promise<string> {
     let csvContent = '\uFEFF' // BOM for Arabic support
@@ -1635,6 +1997,9 @@ export class ExportService {
         break
       case 'inventory':
         csvContent += this.generateInventoryCSV(data, options)
+        break
+      case 'profit-loss':
+        csvContent += this.generateProfitLossCSV(data, options)
         break
       case 'overview':
         csvContent += this.generateOverviewCSV(data, options)
@@ -1902,7 +2267,7 @@ export class ExportService {
   }
 
   static generateFinancialCSV(data: FinancialReportData, options: ReportExportOptions): string {
-    let csv = 'التقرير المالي - عيادة الأسنان الحديثة\n\n'
+    let csv = 'التقرير المالي الشامل - عيادة الأسنان الحديثة\n\n'
 
     // Add current date and time
     const currentDate = new Date()
@@ -1927,6 +2292,10 @@ export class ExportService {
     csv += `المدفوعات المكتملة,${formatCurrency(data.completedPayments || 0)}\n`
     csv += `المدفوعات المعلقة,${formatCurrency(data.pendingPayments || 0)}\n`
     csv += `المدفوعات المتأخرة,${formatCurrency(data.overduePayments || 0)}\n`
+    csv += `إجمالي المصروفات,${formatCurrency(data.totalExpenses || 0)}\n`
+    csv += `صافي الربح,${formatCurrency(data.netProfit || 0)}\n`
+    csv += `هامش الربح,${(data.profitMargin || 0).toFixed(2)}%\n`
+    csv += `حالة الربحية,${(data.netProfit || 0) >= 0 ? 'ربح' : 'خسارة'}\n`
 
     // إضافة المبالغ المتبقية من الدفعات الجزئية إذا كانت متوفرة
     if ((data as any).payments && Array.isArray((data as any).payments)) {
@@ -1994,6 +2363,54 @@ export class ExportService {
         const notes = payment.notes || ''
 
         csv += `"${receiptNumber}","${paymentDate}","${patientName}","${description}","${totalAmount}","${amountPaid}","${remainingBalance}","${paymentMethod}","${status}","${notes}"\n`
+      })
+      csv += '\n'
+    }
+
+    // Add expenses by type
+    if (data.expensesByType && data.expensesByType.length > 0) {
+      csv += 'توزيع المصروفات حسب النوع\n'
+      csv += 'نوع المصروف,المبلغ,النسبة المئوية\n'
+
+      data.expensesByType.forEach((expense: any) => {
+        csv += `"${expense.type}","${formatCurrency(expense.amount)}","${expense.percentage.toFixed(2)}%"\n`
+      })
+      csv += '\n'
+    }
+
+    // Add recent expenses details
+    if (data.recentExpenses && data.recentExpenses.length > 0) {
+      csv += 'المصروفات الحديثة (آخر 10 مصروفات)\n'
+      csv += 'اسم المصروف,النوع,المبلغ,طريقة الدفع,تاريخ الدفع,المورد,رقم الإيصال,ملاحظات\n'
+
+      const typeMapping = {
+        'salary': 'رواتب',
+        'utilities': 'مرافق',
+        'rent': 'إيجار',
+        'maintenance': 'صيانة',
+        'supplies': 'مستلزمات',
+        'insurance': 'تأمين',
+        'other': 'أخرى'
+      }
+
+      const methodMapping = {
+        'cash': 'نقداً',
+        'bank_transfer': 'تحويل بنكي',
+        'check': 'شيك',
+        'credit_card': 'بطاقة ائتمان'
+      }
+
+      data.recentExpenses.slice(0, 10).forEach((expense: any) => {
+        const expenseName = expense.expense_name || 'غير محدد'
+        const expenseType = typeMapping[expense.expense_type] || expense.expense_type || 'غير محدد'
+        const amount = formatCurrency(expense.amount || 0)
+        const paymentMethod = methodMapping[expense.payment_method] || expense.payment_method || 'غير محدد'
+        const paymentDate = expense.payment_date ? formatDate(expense.payment_date) : 'غير محدد'
+        const vendor = expense.vendor || 'غير محدد'
+        const receiptNumber = expense.receipt_number || 'غير محدد'
+        const notes = expense.notes || ''
+
+        csv += `"${expenseName}","${expenseType}","${amount}","${paymentMethod}","${paymentDate}","${vendor}","${receiptNumber}","${notes}"\n`
       })
       csv += '\n'
     }
@@ -2944,5 +3361,193 @@ export class ExportService {
     }
 
     await this.exportToExcel('inventory', inventoryData, options)
+  }
+
+  /**
+   * تصدير تقرير الأرباح والخسائر الشامل إلى Excel
+   */
+  static async exportProfitLossToExcel(data: {
+    reportData: any
+    payments: any[]
+    labOrders: any[]
+    clinicNeeds: any[]
+    inventoryItems: any[]
+    clinicExpenses: any[]
+    patients: any[]
+    appointments: any[]
+    filter: any
+    currency: string
+  }): Promise<void> {
+    const { reportData, payments, labOrders, clinicNeeds, inventoryItems, clinicExpenses, patients, appointments, filter, currency } = data
+
+    // إنشاء بيانات التقرير الشامل
+    const profitLossData = {
+      summary: {
+        'إجمالي الإيرادات': formatCurrency(reportData.revenue.totalRevenue),
+        'إجمالي المصروفات': formatCurrency(reportData.calculations.totalExpenses),
+        'صافي الربح/الخسارة': formatCurrency(reportData.calculations.isProfit ? reportData.calculations.netProfit : -reportData.calculations.lossAmount),
+        'نسبة الربح': `${reportData.calculations.profitMargin.toFixed(2)}%`,
+        'حالة المالية': reportData.calculations.isProfit ? 'ربح' : 'خسارة',
+        'إجمالي المرضى': reportData.details.totalPatients,
+        'إجمالي المواعيد': reportData.details.totalAppointments,
+        'متوسط الإيرادات لكل مريض': formatCurrency(reportData.details.averageRevenuePerPatient),
+        'متوسط الإيرادات لكل موعد': formatCurrency(reportData.details.averageRevenuePerAppointment),
+        'الفترة الزمنية': reportData.filterInfo.dateRange,
+        'تاريخ التقرير': formatDate(new Date())
+      },
+      // تفاصيل الإيرادات
+      revenue: {
+        completedPayments: reportData.revenue.completedPayments,
+        partialPayments: reportData.revenue.partialPayments,
+        remainingBalances: reportData.revenue.remainingBalances,
+        totalRevenue: reportData.revenue.totalRevenue
+      },
+      // تفاصيل المصروفات
+      expenses: {
+        labOrdersTotal: reportData.expenses.labOrdersTotal,
+        labOrdersRemaining: reportData.expenses.labOrdersRemaining,
+        clinicNeedsTotal: reportData.expenses.clinicNeedsTotal,
+        clinicNeedsRemaining: reportData.expenses.clinicNeedsRemaining,
+        inventoryExpenses: reportData.expenses.inventoryExpenses,
+        clinicExpensesTotal: reportData.expenses.clinicExpensesTotal || 0
+      },
+      // البيانات التفصيلية
+      payments: payments,
+      labOrders: labOrders,
+      clinicNeeds: clinicNeeds,
+      inventoryItems: inventoryItems,
+      clinicExpenses: clinicExpenses || [],
+      patients: patients,
+      appointments: appointments,
+      filterInfo: `تقرير الأرباح والخسائر - ${reportData.filterInfo.dateRange} - ${payments.length} دفعة، ${labOrders.length} طلب مختبر، ${clinicNeeds.length} احتياج، ${inventoryItems.length} عنصر مخزون، ${(clinicExpenses || []).length} مصروف`,
+      dataCount: payments.length + labOrders.length + clinicNeeds.length + inventoryItems.length + (clinicExpenses || []).length
+    }
+
+    const options: ReportExportOptions = {
+      format: 'excel',
+      includeCharts: false,
+      includeDetails: true,
+      language: 'ar'
+    }
+
+    await this.exportToExcel('profit-loss', profitLossData, options)
+  }
+
+  /**
+   * توليد CSV لتقرير الأرباح والخسائر
+   */
+  static generateProfitLossCSV(data: any, options: ReportExportOptions): string {
+    let csv = ''
+
+    // عنوان التقرير
+    csv += 'التقرير الشامل للأرباح والخسائر\n'
+    csv += `تاريخ التقرير,${formatDate(new Date())}\n`
+    csv += `وقت التقرير,${new Date().toLocaleTimeString('ar-SA')}\n\n`
+
+    // ملخص الأرباح والخسائر
+    if (data.summary) {
+      csv += 'ملخص الأرباح والخسائر\n'
+      Object.entries(data.summary).forEach(([key, value]) => {
+        csv += `${key},${value}\n`
+      })
+      csv += '\n'
+    }
+
+    // تفاصيل الإيرادات
+    if (data.revenue) {
+      csv += 'تفاصيل الإيرادات\n'
+      csv += `المدفوعات المكتملة,${formatCurrency(data.revenue.completedPayments || 0)}\n`
+      csv += `المدفوعات الجزئية,${formatCurrency(data.revenue.partialPayments || 0)}\n`
+      csv += `المبالغ المتبقية,${formatCurrency(data.revenue.remainingBalances || 0)}\n`
+      csv += `إجمالي الإيرادات,${formatCurrency(data.revenue.totalRevenue || 0)}\n\n`
+    }
+
+    // تفاصيل المصروفات
+    if (data.expenses) {
+      csv += 'تفاصيل المصروفات\n'
+      csv += `مدفوعات المخابر,${formatCurrency(data.expenses.labOrdersTotal || 0)}\n`
+      csv += `متبقي المخابر,${formatCurrency(data.expenses.labOrdersRemaining || 0)}\n`
+      csv += `احتياجات العيادة,${formatCurrency(data.expenses.clinicNeedsTotal || 0)}\n`
+      csv += `متبقي الاحتياجات,${formatCurrency(data.expenses.clinicNeedsRemaining || 0)}\n`
+      csv += `قيمة المخزون,${formatCurrency(data.expenses.inventoryExpenses || 0)}\n`
+      csv += `مصروفات العيادة المباشرة,${formatCurrency(data.expenses.clinicExpensesTotal || 0)}\n\n`
+    }
+
+    // تفاصيل المدفوعات
+    if (data.payments && data.payments.length > 0) {
+      csv += 'تفاصيل المدفوعات\n'
+      csv += 'رقم المريض,اسم المريض,المبلغ,الحالة,طريقة الدفع,تاريخ الدفع,ملاحظات\n'
+      data.payments.forEach((payment: any) => {
+        const status = payment.status === 'completed' ? 'مكتمل' :
+                      payment.status === 'partial' ? 'جزئي' : 'معلق'
+        const paymentDate = payment.payment_date ? formatDate(payment.payment_date) : ''
+        csv += `${payment.patient_id || ''},${payment.patient_name || ''},${formatCurrency(payment.amount || 0)},${status},${payment.payment_method || ''},${paymentDate},"${payment.notes || ''}"\n`
+      })
+      csv += '\n'
+    }
+
+    // تفاصيل طلبات المخابر
+    if (data.labOrders && data.labOrders.length > 0) {
+      csv += 'تفاصيل طلبات المخابر\n'
+      csv += 'رقم الطلب,اسم المختبر,اسم المريض,التكلفة,المدفوع,المتبقي,الحالة,تاريخ الطلب\n'
+      data.labOrders.forEach((order: any) => {
+        const status = order.status === 'completed' ? 'مكتمل' :
+                      order.status === 'pending' ? 'معلق' : 'ملغي'
+        const orderDate = order.order_date ? formatDate(order.order_date) : ''
+        const remaining = (order.cost || 0) - (order.paid_amount || 0)
+        csv += `${order.id || ''},${order.lab?.name || ''},${order.patient?.full_name || ''},${formatCurrency(order.cost || 0)},${formatCurrency(order.paid_amount || 0)},${formatCurrency(remaining)},${status},${orderDate}\n`
+      })
+      csv += '\n'
+    }
+
+    // تفاصيل احتياجات العيادة
+    if (data.clinicNeeds && data.clinicNeeds.length > 0) {
+      csv += 'تفاصيل احتياجات العيادة\n'
+      csv += 'اسم العنصر,الكمية,الأولوية,الحالة,التاريخ المطلوب,التاريخ المستلم,ملاحظات\n'
+      data.clinicNeeds.forEach((need: any) => {
+        const priority = need.priority === 'urgent' ? 'عاجل' :
+                        need.priority === 'high' ? 'عالي' : 'عادي'
+        const status = need.status === 'received' ? 'مستلم' :
+                      need.status === 'ordered' ? 'مطلوب' : 'معلق'
+        const dateNeeded = need.date_needed ? formatDate(need.date_needed) : ''
+        const dateReceived = need.date_received ? formatDate(need.date_received) : ''
+        csv += `${need.item_name || ''},${need.quantity || 0},${priority},${status},${dateNeeded},${dateReceived},"${need.notes || ''}"\n`
+      })
+      csv += '\n'
+    }
+
+    // تفاصيل المخزون
+    if (data.inventoryItems && data.inventoryItems.length > 0) {
+      csv += 'تفاصيل المخزون\n'
+      csv += 'اسم العنصر,الكمية,سعر الوحدة,القيمة الإجمالية,الحد الأدنى,تاريخ الانتهاء,الفئة\n'
+      data.inventoryItems.forEach((item: any) => {
+        const costPerUnit = parseFloat(String(item.cost_per_unit || 0)) || 0
+        const unitPrice = parseFloat(String(item.unit_price || 0)) || 0
+        const cost = costPerUnit || unitPrice
+        const quantity = parseFloat(String(item.quantity || 0)) || 0
+        const totalValue = quantity * cost
+        const expiryDate = item.expiry_date ? formatDate(item.expiry_date) : ''
+        csv += `${item.name || ''},${quantity},${formatCurrency(cost)},${formatCurrency(totalValue)},${item.minimum_stock || 0},${expiryDate},${item.category || ''}\n`
+      })
+      csv += '\n'
+    }
+
+    // تفاصيل مصروفات العيادة
+    if (data.clinicExpenses && data.clinicExpenses.length > 0) {
+      csv += 'تفاصيل مصروفات العيادة\n'
+      csv += 'اسم المصروف,النوع,المبلغ,طريقة الدفع,تاريخ الدفع,المورد,ملاحظات\n'
+      data.clinicExpenses.forEach((expense: any) => {
+        const paymentDate = expense.payment_date ? formatDate(expense.payment_date) : ''
+        csv += `${expense.expense_name || ''},${expense.expense_type || ''},${formatCurrency(expense.amount || 0)},${expense.payment_method || ''},${paymentDate},${expense.vendor || ''},"${expense.notes || ''}"\n`
+      })
+      csv += '\n'
+    }
+
+    // معلومات التقرير
+    csv += 'معلومات التقرير\n'
+    csv += `${data.filterInfo || ''}\n`
+    csv += `إجمالي السجلات,${data.dataCount || 0}\n`
+
+    return csv
   }
 }

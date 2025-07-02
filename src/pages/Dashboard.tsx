@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { usePatientStore } from '@/store/patientStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
 import { usePaymentStore } from '@/store/paymentStore'
+import { useExpensesStore } from '@/store/expensesStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useStableClinicName } from '@/hooks/useStableSettings'
 import { useInventoryStore } from '@/store/inventoryStore'
@@ -25,11 +26,13 @@ import {
   Calendar,
   DollarSign,
   TrendingUp,
+  TrendingDown,
   Clock,
   AlertTriangle,
   Plus,
   Eye,
-  Package
+  Package,
+  Minus
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 
@@ -41,6 +44,9 @@ interface DashboardStats {
   todayAppointments: number
   thisMonthRevenue: number
   lowStockItems: number
+  totalExpenses: number
+  netProfit: number
+  profitMargin: number
 }
 
 interface DashboardProps {
@@ -52,6 +58,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
   const { patients, loadPatients } = usePatientStore()
   const { appointments, getAppointmentsForDate, loadAppointments } = useAppointmentStore()
   const { payments, totalRevenue, pendingAmount, monthlyRevenue, loadPayments } = usePaymentStore()
+  const { expenses, analytics: expensesAnalytics, loadExpenses } = useExpensesStore()
   const { settings, currency } = useSettingsStore()
   const { formatAmount } = useCurrency()
   const clinicName = useStableClinicName()
@@ -94,7 +101,10 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
     pendingPayments: 0,
     todayAppointments: 0,
     thisMonthRevenue: 0,
-    lowStockItems: 0
+    lowStockItems: 0,
+    totalExpenses: 0,
+    netProfit: 0,
+    profitMargin: 0
   })
 
   useEffect(() => {
@@ -105,6 +115,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
           loadPatients(),
           loadAppointments(),
           loadPayments(),
+          loadExpenses(),
           loadInventoryItems()
         ])
       } catch (error) {
@@ -113,7 +124,7 @@ export default function Dashboard({ onAddPatient, onAddAppointment }: DashboardP
     }
 
     loadAllData()
-  }, [loadPatients, loadAppointments, loadPayments, loadInventoryItems])
+  }, [loadPatients, loadAppointments, loadPayments, loadExpenses, loadInventoryItems])
 
 
 

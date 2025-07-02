@@ -654,8 +654,9 @@ ipcMain.handle('reports:generateFinancialReport', async (_, filter) => {
   try {
     const payments = await databaseService.getAllPayments()
     const treatments = await databaseService.getAllTreatments()
+    const expenses = await databaseService.getAllClinicExpenses()
 
-    return await reportsService.generateFinancialReport(payments, treatments, filter)
+    return await reportsService.generateFinancialReport(payments, treatments, filter, expenses)
   } catch (error) {
     console.error('Error generating financial report:', error)
     throw error
@@ -728,10 +729,11 @@ ipcMain.handle('reports:generateOverviewReport', async (_, filter) => {
     const treatments = await databaseService.getAllTreatments()
     const inventory = await databaseService.getAllInventoryItems()
 
+    const expenses = await databaseService.getAllClinicExpenses()
     const [patientReport, appointmentReport, financialReport, inventoryReport] = await Promise.all([
       reportsService.generatePatientReport(patients, appointments, filter),
       reportsService.generateAppointmentReport(appointments, treatments, filter),
-      reportsService.generateFinancialReport(payments, treatments, filter),
+      reportsService.generateFinancialReport(payments, treatments, filter, expenses),
       reportsService.generateInventoryReport(inventory, [], filter)
     ])
 
@@ -793,10 +795,11 @@ ipcMain.handle('reports:exportReport', async (_, type, filter, options) => {
           databaseService.getAllInventoryItems()
         ])
 
+        const expenses = await databaseService.getAllClinicExpenses()
         reportData = {
           patients: await reportsService.generatePatientReport(patients, appointments, filter),
           appointments: await reportsService.generateAppointmentReport(appointments, treatments, filter),
-          financial: await reportsService.generateFinancialReport(payments, treatments, filter),
+          financial: await reportsService.generateFinancialReport(payments, treatments, filter, expenses),
           inventory: await reportsService.generateInventoryReport(inventory, [], filter)
         }
         break

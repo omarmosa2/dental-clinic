@@ -162,6 +162,17 @@ declare global {
         getByPriority: (priority: string) => Promise<any[]>
         getStatistics: () => Promise<any>
       }
+      clinicExpenses: {
+        getAll: () => Promise<any[]>
+        create: (expense: any) => Promise<any>
+        update: (id: string, expense: any) => Promise<any>
+        delete: (id: string) => Promise<boolean>
+        search: (query: string) => Promise<any[]>
+        getByType: (expenseType: string) => Promise<any[]>
+        getByStatus: (status: string) => Promise<any[]>
+        getRecurring: () => Promise<any[]>
+        getStatistics: () => Promise<any>
+      }
     }
   }
 }

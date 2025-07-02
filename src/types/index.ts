@@ -378,6 +378,28 @@ export interface ClinicNeed {
   updated_at: string
 }
 
+// Clinic Expense interface for operational expenses
+export interface ClinicExpense {
+  id: string
+  expense_name: string
+  amount: number
+  expense_type: 'salary' | 'utilities' | 'rent' | 'maintenance' | 'supplies' | 'insurance' | 'other'
+  category?: string
+  description?: string
+  payment_method: 'cash' | 'bank_transfer' | 'check' | 'credit_card'
+  payment_date: string
+  due_date?: string
+  is_recurring: boolean
+  recurring_frequency?: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+  recurring_end_date?: string
+  status: 'paid' | 'pending' | 'overdue' | 'cancelled'
+  receipt_number?: string
+  vendor?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
 // Pending Payments Comprehensive Invoice Types
 export interface PendingPaymentItem {
   id: string
@@ -513,6 +535,7 @@ export interface DatabaseSchema {
   toothTreatments: ToothTreatment[] // Multiple treatments per tooth
   treatmentSessions: TreatmentSession[] // Treatment sessions
   clinicNeeds: ClinicNeed[]
+  clinicExpenses: ClinicExpense[] // Operational expenses
   // New integrated tables
   patientTreatmentTimeline: PatientTreatmentTimeline[]
   treatmentPlans: TreatmentPlan[]
@@ -562,16 +585,36 @@ export interface AppointmentReportData {
 }
 
 export interface FinancialReportData {
+  // Revenue data
   totalRevenue: number
   totalPaid: number
   totalPending: number
   totalOverdue: number
+
+  // Expenses data - Enhanced
+  totalExpenses: number
+  netProfit: number
+  profitMargin: number
+
+  // Breakdown data
   revenueByPaymentMethod: { method: string; amount: number; percentage: number }[]
   revenueByTreatment: { treatment: string; amount: number; count: number; avgAmount: number }[]
+  expensesByType: { type: string; amount: number; count: number; percentage: number }[]
+
+  // Trend data
   revenueTrend: { period: string; amount: number }[]
-  cashFlow: { period: string; income: number; expenses?: number; net: number }[]
+  expenseTrend: { period: string; amount: number }[]
+  cashFlow: { period: string; income: number; expenses: number; net: number }[]
+
+  // Transaction data
   outstandingPayments: Payment[]
   recentTransactions: Payment[]
+  recentExpenses: ClinicExpense[]
+
+  // Financial health indicators
+  expenseRatio?: number // نسبة المصروفات إلى الإيرادات
+  profitTrend?: 'increasing' | 'decreasing' | 'stable'
+  cashFlowStatus?: 'positive' | 'negative' | 'neutral'
 }
 
 // تقرير شامل متكامل للأرباح والخسائر
@@ -591,6 +634,7 @@ export interface ComprehensiveProfitLossReport {
     clinicNeedsTotal: number // إجمالي المدفوعات للاحتياجات والمخزون
     clinicNeedsRemaining: number // إجمالي المتبقي للاحتياجات
     inventoryExpenses: number // مصروفات المخزون
+    clinicExpensesTotal: number // مصروفات العيادة المباشرة
   }
 
   // الحسابات النهائية

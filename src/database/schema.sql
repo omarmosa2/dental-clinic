@@ -448,6 +448,28 @@ CREATE TABLE IF NOT EXISTS clinic_needs (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Clinic expenses table for operational expenses (salaries, utilities, etc.)
+CREATE TABLE IF NOT EXISTS clinic_expenses (
+    id TEXT PRIMARY KEY,
+    expense_name TEXT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    expense_type TEXT NOT NULL, -- salary, utilities, rent, maintenance, supplies, insurance, other
+    category TEXT,
+    description TEXT,
+    payment_method TEXT NOT NULL, -- cash, bank_transfer, check, credit_card
+    payment_date DATETIME NOT NULL,
+    due_date DATETIME,
+    is_recurring BOOLEAN DEFAULT 0,
+    recurring_frequency TEXT, -- daily, weekly, monthly, quarterly, yearly
+    recurring_end_date DATETIME,
+    status TEXT DEFAULT 'pending', -- paid, pending, overdue, cancelled
+    receipt_number TEXT,
+    vendor TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 
 
 -- Medications indexes for search and performance optimization

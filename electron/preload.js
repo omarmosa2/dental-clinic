@@ -243,6 +243,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStatistics: () => ipcRenderer.invoke('db:clinicNeeds:getStatistics')
   },
 
+  // Clinic Expenses operations
+  clinicExpenses: {
+    getAll: () => ipcRenderer.invoke('db:clinicExpenses:getAll'),
+    create: (expense) => ipcRenderer.invoke('db:clinicExpenses:create', expense),
+    update: (id, expense) => ipcRenderer.invoke('db:clinicExpenses:update', id, expense),
+    delete: (id) => ipcRenderer.invoke('db:clinicExpenses:delete', id),
+    search: (query) => ipcRenderer.invoke('db:clinicExpenses:search', query),
+    getByType: (expenseType) => ipcRenderer.invoke('db:clinicExpenses:getByType', expenseType),
+    getByStatus: (status) => ipcRenderer.invoke('db:clinicExpenses:getByStatus', status),
+    getRecurring: () => ipcRenderer.invoke('db:clinicExpenses:getRecurring'),
+    getStatistics: () => ipcRenderer.invoke('db:clinicExpenses:getStatistics')
+  },
+
   // Reports operations
   reports: {
     generatePatientReport: (filter) => ipcRenderer.invoke('reports:generatePatientReport', filter),

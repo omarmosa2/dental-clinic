@@ -31,6 +31,7 @@ import Labs from './pages/Labs'
 import Medications from './pages/Medications'
 import DentalTreatments from './pages/DentalTreatments'
 import ClinicNeeds from './pages/ClinicNeeds'
+import Expenses from './pages/Expenses'
 import ThemeToggle from './components/ThemeToggle'
 import { AppSidebar } from './components/AppSidebar'
 import { AppSidebarTrigger } from './components/AppSidebarTrigger'
@@ -450,6 +451,8 @@ function AppContent() {
         return <DentalTreatments />;
       case 'clinic-needs':
         return <ClinicNeeds />;
+      case 'expenses':
+        return <Expenses />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':
@@ -479,6 +482,7 @@ function AppContent() {
       medications: 'الأدوية والوصفات',
       'dental-treatments': 'العلاجات السنية',
       'clinic-needs': 'احتياجات العيادة',
+      'expenses': 'مصروفات العيادة',
       reports: 'التقارير',
       settings: 'الإعدادات'
     }

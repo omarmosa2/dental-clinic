@@ -1,12 +1,12 @@
-import type { 
-  Payment, 
-  LabOrder, 
-  ClinicNeed, 
-  InventoryItem, 
-  Patient, 
+import type {
+  Payment,
+  LabOrder,
+  ClinicNeed,
+  InventoryItem,
+  Patient,
   Appointment,
   ComprehensiveProfitLossReport,
-  ReportFilter 
+  ReportFilter
 } from '@/types'
 
 /**
@@ -14,7 +14,7 @@ import type {
  * تربط جميع الجوانب المالية في التطبيق
  */
 export class ComprehensiveProfitLossService {
-  
+
   /**
    * دالة التحقق من صحة المبلغ
    */
@@ -27,8 +27,8 @@ export class ComprehensiveProfitLossService {
    * فلترة البيانات حسب التاريخ
    */
   private static filterByDateRange<T extends { created_at?: string; payment_date?: string; order_date?: string }>(
-    data: T[], 
-    dateRange: { startDate?: string; endDate?: string }, 
+    data: T[],
+    dateRange: { startDate?: string; endDate?: string },
     dateField: keyof T
   ): T[] {
     if (!dateRange.startDate && !dateRange.endDate) {
@@ -45,7 +45,7 @@ export class ComprehensiveProfitLossService {
 
       if (startDate && date < startDate) return false
       if (endDate && date > endDate) return false
-      
+
       return true
     })
   }
@@ -87,9 +87,10 @@ export class ComprehensiveProfitLossService {
    * حساب إحصائيات المصروفات
    */
   private static calculateExpenseStats(
-    labOrders: LabOrder[], 
-    clinicNeeds: ClinicNeed[], 
-    inventoryItems: InventoryItem[]
+    labOrders: LabOrder[],
+    clinicNeeds: ClinicNeed[],
+    inventoryItems: InventoryItem[],
+    expenses?: any[] // مصروفات العيادة المباشرة
   ) {
     // حسابات المخابر
     const labOrdersTotal = this.validateAmount(
@@ -122,12 +123,20 @@ export class ComprehensiveProfitLossService {
       }, 0)
     )
 
+    // حسابات مصروفات العيادة المباشرة
+    const clinicExpensesTotal = expenses ? this.validateAmount(
+      expenses
+        .filter(e => e.status === 'paid')
+        .reduce((sum, e) => sum + this.validateAmount(e.amount), 0)
+    ) : 0
+
     return {
       labOrdersTotal,
       labOrdersRemaining,
       clinicNeedsTotal,
       clinicNeedsRemaining,
-      inventoryExpenses
+      inventoryExpenses,
+      clinicExpensesTotal
     }
   }
 
@@ -135,7 +144,7 @@ export class ComprehensiveProfitLossService {
    * حساب الأرباح والخسائر النهائية
    */
   private static calculateProfitLoss(
-    totalIncome: number, 
+    totalIncome: number,
     totalExpenses: number
   ) {
     const netProfit = totalIncome - totalExpenses
@@ -163,23 +172,24 @@ export class ComprehensiveProfitLossService {
     inventoryItems: InventoryItem[],
     patients: Patient[],
     appointments: Appointment[],
-    filter?: ReportFilter
+    filter?: ReportFilter,
+    expenses?: any[] // مصروفات العيادة المباشرة
   ): ComprehensiveProfitLossReport {
-    
+
     // فلترة البيانات حسب التاريخ إذا كان الفلتر موجود
-    const filteredPayments = filter?.dateRange 
+    const filteredPayments = filter?.dateRange
       ? this.filterByDateRange(payments, filter.dateRange, 'payment_date')
       : payments
 
-    const filteredLabOrders = filter?.dateRange 
+    const filteredLabOrders = filter?.dateRange
       ? this.filterByDateRange(labOrders, filter.dateRange, 'order_date')
       : labOrders
 
-    const filteredClinicNeeds = filter?.dateRange 
+    const filteredClinicNeeds = filter?.dateRange
       ? this.filterByDateRange(clinicNeeds, filter.dateRange, 'created_at')
       : clinicNeeds
 
-    const filteredAppointments = filter?.dateRange 
+    const filteredAppointments = filter?.dateRange
       ? this.filterByDateRange(appointments, filter.dateRange, 'created_at')
       : appointments
 
@@ -187,15 +197,16 @@ export class ComprehensiveProfitLossService {
     const revenue = this.calculateRevenueStats(filteredPayments)
 
     // حساب المصروفات
-    const expenses = this.calculateExpenseStats(
-      filteredLabOrders, 
-      filteredClinicNeeds, 
-      inventoryItems
+    const expenseStats = this.calculateExpenseStats(
+      filteredLabOrders,
+      filteredClinicNeeds,
+      inventoryItems,
+      expenses // تمرير مصروفات العيادة المباشرة
     )
 
     // حساب إجمالي الدخل والمصروفات
     const totalIncome = revenue.totalRevenue
-    const totalExpenses = expenses.labOrdersTotal + expenses.clinicNeedsTotal + expenses.inventoryExpenses
+    const totalExpenses = expenseStats.labOrdersTotal + expenseStats.clinicNeedsTotal + expenseStats.inventoryExpenses + expenseStats.clinicExpensesTotal
 
     // حساب الأرباح والخسائر
     const calculations = this.calculateProfitLoss(totalIncome, totalExpenses)
@@ -212,7 +223,7 @@ export class ComprehensiveProfitLossService {
 
     // معلومات الفلترة
     const filterInfo = {
-      dateRange: filter?.dateRange 
+      dateRange: filter?.dateRange
         ? `${filter.dateRange.startDate || 'البداية'} - ${filter.dateRange.endDate || 'النهاية'}`
         : 'جميع البيانات',
       totalRecords: payments.length + labOrders.length + clinicNeeds.length + appointments.length,
@@ -221,7 +232,7 @@ export class ComprehensiveProfitLossService {
 
     return {
       revenue,
-      expenses,
+      expenses: expenseStats,
       calculations,
       details,
       filterInfo

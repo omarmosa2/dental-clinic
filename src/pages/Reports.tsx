@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { useReportsStore } from '@/store/reportsStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { usePaymentStore } from '@/store/paymentStore'
+import { useExpensesStore } from '@/store/expensesStore'
 import { useAppointmentStore } from '@/store/appointmentStore'
 import { useInventoryStore } from '@/store/inventoryStore'
 import { usePatientStore } from '@/store/patientStore'
@@ -23,6 +24,7 @@ import FinancialReports from '@/components/reports/FinancialReports'
 import TreatmentReports from '@/components/reports/TreatmentReports'
 import ClinicNeedsReports from '@/components/reports/ClinicNeedsReports'
 import ComprehensiveProfitLossReport from '@/components/reports/ComprehensiveProfitLossReport'
+import FinancialIntegrationTest from '@/components/test/FinancialIntegrationTest'
 import CurrencyDisplay from '@/components/ui/currency-display'
 import { ComprehensiveExportService, TIME_PERIODS, TimePeriod } from '@/services/comprehensiveExportService'
 import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
@@ -67,6 +69,7 @@ import { notify } from '@/services/notificationService'
 export default function Reports() {
   const { currency } = useSettingsStore()
   const { totalRevenue, pendingAmount, overdueAmount, payments } = usePaymentStore()
+  const { expenses } = useExpensesStore()
   const { appointments } = useAppointmentStore()
   const { items: inventoryItems } = useInventoryStore()
   const { patients } = usePatientStore()
@@ -310,6 +313,7 @@ export default function Reports() {
       console.log('🔄 Loading fresh data for comprehensive export...')
       const { loadAppointments } = useAppointmentStore.getState()
       const { loadPayments } = usePaymentStore.getState()
+      const { loadExpenses } = useExpensesStore.getState()
       const { loadItems } = useInventoryStore.getState()
       const { loadPatients } = usePatientStore.getState()
       const { loadNeeds } = useClinicNeedsStore.getState()
@@ -320,6 +324,7 @@ export default function Reports() {
       await Promise.all([
         loadAppointments(),
         loadPayments(),
+        loadExpenses(),
         loadItems(),
         loadPatients(),
         loadNeeds(),
@@ -338,6 +343,7 @@ export default function Reports() {
         prescriptions: prescriptions || [],
         labOrders: labOrders || [],
         clinicNeeds: clinicNeeds || [],
+        expenses: expenses || [], // إضافة المصروفات
         timePeriod: selectedPeriod,
         customStartDate: selectedPeriod === 'custom' ? customStartDate : undefined,
         customEndDate: selectedPeriod === 'custom' ? customEndDate : undefined
@@ -477,7 +483,7 @@ export default function Reports() {
 
       {/* Reports Tabs */}
       <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview" className="flex items-center space-x-2 space-x-reverse">
             <Calculator className="w-4 h-4" />
             <span>التقرير الشامل المفصل</span>
@@ -505,6 +511,10 @@ export default function Reports() {
           <TabsTrigger value="clinicNeeds" className="flex items-center space-x-2 space-x-reverse">
             <ClipboardList className="w-4 h-4" />
             <span>احتياجات العيادة</span>
+          </TabsTrigger>
+          <TabsTrigger value="profitLoss" className="flex items-center space-x-2 space-x-reverse">
+            <TrendingUp className="w-4 h-4" />
+            <span>الأرباح والخسائر</span>
           </TabsTrigger>
         </TabsList>
 
@@ -801,6 +811,13 @@ export default function Reports() {
 
         <TabsContent value="clinicNeeds" dir="rtl">
           <ClinicNeedsReports />
+        </TabsContent>
+
+        <TabsContent value="profitLoss" dir="rtl">
+          <div className="space-y-6">
+            <ComprehensiveProfitLossReport />
+            <FinancialIntegrationTest />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -1190,4 +1190,375 @@ export class EnhancedPdfReports {
       </html>
     `
   }
+
+  /**
+   * إنشاء تقرير PDF محسن للأرباح والخسائر
+   */
+  static createEnhancedProfitLossReportHTML(data: {
+    reportData: any
+    payments: any[]
+    labOrders: any[]
+    clinicNeeds: any[]
+    inventoryItems: any[]
+    clinicExpenses: any[]
+    patients: any[]
+    appointments: any[]
+    filter: any
+    currency: string
+  }, settings?: ClinicSettings | null): string {
+    const { reportData, payments, labOrders, clinicNeeds, inventoryItems, clinicExpenses, patients, appointments, filter, currency } = data
+    const header = PdfService.getEnhancedHeader('التقرير الشامل للأرباح والخسائر', settings, 'تحليل مالي شامل يربط جميع جوانب العيادة')
+    const styles = PdfService.getEnhancedStyles()
+
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat('ar-SA', {
+        style: 'currency',
+        currency: currency || 'SAR',
+        minimumFractionDigits: 2
+      }).format(amount || 0)
+    }
+
+    const formatDate = (dateString: string) => {
+      try {
+        const date = new Date(dateString)
+        if (isNaN(date.getTime())) return 'غير محدد'
+        return date.toLocaleDateString('ar-SA')
+      } catch {
+        return 'غير محدد'
+      }
+    }
+
+    return `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>تقرير الأرباح والخسائر - ${settings?.clinic_name || 'عيادة الأسنان'}</title>
+        ${styles}
+        <style>
+          .profit-loss-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+          }
+          .profit-card {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+          }
+          .loss-card {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+          }
+          .financial-breakdown {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+          }
+          .revenue-section, .expenses-section {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+          }
+          .revenue-section h3 {
+            color: #059669;
+            border-bottom: 2px solid #10b981;
+            padding-bottom: 10px;
+          }
+          .expenses-section h3 {
+            color: #dc2626;
+            border-bottom: 2px solid #ef4444;
+            padding-bottom: 10px;
+          }
+          .breakdown-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          .breakdown-item:last-child {
+            border-bottom: none;
+            font-weight: bold;
+            background: #f1f5f9;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 5px;
+          }
+          .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 12px;
+          }
+          .details-table th,
+          .details-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+            text-align: right;
+          }
+          .details-table th {
+            background: #f1f5f9;
+            font-weight: bold;
+          }
+          .details-table tr:nth-child(even) {
+            background: #f8fafc;
+          }
+          .statistics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+          }
+          .stat-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+          }
+          .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e40af;
+          }
+          .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 5px;
+          }
+        </style>
+      </head>
+      <body>
+        ${header}
+
+        <!-- النتيجة النهائية -->
+        <div class="profit-loss-summary">
+          <div class="${reportData.calculations.isProfit ? 'profit-card' : 'loss-card'}">
+            <h2>${reportData.calculations.isProfit ? '🎉 ربح' : '⚠️ خسارة'}</h2>
+            <div class="number" style="font-size: 28px; margin: 10px 0;">
+              ${formatCurrency(reportData.calculations.isProfit ? reportData.calculations.netProfit : reportData.calculations.lossAmount)}
+            </div>
+            <p>نسبة الربح: ${reportData.calculations.profitMargin.toFixed(2)}%</p>
+          </div>
+          <div class="summary-card info">
+            <h3>معلومات التقرير</h3>
+            <p><strong>الفترة الزمنية:</strong> ${reportData.filterInfo.dateRange}</p>
+            <p><strong>إجمالي السجلات:</strong> ${reportData.filterInfo.totalRecords}</p>
+            <p><strong>السجلات المفلترة:</strong> ${reportData.filterInfo.filteredRecords}</p>
+            <p><strong>تاريخ التقرير:</strong> ${formatDate(new Date().toISOString())}</p>
+          </div>
+        </div>
+
+        <!-- تفصيل الإيرادات والمصروفات -->
+        <div class="financial-breakdown">
+          <div class="revenue-section">
+            <h3>📈 تفاصيل الإيرادات</h3>
+            <div class="breakdown-item">
+              <span>المدفوعات المكتملة:</span>
+              <span>${formatCurrency(reportData.revenue.completedPayments)}</span>
+            </div>
+            <div class="breakdown-item">
+              <span>المدفوعات الجزئية:</span>
+              <span>${formatCurrency(reportData.revenue.partialPayments)}</span>
+            </div>
+            <div class="breakdown-item">
+              <span>المبالغ المتبقية:</span>
+              <span>${formatCurrency(reportData.revenue.remainingBalances)}</span>
+            </div>
+            <div class="breakdown-item">
+              <span>إجمالي الإيرادات:</span>
+              <span>${formatCurrency(reportData.revenue.totalRevenue)}</span>
+            </div>
+          </div>
+
+          <div class="expenses-section">
+            <h3>📉 تفاصيل المصروفات</h3>
+            <div class="breakdown-item">
+              <span>مدفوعات المخابر:</span>
+              <span>${formatCurrency(reportData.expenses.labOrdersTotal)}</span>
+            </div>
+            <div class="breakdown-item">
+              <span>متبقي المخابر:</span>
+              <span>${formatCurrency(reportData.expenses.labOrdersRemaining)}</span>
+            </div>
+            <div class="breakdown-item">
+              <span>احتياجات العيادة:</span>
+              <span>${formatCurrency(reportData.expenses.clinicNeedsTotal)}</span>
+            </div>
+            <div class="breakdown-item">
+              <span>متبقي الاحتياجات:</span>
+              <span>${formatCurrency(reportData.expenses.clinicNeedsRemaining)}</span>
+            </div>
+            <div class="breakdown-item">
+              <span>قيمة المخزون:</span>
+              <span>${formatCurrency(reportData.expenses.inventoryExpenses)}</span>
+            </div>
+            <div class="breakdown-item">
+              <span>مصروفات العيادة المباشرة:</span>
+              <span>${formatCurrency(reportData.expenses.clinicExpensesTotal || 0)}</span>
+            </div>
+            <div class="breakdown-item">
+              <span>إجمالي المصروفات:</span>
+              <span>${formatCurrency(reportData.calculations.totalExpenses)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- إحصائيات إضافية -->
+        <div class="statistics-grid">
+          <div class="stat-card">
+            <div class="stat-number">${reportData.details.totalPatients}</div>
+            <div class="stat-label">إجمالي المرضى</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">${reportData.details.totalAppointments}</div>
+            <div class="stat-label">إجمالي المواعيد</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">${reportData.details.totalLabOrders}</div>
+            <div class="stat-label">طلبات المخابر</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">${reportData.details.totalClinicNeeds}</div>
+            <div class="stat-label">احتياجات العيادة</div>
+          </div>
+        </div>
+
+        <!-- متوسطات الإيرادات -->
+        <div class="section">
+          <h3>📊 متوسطات الإيرادات</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="summary-card">
+              <h4>متوسط الإيرادات لكل مريض</h4>
+              <div class="number">${formatCurrency(reportData.details.averageRevenuePerPatient)}</div>
+            </div>
+            <div class="summary-card">
+              <h4>متوسط الإيرادات لكل موعد</h4>
+              <div class="number">${formatCurrency(reportData.details.averageRevenuePerAppointment)}</div>
+            </div>
+          </div>
+        </div>
+
+        ${payments && payments.length > 0 ? `
+        <!-- تفاصيل المدفوعات -->
+        <div class="section">
+          <h3>💰 تفاصيل المدفوعات (أحدث 20 دفعة)</h3>
+          <table class="details-table">
+            <thead>
+              <tr>
+                <th>رقم المريض</th>
+                <th>اسم المريض</th>
+                <th>المبلغ</th>
+                <th>الحالة</th>
+                <th>طريقة الدفع</th>
+                <th>تاريخ الدفع</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payments.slice(0, 20).map(payment => `
+                <tr>
+                  <td>${payment.patient_id || ''}</td>
+                  <td>${payment.patient_name || ''}</td>
+                  <td>${formatCurrency(payment.amount || 0)}</td>
+                  <td>${payment.status === 'completed' ? 'مكتمل' : payment.status === 'partial' ? 'جزئي' : 'معلق'}</td>
+                  <td>${payment.payment_method || ''}</td>
+                  <td>${payment.payment_date ? formatDate(payment.payment_date) : ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        ${labOrders && labOrders.length > 0 ? `
+        <!-- تفاصيل طلبات المخابر -->
+        <div class="section">
+          <h3>🔬 تفاصيل طلبات المخابر (أحدث 15 طلب)</h3>
+          <table class="details-table">
+            <thead>
+              <tr>
+                <th>رقم الطلب</th>
+                <th>اسم المختبر</th>
+                <th>اسم المريض</th>
+                <th>التكلفة</th>
+                <th>المدفوع</th>
+                <th>المتبقي</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${labOrders.slice(0, 15).map(order => `
+                <tr>
+                  <td>${order.id || ''}</td>
+                  <td>${order.lab?.name || ''}</td>
+                  <td>${order.patient?.full_name || ''}</td>
+                  <td>${formatCurrency(order.cost || 0)}</td>
+                  <td>${formatCurrency(order.paid_amount || 0)}</td>
+                  <td>${formatCurrency((order.cost || 0) - (order.paid_amount || 0))}</td>
+                  <td>${order.status === 'completed' ? 'مكتمل' : order.status === 'pending' ? 'معلق' : 'ملغي'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        ${clinicExpenses && clinicExpenses.length > 0 ? `
+        <!-- تفاصيل مصروفات العيادة -->
+        <div class="section">
+          <h3>💸 تفاصيل مصروفات العيادة (أحدث 15 مصروف)</h3>
+          <table class="details-table">
+            <thead>
+              <tr>
+                <th>اسم المصروف</th>
+                <th>النوع</th>
+                <th>المبلغ</th>
+                <th>طريقة الدفع</th>
+                <th>تاريخ الدفع</th>
+                <th>المورد</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${clinicExpenses.slice(0, 15).map(expense => `
+                <tr>
+                  <td>${expense.expense_name || ''}</td>
+                  <td>${expense.expense_type || ''}</td>
+                  <td>${formatCurrency(expense.amount || 0)}</td>
+                  <td>${expense.payment_method || ''}</td>
+                  <td>${expense.payment_date ? formatDate(expense.payment_date) : ''}</td>
+                  <td>${expense.vendor || ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <!-- Footer -->
+        <div class="footer">
+          <div class="footer-content">
+            <div class="footer-left">
+              <p class="report-date">تاريخ التقرير: ${formatDate(new Date().toISOString())}</p>
+              <p class="report-time">وقت التقرير: ${new Date().toLocaleTimeString('ar-SA')}</p>
+            </div>
+            <div class="footer-right">
+              <p class="clinic-name">${settings?.clinic_name || 'عيادة الأسنان الحديثة'}</p>
+              ${settings?.clinic_address ? `<p class="clinic-address">${settings.clinic_address}</p>` : ''}
+              ${settings?.clinic_phone ? `<p class="clinic-phone">📞 ${settings.clinic_phone}</p>` : ''}
+            </div>
+          </div>
+        </div>
+
+      </body>
+      </html>
+    `
+  }
 }

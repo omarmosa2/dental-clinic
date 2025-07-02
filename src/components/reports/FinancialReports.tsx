@@ -8,14 +8,17 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useReportsStore } from '@/store/reportsStore'
 import { usePaymentStore } from '@/store/paymentStore'
+import { useExpensesStore } from '@/store/expensesStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useInventoryStore } from '@/store/inventoryStore'
 import { useLabOrderStore } from '@/store/labOrderStore'
 import { useClinicNeedsStore } from '@/store/clinicNeedsStore'
 import { useRealTimeReportsByType } from '@/hooks/useRealTimeReports'
+import { useCurrency } from '@/contexts/CurrencyContext'
 import { formatCurrency, formatDate, getChartColors, getChartConfig, getChartColorsWithFallback, formatChartValue, parseAndFormatGregorianMonth } from '@/lib/utils'
 import { validateNumericData, processFinancialData, groupDataByPeriod, ensurePaymentStatusData, ensurePaymentMethodData } from '@/lib/chartDataHelpers'
 import { validatePayments, validateMonthlyRevenue, validatePaymentMethodStats, sanitizeFinancialResult } from '@/utils/dataValidation'
+import { FinancialValidator, validateFinancialAccuracy } from '@/utils/financialValidation'
 import { getCardStyles, getIconStyles } from '@/lib/cardStyles'
 import { useTheme } from '@/contexts/ThemeContext'
 import CurrencyDisplay from '@/components/ui/currency-display'
@@ -26,6 +29,8 @@ import { notify } from '@/services/notificationService'
 import TimeFilter, { TimeFilterOptions } from '@/components/ui/time-filter'
 import useTimeFilteredStats from '@/hooks/useTimeFilteredStats'
 import PaymentDebug from '../debug/PaymentDebug'
+import FinancialAccuracyVerification from './FinancialAccuracyVerification'
+import FinancialSystemStatus from './FinancialSystemStatus'
 import {
   DollarSign,
   TrendingUp,
@@ -37,7 +42,11 @@ import {
   RefreshCw,
   BarChart3,
   PieChart,
-  Receipt
+  Receipt,
+  Minus,
+  Plus,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react'
 import {
   BarChart,
@@ -57,16 +66,16 @@ import {
 } from 'recharts'
 
 /**
- * إنشاء تقرير مالي شامل CSV مع جميع الأمور المالية
+ * إنشاء تقرير مالي شامل CSV مع جميع الأمور المالية والمصروفات
  */
-async function generateComprehensiveFinancialCSV(payments: any[], timeFilter: any): Promise<string> {
+async function generateComprehensiveFinancialCSV(payments: any[], timeFilter: any, expenses?: any[]): Promise<string> {
   const validateAmount = (amount: any): number => {
     const num = Number(amount)
     return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
   }
 
-  // حساب الإحصائيات المالية الشاملة
-  const financialStats = ComprehensiveExportService.calculateFinancialStats(payments)
+  // حساب الإحصائيات المالية الشاملة مع المصروفات
+  const financialStats = ComprehensiveExportService.calculateFinancialStats(payments, [], [], [], expenses)
 
   let csv = '\uFEFF' // UTF-8 BOM for proper Arabic display
   csv += 'التقرير المالي الشامل\n'
@@ -92,7 +101,11 @@ async function generateComprehensiveFinancialCSV(payments: any[], timeFilter: an
   csv += `المدفوعات المكتملة,${formatCurrency(financialStats.completedPayments)}\n`
   csv += `المدفوعات الجزئية,${formatCurrency(financialStats.partialPayments)}\n`
   csv += `المبالغ المتبقية,${formatCurrency(financialStats.remainingBalances)}\n`
-  csv += `المبالغ المعلقة,${formatCurrency(financialStats.pendingAmount)}\n\n`
+  csv += `المبالغ المعلقة,${formatCurrency(financialStats.pendingAmount)}\n`
+  csv += `إجمالي المصروفات,${formatCurrency(financialStats.totalExpenses || 0)}\n`
+  csv += `صافي الربح,${formatCurrency(financialStats.netProfit || 0)}\n`
+  csv += `هامش الربح,${(financialStats.profitMargin || 0).toFixed(2)}%\n`
+  csv += `حالة الربحية,${(financialStats.netProfit || 0) >= 0 ? 'ربح' : 'خسارة'}\n\n`
 
   // === تحليل الأرباح والخسائر ===
   csv += 'تحليل الأرباح والخسائر\n'
@@ -150,6 +163,63 @@ async function generateComprehensiveFinancialCSV(payments: any[], timeFilter: an
   })
   csv += '\n'
 
+  // === توزيع المصروفات حسب النوع ===
+  if (financialStats.expensesByType && financialStats.expensesByType.length > 0) {
+    csv += 'توزيع المصروفات حسب النوع\n'
+    csv += '==========================\n'
+    csv += 'نوع المصروف,المبلغ,النسبة المئوية\n'
+
+    financialStats.expensesByType.forEach(expense => {
+      csv += `"${expense.type}",${formatCurrency(expense.amount)},${expense.percentage.toFixed(2)}%\n`
+    })
+    csv += '\n'
+  }
+
+  // === تفاصيل المصروفات الحديثة ===
+  if (expenses && expenses.length > 0) {
+    const recentExpenses = expenses
+      .filter(e => e.status === 'paid')
+      .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+      .slice(0, 20) // آخر 20 مصروف
+
+    if (recentExpenses.length > 0) {
+      csv += 'المصروفات الحديثة (آخر 20 مصروف)\n'
+      csv += '===================================\n'
+      csv += 'اسم المصروف,النوع,المبلغ,طريقة الدفع,تاريخ الدفع,المورد,رقم الإيصال,ملاحظات\n'
+
+      const typeMapping = {
+        'salary': 'رواتب',
+        'utilities': 'مرافق',
+        'rent': 'إيجار',
+        'maintenance': 'صيانة',
+        'supplies': 'مستلزمات',
+        'insurance': 'تأمين',
+        'other': 'أخرى'
+      }
+
+      const methodMapping = {
+        'cash': 'نقداً',
+        'bank_transfer': 'تحويل بنكي',
+        'check': 'شيك',
+        'credit_card': 'بطاقة ائتمان'
+      }
+
+      recentExpenses.forEach(expense => {
+        const expenseName = (expense.expense_name || 'غير محدد').replace(/,/g, '؛')
+        const expenseType = typeMapping[expense.expense_type] || expense.expense_type || 'غير محدد'
+        const amount = formatCurrency(expense.amount || 0)
+        const paymentMethod = methodMapping[expense.payment_method] || expense.payment_method || 'غير محدد'
+        const paymentDate = expense.payment_date ? formatDate(expense.payment_date) : 'غير محدد'
+        const vendor = (expense.vendor || 'غير محدد').replace(/,/g, '؛')
+        const receiptNumber = expense.receipt_number || 'غير محدد'
+        const notes = (expense.notes || '').replace(/,/g, '؛')
+
+        csv += `"${expenseName}","${expenseType}",${amount},"${paymentMethod}",${paymentDate},"${vendor}","${receiptNumber}","${notes}"\n`
+      })
+      csv += '\n'
+    }
+  }
+
   // === تفاصيل المدفوعات الفردية ===
   if (payments.length <= 100) { // عرض التفاصيل فقط إذا كان العدد معقول
     csv += 'تفاصيل المدفوعات الفردية\n'
@@ -184,16 +254,56 @@ async function generateComprehensiveFinancialCSV(payments: any[], timeFilter: an
 }
 
 /**
- * إنشاء بيانات التقرير المالي الشامل للـ PDF
+ * إنشاء بيانات التقرير المالي الشامل للـ PDF مع المصروفات
  */
-async function generateComprehensiveFinancialData(payments: any[], timeFilter: any, labOrders?: any[], clinicNeeds?: any[], inventoryItems?: any[]): Promise<any> {
+async function generateComprehensiveFinancialData(payments: any[], timeFilter: any, labOrders?: any[], clinicNeeds?: any[], inventoryItems?: any[], expenses?: any[]): Promise<any> {
   const validateAmount = (amount: any): number => {
     const num = Number(amount)
     return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
   }
 
   // حساب الإحصائيات المالية الشاملة مع جميع المصادر
-  const financialStats = ComprehensiveExportService.calculateFinancialStats(payments, labOrders, clinicNeeds, inventoryItems)
+  const financialStats = ComprehensiveExportService.calculateFinancialStats(payments, labOrders, clinicNeeds, inventoryItems, expenses)
+
+  // حساب مصروفات العيادة المباشرة
+  const clinicExpensesTotal = expenses ? expenses
+    .filter(e => e.status === 'paid')
+    .reduce((sum, e) => sum + validateAmount(e.amount), 0) : 0
+
+  // حساب إحصائيات المصروفات حسب النوع
+  const expensesByType = expenses ? (() => {
+    const expenseTypeMapping = {
+      'salary': 'رواتب',
+      'utilities': 'مرافق',
+      'rent': 'إيجار',
+      'maintenance': 'صيانة',
+      'supplies': 'مستلزمات',
+      'insurance': 'تأمين',
+      'other': 'أخرى'
+    }
+
+    const typeStats = {}
+    expenses
+      .filter(e => e.status === 'paid')
+      .forEach(expense => {
+        const type = expense.expense_type || 'other'
+        const amount = validateAmount(expense.amount)
+        typeStats[type] = (typeStats[type] || 0) + amount
+      })
+
+    return Object.entries(typeStats).map(([type, amount]) => ({
+      type: expenseTypeMapping[type] || type,
+      amount: validateAmount(amount),
+      percentage: clinicExpensesTotal > 0 ? (validateAmount(amount) / clinicExpensesTotal) * 100 : 0
+    }))
+  })() : []
+
+  // إجمالي المصروفات (مصروفات العيادة + المصروفات الأخرى)
+  const totalExpensesIncludingClinic = (financialStats.totalExpenses || 0) + clinicExpensesTotal
+
+  // إعادة حساب الربح والخسارة مع مصروفات العيادة
+  const netProfitWithClinicExpenses = financialStats.totalRevenue - totalExpensesIncludingClinic
+  const profitMarginWithClinicExpenses = financialStats.totalRevenue > 0 ? (netProfitWithClinicExpenses / financialStats.totalRevenue) * 100 : 0
 
   // حساب إحصائيات طرق الدفع - استخدام نفس المنطق المتسق
   const paymentMethodStats = {}
@@ -223,12 +333,12 @@ async function generateComprehensiveFinancialData(payments: any[], timeFilter: a
     pendingPayments: payments.filter(p => p.status === 'pending').length,
     failedPayments: payments.filter(p => p.status === 'failed').length,
 
-    // الأرباح والخسائر
-    netProfit: financialStats.netProfit || 0,
-    lossAmount: financialStats.lossAmount || 0,
-    profitMargin: financialStats.profitMargin || 0,
-    isProfit: financialStats.isProfit,
-    totalExpenses: financialStats.totalExpenses || 0,
+    // الأرباح والخسائر (محدثة مع مصروفات العيادة)
+    netProfit: netProfitWithClinicExpenses,
+    lossAmount: netProfitWithClinicExpenses < 0 ? Math.abs(netProfitWithClinicExpenses) : 0,
+    profitMargin: profitMarginWithClinicExpenses,
+    isProfit: netProfitWithClinicExpenses >= 0,
+    totalExpenses: totalExpensesIncludingClinic,
 
     // تفصيل المصروفات
     labOrdersTotal: financialStats.labOrdersTotal || 0,
@@ -236,6 +346,8 @@ async function generateComprehensiveFinancialData(payments: any[], timeFilter: a
     clinicNeedsTotal: financialStats.clinicNeedsTotal || 0,
     clinicNeedsRemaining: financialStats.clinicNeedsRemaining || 0,
     inventoryExpenses: financialStats.inventoryExpenses || 0,
+    clinicExpensesTotal: clinicExpensesTotal,
+    expensesByType: expensesByType,
 
     // طرق الدفع
     revenueByPaymentMethod: Object.entries(paymentMethodStats).map(([method, amount]) => ({
@@ -269,7 +381,24 @@ async function generateComprehensiveFinancialData(payments: any[], timeFilter: a
       payment_date: payment.payment_date,
       description: payment.description,
       notes: payment.notes
-    }))
+    })),
+
+    // تفاصيل المصروفات
+    expenses: expenses ? expenses
+      .filter(e => e.status === 'paid')
+      .map(expense => ({
+        id: expense.id,
+        expense_name: expense.expense_name,
+        amount: expense.amount,
+        expense_type: expense.expense_type,
+        category: expense.category,
+        payment_method: expense.payment_method,
+        payment_date: expense.payment_date,
+        description: expense.description,
+        vendor: expense.vendor,
+        receipt_number: expense.receipt_number,
+        notes: expense.notes
+      })) : []
   }
 }
 
@@ -284,10 +413,12 @@ export default function FinancialReports() {
     monthlyRevenue,
     loadPayments
   } = usePaymentStore()
+  const { expenses, analytics: expensesAnalytics, loadExpenses } = useExpensesStore()
   const { inventoryItems, loadItems } = useInventoryStore()
   const { labOrders, loadLabOrders } = useLabOrderStore()
   const { clinicNeeds, loadNeeds } = useClinicNeedsStore()
-  const { currency, settings } = useSettingsStore()
+  const { currentCurrency, formatAmount } = useCurrency()
+  const { settings } = useSettingsStore()
   const { isDarkMode } = useTheme()
 
   // Time filtering for payments
@@ -297,26 +428,63 @@ export default function FinancialReports() {
     initialFilter: { preset: 'all', startDate: '', endDate: '' } // Show all data by default
   })
 
+  // Time filtering for expenses to match payment filter
+  const expenseStats = useTimeFilteredStats({
+    data: expenses,
+    dateField: 'payment_date',
+    initialFilter: paymentStats.timeFilter // Use same filter as payments
+  })
+
   // Use real-time reports hook for automatic updates
   useRealTimeReportsByType('financial')
 
   useEffect(() => {
     generateReport('financial')
     loadPayments()
+    loadExpenses()
     loadItems()
     loadLabOrders()
     loadNeeds()
-  }, [generateReport, loadPayments, loadItems, loadLabOrders, loadNeeds])
+  }, [generateReport, loadPayments, loadExpenses, loadItems, loadLabOrders, loadNeeds])
+
+  // التحقق من صحة البيانات المالية عند تحميل البيانات
+  useEffect(() => {
+    // التأكد من وجود البيانات قبل التحقق
+    const safePayments = Array.isArray(payments) ? payments : []
+    const safeExpenses = Array.isArray(expenses) ? expenses : []
+    const safeInventoryItems = Array.isArray(inventoryItems) ? inventoryItems : []
+
+    if (safePayments.length > 0 || safeExpenses.length > 0 || safeInventoryItems.length > 0) {
+      try {
+        const isValid = validateFinancialAccuracy({
+          payments: safePayments,
+          expenses: safeExpenses,
+          inventory: safeInventoryItems
+        })
+
+        if (!isValid) {
+          console.warn('⚠️ Financial data validation issues detected. Please check the data integrity.')
+        }
+      } catch (error) {
+        console.error('Error validating financial data:', error)
+      }
+    }
+  }, [payments, expenses, inventoryItems])
 
   // Validate payments data on load
   useEffect(() => {
-    if (payments.length > 0) {
-      const validation = validatePayments(payments)
-      if (validation.totalErrors > 0) {
-        console.warn(`Found ${validation.totalErrors} errors in ${validation.invalidPayments.length} payments`)
-      }
-      if (validation.totalWarnings > 0) {
-        console.warn(`Found ${validation.totalWarnings} warnings in payment data`)
+    const safePayments = Array.isArray(payments) ? payments : []
+    if (safePayments.length > 0) {
+      try {
+        const validation = validatePayments(safePayments)
+        if (validation.totalErrors > 0) {
+          console.warn(`Found ${validation.totalErrors} errors in ${validation.invalidPayments.length} payments`)
+        }
+        if (validation.totalWarnings > 0) {
+          console.warn(`Found ${validation.totalWarnings} warnings in payment data`)
+        }
+      } catch (error) {
+        console.error('Error validating payments:', error)
       }
     }
   }, [payments])
@@ -327,14 +495,18 @@ export default function FinancialReports() {
   // Always use filtered data for accurate statistics
   const getReportData = () => {
     // Use filtered data from paymentStats for accurate calculations
-    const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
+    const safePaymentStats = paymentStats || { filteredData: [], timeFilter: { preset: 'all' } }
+    const safePayments = Array.isArray(payments) ? payments : []
+    const dataToUse = Array.isArray(safePaymentStats.filteredData) && safePaymentStats.filteredData.length > 0
+      ? safePaymentStats.filteredData
+      : safePayments
 
     // Validate payments first
     const validation = validatePayments(dataToUse)
     const validPayments = validation.validPayments
 
-    if (financialReports && paymentStats.timeFilter.preset === 'all' &&
-        (!paymentStats.timeFilter.startDate || !paymentStats.timeFilter.endDate)) {
+    if (financialReports && safePaymentStats.timeFilter.preset === 'all' &&
+        (!safePaymentStats.timeFilter.startDate || !safePaymentStats.timeFilter.endDate)) {
       // Only use reports service data when no filter is applied
       return {
         totalRevenue: sanitizeFinancialResult(financialReports.totalRevenue),
@@ -400,6 +572,194 @@ export default function FinancialReports() {
     averageTransaction: reportData.averageTransaction || '0.00'
   }
 
+  // Calculate expenses data with time filtering
+  const validateAmount = (amount) => {
+    const num = Number(amount)
+    return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+  }
+
+  // Use filtered expenses that match the payment time filter
+  const safeExpenseStats = expenseStats || { filteredData: [] }
+  const safeExpenses = Array.isArray(expenses) ? expenses : []
+  const filteredExpenses = Array.isArray(safeExpenseStats.filteredData) && safeExpenseStats.filteredData.length > 0
+    ? safeExpenseStats.filteredData
+    : safeExpenses
+
+  // التحقق من صحة المصروفات باستخدام النظام الجديد
+  const expenseValidation = FinancialValidator.validateExpenses(filteredExpenses)
+  const directExpenses = expenseValidation.calculations.totalExpenses
+
+  // حساب جميع أنواع المصروفات (مخزون + احتياجات عيادة + طلبات مختبر + مصروفات مباشرة)
+  // مع ضمان دقة 100% في الحسابات
+  const inventoryExpenses = validateAmount(
+    inventoryItems.reduce((sum, item) => {
+      const cost = validateAmount(item.cost_per_unit || 0)
+      const quantity = validateAmount(item.quantity || 0)
+      return sum + (cost * quantity)
+    }, 0)
+  )
+
+  const clinicNeedsExpenses = validateAmount(
+    clinicNeeds
+      .filter(need => need.status === 'received' || need.status === 'ordered')
+      .reduce((sum, need) => sum + (validateAmount(need.quantity) * validateAmount(need.price)), 0)
+  )
+
+  const labOrdersExpenses = validateAmount(
+    labOrders.reduce((sum, order) => sum + validateAmount(order.paid_amount || 0), 0)
+  )
+
+  // إجمالي المصروفات من جميع المصادر (هذا هو المبلغ الصحيح للخسائر)
+  const totalExpenses = directExpenses + inventoryExpenses + clinicNeedsExpenses + labOrdersExpenses
+
+  // التحقق من دقة الحسابات المالية مع تسجيل مفصل
+  console.log('💰 Financial System Verification:', {
+    revenue: {
+      totalRevenue: reportData.totalRevenue,
+      completedPayments: (paymentStats?.financialStats?.completedPayments || 0),
+      partialPayments: (paymentStats?.financialStats?.partialPayments || 0),
+      pendingAmount: pendingAmount,
+      overdueAmount: overdueAmount
+    },
+    expenses: {
+      directExpenses: directExpenses,
+      inventoryExpenses: inventoryExpenses,
+      clinicNeedsExpenses: clinicNeedsExpenses,
+      labOrdersExpenses: labOrdersExpenses,
+      totalExpenses: totalExpenses
+    },
+    calculations: {
+      netProfit: reportData.totalRevenue - totalExpenses,
+      profitMargin: reportData.totalRevenue > 0 ? ((reportData.totalRevenue - totalExpenses) / reportData.totalRevenue) * 100 : 0
+    },
+    dataIntegrity: {
+      paymentsCount: payments.length,
+      expensesCount: expenses.length,
+      inventoryItemsCount: inventoryItems.length,
+      clinicNeedsCount: clinicNeeds.length,
+      labOrdersCount: labOrders.length
+    }
+  })
+
+  // عرض تحذيرات إذا كانت هناك مشاكل في البيانات
+  if (!expenseValidation.isValid && filteredExpenses.length > 0) {
+    console.warn('⚠️ Expense validation errors:', expenseValidation.errors)
+  }
+
+  // حساب الأرباح والخسائر مع التحقق من الدقة (الإيرادات - جميع المصروفات)
+  const netProfit = FinancialValidator.validateAmount(reportData.totalRevenue - totalExpenses).value
+  const profitMargin = reportData.totalRevenue > 0 ? (netProfit / reportData.totalRevenue) * 100 : 0
+
+  // التحقق الشامل من دقة البيانات المالية
+  const comprehensiveValidation = FinancialValidator.validateAllFinancialData({
+    payments: payments,
+    expenses: filteredExpenses,
+    inventory: inventoryItems,
+    labOrders: labOrders,
+    clinicNeeds: clinicNeeds
+  })
+
+  // عرض تحذيرات إذا كانت هناك مشاكل في التحقق الشامل
+  if (!comprehensiveValidation.isValid) {
+    console.error('❌ Comprehensive Financial Validation Failed:', comprehensiveValidation.errors)
+  }
+
+  if (comprehensiveValidation.warnings.length > 0) {
+    console.warn('⚠️ Financial Validation Warnings:', comprehensiveValidation.warnings)
+  }
+
+  // التحقق من تطابق الحسابات مع النظام الشامل
+  const systemCalculations = ComprehensiveExportService.calculateFinancialStats(
+    payments, labOrders, clinicNeeds, inventoryItems, filteredExpenses
+  )
+
+  // مقارنة النتائج للتأكد من الدقة
+  const calculationComparison = {
+    revenueMatch: Math.abs(reportData.totalRevenue - systemCalculations.totalRevenue) < 0.01,
+    expensesMatch: Math.abs(totalExpenses - systemCalculations.totalExpenses) < 0.01,
+    profitMatch: Math.abs(netProfit - systemCalculations.netProfit) < 0.01
+  }
+
+  if (!calculationComparison.revenueMatch || !calculationComparison.expensesMatch || !calculationComparison.profitMatch) {
+    console.warn('⚠️ Financial Calculation Mismatch Detected:', {
+      local: { revenue: reportData.totalRevenue, expenses: totalExpenses, profit: netProfit },
+      system: { revenue: systemCalculations.totalRevenue, expenses: systemCalculations.totalExpenses, profit: systemCalculations.netProfit },
+      comparison: calculationComparison
+    })
+  } else {
+    console.log('✅ Financial Calculations Verified - 100% Accuracy Confirmed')
+  }
+
+  // Update expense stats to match payment filter
+  useEffect(() => {
+    const safePaymentStats = paymentStats || { timeFilter: { preset: 'all' } }
+    const safeExpenseStats = expenseStats || { timeFilter: { preset: 'all' }, handleFilterChange: () => {} }
+
+    if (safePaymentStats.timeFilter !== safeExpenseStats.timeFilter && safeExpenseStats.handleFilterChange) {
+      safeExpenseStats.handleFilterChange(safePaymentStats.timeFilter)
+    }
+  }, [paymentStats?.timeFilter, expenseStats?.timeFilter])
+
+  // Real-time synchronization for financial data changes
+  useEffect(() => {
+    const handleFinancialDataChange = (event: CustomEvent) => {
+      console.log('🔄 Financial data changed:', event.detail)
+      // Reload all financial data to ensure synchronization
+      loadPayments()
+      loadExpenses()
+      loadItems()
+      loadLabOrders()
+      loadNeeds()
+    }
+
+    // Listen for various financial data change events
+    const events = [
+      'payments-changed',
+      'clinic-expenses-changed',
+      'inventory-changed',
+      'lab-orders-changed',
+      'clinic-needs-changed'
+    ]
+
+    events.forEach(eventName => {
+      window.addEventListener(eventName, handleFinancialDataChange as EventListener)
+    })
+
+    return () => {
+      events.forEach(eventName => {
+        window.removeEventListener(eventName, handleFinancialDataChange as EventListener)
+      })
+    }
+  }, [loadPayments, loadExpenses, loadItems, loadLabOrders, loadNeeds])
+
+  // Expenses by type for chart using filtered data
+  const expensesByType = (() => {
+    const expenseTypeMapping = {
+      'salary': 'رواتب',
+      'utilities': 'مرافق',
+      'rent': 'إيجار',
+      'maintenance': 'صيانة',
+      'supplies': 'مستلزمات',
+      'insurance': 'تأمين',
+      'other': 'أخرى'
+    }
+
+    const typeStats = {}
+    filteredExpenses
+      .filter(e => e.status === 'paid')
+      .forEach(expense => {
+        const type = expense.expense_type || 'other'
+        const amount = validateAmount(expense.amount)
+        typeStats[type] = (typeStats[type] || 0) + amount
+      })
+
+    return Object.entries(typeStats).map(([type, amount]) => ({
+      name: expenseTypeMapping[type] || type,
+      value: amount,
+      percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0
+    }))
+  })()
+
   // Get professional chart colors
   const categoricalColors = getChartColors('categorical', isDarkMode)
   const primaryColors = getChartColors('primary', isDarkMode)
@@ -453,7 +813,7 @@ export default function FinancialReports() {
         .map(([method, amount]) => ({
           method: methodMapping[method] || method,
           amount: validateAmount(amount),
-          formattedAmount: formatCurrency(amount, currency),
+          formattedAmount: formatCurrency(amount, currentCurrency),
           count: dataToUse.filter(p =>
             p.payment_method === method &&
             (p.status === 'completed' || p.status === 'partial')
@@ -557,7 +917,7 @@ export default function FinancialReports() {
           return {
             month: monthName,
             revenue: validateAmount(revenue),
-            formattedRevenue: formatCurrency(validateAmount(revenue), currency),
+            formattedRevenue: formatCurrency(validateAmount(revenue), currentCurrency),
             originalMonth: month // Keep original for sorting
           }
         })
@@ -686,8 +1046,8 @@ export default function FinancialReports() {
                   return
                 }
 
-                // إنشاء تقرير مالي شامل مع جميع الأمور المالية
-                const csvContent = await generateComprehensiveFinancialCSV(dataToExport, paymentStats.timeFilter)
+                // إنشاء تقرير مالي شامل مع جميع الأمور المالية والمصروفات المفلترة
+                const csvContent = await generateComprehensiveFinancialCSV(dataToExport, paymentStats.timeFilter, filteredExpenses)
 
                 // تحويل إلى Excel مباشرة
                 await ExportService.convertCSVToExcel(csvContent, 'comprehensive-financial', {
@@ -721,13 +1081,14 @@ export default function FinancialReports() {
                   return
                 }
 
-                // إنشاء تقرير مالي شامل مع جميع الأمور المالية
+                // إنشاء تقرير مالي شامل مع جميع الأمور المالية والمصروفات المفلترة
                 const comprehensiveFinancialData = await generateComprehensiveFinancialData(
                   dataToExport,
                   paymentStats.timeFilter,
                   labOrders,
                   clinicNeeds,
-                  inventoryItems
+                  inventoryItems,
+                  filteredExpenses // إضافة المصروفات المفلترة
                 )
 
                 // Use PdfService for enhanced comprehensive PDF export
@@ -765,8 +1126,14 @@ export default function FinancialReports() {
         defaultOpen={false}
       />
 
-      {/* Stats Cards - RTL Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6" dir="rtl">
+      {/* Financial System Status */}
+      <FinancialSystemStatus />
+
+      {/* Financial Accuracy Verification */}
+      <FinancialAccuracyVerification />
+
+      {/* Main Financial Cards - Simplified Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
         <Card className={getCardStyles("green")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي الإيرادات</CardTitle>
@@ -775,99 +1142,120 @@ export default function FinancialReports() {
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
               <CurrencyDisplay
-                amount={totalRevenue}
-                currency={currency}
+                amount={(paymentStats?.financialStats?.totalRevenue) || totalRevenue || 0}
+                currency={currentCurrency}
               />
             </div>
             <p className="text-xs text-muted-foreground text-right">
-              إجمالي الإيرادات المحققة
+              من {(paymentStats?.filteredData || []).filter(p => p.status === 'completed' || p.status === 'partial').length} معاملة
             </p>
-          </CardContent>
-        </Card>
-
-        <Card className={getCardStyles("blue")} dir="rtl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground text-right">الإيرادات المفلترة</CardTitle>
-            <Receipt className={`h-4 w-4 ${getIconStyles("blue")}`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground text-right">
-              <CurrencyDisplay
-                amount={paymentStats.financialStats.totalRevenue}
-                currency={currency}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground text-right">
-              من {paymentStats.filteredData.filter(p => p.status === 'completed').length} معاملة مكتملة
-            </p>
-            {paymentStats.trend && (
+            {paymentStats?.trend && (
               <div className={`text-xs flex items-center justify-end mt-1 ${
                 paymentStats.trend.isPositive ? 'text-green-600' : 'text-red-600'
               }`}>
-                <span className="ml-1">{Math.abs(paymentStats.trend.changePercent)}%</span>
+                <span className="ml-1">{Math.abs(paymentStats.trend.changePercent || 0)}%</span>
                 {paymentStats.trend.isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               </div>
             )}
           </CardContent>
         </Card>
 
+        <Card className={getCardStyles("red")} dir="rtl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي المصروفات</CardTitle>
+            <Minus className={`h-4 w-4 ${getIconStyles("red")}`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground text-right">
+              <CurrencyDisplay
+                amount={totalExpenses}
+                currency={currentCurrency}
+              />
+            </div>
+            <div className="text-xs text-muted-foreground text-right space-y-1 mt-2">
+              <div className="flex justify-between">
+                <span>مصروفات مباشرة:</span>
+                <CurrencyDisplay amount={directExpenses} currency={currentCurrency} />
+              </div>
+              <div className="flex justify-between">
+                <span>تكلفة المخزون:</span>
+                <CurrencyDisplay amount={inventoryExpenses} currency={currentCurrency} />
+              </div>
+              <div className="flex justify-between">
+                <span>احتياجات العيادة:</span>
+                <CurrencyDisplay amount={clinicNeedsExpenses} currency={currentCurrency} />
+              </div>
+              <div className="flex justify-between">
+                <span>طلبات المختبر:</span>
+                <CurrencyDisplay amount={labOrdersExpenses} currency={currentCurrency} />
+              </div>
+              <div className="border-t pt-1 mt-2 font-medium">
+                <div className="flex justify-between">
+                  <span>إجمالي المصروفات:</span>
+                  <CurrencyDisplay amount={totalExpenses} currency={currentCurrency} />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={netProfit >= 0 ? getCardStyles("green") : getCardStyles("red")} dir="rtl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">صافي الربح</CardTitle>
+            {netProfit >= 0 ?
+              <Plus className={`h-4 w-4 ${getIconStyles("green")}`} /> :
+              <Minus className={`h-4 w-4 ${getIconStyles("red")}`} />
+            }
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground text-right">
+              <CurrencyDisplay
+                amount={netProfit}
+                currency={currentCurrency}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-right">
+              الإيرادات - المصروفات
+            </p>
+          </CardContent>
+        </Card>
+
         <Card className={getCardStyles("yellow")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المبالغ المعلقة</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المبالغ المستحقة</CardTitle>
             <Clock className={`h-4 w-4 ${getIconStyles("yellow")}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
               <CurrencyDisplay
-                amount={pendingAmount}
-                currency={currency}
+                amount={pendingAmount + overdueAmount + (paymentStats?.financialStats?.totalRemainingBalance || 0)}
+                currency={currentCurrency}
               />
             </div>
             <p className="text-xs text-muted-foreground text-right">
-              إجمالي المبالغ المعلقة
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={getCardStyles("red")} dir="rtl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المبالغ المتأخرة</CardTitle>
-            <AlertTriangle className={`h-4 w-4 ${getIconStyles("red")}`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground text-right">
-              <CurrencyDisplay
-                amount={overdueAmount}
-                currency={currency}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground text-right">
-              تحتاج متابعة عاجلة
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={getCardStyles("orange")} dir="rtl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground text-right">المبالغ المتبقية</CardTitle>
-            <AlertTriangle className={`h-4 w-4 ${getIconStyles("orange")}`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground text-right">
-              <CurrencyDisplay
-                amount={paymentStats.financialStats.totalRemainingBalance || 0}
-                currency={currency}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground text-right">
-              من الدفعات الجزئية
+              معلقة ومتأخرة ومتبقية
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Additional Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" dir="rtl">
+      {/* Secondary Financial Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" dir="rtl">
+        <Card className={profitMargin >= 0 ? getCardStyles("green") : getCardStyles("red")} dir="rtl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-right">هامش الربح</CardTitle>
+            <BarChart3 className={`h-4 w-4 ${profitMargin >= 0 ? getIconStyles("green") : getIconStyles("red")}`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground text-right">
+              {profitMargin.toFixed(1)}%
+            </div>
+            <p className="text-xs text-muted-foreground text-right">
+              نسبة الربح من الإيرادات
+            </p>
+          </CardContent>
+        </Card>
+
         <Card className={getCardStyles("purple")} dir="rtl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground text-right">إجمالي المعاملات</CardTitle>
@@ -875,30 +1263,10 @@ export default function FinancialReports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground text-right">
-              {paymentStats.filteredData.length}
+              {(paymentStats?.filteredData || []).length}
             </div>
             <p className="text-xs text-muted-foreground text-right">
               معاملة مالية
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={getCardStyles("indigo")} dir="rtl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground text-right">معدل النجاح</CardTitle>
-            <TrendingUp className={`h-4 w-4 ${getIconStyles("indigo")}`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground text-right">
-              {(() => {
-                const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
-                const successfulPayments = dataToUse.filter(p => p.status === 'completed' || p.status === 'partial').length
-                const successRate = dataToUse.length > 0 ? (successfulPayments / dataToUse.length * 100).toFixed(1) : '0.0'
-                return `${successRate}%`
-              })()}
-            </div>
-            <p className="text-xs text-muted-foreground text-right">
-              من المعاملات ناجحة
             </p>
           </CardContent>
         </Card>
@@ -912,39 +1280,19 @@ export default function FinancialReports() {
             <div className="text-2xl font-bold text-foreground text-right">
               <CurrencyDisplay
                 amount={(() => {
-                  const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
-                  const totalRevenue = paymentStats.financialStats.totalRevenue || 0
+                  const safePaymentStats = paymentStats || { filteredData: [], financialStats: { totalRevenue: 0 } }
+                  const safePayments = Array.isArray(payments) ? payments : []
+                  const dataToUse = Array.isArray(safePaymentStats.filteredData) && safePaymentStats.filteredData.length > 0
+                    ? safePaymentStats.filteredData
+                    : safePayments
+                  const totalRevenue = safePaymentStats.financialStats?.totalRevenue || 0
                   return dataToUse.length > 0 ? totalRevenue / dataToUse.length : 0
                 })()}
-                currency={currency}
+                currency={currentCurrency}
               />
             </div>
             <p className="text-xs text-muted-foreground text-right">
               متوسط قيمة المعاملة
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={getCardStyles("green")} dir="rtl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground text-right">أعلى مدفوعة</CardTitle>
-            <TrendingUp className={`h-4 w-4 ${getIconStyles("pink")}`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground text-right">
-              <CurrencyDisplay
-                amount={(() => {
-                  const dataToUse = paymentStats.filteredData.length > 0 ? paymentStats.filteredData : payments
-                  const amounts = dataToUse
-                    .filter(p => p.status === 'completed' || p.status === 'partial')
-                    .map(p => p.amount || 0) // استخدام amount (مبلغ الدفعة) لجميع الحالات
-                  return amounts.length > 0 ? Math.max(...amounts) : 0
-                })()}
-                currency={currency}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground text-right">
-              أكبر مبلغ مدفوع
             </p>
           </CardContent>
         </Card>
@@ -1045,7 +1393,7 @@ export default function FinancialReports() {
                   financialStatsTotal: paymentStats.financialStats.totalRevenue
                 })
                 return total
-              })(), currency)} إجمالي)
+              })(), currentCurrency)} إجمالي)
               {paymentStats.timeFilter.startDate && paymentStats.timeFilter.endDate &&
                 ` في الفترة المحددة`
               }
@@ -1085,12 +1433,12 @@ export default function FinancialReports() {
                     tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
                     axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
                     tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
-                    tickFormatter={(value) => formatChartValue(value, 'currency', currency)}
+                    tickFormatter={(value) => formatChartValue(value, 'currency', currentCurrency)}
                     domain={[0, 'dataMax + 100']}
                   />
                   <Tooltip
                     formatter={(value, name, props) => [
-                      formatCurrency(Number(value), currency),
+                      formatCurrency(Number(value), currentCurrency),
                       'المبلغ',
                       `${props.payload.count} معاملة`
                     ]}
@@ -1122,6 +1470,172 @@ export default function FinancialReports() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Expenses and Profit/Loss Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" dir="rtl">
+        {/* Expenses by Type Chart */}
+        <Card dir="rtl">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 space-x-reverse">
+              <PieChart className="w-5 h-5" />
+              <span>توزيع المصروفات حسب النوع</span>
+            </CardTitle>
+            <CardDescription>
+              توزيع المصروفات المدفوعة حسب النوع ({formatAmount(totalExpenses)} إجمالي)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {expensesByType.length === 0 ? (
+              <div className="flex items-center justify-center h-80 text-muted-foreground">
+                <div className="text-center">
+                  <PieChart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>لا توجد مصروفات مدفوعة</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+                <RechartsPieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <Pie
+                    data={expensesByType}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value, percentage }) =>
+                      value > 0 ? `${name}: ${formatAmount(value)} (${percentage.toFixed(0)}%)` : ''
+                    }
+                    outerRadius={120}
+                    innerRadius={50}
+                    fill="#8884d8"
+                    dataKey="value"
+                    stroke={isDarkMode ? '#1f2937' : '#ffffff'}
+                    strokeWidth={2}
+                    paddingAngle={2}
+                  >
+                    {expensesByType.map((entry, index) => (
+                      <Cell key={`expense-type-${index}`} fill={financialColors[index % financialColors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, name) => [
+                      formatAmount(Number(value)),
+                      'المبلغ'
+                    ]}
+                    labelFormatter={(label) => `نوع المصروف: ${label}`}
+                    contentStyle={chartConfiguration.tooltip}
+                  />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            )}
+
+            {/* Expenses Legend */}
+            {expensesByType.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                {expensesByType.map((expense, index) => (
+                  <div key={`expense-legend-${index}`} className="flex items-center space-x-2 space-x-reverse">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: financialColors[index % financialColors.length] }}
+                    />
+                    <span className="text-muted-foreground">
+                      {expense.name}: <CurrencyDisplay amount={expense.value} /> ({expense.percentage.toFixed(1)}%)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Profit/Loss Comparison Chart */}
+        <Card dir="rtl">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 space-x-reverse">
+              <BarChart3 className="w-5 h-5" />
+              <span>مقارنة الإيرادات والمصروفات</span>
+            </CardTitle>
+            <CardDescription>
+              مقارنة بين الإيرادات والمصروفات وصافي الربح
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={chartConfiguration.responsive.desktop.height}>
+              <BarChart
+                data={[
+                  {
+                    name: 'الإيرادات',
+                    value: reportData.totalRevenue,
+                    type: 'revenue'
+                  },
+                  {
+                    name: 'المصروفات',
+                    value: totalExpenses,
+                    type: 'expenses'
+                  },
+                  {
+                    name: 'صافي الربح',
+                    value: netProfit,
+                    type: 'profit'
+                  }
+                ]}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                barCategoryGap={chartConfiguration.bar.barCategoryGap}
+              >
+                <CartesianGrid
+                  strokeDasharray={chartConfiguration.grid.strokeDasharray}
+                  stroke={chartConfiguration.grid.stroke}
+                  strokeOpacity={chartConfiguration.grid.strokeOpacity}
+                />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                  axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                />
+                <YAxis
+                  tick={{ fontSize: 14, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                  axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
+                  tickFormatter={(value) => formatChartValue(value, 'currency', currentCurrency)}
+                />
+                <Tooltip
+                  formatter={(value, name, props) => [
+                    formatAmount(Number(value)),
+                    'المبلغ'
+                  ]}
+                  labelFormatter={(label) => label}
+                  contentStyle={chartConfiguration.tooltip}
+                />
+                <Bar
+                  dataKey="value"
+                  fill={(entry) => {
+                    if (entry?.type === 'revenue') return getChartColors('financial', isDarkMode)[0]
+                    if (entry?.type === 'expenses') return getChartColors('financial', isDarkMode)[1]
+                    return entry?.value >= 0 ? getChartColors('financial', isDarkMode)[0] : getChartColors('financial', isDarkMode)[1]
+                  }}
+                  radius={[4, 4, 0, 0]}
+                  minPointSize={5}
+                  maxBarSize={100}
+                >
+                  {[
+                    { name: 'الإيرادات', value: reportData.totalRevenue, type: 'revenue' },
+                    { name: 'المصروفات', value: totalExpenses, type: 'expenses' },
+                    { name: 'صافي الربح', value: netProfit, type: 'profit' }
+                  ].map((entry, index) => (
+                    <Cell
+                      key={`profit-loss-${index}`}
+                      fill={
+                        entry.type === 'revenue' ? getChartColors('financial', isDarkMode)[0] :
+                        entry.type === 'expenses' ? getChartColors('financial', isDarkMode)[1] :
+                        entry.value >= 0 ? getChartColors('financial', isDarkMode)[0] : getChartColors('financial', isDarkMode)[1]
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
@@ -1176,11 +1690,11 @@ export default function FinancialReports() {
                   tick={{ fontSize: 12, fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
                   axisLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
                   tickLine={{ stroke: isDarkMode ? '#4b5563' : '#d1d5db' }}
-                  tickFormatter={(value) => formatChartValue(value, 'currency', currency)}
+                  tickFormatter={(value) => formatChartValue(value, 'currency', currentCurrency)}
                   domain={[0, 'dataMax + 100']}
                 />
                 <Tooltip
-                  formatter={(value) => [formatCurrency(Number(value), currency), 'الإيرادات']}
+                  formatter={(value) => [formatCurrency(Number(value), currentCurrency), 'الإيرادات']}
                   labelFormatter={(label) => `الشهر: ${label}`}
                   contentStyle={chartConfiguration.tooltip}
                 />
@@ -1206,8 +1720,8 @@ export default function FinancialReports() {
                   {(() => {
                     const revenues = monthlyRevenueData.map(d => d.revenue).filter(r => r > 0)
                     return revenues.length > 0
-                      ? formatCurrency(Math.max(...revenues), currency)
-                      : formatCurrency(0, currency)
+                      ? formatCurrency(Math.max(...revenues), currentCurrency)
+                      : formatCurrency(0, currentCurrency)
                   })()}
                 </div>
               </div>
@@ -1217,8 +1731,8 @@ export default function FinancialReports() {
                   {(() => {
                     const revenues = monthlyRevenueData.map(d => d.revenue).filter(r => r > 0)
                     return revenues.length > 0
-                      ? formatCurrency(revenues.reduce((sum, r) => sum + r, 0) / revenues.length, currency)
-                      : formatCurrency(0, currency)
+                      ? formatCurrency(revenues.reduce((sum, r) => sum + r, 0) / revenues.length, currentCurrency)
+                      : formatCurrency(0, currentCurrency)
                   })()}
                 </div>
               </div>
@@ -1228,8 +1742,8 @@ export default function FinancialReports() {
                   {(() => {
                     const revenues = monthlyRevenueData.map(d => d.revenue).filter(r => r > 0)
                     return revenues.length > 0
-                      ? formatCurrency(Math.min(...revenues), currency)
-                      : formatCurrency(0, currency)
+                      ? formatCurrency(Math.min(...revenues), currentCurrency)
+                      : formatCurrency(0, currentCurrency)
                   })()}
                 </div>
               </div>
@@ -1320,21 +1834,21 @@ export default function FinancialReports() {
                                         : payment.amount || 0
                                       : payment.amount || 0
                                   }
-                                  currency={currency}
+                                  currency={currentCurrency}
                                 />
                               </span>
                               {payment.status === 'partial' && (
                                 <div className="text-xs space-y-0.5">
                                   {payment.amount_paid && (
                                     <div className="text-blue-600 dark:text-blue-400">
-                                      مدفوع: <CurrencyDisplay amount={payment.amount_paid} currency={currency} />
+                                      مدفوع: <CurrencyDisplay amount={payment.amount_paid} currency={currentCurrency} />
                                     </div>
                                   )}
                                   {(payment.appointment_remaining_balance || payment.remaining_balance) && (
                                     <div className="text-orange-600 dark:text-orange-400">
                                       متبقي: <CurrencyDisplay
                                         amount={payment.appointment_remaining_balance || payment.remaining_balance || 0}
-                                        currency={currency}
+                                        currency={currentCurrency}
                                       />
                                     </div>
                                   )}
@@ -1342,7 +1856,7 @@ export default function FinancialReports() {
                               )}
                               {payment.status === 'pending' && payment.total_amount_due && (
                                 <div className="text-xs text-muted-foreground">
-                                  إجمالي مطلوب: <CurrencyDisplay amount={payment.total_amount_due} currency={currency} />
+                                  إجمالي مطلوب: <CurrencyDisplay amount={payment.total_amount_due} currency={currentCurrency} />
                                 </div>
                               )}
                             </div>

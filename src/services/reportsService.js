@@ -401,26 +401,38 @@ class ReportsService {
     }
   }
 
-  // Generate Financial Reports
-  async generateFinancialReport(payments, treatments, filter) {
+  // Generate Financial Reports with Expenses Integration
+  async generateFinancialReport(payments, treatments, filter, expenses = []) {
     const filteredPayments = this.filterByDateRange(payments, filter.dateRange, 'payment_date')
+    const filteredExpenses = this.filterByDateRange(expenses, filter.dateRange, 'payment_date')
+
+    // Validation function
+    const validateAmount = (amount) => {
+      const num = Number(amount)
+      return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
+    }
 
     // Basic financial stats
     const totalRevenue = filteredPayments
       .filter(p => p.status === 'completed')
-      .reduce((sum, p) => sum + p.amount, 0)
+      .reduce((sum, p) => sum + validateAmount(p.amount), 0)
 
     const totalPaid = filteredPayments
       .filter(p => p.status === 'completed')
-      .reduce((sum, p) => sum + p.amount, 0)
+      .reduce((sum, p) => sum + validateAmount(p.amount), 0)
 
     const totalPending = filteredPayments
       .filter(p => p.status === 'pending')
-      .reduce((sum, p) => sum + (p.remaining_balance || p.amount), 0)
+      .reduce((sum, p) => sum + validateAmount(p.remaining_balance || p.amount), 0)
 
     const totalOverdue = filteredPayments
       .filter(p => p.status === 'overdue')
-      .reduce((sum, p) => sum + (p.remaining_balance || p.amount), 0)
+      .reduce((sum, p) => sum + validateAmount(p.remaining_balance || p.amount), 0)
+
+    // Calculate total expenses
+    const totalExpenses = filteredExpenses
+      .filter(e => e.status === 'paid')
+      .reduce((sum, e) => sum + validateAmount(e.amount), 0)
 
     // Revenue by payment method
     const paymentMethodCounts = {}
@@ -483,12 +495,40 @@ class ReportsService {
       amount: group.data.reduce((sum, p) => sum + p.amount, 0)
     }))
 
-    // Cash flow (simplified - only income for now)
-    const cashFlow = revenueTrend.map(item => ({
-      period: item.period,
-      income: item.amount,
-      net: item.amount // Will be income - expenses when we add expense tracking
+    // Calculate expenses by type
+    const expensesByType = this.groupBy(filteredExpenses.filter(e => e.status === 'paid'), 'expense_type')
+      .map(group => ({
+        type: group.key || 'غير محدد',
+        amount: group.items.reduce((sum, e) => sum + validateAmount(e.amount), 0),
+        count: group.items.length,
+        percentage: 0 // Will be calculated below
+      }))
+
+    // Calculate percentages for expenses
+    expensesByType.forEach(item => {
+      item.percentage = totalExpenses > 0 ? (item.amount / totalExpenses) * 100 : 0
+    })
+
+    // Expense trend
+    const expenseTrend = this.groupByPeriod(
+      filteredExpenses.filter(e => e.status === 'paid'),
+      'month',
+      'payment_date'
+    ).map(group => ({
+      period: group.period,
+      amount: group.data.reduce((sum, e) => sum + validateAmount(e.amount), 0)
     }))
+
+    // Enhanced cash flow with expenses
+    const cashFlow = revenueTrend.map(item => {
+      const expenseForPeriod = expenseTrend.find(e => e.period === item.period)?.amount || 0
+      return {
+        period: item.period,
+        income: item.amount,
+        expenses: expenseForPeriod,
+        net: item.amount - expenseForPeriod
+      }
+    })
 
     // Outstanding payments
     const outstandingPayments = payments
@@ -502,18 +542,65 @@ class ReportsService {
       .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
       .slice(0, 10) // Last 10 transactions
 
+    // Recent expenses
+    const recentExpenses = filteredExpenses
+      .filter(e => e.status === 'paid')
+      .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+      .slice(0, 10) // Last 10 expenses
+
+    // Profit/Loss calculation
+    const netProfit = totalRevenue - totalExpenses
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
+    const expenseRatio = totalRevenue > 0 ? (totalExpenses / totalRevenue) * 100 : 0
+
+    // Financial health indicators
+    const profitTrend = this.calculateProfitTrend(cashFlow)
+    const cashFlowStatus = netProfit > 0 ? 'positive' : netProfit < 0 ? 'negative' : 'neutral'
+
     return {
       totalRevenue,
       totalPaid,
       totalPending,
       totalOverdue,
+      totalExpenses,
+      netProfit,
+      profitMargin,
+      expenseRatio,
+      profitTrend,
+      cashFlowStatus,
       revenueByPaymentMethod,
       revenueByTreatment,
+      expensesByType,
       revenueTrend,
+      expenseTrend,
       cashFlow,
       outstandingPayments,
-      recentTransactions
+      recentTransactions,
+      recentExpenses
     }
+  }
+
+  // Calculate profit trend based on cash flow data
+  calculateProfitTrend(cashFlow) {
+    if (cashFlow.length < 2) return 'stable'
+
+    const recentPeriods = cashFlow.slice(-3) // Last 3 periods
+    if (recentPeriods.length < 2) return 'stable'
+
+    let increasingCount = 0
+    let decreasingCount = 0
+
+    for (let i = 1; i < recentPeriods.length; i++) {
+      const current = recentPeriods[i].net
+      const previous = recentPeriods[i - 1].net
+
+      if (current > previous) increasingCount++
+      else if (current < previous) decreasingCount++
+    }
+
+    if (increasingCount > decreasingCount) return 'increasing'
+    if (decreasingCount > increasingCount) return 'decreasing'
+    return 'stable'
   }
 
   // Generate Inventory Reports

@@ -23,8 +23,19 @@ import {
   CheckCircle,
   AlertCircle,
   PlayCircle,
-  XCircle
+  XCircle,
+  AlertTriangle
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { ToothTreatment, TreatmentSession } from '@/types'
 import {
   TREATMENT_TYPES,
@@ -75,6 +86,8 @@ export default function MultipleToothTreatments({
   const [isAddingTreatment, setIsAddingTreatment] = useState(false)
   const [editingTreatment, setEditingTreatment] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [treatmentToDelete, setTreatmentToDelete] = useState<string | null>(null)
   // متغيرات منفصلة لنموذج إضافة العلاج
   const [addSelectedLab, setAddSelectedLab] = useState<string>('')
   const [addLabCost, setAddLabCost] = useState<number>(0)
@@ -349,13 +362,20 @@ export default function MultipleToothTreatments({
   }
 
   const handleDeleteTreatment = async (id: string) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا العلاج؟')) {
-      try {
-        await onDeleteTreatment(id)
-        notify.success('تم حذف العلاج بنجاح')
-      } catch (error) {
-        notify.error('فشل في حذف العلاج')
-      }
+    setTreatmentToDelete(id)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDeleteTreatment = async () => {
+    if (!treatmentToDelete) return
+
+    try {
+      await onDeleteTreatment(treatmentToDelete)
+      notify.success('تم حذف العلاج بنجاح')
+      setShowDeleteDialog(false)
+      setTreatmentToDelete(null)
+    } catch (error) {
+      notify.error('فشل في حذف العلاج')
     }
   }
 
@@ -1193,6 +1213,87 @@ export default function MultipleToothTreatments({
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Treatment Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="max-w-md" dir="rtl">
+          <AlertDialogHeader>
+            <div className="flex items-center space-x-3 space-x-reverse">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="w-8 h-8 text-destructive" />
+              </div>
+              <div>
+                <AlertDialogTitle>
+                  هل أنت متأكد من حذف هذا العلاج؟
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  هذا الإجراء لا يمكن التراجع عنه. سيتم حذف العلاج وجميع البيانات المرتبطة به نهائياً.
+                </AlertDialogDescription>
+              </div>
+            </div>
+          </AlertDialogHeader>
+
+          {treatmentToDelete && (() => {
+            const treatment = treatments.find(t => t.id === treatmentToDelete)
+            if (!treatment) return null
+
+            return (
+              <div className="my-4">
+                <div className="bg-muted/50 border border-border rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Trash2 className="w-5 h-5 text-destructive" />
+                    <div>
+                      <h4 className="font-medium text-foreground">
+                        {getTreatmentByValue(treatment.treatment_type)?.label || treatment.treatment_type}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        السن: {toothName} (#{toothNumber})
+                      </p>
+                    </div>
+                  </div>
+
+                  {treatment.notes && (
+                    <div className="text-sm text-muted-foreground">
+                      <strong>الملاحظات:</strong> {treatment.notes}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mt-4">
+                  <div className="flex">
+                    <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 ml-2" />
+                    <div>
+                      <h4 className="text-sm font-medium text-destructive">تحذير مهم</h4>
+                      <p className="text-sm text-destructive/80 mt-1">
+                        سيتم حذف جميع البيانات المرتبطة بهذا العلاج بما في ذلك:
+                      </p>
+                      <ul className="text-sm text-destructive/80 mt-2 list-disc list-inside">
+                        <li>جلسات العلاج المسجلة</li>
+                        <li>المدفوعات المرتبطة</li>
+                        <li>طلبات المختبر (إن وجدت)</li>
+                        <li>الصور والملفات المرفقة</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          <AlertDialogFooter className="flex justify-end space-x-3 space-x-reverse">
+            <AlertDialogCancel>
+              إلغاء
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteTreatment}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="w-4 h-4 ml-2" />
+              تأكيد الحذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

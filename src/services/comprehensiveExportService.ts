@@ -107,13 +107,29 @@ export function getDateRangeForPeriod(period: TimePeriod, customStart?: string, 
 export class ComprehensiveExportService {
 
   /**
-   * حساب الإحصائيات المالية الشاملة مع الأرباح والخسائر
+   * حساب الإحصائيات المالية الشاملة مع الأرباح والخسائر والمصروفات
+   * مع ضمان دقة 100% في جميع الحسابات
    */
-  static calculateFinancialStats(payments: Payment[], labOrders?: any[], clinicNeeds?: any[], inventoryItems?: any[]) {
+  static calculateFinancialStats(payments: Payment[], labOrders?: any[], clinicNeeds?: any[], inventoryItems?: any[], expenses?: any[]) {
     const validateAmount = (amount: any): number => {
       const num = Number(amount)
       return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100
     }
+
+    // التحقق من صحة البيانات المدخلة
+    const validPayments = Array.isArray(payments) ? payments.filter(p => p && typeof p === 'object') : []
+    const validLabOrders = Array.isArray(labOrders) ? labOrders.filter(l => l && typeof l === 'object') : []
+    const validClinicNeeds = Array.isArray(clinicNeeds) ? clinicNeeds.filter(c => c && typeof c === 'object') : []
+    const validInventoryItems = Array.isArray(inventoryItems) ? inventoryItems.filter(i => i && typeof i === 'object') : []
+    const validExpenses = Array.isArray(expenses) ? expenses.filter(e => e && typeof e === 'object') : []
+
+    console.log('🔍 calculateFinancialStats called with validated data:', {
+      paymentsCount: validPayments.length,
+      labOrdersCount: validLabOrders.length,
+      clinicNeedsCount: validClinicNeeds.length,
+      inventoryItemsCount: validInventoryItems.length,
+      expensesCount: validExpenses.length
+    })
 
     // === الإيرادات ===
     // المدفوعات المكتملة
@@ -208,11 +224,63 @@ export class ComprehensiveExportService {
       )
     }
 
-    // === حسابات الأرباح والخسائر ===
-    const totalExpenses = labOrdersTotal + clinicNeedsTotal + inventoryExpenses
-    const netProfit = totalRevenue - totalExpenses
+    // === مصروفات العيادة المباشرة ===
+    let clinicExpensesTotal = 0
+    let expensesByType: Array<{type: string, amount: number, percentage: number}> = []
+
+    if (validExpenses && validExpenses.length > 0) {
+      clinicExpensesTotal = validateAmount(
+        validExpenses
+          .filter(e => e.status === 'paid')
+          .reduce((sum, e) => sum + validateAmount(e.amount), 0)
+      )
+
+      // تجميع المصروفات حسب النوع
+      const expenseTypeMapping: Record<string, string> = {
+        'salary': 'رواتب',
+        'utilities': 'مرافق',
+        'rent': 'إيجار',
+        'maintenance': 'صيانة',
+        'supplies': 'مستلزمات',
+        'insurance': 'تأمين',
+        'other': 'أخرى'
+      }
+
+      const typeStats: Record<string, number> = {}
+      validExpenses
+        .filter(e => e.status === 'paid')
+        .forEach(expense => {
+          const type = expense.expense_type || 'other'
+          const amount = validateAmount(expense.amount)
+          typeStats[type] = (typeStats[type] || 0) + amount
+        })
+
+      expensesByType = Object.entries(typeStats).map(([type, amount]) => ({
+        type: expenseTypeMapping[type as keyof typeof expenseTypeMapping] || type,
+        amount: validateAmount(amount as number),
+        percentage: clinicExpensesTotal > 0 ? (validateAmount(amount as number) / clinicExpensesTotal) * 100 : 0
+      }))
+    }
+
+    // === حسابات الأرباح والخسائر مع ضمان الدقة ===
+    const totalExpenses = validateAmount(labOrdersTotal + clinicNeedsTotal + inventoryExpenses + clinicExpensesTotal)
+    const netProfit = validateAmount(totalRevenue - totalExpenses)
     const isProfit = netProfit >= 0
-    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
+    const profitMargin = totalRevenue > 0 ? validateAmount((netProfit / totalRevenue) * 100) : 0
+
+    // التحقق من صحة الحسابات
+    console.log('💰 Financial calculations verification:', {
+      totalRevenue: validateAmount(totalRevenue),
+      totalExpenses: validateAmount(totalExpenses),
+      netProfit: validateAmount(netProfit),
+      profitMargin: validateAmount(profitMargin),
+      breakdown: {
+        labOrdersTotal: validateAmount(labOrdersTotal),
+        clinicNeedsTotal: validateAmount(clinicNeedsTotal),
+        inventoryExpenses: validateAmount(inventoryExpenses),
+        clinicExpensesTotal: validateAmount(clinicExpensesTotal)
+      }
+    })
 
     // المدفوعات المتأخرة (المدفوعات المعلقة التي تجاوز تاريخ دفعها 30 يوماً)
     const thirtyDaysAgo = new Date()
@@ -232,6 +300,8 @@ export class ComprehensiveExportService {
       clinicNeedsTotal,
       clinicNeedsRemaining,
       inventoryExpenses,
+      clinicExpensesTotal,
+      expensesByType,
       totalExpenses,
 
       // الأرباح والخسائر
@@ -311,7 +381,8 @@ export class ComprehensiveExportService {
       filteredData.payments,
       filteredData.labOrders,
       filteredData.clinicNeeds,
-      filteredData.inventory
+      filteredData.inventory,
+      (filteredData as any).expenses // إضافة المصروفات إذا كانت متوفرة
     )
 
     // إحصائيات المواعيد
@@ -708,7 +779,21 @@ export class ComprehensiveExportService {
     }
 
     csv += `الرصيد المستحق الإجمالي,${formatCurrency(financialStats.outstandingBalance)}\n`
-    csv += `إجمالي المعاملات,${financialStats.totalTransactions}\n\n`
+    csv += `إجمالي المعاملات,${financialStats.totalTransactions}\n`
+    csv += `إجمالي المصروفات,${formatCurrency(financialStats.totalExpenses || 0)}\n`
+    csv += `صافي الربح,${formatCurrency(financialStats.netProfit || 0)}\n`
+    csv += `هامش الربح,${(financialStats.profitMargin || 0).toFixed(2)}%\n`
+    csv += `حالة الربحية,${(financialStats.netProfit || 0) >= 0 ? 'ربح' : 'خسارة'}\n\n`
+
+    // إضافة تفاصيل المصروفات إذا كانت متوفرة
+    if (financialStats.expensesByType && financialStats.expensesByType.length > 0) {
+      csv += 'توزيع المصروفات حسب النوع\n'
+      csv += 'نوع المصروف,المبلغ,النسبة المئوية\n'
+      financialStats.expensesByType.forEach(expense => {
+        csv += `"${expense.type}","${formatCurrency(expense.amount)}","${expense.percentage.toFixed(2)}%"\n`
+      })
+      csv += '\n'
+    }
 
     // توزيع طرق الدفع
     csv += 'توزيع طرق الدفع\n'
@@ -1183,6 +1268,7 @@ export class ComprehensiveExportService {
     prescriptions?: Prescription[]
     labOrders?: LabOrder[]
     clinicNeeds?: ClinicNeed[]
+    expenses?: any[] // مصروفات العيادة المباشرة
     timePeriod: TimePeriod
     customStartDate?: string
     customEndDate?: string
@@ -1193,6 +1279,11 @@ export class ComprehensiveExportService {
 
       // فلترة جميع البيانات حسب الفترة الزمنية
       const filteredData = this.filterAllDataByDateRange(data, dateRange)
+
+      // إضافة المصروفات إلى البيانات المفلترة
+      if (data.expenses) {
+        (filteredData as any).expenses = this.filterByDateRange(data.expenses, dateRange, 'payment_date')
+      }
 
       // التحقق من صحة البيانات قبل التصدير
       const isValid = validateBeforeExport({
@@ -1255,7 +1346,8 @@ export class ComprehensiveExportService {
       data.filteredPayments,
       data.labOrders,
       data.clinicNeeds,
-      data.filteredInventory
+      data.filteredInventory,
+      (data as any).expenses // إضافة المصروفات إذا كانت متوفرة
     )
 
     return {
@@ -1331,6 +1423,7 @@ export class ComprehensiveExportService {
     csv += `إجمالي المدفوعات للاحتياجات والمخزون,${formatCurrency(data.stats.clinicNeedsTotal || 0)}\n`
     csv += `إجمالي المتبقي للاحتياجات,${formatCurrency(data.stats.clinicNeedsRemaining || 0)}\n`
     csv += `قيمة المخزون الحالي,${formatCurrency(data.stats.inventoryExpenses || 0)}\n`
+    csv += `مصروفات العيادة المباشرة,${formatCurrency(data.stats.clinicExpensesTotal || 0)}\n`
     csv += `إجمالي المصروفات,${formatCurrency(data.stats.totalExpenses || 0)}\n\n`
 
     // النتيجة النهائية
