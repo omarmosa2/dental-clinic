@@ -10,7 +10,7 @@ import './enhanced-dental-images.css'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -46,6 +46,7 @@ interface EnhancedToothDetailsDialogProps {
   toothNumber: number | null
   isPrimaryTeeth?: boolean
   onSessionStatsUpdate?: () => void
+  onTreatmentUpdate?: () => void
 }
 
 export default function EnhancedToothDetailsDialog({
@@ -54,7 +55,8 @@ export default function EnhancedToothDetailsDialog({
   patientId,
   toothNumber,
   isPrimaryTeeth = false,
-  onSessionStatsUpdate
+  onSessionStatsUpdate,
+  onTreatmentUpdate
 }: EnhancedToothDetailsDialogProps) {
   const { patients } = usePatientStore()
   const {
@@ -88,18 +90,26 @@ export default function EnhancedToothDetailsDialog({
     t => t.patient_id === patientId && t.tooth_number === toothNumber
   )
 
-  // Get the primary treatment color (highest priority completed or in-progress treatment)
+  // Get the primary treatment color (highest priority active treatment)
   const getPrimaryToothColor = (): string => {
     if (currentToothTreatments.length === 0) {
       return '#22c55e' // Default healthy color
     }
 
-    // Sort by priority and find the most relevant treatment
+    // Check if all treatments are completed - if so, return healthy color
+    const allCompleted = currentToothTreatments.every(t => t.treatment_status === 'completed')
+    if (allCompleted) {
+      return '#22c55e' // Return healthy color when all treatments are completed
+    }
+
+    // Sort by priority and find the most relevant active treatment
     const sortedTreatments = [...currentToothTreatments].sort((a, b) => a.priority - b.priority)
 
-    // Prioritize completed and in-progress treatments
+    // Prioritize in-progress treatments first, then planned treatments
     const activeTreatment = sortedTreatments.find(t =>
-      t.treatment_status === 'completed' || t.treatment_status === 'in_progress'
+      t.treatment_status === 'in_progress'
+    ) || sortedTreatments.find(t =>
+      t.treatment_status === 'planned'
     ) || sortedTreatments[0]
 
     return activeTreatment?.treatment_color || '#22c55e'
@@ -128,11 +138,28 @@ export default function EnhancedToothDetailsDialog({
     }
   }, [open, patientId, toothNumber, loadToothTreatmentsByTooth, loadToothTreatmentImagesByTooth, clearImages])
 
+  // Listen for tooth color updates
+  useEffect(() => {
+    const handleToothColorUpdate = async () => {
+      if (open && patientId && toothNumber) {
+        await loadToothTreatmentsByTooth(patientId, toothNumber)
+      }
+    }
+
+    window.addEventListener('tooth-color-update', handleToothColorUpdate)
+
+    return () => {
+      window.removeEventListener('tooth-color-update', handleToothColorUpdate)
+    }
+  }, [open, patientId, toothNumber, loadToothTreatmentsByTooth])
+
   const handleAddTreatment = async (treatmentData: Omit<ToothTreatment, 'id' | 'created_at' | 'updated_at'>): Promise<ToothTreatment | null> => {
     try {
       setIsLoading(true)
       const newTreatment = await createToothTreatment(treatmentData)
       notify.success('تم إضافة العلاج بنجاح')
+      // إعادة تحميل البيانات في الرسم البياني للأسنان
+      onTreatmentUpdate?.()
       return newTreatment
     } catch (error) {
       notify.error('فشل في إضافة العلاج')
@@ -143,14 +170,38 @@ export default function EnhancedToothDetailsDialog({
     }
   }
 
-  const handleUpdateTreatment = async (id: string, updates: Partial<ToothTreatment>) => {
+  const handleUpdateTreatment = async (id: string, updates: Partial<ToothTreatment>): Promise<void> => {
     try {
       setIsLoading(true)
+      console.log('🦷 Dialog: Updating treatment:', id, updates)
+
+      // محاولة تحديث العلاج
       await updateToothTreatment(id, updates)
+      console.log('🦷 Dialog: Treatment updated in store')
+
+      // إعادة تحميل البيانات للسن الحالي
+      if (toothNumber) {
+        try {
+          await loadToothTreatmentsByTooth(patientId, toothNumber)
+          console.log('🦷 Dialog: Tooth treatments reloaded')
+        } catch (reloadError) {
+          console.warn('🦷 Dialog: Failed to reload tooth treatments, but update was successful:', reloadError)
+        }
+      }
+
+      // إعادة تحميل البيانات في الرسم البياني للأسنان فوراً
+      onTreatmentUpdate?.()
+
+      console.log('🦷 Dialog: Treatment updated successfully')
       notify.success('تم تحديث العلاج بنجاح')
+
+      // التأكد من عدم رمي خطأ
+      return Promise.resolve()
     } catch (error) {
+      console.error('🦷 Dialog: Error updating treatment:', error)
       notify.error('فشل في تحديث العلاج')
-      console.error('Error updating treatment:', error)
+      // رمي الخطأ فقط إذا كان خطأ حقيقي في التحديث
+      throw error
     } finally {
       setIsLoading(false)
     }
@@ -161,6 +212,8 @@ export default function EnhancedToothDetailsDialog({
       setIsLoading(true)
       await deleteToothTreatment(id)
       notify.success('تم حذف العلاج بنجاح')
+      // إعادة تحميل البيانات في الرسم البياني للأسنان
+      onTreatmentUpdate?.()
     } catch (error) {
       notify.error('فشل في حذف العلاج')
       console.error('Error deleting treatment:', error)
@@ -430,10 +483,14 @@ export default function EnhancedToothDetailsDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" dir="rtl">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="treatments" className="flex items-center gap-2">
               <Sparkles className="w-4 h-4" />
-              العلاجات المتعددة
+              العلاجات النشطة
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              العلاجات المكتملة ({summary.completed})
             </TabsTrigger>
             <TabsTrigger value="images" className="flex items-center gap-2">
               <Camera className="w-4 h-4" />
@@ -441,19 +498,99 @@ export default function EnhancedToothDetailsDialog({
             </TabsTrigger>
           </TabsList>
 
-          {/* Multiple Treatments Tab */}
+          {/* Active Treatments Tab */}
           <TabsContent value="treatments" className="space-y-4" dir="rtl">
             <MultipleToothTreatments
               patientId={patientId}
               toothNumber={toothNumber}
               toothName={toothInfo.arabicName}
-              treatments={currentToothTreatments}
+              treatments={currentToothTreatments.filter(t => t.treatment_status !== 'completed')}
               onAddTreatment={handleAddTreatment}
               onUpdateTreatment={handleUpdateTreatment}
               onDeleteTreatment={handleDeleteTreatment}
               onReorderTreatments={handleReorderTreatments}
               onSessionStatsUpdate={onSessionStatsUpdate}
+              onTreatmentUpdate={onTreatmentUpdate}
             />
+          </TabsContent>
+
+          {/* Completed Treatments Tab */}
+          <TabsContent value="completed" className="space-y-4" dir="rtl">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  العلاجات المكتملة
+                </CardTitle>
+                <CardDescription>
+                  جميع العلاجات التي تم إكمالها لهذا السن
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {currentToothTreatments.filter(t => t.treatment_status === 'completed').length === 0 ? (
+                  <div className="text-center p-8 text-muted-foreground">
+                    <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>لا توجد علاجات مكتملة لهذا السن</p>
+                    <p className="text-sm">العلاجات المكتملة ستظهر هنا</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {currentToothTreatments
+                      .filter(t => t.treatment_status === 'completed')
+                      .sort((a, b) => a.priority - b.priority)
+                      .map((treatment) => (
+                        <Card key={treatment.id} className="border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-4 h-4 rounded-full border border-white/50"
+                                  style={{ backgroundColor: treatment.treatment_color }}
+                                />
+                                <div>
+                                  <h4 className="font-medium text-green-800 dark:text-green-200">
+                                    {getTreatmentByValue(treatment.treatment_type)?.label || treatment.treatment_type}
+                                  </h4>
+                                  <p className="text-sm text-green-600 dark:text-green-400">
+                                    الأولوية: {treatment.priority}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                  <CheckCircle className="w-3 h-3 ml-1" />
+                                  مكتمل
+                                </Badge>
+                                {treatment.completion_date && (
+                                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                    تاريخ الإكمال: {(() => {
+                                      const date = new Date(treatment.completion_date)
+                                      const day = date.getDate().toString().padStart(2, '0')
+                                      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+                                      const year = date.getFullYear()
+                                      return `${day}/${month}/${year}`
+                                    })()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {treatment.notes && (
+                              <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/20 rounded text-sm text-green-700 dark:text-green-300">
+                                <strong>ملاحظات:</strong> {treatment.notes}
+                              </div>
+                            )}
+                            {treatment.cost && (
+                              <div className="mt-2 text-sm text-green-600 dark:text-green-400">
+                                <strong>التكلفة:</strong> {treatment.cost} ريال
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Images Tab */}

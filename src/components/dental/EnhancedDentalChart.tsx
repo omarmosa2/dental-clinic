@@ -39,6 +39,7 @@ export default function EnhancedDentalChart({
   const { isDarkMode } = useTheme()
   const [hoveredTooth, setHoveredTooth] = useState<number | null>(null)
   const [internalIsPrimaryTeeth, setInternalIsPrimaryTeeth] = useState(false)
+  const [forceUpdate, setForceUpdate] = useState(0)
 
   // Use external state if provided, otherwise use internal state
   const isPrimaryTeeth = onPrimaryTeethChange ? externalIsPrimaryTeeth : internalIsPrimaryTeeth
@@ -52,11 +53,68 @@ export default function EnhancedDentalChart({
     }
   }, [patientId, loadToothTreatmentsByPatient, loadAllToothTreatmentImagesByPatient])
 
+  // Function to force immediate data reload and UI update
+  const forceDataReload = async () => {
+    if (patientId) {
+      // تم إزالة console.log لتقليل الرسائل
+      await Promise.all([
+        loadToothTreatmentsByPatient(patientId),
+        loadAllToothTreatmentImagesByPatient(patientId)
+      ])
+      setForceUpdate(prev => prev + 1)
+    }
+  }
+
+  // Expose forceDataReload to window for debugging
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).forceToothColorUpdate = forceDataReload
+      (window as any).triggerToothColorUpdate = () => {
+        window.dispatchEvent(new CustomEvent('tooth-color-update', {
+          detail: { type: 'manual-trigger', timestamp: Date.now() }
+        }))
+      }
+    }
+  }, [patientId])
+
   // Force re-render when images change to update counters
   useEffect(() => {
     // This effect will trigger re-render when toothTreatmentImages changes
     // ensuring that image counters are updated
   }, [toothTreatmentImages])
+
+  // Force re-render when treatments change to update colors
+  useEffect(() => {
+    // This effect will trigger re-render when toothTreatments changes
+    // ensuring that tooth colors are updated immediately
+    setForceUpdate(prev => prev + 1)
+  }, [toothTreatments])
+
+  // Additional effect to force update when treatment status changes
+  useEffect(() => {
+    // Listen for treatment updates and force re-render
+    const handleTreatmentUpdate = () => {
+      setForceUpdate(prev => prev + 1)
+    }
+
+    // Listen for tooth color updates specifically
+    const handleToothColorUpdate = async (event: any) => {
+      // تم إزالة console.log لتقليل الرسائل عند تمرير الماوس
+      await forceDataReload()
+    }
+
+    window.addEventListener('treatment-updated', handleTreatmentUpdate)
+    window.addEventListener('treatment-changed', handleTreatmentUpdate)
+    window.addEventListener('tooth-color-update', handleToothColorUpdate)
+    window.addEventListener('treatments-loaded', handleTreatmentUpdate)
+
+    return () => {
+      window.removeEventListener('treatment-updated', handleTreatmentUpdate)
+      window.removeEventListener('treatment-changed', handleTreatmentUpdate)
+      window.removeEventListener('tooth-color-update', handleToothColorUpdate)
+      window.removeEventListener('treatments-loaded', handleTreatmentUpdate)
+    }
+  }, [patientId])
 
   // Get teeth data based on primary/permanent selection
   const teethData = isPrimaryTeeth ? PRIMARY_TEETH_DATA : PERMANENT_TEETH_DATA
@@ -65,9 +123,13 @@ export default function EnhancedDentalChart({
 
   // Get treatments for a specific tooth
   const getToothTreatments = (toothNumber: number): ToothTreatment[] => {
-    return toothTreatments.filter(
+    const treatments = toothTreatments.filter(
       t => t.patient_id === patientId && t.tooth_number === toothNumber
     ).sort((a, b) => a.priority - b.priority)
+
+    // تم إزالة console.log لتقليل الرسائل عند تمرير الماوس
+
+    return treatments
   }
 
   // Get primary color for a tooth (based on highest priority active treatment)
@@ -78,9 +140,18 @@ export default function EnhancedDentalChart({
       return '#22c55e' // Default healthy color
     }
 
-    // Prioritize completed and in-progress treatments
+    // Check if all treatments are completed - if so, return healthy color
+    const allCompleted = treatments.every(t => t.treatment_status === 'completed')
+
+    if (allCompleted) {
+      return '#22c55e' // Return healthy color when all treatments are completed
+    }
+
+    // Prioritize in-progress treatments first, then planned treatments
     const activeTreatment = treatments.find(t =>
-      t.treatment_status === 'completed' || t.treatment_status === 'in_progress'
+      t.treatment_status === 'in_progress'
+    ) || treatments.find(t =>
+      t.treatment_status === 'planned'
     ) || treatments[0]
 
     return activeTreatment?.treatment_color || '#22c55e'
@@ -167,109 +238,153 @@ export default function EnhancedDentalChart({
                   }}
                 />
               ) : summary.total === 1 ? (
-                /* Single treatment - full color */
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundColor: summary.treatments[0].treatment_color,
-                    opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
-                      (summary.treatments[0].treatment_status === 'completed' ? 0.8 :
-                       summary.treatments[0].treatment_status === 'in_progress' ? 0.75 : 0.7))
-                  }}
-                />
+                /* Single treatment - check if completed for healthy color */
+                (() => {
+                  const isCompleted = summary.treatments[0].treatment_status === 'completed'
+                  const color = isCompleted ? primaryColor : summary.treatments[0].treatment_color
+                  // تم إزالة console.log لتقليل الرسائل
+                  return (
+                    <div
+                      className="w-full h-full"
+                      style={{
+                        backgroundColor: color,
+                        opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
+                          (summary.treatments[0].treatment_status === 'completed' ? 0.8 :
+                           summary.treatments[0].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      }}
+                    />
+                  )
+                })()
               ) : summary.total === 2 ? (
-                /* Two treatments - split vertically */
-                <>
+                /* Two treatments - check if all completed for healthy color */
+                (() => {
+                  const allCompleted = summary.treatments.every(t => t.treatment_status === 'completed')
+                  // تم إزالة console.log لتقليل الرسائل
+                  return allCompleted
+                })() ? (
                   <div
-                    className="absolute top-0 left-0 w-full h-1/2 border-b-2 border-white/50"
+                    className="w-full h-full"
                     style={{
-                      backgroundColor: summary.treatments[0].treatment_color,
-                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
-                        (summary.treatments[0].treatment_status === 'completed' ? 0.8 :
-                         summary.treatments[0].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      backgroundColor: primaryColor,
+                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 : 0.8)
                     }}
                   />
-                  <div
-                    className="absolute bottom-0 left-0 w-full h-1/2"
-                    style={{
-                      backgroundColor: summary.treatments[1].treatment_color,
-                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
-                        (summary.treatments[1].treatment_status === 'completed' ? 0.8 :
-                         summary.treatments[1].treatment_status === 'in_progress' ? 0.75 : 0.7))
-                    }}
-                  />
-                </>
+                ) : (
+                  /* Two treatments - split vertically */
+                  <>
+                    <div
+                      className="absolute top-0 left-0 w-full h-1/2 border-b-2 border-white/50"
+                      style={{
+                        backgroundColor: summary.treatments[0].treatment_status === 'completed' ? primaryColor : summary.treatments[0].treatment_color,
+                        opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
+                          (summary.treatments[0].treatment_status === 'completed' ? 0.8 :
+                           summary.treatments[0].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      }}
+                    />
+                    <div
+                      className="absolute bottom-0 left-0 w-full h-1/2"
+                      style={{
+                        backgroundColor: summary.treatments[1].treatment_status === 'completed' ? primaryColor : summary.treatments[1].treatment_color,
+                        opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
+                          (summary.treatments[1].treatment_status === 'completed' ? 0.8 :
+                           summary.treatments[1].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      }}
+                    />
+                  </>
+                )
               ) : summary.total === 3 ? (
-                /* Three treatments - top half + bottom split */
-                <>
+                /* Three treatments - check if all completed for healthy color */
+                summary.treatments.every(t => t.treatment_status === 'completed') ? (
                   <div
-                    className="absolute top-0 left-0 w-full h-1/2 border-b-2 border-white/50"
+                    className="w-full h-full"
                     style={{
-                      backgroundColor: summary.treatments[0].treatment_color,
-                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
-                        (summary.treatments[0].treatment_status === 'completed' ? 0.8 :
-                         summary.treatments[0].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      backgroundColor: primaryColor,
+                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 : 0.8)
                     }}
                   />
-                  <div
-                    className="absolute bottom-0 left-0 w-1/2 h-1/2 border-r-2 border-white/50"
-                    style={{
-                      backgroundColor: summary.treatments[1].treatment_color,
-                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
-                        (summary.treatments[1].treatment_status === 'completed' ? 0.8 :
-                         summary.treatments[1].treatment_status === 'in_progress' ? 0.75 : 0.7))
-                    }}
-                  />
-                  <div
-                    className="absolute bottom-0 right-0 w-1/2 h-1/2"
-                    style={{
-                      backgroundColor: summary.treatments[2].treatment_color,
-                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
-                        (summary.treatments[2].treatment_status === 'completed' ? 0.8 :
-                         summary.treatments[2].treatment_status === 'in_progress' ? 0.75 : 0.7))
-                    }}
-                  />
-                </>
+                ) : (
+                  /* Three treatments - top half + bottom split */
+                  <>
+                    <div
+                      className="absolute top-0 left-0 w-full h-1/2 border-b-2 border-white/50"
+                      style={{
+                        backgroundColor: summary.treatments[0].treatment_status === 'completed' ? primaryColor : summary.treatments[0].treatment_color,
+                        opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
+                          (summary.treatments[0].treatment_status === 'completed' ? 0.8 :
+                           summary.treatments[0].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      }}
+                    />
+                    <div
+                      className="absolute bottom-0 left-0 w-1/2 h-1/2 border-r-2 border-white/50"
+                      style={{
+                        backgroundColor: summary.treatments[1].treatment_status === 'completed' ? primaryColor : summary.treatments[1].treatment_color,
+                        opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
+                          (summary.treatments[1].treatment_status === 'completed' ? 0.8 :
+                           summary.treatments[1].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      }}
+                    />
+                    <div
+                      className="absolute bottom-0 right-0 w-1/2 h-1/2"
+                      style={{
+                        backgroundColor: summary.treatments[2].treatment_status === 'completed' ? primaryColor : summary.treatments[2].treatment_color,
+                        opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
+                          (summary.treatments[2].treatment_status === 'completed' ? 0.8 :
+                           summary.treatments[2].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      }}
+                    />
+                  </>
+                )
               ) : (
-                /* Four or more treatments - quadrants */
-                <>
+                /* Four or more treatments - check if all completed for healthy color */
+                summary.treatments.every(t => t.treatment_status === 'completed') ? (
                   <div
-                    className="absolute top-0 left-0 w-1/2 h-1/2 border-r-2 border-b-2 border-white/50"
+                    className="w-full h-full"
                     style={{
-                      backgroundColor: summary.treatments[0].treatment_color,
-                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
-                        (summary.treatments[0].treatment_status === 'completed' ? 0.8 :
-                         summary.treatments[0].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      backgroundColor: primaryColor,
+                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 : 0.8)
                     }}
                   />
-                  <div
-                    className="absolute top-0 right-0 w-1/2 h-1/2 border-b-2 border-white/50"
-                    style={{
-                      backgroundColor: summary.treatments[1].treatment_color,
-                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
-                        (summary.treatments[1].treatment_status === 'completed' ? 0.8 :
-                         summary.treatments[1].treatment_status === 'in_progress' ? 0.75 : 0.7))
-                    }}
-                  />
-                  <div
-                    className="absolute bottom-0 left-0 w-1/2 h-1/2 border-r-2 border-white/50"
-                    style={{
-                      backgroundColor: summary.treatments[2].treatment_color,
-                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
-                        (summary.treatments[2].treatment_status === 'completed' ? 0.8 :
-                         summary.treatments[2].treatment_status === 'in_progress' ? 0.75 : 0.7))
-                    }}
-                  />
-                  <div
-                    className="absolute bottom-0 right-0 w-1/2 h-1/2"
-                    style={{
-                      backgroundColor: summary.treatments[3].treatment_color,
-                      opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
-                        (summary.treatments[3].treatment_status === 'completed' ? 0.8 :
-                         summary.treatments[3].treatment_status === 'in_progress' ? 0.75 : 0.7))
-                    }}
-                  />
-                </>
+                ) : (
+                  /* Four or more treatments - quadrants */
+                  <>
+                    <div
+                      className="absolute top-0 left-0 w-1/2 h-1/2 border-r-2 border-b-2 border-white/50"
+                      style={{
+                        backgroundColor: summary.treatments[0].treatment_status === 'completed' ? primaryColor : summary.treatments[0].treatment_color,
+                        opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
+                          (summary.treatments[0].treatment_status === 'completed' ? 0.8 :
+                           summary.treatments[0].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      }}
+                    />
+                    <div
+                      className="absolute top-0 right-0 w-1/2 h-1/2 border-b-2 border-white/50"
+                      style={{
+                        backgroundColor: summary.treatments[1].treatment_status === 'completed' ? primaryColor : summary.treatments[1].treatment_color,
+                        opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
+                          (summary.treatments[1].treatment_status === 'completed' ? 0.8 :
+                           summary.treatments[1].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      }}
+                    />
+                    <div
+                      className="absolute bottom-0 left-0 w-1/2 h-1/2 border-r-2 border-white/50"
+                      style={{
+                        backgroundColor: summary.treatments[2].treatment_status === 'completed' ? primaryColor : summary.treatments[2].treatment_color,
+                        opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
+                          (summary.treatments[2].treatment_status === 'completed' ? 0.8 :
+                           summary.treatments[2].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      }}
+                    />
+                    <div
+                      className="absolute bottom-0 right-0 w-1/2 h-1/2"
+                      style={{
+                        backgroundColor: summary.treatments[3].treatment_status === 'completed' ? primaryColor : summary.treatments[3].treatment_color,
+                        opacity: isSelected ? 0.95 : (isHovered ? 0.85 :
+                          (summary.treatments[3].treatment_status === 'completed' ? 0.8 :
+                           summary.treatments[3].treatment_status === 'in_progress' ? 0.75 : 0.7))
+                      }}
+                    />
+                  </>
+                )
               )}
             </div>
 
@@ -412,7 +527,7 @@ export default function EnhancedDentalChart({
 
   return (
     <TooltipProvider>
-      <Card className={cn("w-full", className)} id="dental-chart-section">
+      <Card className={cn("w-full", className)} id="dental-chart-section" key={`dental-chart-${forceUpdate}`}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>

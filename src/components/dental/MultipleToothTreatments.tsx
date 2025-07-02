@@ -52,6 +52,7 @@ interface MultipleToothTreatmentsProps {
   onDeleteTreatment: (id: string) => Promise<void>
   onReorderTreatments: (treatmentIds: string[]) => Promise<void>
   onSessionStatsUpdate?: () => void
+  onTreatmentUpdate?: () => void
 }
 
 export default function MultipleToothTreatments({
@@ -63,7 +64,8 @@ export default function MultipleToothTreatments({
   onUpdateTreatment,
   onDeleteTreatment,
   onReorderTreatments,
-  onSessionStatsUpdate
+  onSessionStatsUpdate,
+  onTreatmentUpdate
 }: MultipleToothTreatmentsProps) {
   const { isDarkMode } = useTheme()
   const { createPayment, updatePayment, getPaymentsByPatient } = usePaymentStore()
@@ -321,10 +323,27 @@ export default function MultipleToothTreatments({
 
   const handleUpdateTreatment = async (id: string, updates: Partial<ToothTreatment>) => {
     try {
+      console.log('🦷 MultipleToothTreatments: Updating treatment:', id, updates)
+
+      // محاولة تحديث العلاج
       await onUpdateTreatment(id, updates)
+      console.log('🦷 MultipleToothTreatments: onUpdateTreatment completed')
+
       setEditingTreatment(null)
+
+      // إعادة تحميل البيانات فوراً لتحديث ألوان الأسنان
+      onTreatmentUpdate?.()
+
+      console.log('🦷 MultipleToothTreatments: Treatment updated successfully')
       notify.success('تم تحديث العلاج بنجاح')
     } catch (error) {
+      console.error('🦷 MultipleToothTreatments: Error updating treatment:', error)
+
+      // التحقق من نوع الخطأ
+      if (error && typeof error === 'object' && 'message' in error) {
+        console.error('🦷 MultipleToothTreatments: Error message:', error.message)
+      }
+
       notify.error('فشل في تحديث العلاج')
     }
   }
@@ -933,7 +952,20 @@ export default function MultipleToothTreatments({
                 )}>حالة العلاج</Label>
                 <Select
                   value={newTreatment.treatment_status || 'planned'}
-                  onValueChange={(value) => setNewTreatment(prev => ({ ...prev, treatment_status: value as any }))}
+                  onValueChange={(value) => {
+                    setNewTreatment(prev => ({ ...prev, treatment_status: value as any }))
+
+                    // إرسال إشعار فوري لتحديث ألوان الأسنان عند تغيير الحالة
+                    if (typeof window !== 'undefined' && window.dispatchEvent) {
+                      window.dispatchEvent(new CustomEvent('tooth-color-update', {
+                        detail: {
+                          type: 'status-preview-new',
+                          newStatus: value,
+                          timestamp: Date.now()
+                        }
+                      }))
+                    }
+                  }}
                 >
                   <SelectTrigger className={cn(
                     "border-2 transition-colors",
@@ -1743,6 +1775,18 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
                   ? new Date().toISOString().split('T')[0]
                   : prev.completion_date
               }))
+
+              // إرسال إشعار فوري لتحديث ألوان الأسنان عند تغيير الحالة
+              if (typeof window !== 'undefined' && window.dispatchEvent) {
+                window.dispatchEvent(new CustomEvent('tooth-color-update', {
+                  detail: {
+                    type: 'status-preview',
+                    treatmentId: treatment.id,
+                    newStatus: value,
+                    timestamp: Date.now()
+                  }
+                }))
+              }
             }}
           >
             <SelectTrigger>

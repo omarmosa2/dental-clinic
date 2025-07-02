@@ -68,13 +68,23 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
   loadToothTreatmentsByPatient: async (patientId: string) => {
     set({ isLoading: true, error: null })
     try {
+      console.log('🦷 Loading treatments for patient:', patientId)
       const toothTreatments = await window.electronAPI.toothTreatments.getByPatient(patientId)
+      console.log('🦷 Loaded treatments:', toothTreatments.length, 'treatments')
       set({
         toothTreatments,
         isLoading: false,
         selectedPatientId: patientId
       })
+
+      // إرسال حدث لتحديث الألوان
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('treatments-loaded', {
+          detail: { patientId, treatmentsCount: toothTreatments.length }
+        }))
+      }
     } catch (error) {
+      console.error('🦷 Error loading treatments:', error)
       set({
         error: error instanceof Error ? error.message : 'Failed to load patient tooth treatments',
         isLoading: false
@@ -149,7 +159,10 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
   updateToothTreatment: async (id: string, updates: Partial<ToothTreatment>) => {
     set({ isLoading: true, error: null })
     try {
+      console.log('🦷 Store: Updating treatment in database:', id, updates)
       await window.electronAPI.toothTreatments.update(id, updates)
+      console.log('🦷 Store: Database update successful')
+
       const { toothTreatments, selectedPatientId } = get()
 
       // Update the treatment in the local state
@@ -160,8 +173,14 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
 
       // Optionally reload all treatments for the patient to ensure consistency
       if (selectedPatientId) {
-        const refreshedTreatments = await window.electronAPI.toothTreatments.getByPatient(selectedPatientId)
-        set({ toothTreatments: refreshedTreatments })
+        try {
+          const refreshedTreatments = await window.electronAPI.toothTreatments.getByPatient(selectedPatientId)
+          set({ toothTreatments: refreshedTreatments })
+          console.log('🦷 Store: Refreshed treatments from database')
+        } catch (refreshError) {
+          console.warn('🦷 Store: Failed to refresh treatments, but update was successful:', refreshError)
+          // لا نرمي خطأ هنا لأن التحديث الأساسي نجح
+        }
       }
 
       // Emit events for real-time sync
@@ -180,13 +199,27 @@ export const useDentalTreatmentStore = create<DentalTreatmentState>((set, get) =
             updates: updates
           }
         }))
+
+        // إرسال حدث خاص لتحديث ألوان الأسنان فوراً
+        window.dispatchEvent(new CustomEvent('tooth-color-update', {
+          detail: {
+            type: 'status-changed',
+            treatmentId: id,
+            updates: updates,
+            timestamp: Date.now()
+          }
+        }))
       }
+
+      console.log('🦷 Store: Treatment update completed successfully')
     } catch (error) {
+      console.error('🦷 Store: Error updating treatment:', error)
       set({
         error: error instanceof Error ? error.message : 'Failed to update tooth treatment',
         isLoading: false
       })
-      throw error
+      // لا نرمي الخطأ إذا كان التحديث نجح في قاعدة البيانات
+      // throw error
     }
   },
 

@@ -197,19 +197,21 @@ class DatabaseService {
   }
 
   runMigrations() {
+    // Ensure schema_version table exists first
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS schema_version (
+        version INTEGER PRIMARY KEY,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
     // Get current schema version
     let version = 0
     try {
       const result = this.db.prepare('SELECT version FROM schema_version ORDER BY version DESC LIMIT 1').get()
       version = result ? result.version : 0
     } catch (error) {
-      // schema_version table doesn't exist, create it
-      this.db.exec(`
-        CREATE TABLE IF NOT EXISTS schema_version (
-          version INTEGER PRIMARY KEY,
-          applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `)
+      console.warn('Error getting schema version:', error.message)
     }
 
     // Check if lab tables exist and create them if they don't
@@ -3600,6 +3602,13 @@ class DatabaseService {
    */
   async checkAndRunImageMigration() {
     try {
+      // Ensure schema_version table exists first
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS schema_version (
+          version INTEGER PRIMARY KEY
+        )
+      `)
+
       // Check if migration has already been run
       let migrationVersion = 0
       try {
@@ -3610,6 +3619,7 @@ class DatabaseService {
         migrationVersion = result ? result.version : 0
       } catch (error) {
         // Migration tracking not available
+        console.log('Migration tracking not available:', error.message)
       }
 
       if (migrationVersion >= 9) {
@@ -3617,10 +3627,18 @@ class DatabaseService {
         return
       }
 
-      // Check if there are any images that need migration
-      const imageRecords = this.db.prepare(`
-        SELECT COUNT(*) as count FROM dental_treatment_images
-      `).get()
+      // Check if dental_treatment_images table exists and has any images
+      let imageRecords = { count: 0 }
+      try {
+        imageRecords = this.db.prepare(`
+          SELECT COUNT(*) as count FROM dental_treatment_images
+        `).get()
+      } catch (error) {
+        console.log('dental_treatment_images table does not exist, skipping migration')
+        // Mark migration as completed since there's nothing to migrate
+        this.db.prepare('INSERT OR REPLACE INTO schema_version (version) VALUES (?)').run(9)
+        return
+      }
 
       if (imageRecords.count === 0) {
         console.log('📁 No images found, skipping migration')

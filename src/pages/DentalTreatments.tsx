@@ -315,6 +315,25 @@ export default function DentalTreatments() {
     }
   }
 
+  // دالة لإعادة تحميل البيانات في الرسم البياني للأسنان
+  const handleTreatmentUpdate = async () => {
+    if (selectedPatientId) {
+      // إعادة تحميل البيانات فوراً
+      await Promise.all([
+        loadToothTreatmentsByPatient(selectedPatientId),
+        loadAllToothTreatmentImagesByPatient(selectedPatientId)
+      ])
+
+      // Force re-render by updating a state to trigger immediate UI update
+      setSelectedToothNumber(prev => prev)
+
+      // إضافة تأخير قصير ثم إعادة تحديث مرة أخرى لضمان التحديث
+      setTimeout(() => {
+        setSelectedToothNumber(prev => prev)
+      }, 100)
+    }
+  }
+
   const handlePrintPrescription = (prescription: any) => {
     setSelectedPrescription(prescription)
     setShowPrescriptionDialog(true)
@@ -360,10 +379,52 @@ export default function DentalTreatments() {
             إدارة شاملة للعلاجات السنية مع مخطط الأسنان التفاعلي
           </p>
         </div>
-        <Button onClick={refreshData} disabled={isLoading} variant="outline">
-          <RefreshCw className={`w-4 h-4 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
-          تحديث البيانات
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={async () => {
+              if (selectedPatientId) {
+                console.log('🦷 Force refreshing tooth colors for patient:', selectedPatientId)
+
+                // إعادة تحميل البيانات من قاعدة البيانات
+                await Promise.all([
+                  loadToothTreatmentsByPatient(selectedPatientId),
+                  loadAllToothTreatmentImagesByPatient(selectedPatientId)
+                ])
+
+                // إرسال أحداث متعددة لإجبار التحديث
+                window.dispatchEvent(new CustomEvent('tooth-color-update', {
+                  detail: { type: 'force-refresh', timestamp: Date.now() }
+                }))
+
+                window.dispatchEvent(new CustomEvent('treatment-updated', {
+                  detail: { type: 'force-refresh', timestamp: Date.now() }
+                }))
+
+                // تحديث الحالة لإجبار إعادة الرسم
+                setSelectedToothNumber(prev => prev)
+
+                // تأخير قصير ثم تحديث مرة أخرى
+                setTimeout(() => {
+                  setSelectedToothNumber(prev => prev)
+                  window.dispatchEvent(new CustomEvent('treatments-loaded', {
+                    detail: { patientId: selectedPatientId, force: true }
+                  }))
+                }, 200)
+
+                notify.success('تم تحديث ألوان الأسنان')
+              }
+            }}
+            disabled={!selectedPatientId}
+            variant="outline"
+            size="sm"
+          >
+            🦷 تحديث الألوان
+          </Button>
+          <Button onClick={refreshData} disabled={isLoading} variant="outline">
+            <RefreshCw className={`w-4 h-4 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
+            تحديث البيانات
+          </Button>
+        </div>
       </div>
 
       {/* Quick Statistics */}
@@ -672,6 +733,7 @@ export default function DentalTreatments() {
         toothNumber={selectedToothNumber}
         isPrimaryTeeth={isPrimaryTeeth}
         onSessionStatsUpdate={updatePatientSessionStats}
+        onTreatmentUpdate={handleTreatmentUpdate}
       />
 
       {selectedPrescription && (
