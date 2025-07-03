@@ -659,10 +659,10 @@ export default function MultipleToothTreatments({
       {/* Edit Treatment Form */}
       {editingTreatment && (
         <Card className={cn(
-          "border-2 shadow-lg",
+          "border-2 shadow-lg !border-solid",
           isDarkMode
-            ? "border-orange-800/50 bg-orange-950/20 shadow-orange-900/20"
-            : "border-orange-200 bg-orange-50/50 shadow-orange-100/50"
+            ? "!border-orange-800/50 bg-orange-950/20 shadow-orange-900/20"
+            : "!border-orange-200 bg-orange-50/50 shadow-orange-100/50"
         )}>
           <CardHeader className={cn(
             "border-b",
@@ -1014,7 +1014,7 @@ export default function MultipleToothTreatments({
                 <Input
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="1"
                   value={newTreatment.cost || ''}
                   onChange={(e) => {
                     const value = e.target.value
@@ -1136,7 +1136,7 @@ export default function MultipleToothTreatments({
                   <Input
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="1"
                     value={addLabCost || ''}
                     onChange={(e) => {
                       const value = e.target.value
@@ -1929,9 +1929,11 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
           <Input
             type="number"
             min="0"
-            step="0.01"
+            step="1"
             value={editData.cost || ''}
             onChange={(e) => {
+              // منع انتشار حدث التغيير
+              e.stopPropagation()
               const value = e.target.value
               setEditData(prev => ({
                 ...prev,
@@ -1939,10 +1941,70 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
               }))
             }}
             onBlur={(e) => {
+              // منع انتشار حدث فقدان التركيز
+              e.stopPropagation()
               const value = parseFloat(e.target.value) || 0
               setEditData(prev => ({ ...prev, cost: value }))
             }}
+            onInput={(e) => {
+              // منع انتشار حدث الإدخال
+              e.stopPropagation()
+              if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) {
+                e.nativeEvent.stopImmediatePropagation()
+              }
+            }}
+            onKeyDown={(e) => {
+              // تسجيل للتشخيص
+              console.log('🔍 Treatment cost input keydown:', {
+                key: e.key,
+                target: e.target,
+                currentTarget: e.currentTarget,
+                hasPreventAttribute: e.currentTarget.getAttribute('data-prevent-shortcuts')
+              })
+
+              // منع انتشار أحداث لوحة المفاتيح إلى أي معالج آخر
+              e.stopPropagation()
+              // منع معالجات الأحداث الأخرى على نفس العنصر
+              if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) {
+                e.nativeEvent.stopImmediatePropagation()
+              }
+
+              // معالجة خاصة لمفتاح Escape - منع إغلاق الحوار
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                // مسح المحتوى بدلاً من إغلاق الحوار
+                setEditData(prev => ({ ...prev, cost: 0 }))
+                return
+              }
+
+              // السماح بالمفاتيح الأساسية للإدخال الرقمي
+              const allowedKeys = [
+                'Backspace', 'Delete', 'Tab', 'Enter',
+                'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+                'Home', 'End', '.'
+              ]
+
+              // السماح بالأرقام والمفاتيح المسموحة
+              if (allowedKeys.includes(e.key) ||
+                  (e.key >= '0' && e.key <= '9') ||
+                  (e.ctrlKey && ['a', 'c', 'v', 'x', 'z'].includes(e.key.toLowerCase()))) {
+                // السماح بالمفتاح
+                return
+              }
+
+              // منع أي مفاتيح أخرى
+              e.preventDefault()
+            }}
+            onFocus={(e) => {
+              // منع انتشار حدث التركيز
+              e.stopPropagation()
+            }}
+            onClick={(e) => {
+              // منع انتشار حدث النقر
+              e.stopPropagation()
+            }}
             placeholder="0.00"
+            data-prevent-shortcuts="true"
             className={cn(
               "border-2 transition-colors",
               isDarkMode
@@ -1966,6 +2028,20 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             type="date"
             value={editData.start_date || ''}
             onChange={(e) => setEditData(prev => ({ ...prev, start_date: e.target.value }))}
+            onKeyDown={(e) => {
+              // منع انتشار أحداث لوحة المفاتيح إلى Dialog
+              e.stopPropagation()
+
+              // معالجة خاصة لمفتاح Escape - منع إغلاق الحوار
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                e.stopPropagation()
+                return
+              }
+            }}
+            onFocus={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            data-prevent-shortcuts="true"
           />
         </div>
       </div>
@@ -2085,23 +2161,53 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
               key={`lab-cost-${treatment.id}-${labCost}`}
               type="number"
               min="0"
-              step="0.01"
+              step="1"
               value={labCost || ''}
               onChange={(e) => {
+                // منع انتشار حدث التغيير
+                e.stopPropagation()
                 const value = e.target.value
                 setLabCost(value === '' ? 0 : parseFloat(value) || 0)
               }}
               onBlur={(e) => {
+                // منع انتشار حدث فقدان التركيز
+                e.stopPropagation()
                 const value = parseFloat(e.target.value) || 0
                 setLabCost(value)
               }}
-              onKeyDown={(e) => {
-                // منع انتشار أحداث لوحة المفاتيح إلى Dialog
+              onInput={(e) => {
+                // منع انتشار حدث الإدخال
                 e.stopPropagation()
+                if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) {
+                  e.nativeEvent.stopImmediatePropagation()
+                }
+              }}
+              onKeyDown={(e) => {
+                // تسجيل للتشخيص
+                console.log('🔍 Lab cost input keydown:', {
+                  key: e.key,
+                  target: e.target,
+                  currentTarget: e.currentTarget,
+                  hasPreventAttribute: e.currentTarget.getAttribute('data-prevent-shortcuts')
+                })
+
+                // منع انتشار أحداث لوحة المفاتيح إلى أي معالج آخر - بقوة
+                e.stopPropagation()
+                if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) {
+                  e.nativeEvent.stopImmediatePropagation()
+                }
+
+                // معالجة خاصة لمفتاح Escape - منع إغلاق الحوار
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  // مسح المحتوى بدلاً من إغلاق الحوار
+                  setLabCost(0)
+                  return
+                }
 
                 // السماح بالمفاتيح الأساسية للإدخال الرقمي
                 const allowedKeys = [
-                  'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+                  'Backspace', 'Delete', 'Tab', 'Enter',
                   'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
                   'Home', 'End', '.'
                 ]
@@ -2110,12 +2216,21 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
                 if (allowedKeys.includes(e.key) ||
                     (e.key >= '0' && e.key <= '9') ||
                     (e.ctrlKey && ['a', 'c', 'v', 'x', 'z'].includes(e.key.toLowerCase()))) {
+                  // السماح بالمفتاح
                   return
                 }
 
                 // منع أي مفاتيح أخرى
                 e.preventDefault()
               }}
+              onKeyUp={(e) => {
+                // منع انتشار حدث رفع المفتاح
+                e.stopPropagation()
+                if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) {
+                  e.nativeEvent.stopImmediatePropagation()
+                }
+              }}
+
               onFocus={(e) => {
                 // منع انتشار حدث التركيز
                 e.stopPropagation()
@@ -2124,8 +2239,13 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
                 // منع انتشار حدث النقر
                 e.stopPropagation()
               }}
+              onMouseDown={(e) => {
+                // منع انتشار حدث الضغط بالماوس
+                e.stopPropagation()
+              }}
               placeholder="0.00"
               data-prevent-shortcuts="true"
+              data-no-global-shortcuts="true"
               className={cn(
                 "border-2 transition-all duration-200 h-11",
                 isDarkMode
@@ -2155,6 +2275,20 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             type="date"
             value={editData.completion_date || ''}
             onChange={(e) => setEditData(prev => ({ ...prev, completion_date: e.target.value }))}
+            onKeyDown={(e) => {
+              // منع انتشار أحداث لوحة المفاتيح إلى Dialog
+              e.stopPropagation()
+
+              // معالجة خاصة لمفتاح Escape - منع إغلاق الحوار
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                e.stopPropagation()
+                return
+              }
+            }}
+            onFocus={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            data-prevent-shortcuts="true"
           />
         </div>
       )}
@@ -2166,6 +2300,20 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
           onChange={(e) => setEditData(prev => ({ ...prev, notes: e.target.value }))}
           placeholder="أدخل أي ملاحظات إضافية..."
           rows={3}
+          onKeyDown={(e) => {
+            // منع انتشار أحداث لوحة المفاتيح إلى Dialog
+            e.stopPropagation()
+
+            // معالجة خاصة لمفتاح Escape - منع إغلاق الحوار
+            if (e.key === 'Escape') {
+              e.preventDefault()
+              e.stopPropagation()
+              return
+            }
+          }}
+          onFocus={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          data-prevent-shortcuts="true"
         />
       </div>
 

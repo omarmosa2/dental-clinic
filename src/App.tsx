@@ -114,13 +114,23 @@ function AppContent() {
         target.tagName === 'TEXTAREA' ||
         target.contentEditable === 'true' ||
         target.getAttribute('type') === 'number' ||
-        target.closest('[data-prevent-shortcuts="true"]')
+        target.closest('[data-prevent-shortcuts="true"]') ||
+        target.closest('[data-no-global-shortcuts="true"]') ||
+        target.hasAttribute('data-prevent-shortcuts') ||
+        target.hasAttribute('data-no-global-shortcuts')
       )
 
       // السماح بالاختصارات المهمة حتى أثناء الكتابة
       const isImportantShortcut = event.ctrlKey || event.altKey
 
       if (isTyping && !isImportantShortcut) {
+        // تسجيل للتشخيص
+        console.log('🚫 App.tsx: Ignoring shortcut for typing element:', {
+          key: event.key,
+          tagName: target.tagName,
+          hasPreventAttr: target.hasAttribute('data-prevent-shortcuts'),
+          hasNoGlobalAttr: target.hasAttribute('data-no-global-shortcuts')
+        })
         return
       }
 

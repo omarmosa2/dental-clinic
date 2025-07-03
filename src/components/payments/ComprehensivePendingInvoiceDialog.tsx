@@ -1106,7 +1106,7 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
                         <Input
                           type="number"
                           min="0"
-                          step="0.01"
+                          step="1"
                           className="h-8 text-xs"
                           value={invoiceSettings.discount_value}
                           onChange={(e) => {
@@ -1151,7 +1151,7 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
                       type="number"
                       min="0"
                       max="100"
-                      step="0.01"
+                      step="1"
                       className="h-8 text-xs"
                       value={invoiceSettings.tax_rate}
                       onChange={(e) => {

@@ -530,7 +530,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                   <Input
                     id="amount"
                     type="number"
-                    step="0.01"
+                    step="1"
                     value={formData.amount}
                     onChange={(e) => handleInputChange('amount', e.target.value)}
                     onBlur={(e) => {
@@ -625,7 +625,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                   <Input
                     id="discount_amount"
                     type="number"
-                    step="0.01"
+                    step="1"
                     value={formData.discount_amount}
                     onChange={(e) => handleInputChange('discount_amount', e.target.value)}
                     onBlur={(e) => {
@@ -642,7 +642,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                   <Input
                     id="tax_amount"
                     type="number"
-                    step="0.01"
+                    step="1"
                     value={formData.tax_amount}
                     onChange={(e) => handleInputChange('tax_amount', e.target.value)}
                     onBlur={(e) => {
@@ -725,7 +725,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                   <Input
                     id="total_amount_due"
                     type="number"
-                    step="0.01"
+                    step="1"
                     value={formData.total_amount_due}
                     onChange={(e) => handleInputChange('total_amount_due', e.target.value)}
                     onBlur={(e) => {
@@ -762,7 +762,7 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                   <Input
                     id="amount_paid"
                     type="number"
-                    step="0.01"
+                    step="1"
                     value={formData.amount_paid}
                     readOnly
                     className="bg-muted cursor-not-allowed border-input text-foreground font-medium"

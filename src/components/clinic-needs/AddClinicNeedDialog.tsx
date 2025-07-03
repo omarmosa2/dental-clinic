@@ -214,7 +214,7 @@ const AddClinicNeedDialog: React.FC<AddClinicNeedDialogProps> = ({
                 id="price"
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 value={formData.price}
                 onChange={(e) => {
                   const value = e.target.value

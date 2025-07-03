@@ -703,7 +703,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                   <Label className="text-foreground font-medium">المبلغ *</Label>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0"
                     placeholder="0.00"
                     value={formData.amount}
@@ -729,7 +729,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                   <Label className="text-foreground font-medium">مبلغ الخصم</Label>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0"
                     placeholder="0.00"
                     value={formData.discount_amount}
@@ -747,7 +747,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                   <Label className="text-foreground font-medium">مبلغ الضريبة</Label>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0"
                     placeholder="0.00"
                     value={formData.tax_amount}
@@ -933,7 +933,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                   </Label>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="1"
                     placeholder="أدخل المبلغ الإجمالي المطلوب (اختياري)"
                     value={formData.total_amount_due}
                     onChange={(e) => setFormData(prev => ({ ...prev, total_amount_due: e.target.value }))}
@@ -964,7 +964,7 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                   </Label>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="1"
                     placeholder="0.00"
                     value={formData.amount_paid}
                     readOnly

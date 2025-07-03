@@ -307,7 +307,7 @@ export default function AddInventoryDialog({
                       <Input
                         type="number"
                         min="0"
-                        step="0.01"
+                        step="1"
                         placeholder="0.00"
                         {...field}
                         onChange={(e) => {

@@ -14,9 +14,9 @@ import {
   Calendar,
   DollarSign
 } from 'lucide-react'
-import GlobalSearch from '@/components/global/GlobalSearch'
-import SmartAlerts from '@/components/global/SmartAlerts'
-import QuickAccessDashboard from '@/components/global/QuickAccessDashboard'
+import GlobalSearch from '@/components/globalThis/GlobalSearch'
+import SmartAlerts from '@/components/globalThis/SmartAlerts'
+import QuickAccessDashboard from '@/components/globalThis/QuickAccessDashboard'
 import ElegantShortcutsDisplay from '@/components/help/ElegantShortcutsDisplay'
 
 import { useGlobalStore } from '@/store/globalStore'

@@ -324,7 +324,7 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
               <Input
                 id="cost"
                 type="number"
-                step="0.01"
+                step="1"
                 min="0"
                 value={formData.cost}
                 onChange={(e) => handleInputChange('cost', e.target.value)}
@@ -351,7 +351,7 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
               <Input
                 id="paid_amount"
                 type="number"
-                step="0.01"
+                step="1"
                 min="0"
                 value={formData.paid_amount}
                 onChange={(e) => handleInputChange('paid_amount', e.target.value)}

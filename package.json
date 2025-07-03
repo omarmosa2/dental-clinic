@@ -1,8 +1,8 @@
 {
-  "name": "dental-clinic-management",
-  "version": "1.0.0",
-  "description": "Comprehensive Dental Clinic Management System",
-  "author": "فريق تطوير العيادة السنية <dev@dental-clinic.com>",
+  "name": "dental-clinic-management-aggoracode",
+  "version": "2.1.0",
+  "description": "Dental Clinic Management AgorraCode",
+  "author": "AgorraCode Team",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -84,12 +84,13 @@
     "postcss": "^8.4.31",
     "rimraf": "^4.4.1",
     "tailwindcss": "^3.3.5",
+    "terser": "^5.43.1",
     "typescript": "^5.2.2",
     "vite": "^4.5.0"
   },
   "build": {
-    "appId": "com.dentalclinic.management",
-    "productName": "نظام إدارة العيادة السنية",
+    "appId": "com.agorracode.dentalclinic",
+    "productName": "Dental Clinic Management AgorraCode",
     "directories": {
       "output": "dist-electron"
     },
@@ -129,13 +130,13 @@
       "installerHeaderIcon": "assets/icon.ico",
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "نظام إدارة العيادة السنية",
+      "shortcutName": "Dental Clinic Management AgorraCode",
       "include": "installer/installer.nsh",
       "script": "installer/modern-ui.nsh",
-      "language": "1025",
-      "displayLanguageSelector": true,
-      "multiLanguageInstaller": true,
-      "license": "installer/license-ar.txt",
+      "language": "1033",
+      "displayLanguageSelector": false,
+      "multiLanguageInstaller": false,
+      "license": "installer/license-en.txt",
       "artifactName": "${productName}-${version}-Setup.${ext}",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,

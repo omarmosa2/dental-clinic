@@ -1,12 +1,12 @@
-; تكوين واجهة المستخدم الحديثة للمثبت
-; Modern UI Configuration for Arabic Installer
+; Modern UI Configuration for English Installer
+; Dental Clinic Management AgorraCode Installer
 
 !include "MUI2.nsh"
 
-; إعدادات الواجهة الحديثة
+; Modern UI Settings
 !define MUI_CUSTOMFUNCTION_GUIINIT myGUIInit
 
-; ألوان وتصميم حديث
+; Modern Colors and Design
 !define MUI_BGCOLOR 0xF8F9FA
 !define MUI_TEXTCOLOR 0x212529
 !define MUI_HEADERIMAGE
@@ -15,109 +15,97 @@
 !define MUI_WELCOMEFINISHPAGE_BITMAP "assets\wizard.bmp"
 !define MUI_UNWELCOMEFINISHPAGE_BITMAP "assets\wizard.bmp"
 
-; إعدادات الخط للغة العربية
-!define MUI_FONT "Tahoma"
+; Font Settings for English
+!define MUI_FONT "Segoe UI"
 !define MUI_FONTSIZE 9
 
-; تخصيص النصوص
+; Text Customization
 !define MUI_WELCOMEPAGE_TITLE_3LINES
 !define MUI_FINISHPAGE_TITLE_3LINES
 
-; إعدادات متقدمة للواجهة
+; Advanced UI Settings
 !define MUI_COMPONENTSPAGE_SMALLDESC
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 !define MUI_UNFINISHPAGE_NOAUTOCLOSE
 
-; تخصيص الأزرار
-!define MUI_BUTTONTEXT_NEXT "&التالي >"
-!define MUI_BUTTONTEXT_BACK "< &السابق"
-!define MUI_BUTTONTEXT_CANCEL "&إلغاء"
-!define MUI_BUTTONTEXT_CLOSE "&إغلاق"
-!define MUI_BUTTONTEXT_FINISH "&إنهاء"
+; Button Customization
+!define MUI_BUTTONTEXT_NEXT "&Next >"
+!define MUI_BUTTONTEXT_BACK "< &Back"
+!define MUI_BUTTONTEXT_CANCEL "&Cancel"
+!define MUI_BUTTONTEXT_CLOSE "&Close"
+!define MUI_BUTTONTEXT_FINISH "&Finish"
 
-; نصوص مخصصة للصفحات
-!define MUI_TEXT_WELCOME_INFO_TITLE "مرحباً بك في معالج تثبيت $(^NameDA)"
-!define MUI_TEXT_WELCOME_INFO_TEXT "سيقوم هذا المعالج بإرشادك خلال تثبيت $(^NameDA).$\r$\n$\r$\nيُنصح بإغلاق جميع التطبيقات الأخرى قبل بدء التثبيت. هذا سيمكن المعالج من تحديث ملفات النظام ذات الصلة دون الحاجة لإعادة تشغيل الكمبيوتر.$\r$\n$\r$\nانقر التالي للمتابعة."
+; Custom Page Texts
+!define MUI_TEXT_WELCOME_INFO_TITLE "Welcome to $(^NameDA) Setup Wizard"
+!define MUI_TEXT_WELCOME_INFO_TEXT "This wizard will guide you through the installation of $(^NameDA).$\r$\n$\r$\nIt is recommended that you close all other applications before starting Setup. This will make it possible to update relevant system files without having to reboot your computer.$\r$\n$\r$\nClick Next to continue."
 
-!define MUI_TEXT_LICENSE_TITLE "اتفاقية الترخيص"
-!define MUI_TEXT_LICENSE_SUBTITLE "يرجى مراجعة شروط الترخيص قبل تثبيت $(^NameDA)."
+!define MUI_TEXT_LICENSE_TITLE "License Agreement"
+!define MUI_TEXT_LICENSE_SUBTITLE "Please review the license terms before installing $(^NameDA)."
 
-!define MUI_TEXT_COMPONENTS_TITLE "اختيار المكونات"
-!define MUI_TEXT_COMPONENTS_SUBTITLE "اختر المكونات التي تريد تثبيتها من $(^NameDA)."
+!define MUI_TEXT_COMPONENTS_TITLE "Choose Components"
+!define MUI_TEXT_COMPONENTS_SUBTITLE "Choose which features of $(^NameDA) you want to install."
 
-!define MUI_TEXT_DIRECTORY_TITLE "اختيار موقع التثبيت"
-!define MUI_TEXT_DIRECTORY_SUBTITLE "اختر المجلد الذي تريد تثبيت $(^NameDA) فيه."
+!define MUI_TEXT_DIRECTORY_TITLE "Choose Install Location"
+!define MUI_TEXT_DIRECTORY_SUBTITLE "Choose the folder in which to install $(^NameDA)."
 
-!define MUI_TEXT_INSTALLING_TITLE "جاري التثبيت"
-!define MUI_TEXT_INSTALLING_SUBTITLE "يرجى الانتظار بينما يتم تثبيت $(^NameDA)."
+!define MUI_TEXT_INSTALLING_TITLE "Installing"
+!define MUI_TEXT_INSTALLING_SUBTITLE "Please wait while $(^NameDA) is being installed."
 
-!define MUI_TEXT_FINISH_TITLE "اكتمل التثبيت"
-!define MUI_TEXT_FINISH_SUBTITLE "تم تثبيت $(^NameDA) بنجاح."
+!define MUI_TEXT_FINISH_TITLE "Installation Complete"
+!define MUI_TEXT_FINISH_SUBTITLE "$(^NameDA) has been installed successfully."
 
-!define MUI_TEXT_ABORT_TITLE "تم إلغاء التثبيت"
-!define MUI_TEXT_ABORT_SUBTITLE "لم يكتمل التثبيت."
+!define MUI_TEXT_ABORT_TITLE "Installation Aborted"
+!define MUI_TEXT_ABORT_SUBTITLE "Installation was not completed."
 
-; نصوص إلغاء التثبيت
-!define MUI_UNTEXT_WELCOME_INFO_TITLE "مرحباً بك في معالج إلغاء تثبيت $(^NameDA)"
-!define MUI_UNTEXT_WELCOME_INFO_TEXT "سيقوم هذا المعالج بإرشادك خلال إلغاء تثبيت $(^NameDA).$\r$\n$\r$\nقبل بدء إلغاء التثبيت، تأكد من أن $(^NameDA) غير قيد التشغيل.$\r$\n$\r$\nانقر التالي للمتابعة."
+; Uninstall Texts
+!define MUI_UNTEXT_WELCOME_INFO_TITLE "Welcome to $(^NameDA) Uninstall Wizard"
+!define MUI_UNTEXT_WELCOME_INFO_TEXT "This wizard will guide you through the uninstallation of $(^NameDA).$\r$\n$\r$\nBefore starting the uninstallation, make sure that $(^NameDA) is not running.$\r$\n$\r$\nClick Next to continue."
 
-!define MUI_UNTEXT_CONFIRM_TITLE "إلغاء تثبيت $(^NameDA)"
-!define MUI_UNTEXT_CONFIRM_SUBTITLE "إزالة $(^NameDA) من جهاز الكمبيوتر."
+!define MUI_UNTEXT_CONFIRM_TITLE "Uninstall $(^NameDA)"
+!define MUI_UNTEXT_CONFIRM_SUBTITLE "Remove $(^NameDA) from your computer."
 
-!define MUI_UNTEXT_UNINSTALLING_TITLE "جاري إلغاء التثبيت"
-!define MUI_UNTEXT_UNINSTALLING_SUBTITLE "يرجى الانتظار بينما يتم إلغاء تثبيت $(^NameDA)."
+!define MUI_UNTEXT_UNINSTALLING_TITLE "Uninstalling"
+!define MUI_UNTEXT_UNINSTALLING_SUBTITLE "Please wait while $(^NameDA) is being uninstalled."
 
-!define MUI_UNTEXT_FINISH_TITLE "اكتمل إلغاء التثبيت"
-!define MUI_UNTEXT_FINISH_SUBTITLE "تم إلغاء تثبيت $(^NameDA) بنجاح."
+!define MUI_UNTEXT_FINISH_TITLE "Uninstallation Complete"
+!define MUI_UNTEXT_FINISH_SUBTITLE "$(^NameDA) has been uninstalled successfully."
 
-; دالة تهيئة الواجهة
+; GUI Initialization Function
 Function myGUIInit
-  ; تطبيق إعدادات RTL للغة العربية
-  System::Call "kernel32::GetUserDefaultLangID() i .r0"
-  IntCmp $0 1025 arabic_detected
-  IntCmp $0 2049 arabic_detected
-  IntCmp $0 3073 arabic_detected
-  IntCmp $0 4097 arabic_detected
-  IntCmp $0 5121 arabic_detected
-  Goto end_arabic_check
-  
-  arabic_detected:
-    ; تطبيق تخطيط RTL
-    System::Call "user32::SetProcessDefaultLayout(i 1)"
-    
-  end_arabic_check:
+  ; Apply standard LTR layout for English
+  System::Call "user32::SetProcessDefaultLayout(i 0)"
 FunctionEnd
 
-; تخصيص صفحة المكونات
+; Custom Components Page
 !macro CUSTOM_COMPONENTS_PAGE
-  !insertmacro MUI_HEADER_TEXT "اختيار المكونات" "اختر المكونات التي تريد تثبيتها"
-  
-  ; المكون الرئيسي
-  Section "البرنامج الأساسي" SEC_MAIN
+  !insertmacro MUI_HEADER_TEXT "Choose Components" "Select the components you want to install"
+
+  ; Main Component
+  Section "Main Program" SEC_MAIN
     SectionIn RO
     SetDetailsPrint textonly
-    DetailPrint "تثبيت الملفات الأساسية..."
+    DetailPrint "Installing core files..."
     SetDetailsPrint listonly
   SectionEnd
-  
-  ; مكونات إضافية
-  Section "ملفات المساعدة" SEC_HELP
+
+  ; Additional Components
+  Section "Help Files" SEC_HELP
     SetDetailsPrint textonly
-    DetailPrint "تثبيت ملفات المساعدة..."
+    DetailPrint "Installing help files..."
     SetDetailsPrint listonly
   SectionEnd
-  
-  Section "اختصارات سطح المكتب" SEC_DESKTOP
+
+  Section "Desktop Shortcuts" SEC_DESKTOP
     SetDetailsPrint textonly
-    DetailPrint "إنشاء اختصارات سطح المكتب..."
+    DetailPrint "Creating desktop shortcuts..."
     SetDetailsPrint listonly
   SectionEnd
-  
-  ; أوصاف المكونات
-  LangString DESC_SEC_MAIN ${LANG_ARABIC} "الملفات الأساسية المطلوبة لتشغيل البرنامج"
-  LangString DESC_SEC_HELP ${LANG_ARABIC} "ملفات المساعدة والتوثيق"
-  LangString DESC_SEC_DESKTOP ${LANG_ARABIC} "إنشاء اختصارات على سطح المكتب وقائمة ابدأ"
-  
+
+  ; Component Descriptions
+  LangString DESC_SEC_MAIN ${LANG_ENGLISH} "Core files required to run the application"
+  LangString DESC_SEC_HELP ${LANG_ENGLISH} "Help files and documentation"
+  LangString DESC_SEC_DESKTOP ${LANG_ENGLISH} "Create shortcuts on desktop and start menu"
+
   !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
     !insertmacro MUI_DESCRIPTION_TEXT ${SEC_MAIN} $(DESC_SEC_MAIN)
     !insertmacro MUI_DESCRIPTION_TEXT ${SEC_HELP} $(DESC_SEC_HELP)
@@ -125,17 +113,17 @@ FunctionEnd
   !insertmacro MUI_FUNCTION_DESCRIPTION_END
 !macroend
 
-; تخصيص صفحة الانتهاء
+; Custom Finish Page
 !macro CUSTOM_FINISH_PAGE
-  !define MUI_FINISHPAGE_RUN_TEXT "تشغيل نظام إدارة العيادة السنية"
+  !define MUI_FINISHPAGE_RUN_TEXT "Run Dental Clinic Management AgorraCode"
   !define MUI_FINISHPAGE_RUN_FUNCTION "LaunchApplication"
-  !define MUI_FINISHPAGE_SHOWREADME_TEXT "عرض ملف اقرأني"
-  !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README-ar.txt"
-  !define MUI_FINISHPAGE_LINK "زيارة موقعنا الإلكتروني"
-  !define MUI_FINISHPAGE_LINK_LOCATION "https://dental-clinic.com"
+  !define MUI_FINISHPAGE_SHOWREADME_TEXT "View README file"
+  !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.txt"
+  !define MUI_FINISHPAGE_LINK "Visit our website"
+  !define MUI_FINISHPAGE_LINK_LOCATION "https://agorracode.com"
 !macroend
 
-; دالة تشغيل التطبيق
+; Application Launch Function
 Function LaunchApplication
   ExecShell "" "$INSTDIR\dental-clinic.exe"
 FunctionEnd

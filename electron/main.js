@@ -1,6 +1,25 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron')
 const { join } = require('path')
 
+// ✅ معالج الأخطاء الشامل
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error)
+  console.error('Stack:', error.stack)
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason)
+})
+
+// ✅ تسجيل معلومات النظام
+console.log('🚀 Starting Dental Clinic Management System')
+console.log('📋 System Info:')
+console.log('  - Platform:', process.platform)
+console.log('  - Architecture:', process.arch)
+console.log('  - Node Version:', process.version)
+console.log('  - Electron Version:', process.versions.electron)
+console.log('  - Chrome Version:', process.versions.chrome)
+
 // Import license manager and predefined licenses
 let licenseManager = null
 let predefinedLicenses = null
@@ -16,6 +35,7 @@ try {
 }
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
+console.log('🔧 Development Mode:', isDev)
 
 let mainWindow = null
 let databaseService = null
@@ -33,6 +53,19 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
+      // ✅ إعدادات إضافية لحل مشكلة الشاشة البيضاء
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
+      // ✅ تحسين الأداء
+      backgroundThrottling: false,
+      // ✅ تفعيل DevTools
+      devTools: true,
+      // ✅ إعدادات إضافية للتوافق
+      spellcheck: false,
+      // ✅ تحسين معالجة الصور والموارد
+      webgl: true,
+      plugins: false,
     },
     titleBarStyle: 'hiddenInset', // شريط عنوان شفاف
     titleBarOverlay: {
@@ -41,8 +74,12 @@ function createWindow() {
       height: 40
     },
     show: false,
-    title: 'نظام إدارة العيادة السنية',
-    icon: join(__dirname, '../assets/icon.png')
+    title: 'Dental Clinic Management AgorraCode',
+    icon: join(__dirname, '../assets/icon.png'),
+    // ✅ إعدادات إضافية للنافذة
+    backgroundColor: '#ffffff', // لون خلفية أبيض لتجنب الشاشة السوداء
+    // ✅ تحسين الأداء
+    useContentSize: true,
   })
 
   // Set CSP headers for security
@@ -63,15 +100,164 @@ function createWindow() {
   if (isDev) {
     // Wait a bit for Vite server to start
     setTimeout(() => {
+      console.log('🔄 Loading development server...')
       mainWindow.loadURL('http://localhost:5173')
       mainWindow.webContents.openDevTools()
     }, 2000)
   } else {
-    mainWindow.loadFile(join(__dirname, '../dist/index.html'))
+    // ✅ تحسين تحميل الإنتاج مع معالجة شاملة للأخطاء
+    const indexPath = join(__dirname, '../dist/index.html')
+    console.log('📁 Loading production build from:', indexPath)
+
+    // التحقق من وجود الملف أولاً
+    const fs = require('fs')
+    if (!fs.existsSync(indexPath)) {
+      console.error('❌ index.html not found at:', indexPath)
+      console.log('📂 Available files in dist:')
+      try {
+        const distPath = join(__dirname, '../dist')
+        if (fs.existsSync(distPath)) {
+          const files = fs.readdirSync(distPath)
+          files.forEach(file => console.log('  -', file))
+        } else {
+          console.error('❌ dist directory not found at:', distPath)
+        }
+      } catch (err) {
+        console.error('❌ Error reading dist directory:', err)
+      }
+      return
+    }
+
+    // تحميل الملف مع معالجة الأخطاء
+    mainWindow.loadFile(indexPath)
+      .then(() => {
+        console.log('✅ Successfully loaded index.html')
+      })
+      .catch(err => {
+        console.error('❌ Failed to load index.html:', err)
+        console.log('🔄 Trying alternative loading method...')
+
+        // طريقة بديلة: استخدام file:// URL
+        const fileUrl = `file://${indexPath.replace(/\\/g, '/')}`
+        console.log('🔄 Trying file URL:', fileUrl)
+
+        mainWindow.loadURL(fileUrl)
+          .then(() => {
+            console.log('✅ Successfully loaded with file:// URL')
+          })
+          .catch(urlErr => {
+            console.error('❌ Failed to load with file:// URL:', urlErr)
+            console.log('🔄 Trying data URL fallback...')
+
+            // طريقة أخيرة: تحميل محتوى HTML مباشرة
+            try {
+              const htmlContent = fs.readFileSync(indexPath, 'utf8')
+              const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
+              mainWindow.loadURL(dataUrl)
+                .then(() => {
+                  console.log('✅ Successfully loaded with data URL')
+                })
+                .catch(dataErr => {
+                  console.error('❌ All loading methods failed:', dataErr)
+                })
+            } catch (readErr) {
+              console.error('❌ Failed to read HTML file:', readErr)
+            }
+          })
+      })
   }
 
+  // ✅ تحسين معالجة عرض النافذة
   mainWindow.once('ready-to-show', () => {
+    console.log('✅ Window ready to show')
     mainWindow?.show()
+
+    // Force focus on the window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.focus()
+    }
+
+    // ✅ فتح DevTools في الإنتاج للتشخيص (يمكن إزالته لاحقاً)
+    if (!isDev) {
+      console.log('🔧 Opening DevTools for production debugging')
+      mainWindow.webContents.openDevTools()
+    }
+  })
+
+  // ✅ معالجة شاملة لفشل التحميل
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('❌ Failed to load page:')
+    console.error('  Error Code:', errorCode)
+    console.error('  Description:', errorDescription)
+    console.error('  URL:', validatedURL)
+
+    if (!isDev) {
+      console.log('🔄 Attempting recovery...')
+      const indexPath = join(__dirname, '../dist/index.html')
+
+      // محاولة تحميل بديلة
+      setTimeout(() => {
+        const fileUrl = `file://${indexPath.replace(/\\/g, '/')}`
+        console.log('🔄 Recovery attempt with:', fileUrl)
+        mainWindow.loadURL(fileUrl)
+      }, 1000)
+    }
+  })
+
+  // ✅ معالجة أخطاء JavaScript
+  mainWindow.webContents.on('crashed', (event) => {
+    console.error('❌ Renderer process crashed:', event)
+  })
+
+  // ✅ معالجة الأخطاء غير المعالجة
+  mainWindow.webContents.on('unresponsive', () => {
+    console.error('❌ Renderer process became unresponsive')
+  })
+
+  // ✅ تسجيل أخطاء وحدة التحكم
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    if (level >= 2) { // تسجيل التحذيرات والأخطاء فقط
+      console.log(`🖥️ Console [${level}]:`, message)
+      if (line && sourceId) {
+        console.log(`   at ${sourceId}:${line}`)
+      }
+    }
+  })
+
+  // ✅ معالجة تحميل DOM
+  mainWindow.webContents.on('dom-ready', () => {
+    console.log('✅ DOM is ready')
+
+    // التحقق من وجود عنصر root
+    mainWindow.webContents.executeJavaScript(`
+      const rootElement = document.getElementById('root');
+      console.log('Root element found:', !!rootElement);
+      if (rootElement) {
+        console.log('Root element content:', rootElement.innerHTML.length > 0 ? 'Has content' : 'Empty');
+      }
+
+      // التحقق من تحميل React
+      console.log('React loaded:', typeof window.React !== 'undefined');
+      console.log('ReactDOM loaded:', typeof window.ReactDOM !== 'undefined');
+
+      // التحقق من الأخطاء في وحدة التحكم
+      const errors = [];
+      const originalError = console.error;
+      console.error = function(...args) {
+        errors.push(args.join(' '));
+        originalError.apply(console, args);
+      };
+
+      return {
+        hasRoot: !!rootElement,
+        hasContent: rootElement ? rootElement.innerHTML.length > 0 : false,
+        errors: errors
+      };
+    `).then(result => {
+      console.log('🔍 DOM Check Result:', result)
+    }).catch(err => {
+      console.error('❌ Failed to check DOM:', err)
+    })
   })
 
   mainWindow.on('closed', () => {
@@ -98,7 +284,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   console.log('🚀 Electron app is ready, initializing services...')
 
-  // إخفاء شريط القوائم الافتراضي
+  // Hide default menu bar
   Menu.setApplicationMenu(null)
 
   // Initialize database service with migration support

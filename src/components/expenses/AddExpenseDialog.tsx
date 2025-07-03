@@ -251,7 +251,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({
                 <Input
                   id="amount"
                   type="number"
-                  step="0.01"
+                  step="1"
                   min="0"
                   value={formData.amount}
                   onChange={(e) => handleInputChange('amount', e.target.value)}

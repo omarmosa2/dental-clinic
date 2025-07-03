@@ -6,7 +6,7 @@ import { Bell, Plus, Edit, Trash2, RefreshCw } from 'lucide-react'
 import { useGlobalStore } from '@/store/globalStore'
 import { useRealTimeAlerts } from '@/hooks/useRealTimeAlerts'
 import { SmartAlertsService } from '@/services/smartAlertsService'
-import { SimpleRealTimeIndicator, FullRealTimeIndicator } from '@/components/global/RealTimeIndicator'
+import { SimpleRealTimeIndicator, FullRealTimeIndicator } from '@/components/globalThis/RealTimeIndicator'
 
 /**
  * صفحة اختبار نظام التحديث في الوقت الفعلي للتنبيهات

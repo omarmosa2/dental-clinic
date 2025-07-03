@@ -18,7 +18,7 @@ import { useGlobalStore } from '@/store/globalStore'
 import { useRealTimeAlerts, useAlertUpdates } from '@/hooks/useRealTimeAlerts'
 import { useDataNotifier, useAllDataChangeListener } from '@/hooks/useDataChangeNotifications'
 import { SmartAlertsService } from '@/services/smartAlertsService'
-import { FullRealTimeIndicator } from '@/components/global/RealTimeIndicator'
+import { FullRealTimeIndicator } from '@/components/globalThis/RealTimeIndicator'
 
 /**
  * مثال عملي لاستخدام نظام التحديث في الوقت الفعلي للتنبيهات
