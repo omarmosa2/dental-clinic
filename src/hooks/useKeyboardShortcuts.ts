@@ -28,7 +28,9 @@ export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardS
       if (
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
-        target.contentEditable === 'true'
+        target.contentEditable === 'true' ||
+        target.getAttribute('type') === 'number' ||
+        target.closest('[data-prevent-shortcuts="true"]')
       ) {
         return
       }

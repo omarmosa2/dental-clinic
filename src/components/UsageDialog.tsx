@@ -207,7 +207,14 @@ export default function UsageDialog({
                       max={item.quantity}
                       placeholder="1"
                       {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        field.onChange(value === '' ? 1 : Number(value))
+                      }}
+                      onBlur={(e) => {
+                        const value = Number(e.target.value) || 1
+                        field.onChange(value)
+                      }}
                       className="text-right"
                       disabled={isOutOfStock}
                     />

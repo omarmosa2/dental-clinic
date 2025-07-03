@@ -255,6 +255,10 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({
                   min="0"
                   value={formData.amount}
                   onChange={(e) => handleInputChange('amount', e.target.value)}
+                  onBlur={(e) => {
+                    const value = parseFloat(e.target.value) || 0
+                    handleInputChange('amount', value.toString())
+                  }}
                   placeholder="0.00"
                   className={`pl-10 ${errors.amount ? 'border-destructive' : ''}`}
                 />

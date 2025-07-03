@@ -1016,7 +1016,17 @@ export default function MultipleToothTreatments({
                   min="0"
                   step="0.01"
                   value={newTreatment.cost || ''}
-                  onChange={(e) => setNewTreatment(prev => ({ ...prev, cost: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setNewTreatment(prev => ({
+                      ...prev,
+                      cost: value === '' ? 0 : parseFloat(value) || 0
+                    }))
+                  }}
+                  onBlur={(e) => {
+                    const value = parseFloat(e.target.value) || 0
+                    setNewTreatment(prev => ({ ...prev, cost: value }))
+                  }}
                   placeholder="0.00"
                   className={cn(
                     "border-2 transition-colors",
@@ -1128,7 +1138,14 @@ export default function MultipleToothTreatments({
                     min="0"
                     step="0.01"
                     value={addLabCost || ''}
-                    onChange={(e) => setAddLabCost(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setAddLabCost(value === '' ? 0 : parseFloat(value) || 0)
+                    }}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      setAddLabCost(value)
+                    }}
                     placeholder="0.00"
                     className={cn(
                       "border-2 transition-all duration-200 h-11",
@@ -1914,7 +1931,17 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
             min="0"
             step="0.01"
             value={editData.cost || ''}
-            onChange={(e) => setEditData(prev => ({ ...prev, cost: parseFloat(e.target.value) || 0 }))}
+            onChange={(e) => {
+              const value = e.target.value
+              setEditData(prev => ({
+                ...prev,
+                cost: value === '' ? 0 : parseFloat(value) || 0
+              }))
+            }}
+            onBlur={(e) => {
+              const value = parseFloat(e.target.value) || 0
+              setEditData(prev => ({ ...prev, cost: value }))
+            }}
             placeholder="0.00"
             className={cn(
               "border-2 transition-colors",
@@ -2061,10 +2088,44 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
               step="0.01"
               value={labCost || ''}
               onChange={(e) => {
-                const newCost = parseFloat(e.target.value) || 0
-                setLabCost(newCost)
+                const value = e.target.value
+                setLabCost(value === '' ? 0 : parseFloat(value) || 0)
+              }}
+              onBlur={(e) => {
+                const value = parseFloat(e.target.value) || 0
+                setLabCost(value)
+              }}
+              onKeyDown={(e) => {
+                // منع انتشار أحداث لوحة المفاتيح إلى Dialog
+                e.stopPropagation()
+
+                // السماح بالمفاتيح الأساسية للإدخال الرقمي
+                const allowedKeys = [
+                  'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+                  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+                  'Home', 'End', '.'
+                ]
+
+                // السماح بالأرقام والمفاتيح المسموحة
+                if (allowedKeys.includes(e.key) ||
+                    (e.key >= '0' && e.key <= '9') ||
+                    (e.ctrlKey && ['a', 'c', 'v', 'x', 'z'].includes(e.key.toLowerCase()))) {
+                  return
+                }
+
+                // منع أي مفاتيح أخرى
+                e.preventDefault()
+              }}
+              onFocus={(e) => {
+                // منع انتشار حدث التركيز
+                e.stopPropagation()
+              }}
+              onClick={(e) => {
+                // منع انتشار حدث النقر
+                e.stopPropagation()
               }}
               placeholder="0.00"
+              data-prevent-shortcuts="true"
               className={cn(
                 "border-2 transition-all duration-200 h-11",
                 isDarkMode

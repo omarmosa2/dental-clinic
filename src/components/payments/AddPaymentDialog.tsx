@@ -708,6 +708,15 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                     placeholder="0.00"
                     value={formData.amount}
                     onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      setFormData(prev => ({ ...prev, amount: value.toString() }))
+                    }}
+                    onKeyDown={(e) => {
+                      // منع انتشار الحدث لضمان عدم تفعيل الاختصارات
+                      e.stopPropagation()
+                    }}
+                    data-prevent-shortcuts="true"
                     className={errors.amount ? 'border-destructive bg-background text-foreground' : 'bg-background border-input text-foreground'}
                   />
                   {errors.amount && (
@@ -725,6 +734,10 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                     placeholder="0.00"
                     value={formData.discount_amount}
                     onChange={(e) => setFormData(prev => ({ ...prev, discount_amount: e.target.value }))}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      setFormData(prev => ({ ...prev, discount_amount: value.toString() }))
+                    }}
                     className="bg-background border-input text-foreground"
                   />
                 </div>
@@ -739,6 +752,10 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                     placeholder="0.00"
                     value={formData.tax_amount}
                     onChange={(e) => setFormData(prev => ({ ...prev, tax_amount: e.target.value }))}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      setFormData(prev => ({ ...prev, tax_amount: value.toString() }))
+                    }}
                     className="bg-background border-input text-foreground"
                   />
                 </div>
@@ -920,6 +937,10 @@ export default function AddPaymentDialog({ open, onOpenChange, preSelectedPatien
                     placeholder="أدخل المبلغ الإجمالي المطلوب (اختياري)"
                     value={formData.total_amount_due}
                     onChange={(e) => setFormData(prev => ({ ...prev, total_amount_due: e.target.value }))}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      setFormData(prev => ({ ...prev, total_amount_due: value.toString() }))
+                    }}
                     className={`bg-background border-input text-foreground ${errors.total_amount_due ? 'border-destructive' : ''}`}
                   />
                   {errors.total_amount_due && (

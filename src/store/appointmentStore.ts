@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { Appointment, CalendarEvent } from '../types'
+import { SmartAlertsService } from '@/services/smartAlertsService'
 
 interface AppointmentState {
   appointments: Appointment[]
@@ -157,7 +158,6 @@ export const useAppointmentStore = create<AppointmentStore>()(
 
           // حذف التنبيهات القديمة المرتبطة بهذا الموعد قبل التحديث
           try {
-            const { SmartAlertsService } = await import('@/services/smartAlertsService')
             await SmartAlertsService.deleteAppointmentAlerts(id)
           } catch (error) {
             console.warn('Could not delete old appointment alerts:', error)

@@ -8,6 +8,8 @@ import { SUPPORTED_CURRENCIES } from '@/lib/utils'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import SecuritySettings from '@/components/settings/SecuritySettings'
 import ElegantShortcutsDisplay from '@/components/help/ElegantShortcutsDisplay'
+import { ExportService } from '@/services/exportService'
+import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
 import {
   Download,
   Upload,
@@ -69,6 +71,7 @@ export default function Settings() {
   const { isDarkMode, toggleDarkMode } = useTheme()
   const { currentCurrency, setCurrency } = useCurrency()
   const stableClinicLogo = useStableClinicLogo()
+  const { refreshAllImages } = useDentalTreatmentStore()
 
   useEffect(() => {
     loadBackups()
@@ -146,7 +149,6 @@ export default function Settings() {
 
         // Refresh all images after restore
         try {
-          const { refreshAllImages } = await import('../store/dentalTreatmentStore')
           await refreshAllImages()
         } catch (error) {
           console.warn('Could not refresh images after restore:', error)
@@ -172,7 +174,6 @@ export default function Settings() {
 
         // Refresh all images after restore
         try {
-          const { refreshAllImages } = await import('../store/dentalTreatmentStore')
           await refreshAllImages()
         } catch (error) {
           console.warn('Could not refresh images after restore:', error)

@@ -47,6 +47,8 @@ import { useAppointmentStore } from '@/store/appointmentStore'
 import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import QRCode from 'qrcode'
+import JsBarcode from 'jsbarcode'
 import {
   FileText,
   Download,
@@ -208,7 +210,6 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
     }
 
     try {
-      const QRCode = (await import('qrcode')).default
       const qrData = generateQRData()
       console.log('QR Code Data:', qrData)
 
@@ -244,7 +245,6 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
     }
 
     try {
-      const JsBarcode = (await import('jsbarcode')).default
       const canvas = document.createElement('canvas')
       const barcodeData = generateBarcode()
 
@@ -578,7 +578,6 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
     // توليد QR Code والباركود بشكل متزامن
     if (printSettings.includeQR) {
       try {
-        const QRCode = (await import('qrcode')).default
         const qrData = generateQRData()
         console.log('QR Code Data:', qrData)
 
@@ -600,7 +599,6 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
 
     if (printSettings.includeBarcode) {
       try {
-        const JsBarcode = (await import('jsbarcode')).default
         const canvas = document.createElement('canvas')
         const barcodeData = generateBarcode()
         console.log('Barcode Data:', barcodeData)
@@ -1111,9 +1109,14 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
                           step="0.01"
                           className="h-8 text-xs"
                           value={invoiceSettings.discount_value}
-                          onChange={(e) =>
-                            handleSettingsChange('discount_value', parseFloat(e.target.value) || 0)
-                          }
+                          onChange={(e) => {
+                            const value = e.target.value
+                            handleSettingsChange('discount_value', value === '' ? 0 : parseFloat(value) || 0)
+                          }}
+                          onBlur={(e) => {
+                            const value = parseFloat(e.target.value) || 0
+                            handleSettingsChange('discount_value', value)
+                          }}
                         />
                       </div>
                     </div>
@@ -1151,9 +1154,14 @@ ${invoiceSettings.discount_reason ? `💸 سبب الخصم: ${invoiceSettings.d
                       step="0.01"
                       className="h-8 text-xs"
                       value={invoiceSettings.tax_rate}
-                      onChange={(e) =>
-                        handleSettingsChange('tax_rate', parseFloat(e.target.value) || 0)
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value
+                        handleSettingsChange('tax_rate', value === '' ? 0 : parseFloat(value) || 0)
+                      }}
+                      onBlur={(e) => {
+                        const value = parseFloat(e.target.value) || 0
+                        handleSettingsChange('tax_rate', value)
+                      }}
                     />
                   </div>
                 )}

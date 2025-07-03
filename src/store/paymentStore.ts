@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { Payment } from '../types'
 import { calculateTotalRemainingBalanceForAllPatients } from '../utils/paymentCalculations'
+import { SmartAlertsService } from '@/services/smartAlertsService'
 
 interface PaymentState {
   payments: Payment[]
@@ -197,7 +198,6 @@ export const usePaymentStore = create<PaymentStore>()(
 
           // حذف التنبيهات القديمة المرتبطة بهذه الدفعة قبل التحديث
           try {
-            const { SmartAlertsService } = await import('@/services/smartAlertsService')
             await SmartAlertsService.deletePaymentAlerts(id)
           } catch (error) {
             console.warn('Could not delete old payment alerts:', error)

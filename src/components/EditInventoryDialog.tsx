@@ -276,7 +276,14 @@ export default function EditInventoryDialog({
                         min="0"
                         placeholder="0"
                         {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          field.onChange(value === '' ? 0 : Number(value))
+                        }}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value) || 0
+                          field.onChange(value)
+                        }}
                         className="text-right"
                       />
                     </FormControl>
@@ -326,7 +333,14 @@ export default function EditInventoryDialog({
                         step="0.01"
                         placeholder="0.00"
                         {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          field.onChange(value === '' ? 0 : Number(value))
+                        }}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value) || 0
+                          field.onChange(value)
+                        }}
                         className="text-right"
                       />
                     </FormControl>

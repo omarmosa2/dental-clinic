@@ -328,6 +328,10 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
                 min="0"
                 value={formData.cost}
                 onChange={(e) => handleInputChange('cost', e.target.value)}
+                onBlur={(e) => {
+                  const value = parseFloat(e.target.value) || 0
+                  handleInputChange('cost', value.toString())
+                }}
                 placeholder="0.00"
                 className={`text-right ${errors.cost ? 'border-destructive' : ''}`}
                 disabled={isLoading}
@@ -351,6 +355,10 @@ export default function AddLabOrderDialog({ open, onOpenChange, editingOrder }: 
                 min="0"
                 value={formData.paid_amount}
                 onChange={(e) => handleInputChange('paid_amount', e.target.value)}
+                onBlur={(e) => {
+                  const value = parseFloat(e.target.value) || 0
+                  handleInputChange('paid_amount', value.toString())
+                }}
                 placeholder="0.00"
                 className={`text-right ${errors.paid_amount ? 'border-destructive' : ''}`}
                 disabled={isLoading}

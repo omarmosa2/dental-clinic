@@ -533,6 +533,10 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     step="0.01"
                     value={formData.amount}
                     onChange={(e) => handleInputChange('amount', e.target.value)}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      handleInputChange('amount', value.toString())
+                    }}
                     placeholder="0.00"
                     className="bg-background border-input text-foreground"
                   />
@@ -624,6 +628,10 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     step="0.01"
                     value={formData.discount_amount}
                     onChange={(e) => handleInputChange('discount_amount', e.target.value)}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      handleInputChange('discount_amount', value.toString())
+                    }}
                     placeholder="0.00"
                     className="bg-background border-input text-foreground"
                   />
@@ -637,6 +645,10 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     step="0.01"
                     value={formData.tax_amount}
                     onChange={(e) => handleInputChange('tax_amount', e.target.value)}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      handleInputChange('tax_amount', value.toString())
+                    }}
                     placeholder="0.00"
                     className="bg-background border-input text-foreground"
                   />
@@ -716,6 +728,10 @@ export default function EditPaymentDialog({ open, onOpenChange, payment }: EditP
                     step="0.01"
                     value={formData.total_amount_due}
                     onChange={(e) => handleInputChange('total_amount_due', e.target.value)}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      handleInputChange('total_amount_due', value.toString())
+                    }}
                     placeholder="0.00"
                     className={`bg-background border-input text-foreground ${
                       formData.tooth_treatment_id !== 'none'

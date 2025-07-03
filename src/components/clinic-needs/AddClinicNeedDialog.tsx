@@ -193,7 +193,14 @@ const AddClinicNeedDialog: React.FC<AddClinicNeedDialogProps> = ({
                 type="number"
                 min="1"
                 value={formData.quantity}
-                onChange={(e) => handleInputChange('quantity', parseInt(e.target.value) || 1)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  handleInputChange('quantity', value === '' ? 1 : parseInt(value) || 1)
+                }}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value) || 1
+                  handleInputChange('quantity', value)
+                }}
                 className={errors.quantity ? 'border-red-500' : ''}
               />
               {errors.quantity && (
@@ -209,7 +216,14 @@ const AddClinicNeedDialog: React.FC<AddClinicNeedDialogProps> = ({
                 min="0"
                 step="0.01"
                 value={formData.price}
-                onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  handleInputChange('price', value === '' ? 0 : parseFloat(value) || 0)
+                }}
+                onBlur={(e) => {
+                  const value = parseFloat(e.target.value) || 0
+                  handleInputChange('price', value)
+                }}
                 className={errors.price ? 'border-red-500' : ''}
               />
               {errors.price && (

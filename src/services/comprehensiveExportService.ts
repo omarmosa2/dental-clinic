@@ -3,6 +3,7 @@ import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
 import { validateBeforeExport } from '@/utils/exportValidation'
 import { getTreatmentNameInArabic, getCategoryNameInArabic, getStatusLabelInArabic, getPaymentStatusInArabic } from '@/utils/arabicTranslations'
 import { ExportService } from './exportService'
+import ExcelJS from 'exceljs'
 
 // أنواع الفترات الزمنية المتاحة
 export const TIME_PERIODS = {
@@ -1815,7 +1816,6 @@ export class ComprehensiveExportService {
     stats: any
     dateRange: any
   }): Promise<void> {
-    const ExcelJS = (await import('exceljs')).default
     const workbook = new ExcelJS.Workbook()
 
     // إعداد خصائص الملف
