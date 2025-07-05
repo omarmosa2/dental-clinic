@@ -197,6 +197,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openExternal: (url) => ipcRenderer.invoke('system:openExternal', url)
   },
 
+  // Database operations
+  database: {
+    getStatus: () => ipcRenderer.invoke('database:getStatus')
+  },
+
   // Authentication operations
   auth: {
     clearSession: () => ipcRenderer.invoke('auth:clearSession')

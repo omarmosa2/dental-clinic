@@ -120,8 +120,13 @@ function AppContent() {
         target.hasAttribute('data-no-global-shortcuts')
       )
 
+      // تجاهل الاختصارات إذا كان Ctrl مضغوطاً (ما عدا F1)
+      if (event.ctrlKey && event.key !== 'F1') {
+        return
+      }
+
       // السماح بالاختصارات المهمة حتى أثناء الكتابة
-      const isImportantShortcut = event.ctrlKey || event.altKey
+      const isImportantShortcut = event.altKey
 
       if (isTyping && !isImportantShortcut) {
         // تسجيل للتشخيص

@@ -65,6 +65,11 @@ export default function EnhancedDashboard({
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // تجاهل الاختصارات إذا كان Ctrl مضغوطاً
+      if (event.ctrlKey) {
+        return
+      }
+
       // تجاهل الاختصارات إذا كان المستخدم يكتب في input أو textarea
       const target = event.target as HTMLElement
       if (

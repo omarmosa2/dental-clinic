@@ -8,6 +8,7 @@ import { SUPPORTED_CURRENCIES } from '@/lib/utils'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import SecuritySettings from '@/components/settings/SecuritySettings'
 import ElegantShortcutsDisplay from '@/components/help/ElegantShortcutsDisplay'
+import { DatabaseDiagnostics } from '@/components/DatabaseDiagnostics'
 import { ExportService } from '@/services/exportService'
 import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
 import {
@@ -278,6 +279,7 @@ export default function Settings() {
         <nav className="-mb-px flex space-x-8 space-x-reverse">
           {[
             { id: 'backup', name: 'النسخ الاحتياطية', icon: Database },
+            { id: 'diagnostics', name: 'تشخيص النظام', icon: AlertTriangle },
             { id: 'appearance', name: 'المظهر', icon: Palette },
             { id: 'shortcuts', name: 'اختصارات لوحة المفاتيح', icon: Keyboard },
             { id: 'security', name: 'الأمان', icon: Key },
@@ -545,6 +547,23 @@ export default function Settings() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Diagnostics Tab */}
+      {activeTab === 'diagnostics' && (
+        <div className="space-y-6">
+          <div className="bg-card rounded-lg shadow border border-border">
+            <div className="p-6 border-b border-border">
+              <h3 className="text-lg font-medium text-foreground">تشخيص النظام</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                فحص حالة قاعدة البيانات والنظام
+              </p>
+            </div>
+            <div className="p-6">
+              <DatabaseDiagnostics />
             </div>
           </div>
         </div>

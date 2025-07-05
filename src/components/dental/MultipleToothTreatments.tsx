@@ -1337,6 +1337,8 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
     completion_date: treatment.completion_date,
     notes: treatment.notes
   })
+
+
   const [selectedCategory, setSelectedCategory] = useState(treatment.treatment_category || '')
   const [originalCost] = useState(treatment.cost || 0) // حفظ التكلفة الأصلية للمقارنة
   const [selectedLab, setSelectedLab] = useState<string>('')
@@ -1954,21 +1956,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
               }
             }}
             onKeyDown={(e) => {
-              // تسجيل للتشخيص
-              console.log('🔍 Treatment cost input keydown:', {
-                key: e.key,
-                target: e.target,
-                currentTarget: e.currentTarget,
-                hasPreventAttribute: e.currentTarget.getAttribute('data-prevent-shortcuts')
-              })
-
-              // منع انتشار أحداث لوحة المفاتيح إلى أي معالج آخر
-              e.stopPropagation()
-              // منع معالجات الأحداث الأخرى على نفس العنصر
-              if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) {
-                e.nativeEvent.stopImmediatePropagation()
-              }
-
               // معالجة خاصة لمفتاح Escape - منع إغلاق الحوار
               if (e.key === 'Escape') {
                 e.preventDefault()
@@ -2183,20 +2170,6 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
                 }
               }}
               onKeyDown={(e) => {
-                // تسجيل للتشخيص
-                console.log('🔍 Lab cost input keydown:', {
-                  key: e.key,
-                  target: e.target,
-                  currentTarget: e.currentTarget,
-                  hasPreventAttribute: e.currentTarget.getAttribute('data-prevent-shortcuts')
-                })
-
-                // منع انتشار أحداث لوحة المفاتيح إلى أي معالج آخر - بقوة
-                e.stopPropagation()
-                if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) {
-                  e.nativeEvent.stopImmediatePropagation()
-                }
-
                 // معالجة خاصة لمفتاح Escape - منع إغلاق الحوار
                 if (e.key === 'Escape') {
                   e.preventDefault()
@@ -2223,29 +2196,7 @@ function EditTreatmentFormContent({ treatment, onSave, onCancel }: EditTreatment
                 // منع أي مفاتيح أخرى
                 e.preventDefault()
               }}
-              onKeyUp={(e) => {
-                // منع انتشار حدث رفع المفتاح
-                e.stopPropagation()
-                if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) {
-                  e.nativeEvent.stopImmediatePropagation()
-                }
-              }}
-
-              onFocus={(e) => {
-                // منع انتشار حدث التركيز
-                e.stopPropagation()
-              }}
-              onClick={(e) => {
-                // منع انتشار حدث النقر
-                e.stopPropagation()
-              }}
-              onMouseDown={(e) => {
-                // منع انتشار حدث الضغط بالماوس
-                e.stopPropagation()
-              }}
               placeholder="0.00"
-              data-prevent-shortcuts="true"
-              data-no-global-shortcuts="true"
               className={cn(
                 "border-2 transition-all duration-200 h-11",
                 isDarkMode

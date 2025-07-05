@@ -41,82 +41,82 @@ UninstallIcon "${ICON_UNINSTALL}"
 !define MUI_HEADERIMAGE_BITMAP_NOSTRETCH
 !define MUI_WELCOMEFINISHPAGE_BITMAP_NOSTRETCH
 
-; دالة إنشاء الأيقونات والاختصارات
+; Function to create icons and shortcuts
 Function CreateIcons
-  ; إنشاء مجلد في قائمة ابدأ
-  CreateDirectory "$SMPROGRAMS\نظام إدارة العيادة السنية"
-  
-  ; اختصار البرنامج الرئيسي
-  CreateShortCut "$SMPROGRAMS\نظام إدارة العيادة السنية\نظام إدارة العيادة السنية.lnk" \
-                 "$INSTDIR\dental-clinic.exe" \
+  ; Create Start Menu folder
+  CreateDirectory "$SMPROGRAMS\DentalClinic - agorracode"
+
+  ; Main program shortcut
+  CreateShortCut "$SMPROGRAMS\DentalClinic - agorracode\DentalClinic - agorracode.lnk" \
+                 "$INSTDIR\dentalclinic-agorracode.exe" \
                  "" \
-                 "$INSTDIR\dental-clinic.exe" \
+                 "$INSTDIR\dentalclinic-agorracode.exe" \
                  0 \
                  SW_SHOWNORMAL \
                  "" \
-                 "نظام شامل لإدارة العيادات السنية"
-  
-  ; اختصار إلغاء التثبيت
-  CreateShortCut "$SMPROGRAMS\نظام إدارة العيادة السنية\إلغاء تثبيت نظام إدارة العيادة السنية.lnk" \
+                 "Comprehensive Dental Clinic Management System"
+
+  ; Uninstall shortcut
+  CreateShortCut "$SMPROGRAMS\DentalClinic - agorracode\Uninstall DentalClinic - agorracode.lnk" \
                  "$INSTDIR\uninstall.exe" \
                  "" \
                  "$INSTDIR\uninstall.exe" \
                  0 \
                  SW_SHOWNORMAL \
                  "" \
-                 "إلغاء تثبيت نظام إدارة العيادة السنية"
-  
-  ; اختصار ملف المساعدة
-  CreateShortCut "$SMPROGRAMS\نظام إدارة العيادة السنية\دليل المستخدم.lnk" \
-                 "$INSTDIR\README-ar.txt" \
+                 "Uninstall DentalClinic - agorracode"
+
+  ; Help file shortcut
+  CreateShortCut "$SMPROGRAMS\DentalClinic - agorracode\User Guide.lnk" \
+                 "$INSTDIR\README.txt" \
                  "" \
-                 "$INSTDIR\README-ar.txt" \
+                 "$INSTDIR\README.txt" \
                  0 \
                  SW_SHOWNORMAL \
                  "" \
-                 "دليل المستخدم والمساعدة"
-  
-  ; اختصار الموقع الإلكتروني
-  WriteINIStr "$SMPROGRAMS\نظام إدارة العيادة السنية\الموقع الإلكتروني.url" \
+                 "User Guide and Help"
+
+  ; Website shortcut
+  WriteINIStr "$SMPROGRAMS\DentalClinic - agorracode\Website.url" \
               "InternetShortcut" \
               "URL" \
-              "https://dental-clinic.com"
-  
-  ; اختصار سطح المكتب
-  CreateShortCut "$DESKTOP\نظام إدارة العيادة السنية.lnk" \
-                 "$INSTDIR\dental-clinic.exe" \
+              "https://agorracode.com"
+
+  ; Desktop shortcut
+  CreateShortCut "$DESKTOP\DentalClinic - agorracode.lnk" \
+                 "$INSTDIR\dentalclinic-agorracode.exe" \
                  "" \
-                 "$INSTDIR\dental-clinic.exe" \
+                 "$INSTDIR\dentalclinic-agorracode.exe" \
                  0 \
                  SW_SHOWNORMAL \
                  "" \
-                 "نظام شامل لإدارة العيادات السنية"
-  
-  ; اختصار الشريط السريع (إذا كان متاحاً)
-  CreateShortCut "$QUICKLAUNCH\نظام إدارة العيادة السنية.lnk" \
-                 "$INSTDIR\dental-clinic.exe" \
+                 "Comprehensive Dental Clinic Management System"
+
+  ; Quick Launch shortcut (if available)
+  CreateShortCut "$QUICKLAUNCH\DentalClinic - agorracode.lnk" \
+                 "$INSTDIR\dentalclinic-agorracode.exe" \
                  "" \
-                 "$INSTDIR\dental-clinic.exe" \
+                 "$INSTDIR\dentalclinic-agorracode.exe" \
                  0 \
                  SW_SHOWNORMAL \
                  "" \
-                 "نظام إدارة العيادة السنية"
+                 "DentalClinic - agorracode"
 FunctionEnd
 
-; دالة حذف الأيقونات والاختصارات
+; Function to remove icons and shortcuts
 Function un.RemoveIcons
-  ; حذف اختصارات قائمة ابدأ
-  Delete "$SMPROGRAMS\نظام إدارة العيادة السنية\نظام إدارة العيادة السنية.lnk"
-  Delete "$SMPROGRAMS\نظام إدارة العيادة السنية\إلغاء تثبيت نظام إدارة العيادة السنية.lnk"
-  Delete "$SMPROGRAMS\نظام إدارة العيادة السنية\دليل المستخدم.lnk"
-  Delete "$SMPROGRAMS\نظام إدارة العيادة السنية\الموقع الإلكتروني.url"
-  RMDir "$SMPROGRAMS\نظام إدارة العيادة السنية"
-  
-  ; حذف اختصار سطح المكتب
-  Delete "$DESKTOP\نظام إدارة العيادة السنية.lnk"
-  
-  ; حذف اختصار الشريط السريع
-  Delete "$QUICKLAUNCH\نظام إدارة العيادة السنية.lnk"
+  ; Delete Start Menu shortcuts
+  Delete "$SMPROGRAMS\DentalClinic - agorracode\DentalClinic - agorracode.lnk"
+  Delete "$SMPROGRAMS\DentalClinic - agorracode\Uninstall DentalClinic - agorracode.lnk"
+  Delete "$SMPROGRAMS\DentalClinic - agorracode\User Guide.lnk"
+  Delete "$SMPROGRAMS\DentalClinic - agorracode\Website.url"
+  RMDir "$SMPROGRAMS\DentalClinic - agorracode"
+
+  ; Delete desktop shortcut
+  Delete "$DESKTOP\DentalClinic - agorracode.lnk"
+
+  ; Delete Quick Launch shortcut
+  Delete "$QUICKLAUNCH\DentalClinic - agorracode.lnk"
 FunctionEnd
 
 ; دالة تسجيل أنواع الملفات
@@ -149,17 +149,17 @@ Function un.UnregisterFileTypes
   System::Call 'shell32.dll::SHChangeNotify(l, l, p, p) v (0x08000000, 0, 0, 0)'
 FunctionEnd
 
-; دالة إنشاء ملف معلومات التطبيق
+; Function to create application info file
 Function CreateAppInfo
-  ; إنشاء ملف معلومات التطبيق
+  ; Create application info file
   FileOpen $0 "$INSTDIR\app-info.txt" w
-  FileWrite $0 "نظام إدارة العيادة السنية$\r$\n"
-  FileWrite $0 "الإصدار: 1.0.0$\r$\n"
-  FileWrite $0 "تاريخ التثبيت: $\r$\n"
-  FileWrite $0 "مجلد التثبيت: $INSTDIR$\r$\n"
-  FileWrite $0 "معرف التطبيق: com.dentalclinic.management$\r$\n"
-  FileWrite $0 "الناشر: فريق تطوير العيادة السنية$\r$\n"
-  FileWrite $0 "الموقع الإلكتروني: https://dental-clinic.com$\r$\n"
-  FileWrite $0 "الدعم الفني: support@dental-clinic.com$\r$\n"
+  FileWrite $0 "DentalClinic - agorracode$\r$\n"
+  FileWrite $0 "Version: v2.1$\r$\n"
+  FileWrite $0 "Installation Date: $\r$\n"
+  FileWrite $0 "Installation Folder: $INSTDIR$\r$\n"
+  FileWrite $0 "Application ID: com.agorracode.dentalclinic$\r$\n"
+  FileWrite $0 "Publisher: AgorraCode Team$\r$\n"
+  FileWrite $0 "Website: https://agorracode.com$\r$\n"
+  FileWrite $0 "Technical Support: dev@agorracode.com$\r$\n"
   FileClose $0
 FunctionEnd

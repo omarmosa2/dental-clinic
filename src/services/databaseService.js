@@ -6,28 +6,48 @@ const { ImageMigrationService } = require('./imageMigrationService')
 
 class DatabaseService {
   constructor(dbPath = null) {
-    // If no path provided, try to get it from electron app
+    // If no path provided, use consistent path logic
     if (!dbPath) {
       try {
-        // Use app directory instead of userData for portable installation
-        const appDir = process.execPath ? require('path').dirname(process.execPath) : process.cwd()
-        dbPath = join(appDir, 'dental_clinic.db')
+        // Try to get userData path from electron app (consistent with main.js)
+        const { app } = require('electron')
+        dbPath = join(app.getPath('userData'), 'dental_clinic.db')
+        console.log('🗄️ Using userData path for database:', dbPath)
       } catch (error) {
         // Fallback for testing or non-electron environments
-        dbPath = join(process.cwd(), 'dental_clinic.db')
+        console.log('⚠️ Electron app not available, using fallback path')
+        const appDir = process.execPath ? require('path').dirname(process.execPath) : process.cwd()
+        dbPath = join(appDir, 'dental_clinic.db')
       }
     }
 
     console.log('🗄️ Initializing SQLite database at:', dbPath)
-    this.db = new Database(dbPath)
-    this.initializeDatabase()
-    this.runMigrations()
 
-    // Initialize image migration service
-    this.imageMigrationService = new ImageMigrationService(this)
+    try {
+      this.db = new Database(dbPath)
+      console.log('✅ Database connection established successfully')
 
-    // Check if image migration is needed
-    this.checkAndRunImageMigration()
+      // Test database connection
+      this.db.pragma('user_version')
+      console.log('✅ Database connection test passed')
+
+      this.initializeDatabase()
+      console.log('✅ Database schema initialized')
+
+      this.runMigrations()
+      console.log('✅ Database migrations completed')
+
+      // Initialize image migration service
+      this.imageMigrationService = new ImageMigrationService(this)
+
+      // Check if image migration is needed
+      this.checkAndRunImageMigration()
+
+      console.log('✅ DatabaseService initialization completed successfully')
+    } catch (error) {
+      console.error('❌ Failed to initialize DatabaseService:', error)
+      throw error
+    }
   }
 
   // Ensure database connection is open
@@ -44,8 +64,35 @@ class DatabaseService {
 
     // Read and execute schema with error handling
     try {
-      const schemaPath = join(__dirname, '../database/schema.sql')
-      const schema = readFileSync(schemaPath, 'utf-8')
+      // Try multiple possible paths for schema.sql
+      let schemaPath
+      let schema
+
+      const possiblePaths = [
+        join(__dirname, '../database/schema.sql'), // Development path
+        join(process.resourcesPath || '', 'database/schema.sql'), // extraResources path
+        join(process.resourcesPath || '', 'src/database/schema.sql'), // Packaged path 1
+        join(require('path').dirname(process.execPath), 'resources/database/schema.sql'), // extraResources path 2
+        join(require('path').dirname(process.execPath), 'resources/src/database/schema.sql'), // Packaged path 2
+        join(require('path').dirname(process.execPath), 'src/database/schema.sql') // Packaged path 3
+      ]
+
+      for (const path of possiblePaths) {
+        try {
+          if (require('fs').existsSync(path)) {
+            schemaPath = path
+            schema = readFileSync(path, 'utf-8')
+            console.log('✅ Found schema.sql at:', path)
+            break
+          }
+        } catch (e) {
+          // Continue to next path
+        }
+      }
+
+      if (!schema) {
+        throw new Error('Schema file not found in any expected location')
+      }
 
       // Split schema into individual statements and execute safely
       const statements = schema.split(';').filter(stmt => stmt.trim().length > 0)
@@ -2146,14 +2193,17 @@ class DatabaseService {
       this.close()
     }
 
-    // Get database path
+    // Get database path (consistent with constructor)
     let dbPath
     try {
       const { app } = require('electron')
       dbPath = join(app.getPath('userData'), 'dental_clinic.db')
+      console.log('🗄️ Reinitializing with userData path:', dbPath)
     } catch (error) {
       // Fallback for testing or non-electron environments
-      dbPath = join(process.cwd(), 'dental_clinic.db')
+      console.log('⚠️ Electron app not available during reinitialize, using fallback path')
+      const appDir = process.execPath ? require('path').dirname(process.execPath) : process.cwd()
+      dbPath = join(appDir, 'dental_clinic.db')
     }
 
     this.db = new Database(dbPath)

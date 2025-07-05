@@ -12,7 +12,7 @@
     "electron": "electron .",
     "electron:build": "npm run build && electron .",
     "rebuild": "npx @electron/rebuild -f -w",
-    "postinstall": "npx @electron/rebuild -f -w",
+    "postinstall": "electron-builder install-app-deps",
     "test": "echo \"No tests specified\"",
     "install-deps": "npm install vite @vitejs/plugin-react react react-dom typescript",
     "dist": "npm run build && electron-builder",
@@ -90,13 +90,15 @@
   },
   "build": {
     "appId": "com.agorracode.dentalclinic",
-    "productName": "Dental Clinic Management AgorraCode",
+    "productName": "DentalClinic - agorracode",
     "directories": {
       "output": "dist-electron"
     },
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "src/database/**/*",
+      "src/services/**/*",
       "node_modules/**/*",
       "package.json"
     ],
@@ -104,6 +106,10 @@
       {
         "from": "assets",
         "to": "assets"
+      },
+      {
+        "from": "src/database",
+        "to": "database"
       }
     ],
     "win": {
@@ -111,14 +117,13 @@
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "ia32"
+            "x64"
           ]
         }
       ],
       "icon": "assets/icon.ico",
       "requestedExecutionLevel": "asInvoker",
-      "sign": false
+      "forceCodeSigning": false
     },
     "nsis": {
       "oneClick": false,
@@ -130,22 +135,19 @@
       "installerHeaderIcon": "assets/icon.ico",
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "Dental Clinic Management AgorraCode",
-      "include": "installer/installer.nsh",
-      "script": "installer/modern-ui.nsh",
+      "shortcutName": "DentalClinic - agorracode",
       "language": "1033",
       "displayLanguageSelector": false,
       "multiLanguageInstaller": false,
       "license": "installer/license-en.txt",
-      "artifactName": "${productName}-${version}-Setup.${ext}",
+      "artifactName": "DentalClinic-agorracode-v${version}-Setup.${ext}",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
       "menuCategory": "Healthcare",
       "warningsAsErrors": false,
       "unicode": true,
-      "guid": "dental-clinic-management-system",
-      "installerSidebar": "assets/installer-sidebar.bmp",
-      "uninstallerSidebar": "assets/installer-sidebar.bmp"
+      "guid": "dentalclinic-agorracode-v2.1",
+      "include": "installer/directory-fix.nsh"
     },
     "mac": {
       "target": "dmg",

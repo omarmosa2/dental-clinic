@@ -23,15 +23,19 @@ export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardS
     if (!enabled) return
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      // تجاهل الاختصارات إذا كان المستخدم يكتب في input أو textarea
       const target = event.target as HTMLElement
+
+      // تجاهل الاختصارات إذا كان المستخدم يكتب في input أو textarea
       if (
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
         target.contentEditable === 'true' ||
-        target.getAttribute('type') === 'number' ||
-        target.closest('[data-prevent-shortcuts="true"]')
+        target.hasAttribute('data-prevent-shortcuts') ||
+        target.hasAttribute('data-no-global-shortcuts') ||
+        target.closest('[data-prevent-shortcuts="true"]') ||
+        target.closest('[data-no-global-shortcuts="true"]')
       ) {
+        console.log('🚫 useKeyboardShortcuts: Ignoring shortcut for input element:', event.key)
         return
       }
 
@@ -39,10 +43,12 @@ export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardS
       const enhanced = enhanceKeyboardEvent(event)
 
       // البحث عن الاختصار المطابق مع دعم الأحرف العربية
+      // تم تعديل المنطق لتجاهل الاختصارات عند الضغط على Ctrl
       const matchingShortcut = shortcuts.find(shortcut => {
         return (
           matchesShortcut(enhanced.originalKey, shortcut.key) &&
-          !!shortcut.ctrlKey === enhanced.ctrlKey &&
+          // إذا كان الاختصار لا يتطلب Ctrl، فيجب ألا يكون Ctrl مضغوطاً
+          (shortcut.ctrlKey === undefined ? !enhanced.ctrlKey : !!shortcut.ctrlKey === enhanced.ctrlKey) &&
           !!shortcut.altKey === enhanced.altKey &&
           !!shortcut.shiftKey === enhanced.shiftKey
         )

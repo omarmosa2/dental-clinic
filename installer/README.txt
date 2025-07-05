@@ -1,11 +1,11 @@
-Dental Clinic Management AgorraCode
-Version 2.1.0
+DentalClinic - agorracode
+Version v2.1
 Developed by AgorraCode Team
 
-WELCOME TO DENTAL CLINIC MANAGEMENT AGORRACODE
-==============================================
+WELCOME TO DENTALCLINIC - AGORRACODE
+====================================
 
-Thank you for installing Dental Clinic Management AgorraCode, a comprehensive solution for managing dental clinic operations.
+Thank you for installing DentalClinic - agorracode, a comprehensive solution for managing dental clinic operations.
 
 SYSTEM REQUIREMENTS
 ==================
@@ -35,7 +35,7 @@ KEY FEATURES
 SUPPORT
 =======
 For technical support and documentation:
-- Email: support@agorracode.com
+- Email: dev@agorracode.com
 - Website: https://agorracode.com
 
 ABOUT AGORRACODE
@@ -52,10 +52,10 @@ Unauthorized copying, distribution, or modification is prohibited.
 
 INSTALLATION NOTES
 ==================
-- The application is installed in: Program Files\AgorraCode\Dental Clinic Management AgorraCode
+- The application is installed in: Program Files\DentalClinic - agorracode
 - User data is stored in: %APPDATA%\dental-clinic-management
 - Backup files are saved in the user-selected location during backup operations
 
 For the latest updates and news, visit our website at https://agorracode.com
 
-Thank you for choosing Dental Clinic Management AgorraCode!
+Thank you for choosing DentalClinic - agorracode!

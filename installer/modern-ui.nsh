@@ -115,7 +115,7 @@ FunctionEnd
 
 ; Custom Finish Page
 !macro CUSTOM_FINISH_PAGE
-  !define MUI_FINISHPAGE_RUN_TEXT "Run Dental Clinic Management AgorraCode"
+  !define MUI_FINISHPAGE_RUN_TEXT "Run DentalClinic - agorracode"
   !define MUI_FINISHPAGE_RUN_FUNCTION "LaunchApplication"
   !define MUI_FINISHPAGE_SHOWREADME_TEXT "View README file"
   !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.txt"
@@ -125,5 +125,5 @@ FunctionEnd
 
 ; Application Launch Function
 Function LaunchApplication
-  ExecShell "" "$INSTDIR\dental-clinic.exe"
+  ExecShell "" "$INSTDIR\dentalclinic-agorracode.exe"
 FunctionEnd

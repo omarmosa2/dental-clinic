@@ -59,8 +59,8 @@ function createWindow() {
       experimentalFeatures: false,
       // ✅ تحسين الأداء
       backgroundThrottling: false,
-      // ✅ تفعيل DevTools
-      devTools: true,
+      // ✅ تعطيل DevTools في الإنتاج
+      devTools: isDev,
       // ✅ إعدادات إضافية للتوافق
       spellcheck: false,
       // ✅ تحسين معالجة الصور والموارد
@@ -74,7 +74,7 @@ function createWindow() {
       height: 40
     },
     show: false,
-    title: 'Dental Clinic Management AgorraCode',
+    title: 'DentalClinic - agorracode',
     icon: join(__dirname, '../assets/icon.png'),
     // ✅ إعدادات إضافية للنافذة
     backgroundColor: '#ffffff', // لون خلفية أبيض لتجنب الشاشة السوداء
@@ -184,6 +184,35 @@ function createWindow() {
     }
   })
 
+  // ✅ تعطيل اختصارات DevTools في الإنتاج
+  if (!isDev) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      // تعطيل F12
+      if (input.key === 'F12') {
+        event.preventDefault()
+      }
+      // تعطيل Ctrl+Shift+I
+      if (input.control && input.shift && input.key === 'I') {
+        event.preventDefault()
+      }
+      // تعطيل Ctrl+Shift+J
+      if (input.control && input.shift && input.key === 'J') {
+        event.preventDefault()
+      }
+      // تعطيل Ctrl+U (عرض المصدر)
+      if (input.control && input.key === 'U') {
+        event.preventDefault()
+      }
+    })
+  }
+
+  // ✅ تعطيل قائمة السياق (right-click) في الإنتاج
+  if (!isDev) {
+    mainWindow.webContents.on('context-menu', (event) => {
+      event.preventDefault()
+    })
+  }
+
   // ✅ معالجة شاملة لفشل التحميل
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.error('❌ Failed to load page:')
@@ -248,11 +277,11 @@ function createWindow() {
         originalError.apply(console, args);
       };
 
-      return {
-        hasRoot: !!rootElement,
-        hasContent: rootElement ? rootElement.innerHTML.length > 0 : false,
-        errors: errors
-      };
+    ({
+  hasRoot: !!rootElement,
+  hasContent: rootElement ? rootElement.innerHTML.length > 0 : false,
+  errors: errors
+})
     `).then(result => {
       console.log('🔍 DOM Check Result:', result)
     }).catch(err => {
@@ -314,12 +343,31 @@ app.whenReady().then(async () => {
 
     // Initialize SQLite database service
     const dbPath = require('path').join(app.getPath('userData'), 'dental_clinic.db')
+    console.log('🗄️ Database will be created at:', dbPath)
+
+    // Ensure userData directory exists
+    const userDataPath = app.getPath('userData')
+    if (!require('fs').existsSync(userDataPath)) {
+      require('fs').mkdirSync(userDataPath, { recursive: true })
+      console.log('✅ Created userData directory:', userDataPath)
+    }
 
     // Clear require cache to ensure we get the latest version
     delete require.cache[require.resolve('../src/services/databaseService.js')]
     const { DatabaseService: FreshDatabaseService } = require('../src/services/databaseService.js')
 
     databaseService = new FreshDatabaseService(dbPath)
+
+    // Verify database is working
+    try {
+      const testQuery = databaseService.db.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table'")
+      const result = testQuery.get()
+      console.log('✅ Database verification passed - Tables count:', result.count)
+    } catch (verifyError) {
+      console.error('❌ Database verification failed:', verifyError)
+      throw verifyError
+    }
+
     console.log('✅ SQLite database service initialized successfully')
 
     // Initialize backup service
@@ -1226,6 +1274,57 @@ ipcMain.handle('system:getVersion', async () => {
 
 ipcMain.handle('system:getPath', async (_, name) => {
   return app.getPath(name)
+})
+
+// Database status IPC Handler
+ipcMain.handle('database:getStatus', async () => {
+  try {
+    if (!databaseService || !databaseService.db) {
+      return {
+        connected: false,
+        error: 'Database service not initialized'
+      }
+    }
+
+    // Test database connection
+    const testQuery = databaseService.db.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table'")
+    const result = testQuery.get()
+
+    // Get additional database info
+    const dbInfo = {
+      connected: true,
+      tablesCount: result.count,
+      dbPath: databaseService.db.name,
+      isOpen: databaseService.isOpen()
+    }
+
+    // Add file size info
+    try {
+      const fs = require('fs')
+      const stats = fs.statSync(databaseService.db.name)
+      dbInfo.fileSize = Math.round(stats.size / 1024) + ' KB'
+      dbInfo.lastModified = stats.mtime.toISOString()
+    } catch (e) {
+      dbInfo.fileSize = 'Unknown'
+    }
+
+    // Add some basic table info
+    try {
+      const tablesQuery = databaseService.db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      const tables = tablesQuery.all()
+      dbInfo.tableNames = tables.map(t => t.name).slice(0, 10) // First 10 tables
+      dbInfo.hasMoreTables = tables.length > 10
+    } catch (e) {
+      dbInfo.tableNames = []
+    }
+
+    return dbInfo
+  } catch (error) {
+    return {
+      connected: false,
+      error: error.message
+    }
+  }
 })
 
 // Authentication IPC Handlers
