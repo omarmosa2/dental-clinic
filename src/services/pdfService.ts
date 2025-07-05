@@ -3131,6 +3131,40 @@ export class PdfService {
             border-top: 1px solid #ccc;
             padding-top: 20px;
           }
+
+          @media print {
+  .data-table {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    display: table;
+    width: 100%;
+  }
+
+  .data-table thead {
+    display: table-header-group;
+  }
+
+  .data-table tbody {
+    display: table-row-group;
+  }
+
+  .data-table tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .data-table td,
+  .data-table th {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .section-title {
+    page-break-before: always;
+    break-before: always;
+  }
+}
+
         </style>
       </head>
       <body>
@@ -3150,11 +3184,6 @@ export class PdfService {
         <!-- معلومات المريض الأساسية -->
         <div class="patient-info">
           <div class="patient-name">${patient.full_name}</div>
-
-          <div class="info-row">
-            <span class="info-label">رقم المريض:</span>
-            <span class="info-value">${patient.serial_number}</span>
-          </div>
           <div class="info-row">
             <span class="info-label">العمر:</span>
             <span class="info-value">${patient.age} سنة</span>
@@ -3453,7 +3482,7 @@ export class PdfService {
     // إنهاء HTML
     htmlContent += `
         <div class="footer">
-          تم إنشاء هذا التقرير في ${formatDate(new Date().toISOString())} - ${settings?.clinic_name || 'عيادة الأسنان'}
+          تم إنشاء هذا  التقرير في ${formatDate(new Date().toISOString())} - ${settings?.clinic_name || 'عيادة الأسنان'}
         </div>
       </body>
       </html>`
