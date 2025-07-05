@@ -39,7 +39,8 @@ import {
   GripVertical,
   Upload,
   X,
-  Eye
+  Eye,
+  GitCompare
 } from 'lucide-react'
 
 interface EnhancedToothDetailsDialogProps {
@@ -85,6 +86,8 @@ export default function EnhancedToothDetailsDialog({
   const [activeTab, setActiveTab] = useState('treatments')
   const [selectedImages, setSelectedImages] = useState<Array<{file: File, type: string, treatmentId?: string}>>([])
   const [selectedTreatmentId, setSelectedTreatmentId] = useState<string>('')
+  const [showComparison, setShowComparison] = useState(false)
+  const [selectedComparisonTreatment, setSelectedComparisonTreatment] = useState<string>('')
 
   const patient = patients.find(p => p.id === patientId)
   const toothInfo = toothNumber ? getToothInfo(toothNumber, isPrimaryTeeth) : null
@@ -287,6 +290,28 @@ export default function EnhancedToothDetailsDialog({
       // Fallback: open in new tab
       window.open(`file://${imagePath}`, '_blank')
     }
+  }
+
+  // Get comparison images for a specific treatment
+  const getComparisonImages = (treatmentId: string) => {
+    const treatmentImages = (toothTreatmentImages || []).filter(img =>
+      img.tooth_treatment_id === treatmentId &&
+      img.tooth_number === toothNumber &&
+      img.patient_id === patientId
+    )
+
+    const beforeImages = treatmentImages.filter(img => img.image_type === 'before')
+    const afterImages = treatmentImages.filter(img => img.image_type === 'after')
+
+    return { beforeImages, afterImages }
+  }
+
+  // Get treatments that have both before and after images
+  const getTreatmentsWithComparisons = () => {
+    return currentToothTreatments.filter(treatment => {
+      const { beforeImages, afterImages } = getComparisonImages(treatment.id)
+      return beforeImages.length > 0 && afterImages.length > 0
+    })
   }
 
   const uploadImage = async (file: File, imageType: string): Promise<string> => {
@@ -783,12 +808,160 @@ export default function EnhancedToothDetailsDialog({
             {/* Existing Images Display */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5" />
-                  الصور المحفوظة ({(toothTreatmentImages || []).filter(img => img.tooth_number === toothNumber && img.patient_id === patientId).length})
+                <CardTitle className="flex items-center gap-2 justify-between">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-5 h-5" />
+                    الصور المحفوظة ({(toothTreatmentImages || []).filter(img => img.tooth_number === toothNumber && img.patient_id === patientId).length})
+                  </div>
+                  {getTreatmentsWithComparisons().length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowComparison(!showComparison)}
+                      className="flex items-center gap-2"
+                    >
+                      <GitCompare className="w-4 h-4" />
+                      {showComparison ? 'إخفاء المقارنة' : 'مقارنة'}
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {/* Comparison View */}
+                {showComparison && getTreatmentsWithComparisons().length > 0 && (
+                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-gray-900 dark:to-gray-800 rounded-lg border border-blue-200 dark:border-gray-700 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                      <GitCompare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">مقارنة الصور</h3>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                      <Label htmlFor="comparison-treatment" className="text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                        اختر العلاج للمقارنة:
+                      </Label>
+                      <Select
+                        value={selectedComparisonTreatment}
+                        onValueChange={setSelectedComparisonTreatment}
+                      >
+                        <SelectTrigger className="w-full sm:w-64 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500 text-gray-900 dark:text-gray-100">
+                          <SelectValue placeholder="اختر العلاج..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500">
+                          {getTreatmentsWithComparisons().map((treatment) => (
+                            <SelectItem key={treatment.id} value={treatment.id} className="text-gray-900 dark:text-gray-100 dark:hover:bg-gray-600">
+                              {getTreatmentByValue(treatment.treatment_type)?.label || treatment.treatment_type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {!selectedComparisonTreatment && (
+                      <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <div className="text-gray-500 dark:text-gray-400">
+                          <GitCompare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                          <p className="text-sm">اختر علاجاً من القائمة أعلاه لعرض المقارنة</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedComparisonTreatment && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {(() => {
+                          const { beforeImages, afterImages } = getComparisonImages(selectedComparisonTreatment)
+                          const selectedTreatment = currentToothTreatments.find(t => t.id === selectedComparisonTreatment)
+
+                          return (
+                            <>
+                              {/* Before Images */}
+                              <div className="space-y-3">
+                                <h4 className="font-medium text-center text-green-700 dark:text-green-300 flex items-center justify-center gap-2 bg-green-100 dark:bg-green-900/50 py-2 px-4 rounded-lg">
+                                  <span className="w-3 h-3 bg-green-500 dark:bg-green-400 rounded-full shadow-sm"></span>
+                                  قبل العلاج
+                                </h4>
+                                <div className="grid grid-cols-1 gap-3">
+                                  {beforeImages.map((image) => (
+                                    <div key={image.id} className="relative group">
+                                      <div className="relative overflow-hidden rounded-lg border-2 border-green-300 dark:border-green-600 shadow-md hover:shadow-lg transition-shadow">
+                                        <DentalImage
+                                          imagePath={image.image_path}
+                                          alt="قبل العلاج"
+                                          className="w-full h-48 object-cover"
+                                        />
+                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            className="w-8 h-8 p-0 bg-black/80 hover:bg-black/95 text-white border-2 border-white/30 hover:border-white/80 rounded-full backdrop-blur-sm shadow-lg transition-all duration-300"
+                                            onClick={() => handleImagePreview(image.image_path)}
+                                          >
+                                            <Eye className="w-4 h-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                      {image.taken_date && (
+                                        <p className="text-xs text-gray-600 dark:text-gray-300 text-center mt-1 bg-white dark:bg-gray-700 rounded px-2 py-1 shadow-sm">
+                                          {new Date(image.taken_date).toLocaleDateString('en-GB')}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* After Images */}
+                              <div className="space-y-3">
+                                <h4 className="font-medium text-center text-blue-700 dark:text-blue-300 flex items-center justify-center gap-2 bg-blue-100 dark:bg-blue-900/50 py-2 px-4 rounded-lg">
+                                  <span className="w-3 h-3 bg-blue-500 dark:bg-blue-400 rounded-full shadow-sm"></span>
+                                  بعد العلاج
+                                </h4>
+                                <div className="grid grid-cols-1 gap-3">
+                                  {afterImages.map((image) => (
+                                    <div key={image.id} className="relative group">
+                                      <div className="relative overflow-hidden rounded-lg border-2 border-blue-300 dark:border-blue-600 shadow-md hover:shadow-lg transition-shadow">
+                                        <DentalImage
+                                          imagePath={image.image_path}
+                                          alt="بعد العلاج"
+                                          className="w-full h-48 object-cover"
+                                        />
+                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            className="w-8 h-8 p-0 bg-black/80 hover:bg-black/95 text-white border-2 border-white/30 hover:border-white/80 rounded-full backdrop-blur-sm shadow-lg transition-all duration-300"
+                                            onClick={() => handleImagePreview(image.image_path)}
+                                          >
+                                            <Eye className="w-4 h-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                      {image.taken_date && (
+                                        <p className="text-xs text-gray-600 dark:text-gray-300 text-center mt-1 bg-white dark:bg-gray-700 rounded px-2 py-1 shadow-sm">
+                                          {new Date(image.taken_date).toLocaleDateString('en-GB')}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )
+                        })()}
+                      </div>
+                    )}
+
+                    {selectedComparisonTreatment && (
+                      <div className="mt-4 p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm">
+                        <p className="text-sm text-center text-gray-700 dark:text-gray-200">
+                          <strong className="text-gray-900 dark:text-white">العلاج:</strong> {(() => {
+                            const treatment = currentToothTreatments.find(t => t.id === selectedComparisonTreatment)
+                            return treatment ? getTreatmentByValue(treatment.treatment_type)?.label || treatment.treatment_type : ''
+                          })()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {(toothTreatmentImages || []).filter(img => img.tooth_number === toothNumber && img.patient_id === patientId).length === 0 ? (
                   <div className="text-center p-8 text-muted-foreground">
                     <Camera className="w-12 h-12 mx-auto mb-4 opacity-50" />
