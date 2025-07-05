@@ -41,7 +41,7 @@ import type { Prescription } from '@/types'
 
 interface PrescriptionTableProps {
   prescriptions: Prescription[]
-  onEdit: (prescription: Prescription) => void
+  onEdit: (prescription: Prescription | null) => void
   onDelete: (prescription: Prescription) => void
 }
 
@@ -103,7 +103,7 @@ export default function PrescriptionTable({ prescriptions, onEdit, onDelete }: P
         <p className="text-muted-foreground mb-4">
           لم يتم إنشاء أي وصفات طبية بعد
         </p>
-        <Button onClick={() => onEdit({} as Prescription)}>
+        <Button onClick={() => onEdit(null)}>
           <FileText className="w-4 h-4 ml-2" />
           إنشاء وصفة طبية جديدة
         </Button>

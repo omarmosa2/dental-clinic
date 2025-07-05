@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Patient operations
   patients: {
     getAll: () => ipcRenderer.invoke('db:patients:getAll'),
+    getById: (id) => ipcRenderer.invoke('db:patients:getById', id),
     create: (patient) => ipcRenderer.invoke('db:patients:create', patient),
     update: (id, patient) => ipcRenderer.invoke('db:patients:update', id, patient),
     delete: (id) => ipcRenderer.invoke('db:patients:delete', id),
@@ -15,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Appointment operations
   appointments: {
     getAll: () => ipcRenderer.invoke('db:appointments:getAll'),
+    getByPatient: (patientId) => ipcRenderer.invoke('db:appointments:getByPatient', patientId),
     create: (appointment) => ipcRenderer.invoke('db:appointments:create', appointment),
     update: (id, appointment) => ipcRenderer.invoke('db:appointments:update', id, appointment),
     delete: (id) => ipcRenderer.invoke('db:appointments:delete', id),
@@ -25,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Payment operations
   payments: {
     getAll: () => ipcRenderer.invoke('db:payments:getAll'),
+    getByPatient: (patientId) => ipcRenderer.invoke('db:payments:getByPatient', patientId),
     create: (payment) => ipcRenderer.invoke('db:payments:create', payment),
     update: (id, payment) => ipcRenderer.invoke('db:payments:update', id, payment),
     delete: (id) => ipcRenderer.invoke('db:payments:delete', id),
@@ -77,6 +80,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Lab Order operations
   labOrders: {
     getAll: () => ipcRenderer.invoke('db:labOrders:getAll'),
+    getByPatient: (patientId) => ipcRenderer.invoke('db:labOrders:getByPatient', patientId),
     create: (labOrder) => ipcRenderer.invoke('db:labOrders:create', labOrder),
     update: (id, labOrder) => ipcRenderer.invoke('db:labOrders:update', id, labOrder),
     delete: (id) => ipcRenderer.invoke('db:labOrders:delete', id),

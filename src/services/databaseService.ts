@@ -1691,6 +1691,101 @@ export class DatabaseService {
     }))
   }
 
+  // Helper method to check if a column exists in a table
+  checkColumnExists(tableName: string, columnName: string): boolean {
+    try {
+      const stmt = this.db.prepare(`PRAGMA table_info(${tableName})`)
+      const columns = stmt.all() as any[]
+      return columns.some(col => col.name === columnName)
+    } catch (error) {
+      console.error(`Error checking column ${columnName} in table ${tableName}:`, error)
+      return false
+    }
+  }
+
+  // Get payments by patient ID
+  async getPaymentsByPatient(patientId: string): Promise<Payment[]> {
+    console.log('🔍 [DEBUG] getPaymentsByPatient() called with patientId:', patientId)
+
+    // Check if tooth_treatment_id column exists
+    const hasToothTreatmentId = this.checkColumnExists('payments', 'tooth_treatment_id')
+
+    let query: string
+    if (hasToothTreatmentId) {
+      // Use the full query with tooth_treatments join
+      query = `
+        SELECT
+          p.*,
+          pt.full_name as patient_name,
+          pt.full_name as patient_full_name,
+          pt.phone as patient_phone,
+          pt.email as patient_email,
+          a.title as appointment_title,
+          a.start_time as appointment_start_time,
+          a.end_time as appointment_end_time,
+          tt.treatment_type as treatment_name,
+          tt.tooth_number,
+          tt.tooth_name,
+          tt.cost as treatment_cost
+        FROM payments p
+        LEFT JOIN patients pt ON p.patient_id = pt.id
+        LEFT JOIN appointments a ON p.appointment_id = a.id
+        LEFT JOIN tooth_treatments tt ON p.tooth_treatment_id = tt.id
+        WHERE p.patient_id = ?
+        ORDER BY p.payment_date DESC
+      `
+    } else {
+      // Use simplified query without tooth_treatments join
+      query = `
+        SELECT
+          p.*,
+          pt.full_name as patient_name,
+          pt.full_name as patient_full_name,
+          pt.phone as patient_phone,
+          pt.email as patient_email,
+          a.title as appointment_title,
+          a.start_time as appointment_start_time,
+          a.end_time as appointment_end_time
+        FROM payments p
+        LEFT JOIN patients pt ON p.patient_id = pt.id
+        LEFT JOIN appointments a ON p.appointment_id = a.id
+        WHERE p.patient_id = ?
+        ORDER BY p.payment_date DESC
+      `
+    }
+
+    const stmt = this.db.prepare(query)
+    const payments = stmt.all(patientId) as any[]
+    console.log('📊 [DEBUG] Raw payments from database for patient:', payments.length)
+
+    // Transform the data to include patient and appointment objects
+    return payments.map(payment => ({
+      ...payment,
+      patient: payment.patient_id ? {
+        id: payment.patient_id,
+        full_name: payment.patient_full_name,
+        first_name: payment.patient_full_name?.split(' ')[0] || '',
+        last_name: payment.patient_full_name?.split(' ').slice(1).join(' ') || '',
+        phone: payment.patient_phone,
+        email: payment.patient_email
+      } : null,
+      appointment: payment.appointment_id ? {
+        id: payment.appointment_id,
+        title: payment.appointment_title,
+        start_time: payment.appointment_start_time,
+        end_time: payment.appointment_end_time
+      } : null,
+      // Include treatment information if available
+      treatment: hasToothTreatmentId && payment.tooth_treatment_id ? {
+        id: payment.tooth_treatment_id,
+        treatment_type: payment.treatment_name,
+        tooth_number: payment.tooth_number,
+        tooth_name: payment.tooth_name,
+        cost: payment.treatment_cost
+      } : null
+    }))
+  }
+
   // Treatment operations
   async getAllTreatments(): Promise<Treatment[]> {
     const stmt = this.db.prepare('SELECT * FROM treatments ORDER BY name')

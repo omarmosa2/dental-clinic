@@ -702,6 +702,8 @@ export class PdfService {
           border-radius: ${this.LAYOUT.borderRadius};
           overflow: hidden;
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
         .data-table th {
@@ -722,6 +724,13 @@ export class PdfService {
           font-size: ${this.TYPOGRAPHY.sizes.body};
           color: ${this.COLORS.text.primary};
           font-weight: ${this.TYPOGRAPHY.weights.medium};
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+
+        .data-table tr {
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
         .data-table tr:nth-child(even) {
@@ -2728,6 +2737,610 @@ export class PdfService {
       console.error('Error exporting treatment report:', error)
       throw new Error('فشل في تصدير تقرير العلاجات')
     }
+  }
+
+  /**
+   * تصدير سجل مريض فردي شامل
+   */
+  static async exportIndividualPatientRecord(patientData: any, settings?: ClinicSettings | null): Promise<void> {
+    try {
+      const htmlContent = this.createIndividualPatientRecordHTML(patientData, settings)
+      // تنسيق اسم الملف: اسم المريض + التاريخ فقط
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-GB').replace(/\//g, '-') // DD-MM-YYYY
+      const fileName = `${patientData.patient.full_name.replace(/\s+/g, '_')}_${dateStr}.pdf`
+      await this.convertHTMLToPDF(htmlContent, fileName)
+    } catch (error) {
+      console.error('Error exporting individual patient record:', error)
+      throw new Error('فشل في تصدير سجل المريض')
+    }
+  }
+
+  /**
+   * إنشاء قالب HTML لسجل المريض الفردي الشامل
+   */
+  private static createIndividualPatientRecordHTML(patientData: any, settings?: ClinicSettings | null): string {
+    const { patient, appointments, treatments, payments, prescriptions, labOrders, stats } = patientData
+
+    // تنسيق التواريخ بالميلادي
+    const formatDate = (dateString: string) => {
+      if (!dateString) return 'غير محدد'
+      return new Date(dateString).toLocaleDateString('en-GB', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      })
+    }
+
+    // تنسيق الوقت
+    const formatTime = (dateString: string) => {
+      if (!dateString) return 'غير محدد'
+      return new Date(dateString).toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
+
+    // تنسيق العملة
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat('ar-SA', {
+        style: 'currency',
+        currency: 'SAR'
+      }).format(amount || 0)
+    }
+
+    // حساب الإحصائيات المالية الصحيحة
+    let totalDue = 0
+    let totalPaid = 0
+
+    // حساب المدفوعات بشكل مفصل
+    const appointmentPayments: any[] = []
+    const treatmentPayments: any[] = []
+    const generalPayments: any[] = []
+
+    payments?.forEach((payment: any) => {
+      if (payment.appointment_id) {
+        appointmentPayments.push(payment)
+      } else if (payment.tooth_treatment_id) {
+        treatmentPayments.push(payment)
+      } else {
+        generalPayments.push(payment)
+      }
+      totalPaid += payment.amount || 0
+    })
+
+    // حساب إجمالي التكاليف
+    appointments?.forEach((apt: any) => {
+      if (apt.cost) totalDue += apt.cost
+    })
+    treatments?.forEach((treatment: any) => {
+      if (treatment.cost) totalDue += treatment.cost
+    })
+
+    const remainingBalance = Math.max(0, totalDue - totalPaid)
+
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>${patient.full_name} - ${formatDate(new Date().toISOString())}</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #000;
+            background: #fff;
+            padding: 20px;
+            direction: rtl;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #000;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .clinic-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+          }
+          .report-title {
+            font-size: 20px;
+            margin-bottom: 5px;
+          }
+          .report-date {
+            font-size: 14px;
+            color: #666;
+          }
+          .patient-info {
+            border: 2px solid #000;
+            padding: 20px;
+            margin-bottom: 30px;
+          }
+          .patient-name {
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #000;
+            padding-bottom: 10px;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 5px 0;
+            border-bottom: 1px dotted #ccc;
+          }
+          .info-label {
+            font-weight: bold;
+            width: 30%;
+          }
+          .info-value {
+            width: 65%;
+          }
+          .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 30px 0 15px 0;
+            padding: 10px;
+            border: 2px solid #000;
+            text-align: center;
+            background: #f5f5f5;
+            page-break-after: avoid;
+            break-after: avoid;
+          }
+          .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            border: 2px solid #000;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .data-table th {
+            background: #f0f0f0;
+            border: 1px solid #000;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+          }
+          .data-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: center;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .data-table tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .data-table tr:nth-child(even) {
+            background: #f9f9f9;
+          }
+          .financial-summary {
+            border: 2px solid #000;
+            padding: 20px;
+            margin: 20px 0;
+          }
+          .financial-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #000;
+            padding-bottom: 10px;
+          }
+          .financial-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 5px 0;
+            border-bottom: 1px dotted #ccc;
+          }
+          .financial-label {
+            font-weight: bold;
+          }
+          .financial-amount {
+            font-weight: bold;
+          }
+          .no-data {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+            border: 1px solid #ccc;
+            margin: 20px 0;
+          }
+          .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <!-- رأس التقرير -->
+        <div class="header">
+          <div class="clinic-name">${settings?.clinic_name || 'عيادة الأسنان'}</div>
+          <div class="report-title">سجل المريض الطبي</div>
+          <div class="report-date">تاريخ التقرير: ${formatDate(new Date().toISOString())}</div>
+        </div>
+
+        <!-- معلومات المريض الأساسية -->
+        <div class="patient-info">
+          <div class="patient-name">${patient.full_name}</div>
+
+          <div class="info-row">
+            <span class="info-label">رقم المريض:</span>
+            <span class="info-value">${patient.serial_number}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">العمر:</span>
+            <span class="info-value">${patient.age} سنة</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">الجنس:</span>
+            <span class="info-value">${patient.gender === 'male' ? 'ذكر' : 'أنثى'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">رقم الهاتف:</span>
+            <span class="info-value">${patient.phone || 'غير محدد'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">البريد الإلكتروني:</span>
+            <span class="info-value">${patient.email || 'غير محدد'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">العنوان:</span>
+            <span class="info-value">${patient.address || 'غير محدد'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">حالة المريض:</span>
+            <span class="info-value">${patient.patient_condition || 'غير محدد'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">الحساسية:</span>
+            <span class="info-value">${patient.allergies || 'لا توجد'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">الحالات المرضية:</span>
+            <span class="info-value">${patient.medical_conditions || 'لا توجد'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">تاريخ التسجيل:</span>
+            <span class="info-value">${formatDate(patient.date_added)}</span>
+          </div>
+        </div>`
+
+    // إضافة الملخص المالي
+    htmlContent += `
+      <!-- الملخص المالي -->
+      <div class="financial-summary">
+        <div class="financial-title">الملخص المالي</div>
+        <div class="financial-row">
+          <span class="financial-label">إجمالي التكاليف:</span>
+          <span class="financial-amount">${formatCurrency(totalDue)}</span>
+        </div>
+        <div class="financial-row">
+          <span class="financial-label">إجمالي المدفوع:</span>
+          <span class="financial-amount">${formatCurrency(totalPaid)}</span>
+        </div>
+        <div class="financial-row">
+          <span class="financial-label">المبلغ المتبقي:</span>
+          <span class="financial-amount">${formatCurrency(remainingBalance)}</span>
+        </div>
+      </div>`
+
+    // إضافة قسم المواعيد
+    if (appointments && appointments.length > 0) {
+      htmlContent += `
+        <div class="section-title">سجل المواعيد (${appointments.length})</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>الوقت</th>
+              <th>نوع الموعد</th>
+              <th>الحالة</th>
+              <th>الملاحظات</th>
+            </tr>
+          </thead>
+          <tbody>`
+
+      appointments.forEach((appointment: any) => {
+        const statusText = appointment.status === 'completed' ? 'مكتمل' :
+                          appointment.status === 'scheduled' ? 'مجدول' :
+                          appointment.status === 'cancelled' ? 'ملغي' : 'معلق'
+
+        htmlContent += `
+            <tr>
+              <td>${formatDate(appointment.start_time)}</td>
+              <td>${formatTime(appointment.start_time)}</td>
+              <td>${appointment.appointment_type || 'عام'}</td>
+              <td>${statusText}</td>
+              <td>${appointment.notes || '-'}</td>
+            </tr>`
+      })
+
+      htmlContent += `
+          </tbody>
+        </table>`
+    } else {
+      htmlContent += `
+        <div class="section-title">سجل المواعيد</div>
+        <div class="no-data">لا توجد مواعيد مسجلة لهذا المريض</div>`
+    }
+
+    // إضافة قسم العلاجات
+    if (treatments && treatments.length > 0) {
+      htmlContent += `
+        <div class="section-title">سجل العلاجات (${treatments.length})</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>رقم السن</th>
+              <th>نوع العلاج</th>
+              <th>التكلفة</th>
+              <th>الحالة</th>
+              <th>التاريخ</th>
+              <th>المدفوعات المرتبطة</th>
+              <th>الملاحظات</th>
+            </tr>
+          </thead>
+          <tbody>`
+
+      treatments.forEach((treatment: any) => {
+        const statusText = treatment.treatment_status === 'completed' ? 'مكتمل' :
+                          treatment.treatment_status === 'in_progress' ? 'قيد التنفيذ' : 'مخطط'
+
+        // ترجمة اسم العلاج إلى العربية
+        const treatmentNameArabic = getTreatmentNameInArabic(treatment.treatment_name || treatment.treatment_type || '')
+
+        // البحث عن المدفوعات المرتبطة بهذا العلاج
+        const relatedPayments = treatmentPayments.filter((payment: any) =>
+          payment.tooth_treatment_id === treatment.id
+        )
+        const totalPaidForTreatment = relatedPayments.reduce((sum: number, payment: any) =>
+          sum + (payment.amount || 0), 0
+        )
+
+        htmlContent += `
+            <tr>
+              <td>${treatment.tooth_number || '-'}</td>
+              <td>${treatmentNameArabic}</td>
+              <td>${formatCurrency(treatment.cost || 0)}</td>
+              <td>${statusText}</td>
+              <td>${formatDate(treatment.treatment_date || treatment.created_at)}</td>
+              <td>${formatCurrency(totalPaidForTreatment)}</td>
+              <td>${treatment.notes || '-'}</td>
+            </tr>`
+      })
+
+      htmlContent += `
+          </tbody>
+        </table>`
+    } else {
+      htmlContent += `
+        <div class="section-title">سجل العلاجات</div>
+        <div class="no-data">لا توجد علاجات مسجلة لهذا المريض</div>`
+    }
+
+    // إضافة قسم السجل المالي الشامل - جميع المدفوعات
+    if (payments && payments.length > 0) {
+      // حساب المبلغ الإجمالي
+      const totalAmount = payments.reduce((sum: number, payment: any) => sum + (payment.total_amount || 0), 0)
+
+      htmlContent += `
+        <div class="section-title">السجل المالي الشامل - جميع المدفوعات (${payments.length})</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>المبلغ</th>
+              <th>طريقة الدفع</th>
+              <th>النوع</th>
+              <th>الوصف</th>
+              <th>الملاحظات</th>
+            </tr>
+          </thead>
+          <tbody>`
+
+      payments.forEach((payment: any) => {
+        const paymentMethod = payment.payment_method === 'cash' ? 'نقدي' :
+                             payment.payment_method === 'card' ? 'بطاقة' :
+                             payment.payment_method === 'bank_transfer' ? 'تحويل بنكي' : 'أخرى'
+
+        // تحديد نوع الدفعة والوصف بالعربية
+        let paymentType = 'عام'
+        let description = payment.description || '-'
+
+        // قاموس ترجمة أنواع العلاجات من الإنجليزية للعربية
+        const treatmentTranslations: { [key: string]: string } = {
+          'zirconia_post_core': 'دعامة زيركونيا - قلب وتد',
+          'bone_graft': 'ترقيع عظم',
+          'crown': 'تاج',
+          'filling': 'حشوة',
+          'root_canal': 'علاج عصب',
+          'extraction': 'خلع',
+          'cleaning': 'تنظيف',
+          'implant': 'زراعة',
+          'bridge': 'جسر',
+          'veneer': 'قشرة',
+          'orthodontics': 'تقويم',
+          'whitening': 'تبييض',
+          'scaling': 'تنظيف الجير',
+          'polishing': 'تلميع',
+          'consultation': 'استشارة'
+        }
+
+        if (payment.tooth_treatment_id) {
+          paymentType = 'علاج أسنان'
+          // ترجمة نوع العلاج إذا كان بالإنجليزية
+          const treatmentName = payment.treatment_name || payment.description || ''
+          description = treatmentTranslations[treatmentName] || treatmentName || 'علاج أسنان'
+        } else if (payment.appointment_id) {
+          paymentType = 'موعد'
+          description = payment.appointment_title || payment.description || 'موعد'
+        } else {
+          // للمدفوعات العامة، ترجم الوصف إذا كان بالإنجليزية
+          const originalDesc = payment.description || ''
+          description = treatmentTranslations[originalDesc] || originalDesc || 'دفعة عامة'
+        }
+
+        htmlContent += `
+            <tr>
+              <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+              <td>${formatCurrency(payment.amount)}</td>
+              <td>${paymentMethod}</td>
+              <td>${paymentType}</td>
+              <td>${description}</td>
+              <td>${payment.notes || '-'}</td>
+            </tr>`
+      })
+
+      // إضافة صف المبلغ الإجمالي
+      htmlContent += `
+            <tr style="background-color: #f8f9fa; font-weight: bold; border-top: 2px solid #dee2e6;">
+              <td colspan="5" style="text-align: right; padding: 12px;">المبلغ الإجمالي:</td>
+              <td style="padding: 12px; color: #28a745;">${formatCurrency(totalAmount)}</td>
+            </tr>`
+
+      htmlContent += `
+          </tbody>
+        </table>`
+
+
+    } else {
+      htmlContent += `
+        <div class="section-title">سجل المدفوعات</div>
+        <div class="no-data">لا توجد مدفوعات مسجلة لهذا المريض</div>`
+    }
+
+    // إضافة قسم الوصفات الطبية
+    if (prescriptions && prescriptions.length > 0) {
+      htmlContent += `
+        <div class="section-title">الوصفات الطبية (${prescriptions.length})</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>اسم الدواء</th>
+              <th>الجرعة</th>
+              <th>التكرار</th>
+              <th>المدة</th>
+              <th>تعليمات الاستخدام</th>
+              <th>الملاحظات</th>
+            </tr>
+          </thead>
+          <tbody>`
+
+      prescriptions.forEach((prescription: any) => {
+        // Handle medications array if it exists
+        if (prescription.medications && prescription.medications.length > 0) {
+          prescription.medications.forEach((medication: any, index: number) => {
+            htmlContent += `
+                <tr>
+                  <td>${formatDate(prescription.prescription_date || prescription.created_at)}</td>
+                  <td>${medication.medication_name || medication.name || '-'}</td>
+                  <td>${medication.dosage || '-'}</td>
+                  <td>${medication.frequency || '-'}</td>
+                  <td>${medication.duration || '-'}</td>
+                  <td>${medication.medication_instructions || medication.instructions || '-'}</td>
+                  <td>${prescription.notes || '-'}</td>
+                </tr>`
+          })
+        } else {
+          // Fallback for single medication data
+          htmlContent += `
+              <tr>
+                <td>${formatDate(prescription.prescription_date || prescription.created_at)}</td>
+                <td>${prescription.medication_name || '-'}</td>
+                <td>${prescription.dosage || '-'}</td>
+                <td>${prescription.frequency || '-'}</td>
+                <td>${prescription.duration || '-'}</td>
+                <td>${prescription.instructions || '-'}</td>
+                <td>${prescription.notes || '-'}</td>
+              </tr>`
+        }
+      })
+
+      htmlContent += `
+          </tbody>
+        </table>`
+    } else {
+      htmlContent += `
+        <div class="section-title">الوصفات الطبية</div>
+        <div class="no-data">لا توجد وصفات طبية مسجلة لهذا المريض</div>`
+    }
+
+    // إضافة قسم طلبات المختبر
+    if (labOrders && labOrders.length > 0) {
+      htmlContent += `
+        <div class="section-title">طلبات المختبر (${labOrders.length})</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>نوع الطلب</th>
+              <th>الحالة</th>
+              <th>التكلفة</th>
+              <th>الملاحظات</th>
+            </tr>
+          </thead>
+          <tbody>`
+
+      labOrders.forEach((labOrder: any) => {
+        const statusText = labOrder.status === 'completed' ? 'مكتمل' :
+                          labOrder.status === 'in_progress' ? 'قيد التنفيذ' : 'معلق'
+
+        htmlContent += `
+            <tr>
+              <td>${formatDate(labOrder.order_date || labOrder.created_at)}</td>
+              <td>${labOrder.order_type || '-'}</td>
+              <td>${statusText}</td>
+              <td>${formatCurrency(labOrder.cost || 0)}</td>
+              <td>${labOrder.notes || '-'}</td>
+            </tr>`
+      })
+
+      htmlContent += `
+          </tbody>
+        </table>`
+    } else {
+      htmlContent += `
+        <div class="section-title">طلبات المختبر</div>
+        <div class="no-data">لا توجد طلبات مختبر مسجلة لهذا المريض</div>`
+    }
+
+    // إضافة ملاحظات المريض إذا وجدت
+    if (patient.notes) {
+      htmlContent += `
+        <div class="section-title">ملاحظات إضافية</div>
+        <div style="border: 1px solid #ccc; padding: 20px; margin: 20px 0;">
+          ${patient.notes}
+        </div>`
+    }
+
+    // إنهاء HTML
+    htmlContent += `
+        <div class="footer">
+          تم إنشاء هذا التقرير في ${formatDate(new Date().toISOString())} - ${settings?.clinic_name || 'عيادة الأسنان'}
+        </div>
+      </body>
+      </html>`
+
+    return htmlContent
   }
 
   static async exportClinicNeedsReport(reportData: any, options: { title: string; currency: string; isDarkMode: boolean }): Promise<void> {

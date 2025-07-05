@@ -21,8 +21,10 @@ export class PatientIntegrationService {
    */
   static async getPatientIntegratedData(patientId: string): Promise<PatientIntegratedData | null> {
     try {
-      // جلب بيانات المريض الأساسية
-      const patient = await window.electronAPI?.patients?.getById?.(patientId)
+      // جلب بيانات المريض الأساسية من جميع المرضى
+      const allPatients = await window.electronAPI?.patients?.getAll?.() || []
+      const patient = allPatients.find(p => p.id === patientId)
+
       if (!patient) {
         throw new Error('المريض غير موجود')
       }

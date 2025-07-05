@@ -566,6 +566,42 @@ ipcMain.handle('db:patients:getAll', async () => {
   }
 })
 
+ipcMain.handle('db:patients:getById', async (_, id) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getPatientById(id)
+    } else {
+      // Fallback mock data
+      const mockPatients = [
+        {
+          id: '1',
+          first_name: 'أحمد',
+          last_name: 'محمد',
+          phone: '0501234567',
+          email: 'ahmed@example.com',
+          date_of_birth: '1990-05-15',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: '2',
+          first_name: 'فاطمة',
+          last_name: 'علي',
+          phone: '0507654321',
+          email: 'fatima@example.com',
+          date_of_birth: '1985-08-22',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ]
+      return mockPatients.find(p => p.id === id) || null
+    }
+  } catch (error) {
+    console.error('Error getting patient by ID:', error)
+    throw error
+  }
+})
+
 ipcMain.handle('db:patients:create', async (_, patient) => {
   try {
     if (databaseService) {
@@ -712,6 +748,19 @@ ipcMain.handle('db:appointments:delete', async (_, id) => {
   }
 })
 
+ipcMain.handle('db:appointments:getByPatient', async (_, patientId) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getAppointmentsByPatient(patientId)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting appointments by patient:', error)
+    throw error
+  }
+})
+
 ipcMain.handle('db:appointments:checkConflict', async (_, startTime, endTime, excludeId) => {
   try {
     if (databaseService) {
@@ -819,6 +868,19 @@ ipcMain.handle('db:payments:search', async (_, query) => {
     }
   } catch (error) {
     console.error('Error searching payments:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:payments:getByPatient', async (_, patientId) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getPaymentsByPatient(patientId)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting payments by patient:', error)
     throw error
   }
 })
@@ -1711,6 +1773,19 @@ ipcMain.handle('db:labOrders:getAll', async () => {
     }
   } catch (error) {
     console.error('Error getting all lab orders:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('db:labOrders:getByPatient', async (_, patientId) => {
+  try {
+    if (databaseService) {
+      return await databaseService.getLabOrdersByPatient(patientId)
+    } else {
+      return []
+    }
+  } catch (error) {
+    console.error('Error getting lab orders by patient:', error)
     throw error
   }
 })

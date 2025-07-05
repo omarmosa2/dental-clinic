@@ -5,6 +5,7 @@ export interface ElectronAPI {
   // Patient operations
   patients: {
     getAll: () => Promise<any[]>
+    getById: (id: string) => Promise<any>
     create: (patient: any) => Promise<any>
     update: (id: string, patient: any) => Promise<any>
     delete: (id: string) => Promise<boolean>
@@ -14,15 +15,20 @@ export interface ElectronAPI {
   // Appointment operations
   appointments: {
     getAll: () => Promise<any[]>
+    getByPatient: (patientId: string) => Promise<any[]>
     create: (appointment: any) => Promise<any>
     update: (id: string, appointment: any) => Promise<any>
     delete: (id: string) => Promise<boolean>
+    checkConflict: (startTime: string, endTime: string, excludeId?: string) => Promise<boolean>
     search: (query: string) => Promise<any[]>
   }
 
   // Payment operations
   payments: {
     getAll: () => Promise<any[]>
+    getByPatient: (patientId: string) => Promise<any[]>
+    getByToothTreatment: (toothTreatmentId: string) => Promise<any[]>
+    getToothTreatmentSummary: (toothTreatmentId: string) => Promise<any>
     create: (payment: any) => Promise<any>
     update: (id: string, payment: any) => Promise<any>
     delete: (id: string) => Promise<boolean>
@@ -84,6 +90,7 @@ export interface ElectronAPI {
   // Lab order operations
   labOrders: {
     getAll: () => Promise<any[]>
+    getByPatient: (patientId: string) => Promise<any[]>
     create: (labOrder: any) => Promise<any>
     update: (id: string, labOrder: any) => Promise<any>
     delete: (id: string) => Promise<boolean>
@@ -102,6 +109,7 @@ export interface ElectronAPI {
   // Prescription operations
   prescriptions: {
     getAll: () => Promise<any[]>
+    getByPatient: (patientId: string) => Promise<any[]>
     create: (prescription: any) => Promise<any>
     update: (id: string, prescription: any) => Promise<any>
     delete: (id: string) => Promise<boolean>
@@ -215,6 +223,7 @@ export interface ElectronAPI {
 const electronAPI: ElectronAPI = {
   patients: {
     getAll: () => ipcRenderer.invoke('db:patients:getAll'),
+    getById: (id) => ipcRenderer.invoke('db:patients:getById', id),
     create: (patient) => ipcRenderer.invoke('db:patients:create', patient),
     update: (id, patient) => ipcRenderer.invoke('db:patients:update', id, patient),
     delete: (id) => ipcRenderer.invoke('db:patients:delete', id),
@@ -223,6 +232,7 @@ const electronAPI: ElectronAPI = {
 
   appointments: {
     getAll: () => ipcRenderer.invoke('db:appointments:getAll'),
+    getByPatient: (patientId) => ipcRenderer.invoke('db:appointments:getByPatient', patientId),
     create: (appointment) => ipcRenderer.invoke('db:appointments:create', appointment),
     update: (id, appointment) => ipcRenderer.invoke('db:appointments:update', id, appointment),
     delete: (id) => ipcRenderer.invoke('db:appointments:delete', id),
@@ -232,6 +242,9 @@ const electronAPI: ElectronAPI = {
 
   payments: {
     getAll: () => ipcRenderer.invoke('db:payments:getAll'),
+    getByPatient: (patientId) => ipcRenderer.invoke('db:payments:getByPatient', patientId),
+    getByToothTreatment: (toothTreatmentId) => ipcRenderer.invoke('db:payments:getByToothTreatment', toothTreatmentId),
+    getToothTreatmentSummary: (toothTreatmentId) => ipcRenderer.invoke('db:payments:getToothTreatmentSummary', toothTreatmentId),
     create: (payment) => ipcRenderer.invoke('db:payments:create', payment),
     update: (id, payment) => ipcRenderer.invoke('db:payments:update', id, payment),
     delete: (id) => ipcRenderer.invoke('db:payments:delete', id),
@@ -285,6 +298,7 @@ const electronAPI: ElectronAPI = {
 
   labOrders: {
     getAll: () => ipcRenderer.invoke('db:labOrders:getAll'),
+    getByPatient: (patientId) => ipcRenderer.invoke('db:labOrders:getByPatient', patientId),
     create: (labOrder) => ipcRenderer.invoke('db:labOrders:create', labOrder),
     update: (id, labOrder) => ipcRenderer.invoke('db:labOrders:update', id, labOrder),
     delete: (id) => ipcRenderer.invoke('db:labOrders:delete', id),

@@ -135,7 +135,7 @@ export default function Medications() {
     setShowAddPrescriptionDialog(true)
   }
 
-  const handleEditPrescription = (prescription: Prescription) => {
+  const handleEditPrescription = (prescription: Prescription | null) => {
     setEditingPrescription(prescription)
     setShowAddPrescriptionDialog(true)
   }

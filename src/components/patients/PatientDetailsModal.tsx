@@ -32,7 +32,8 @@ import {
   Edit,
   X,
   Plus,
-  Activity
+  Activity,
+  Printer
 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { useAppointmentStore } from '@/store/appointmentStore'
@@ -45,6 +46,9 @@ import AddPrescriptionDialog from '@/components/medications/AddPrescriptionDialo
 import ComprehensivePendingInvoiceDialog from '@/components/payments/ComprehensivePendingInvoiceDialog'
 import { TREATMENT_STATUS_OPTIONS, getTreatmentNameInArabic } from '@/data/teethData'
 import { useTreatmentNames } from '@/hooks/useTreatmentNames'
+import { PatientIntegrationService } from '@/services/patientIntegrationService'
+import { PdfService } from '@/services/pdfService'
+import { useSettingsStore } from '@/store/settingsStore'
 
 interface PatientDetailsModalProps {
   patient: Patient | null
@@ -84,9 +88,44 @@ export default function PatientDetailsModal({
   const { payments } = usePaymentStore()
   const { toothTreatments, loadToothTreatmentsByPatient } = useDentalTreatmentStore()
   const { toast } = useToast()
+  const { settings } = useSettingsStore()
 
   // Load custom treatment names for proper display
   const { refreshTreatmentNames } = useTreatmentNames()
+
+  // دالة طباعة سجل المريض الشامل
+  const handlePrintPatientRecord = async () => {
+    if (!patient) return
+
+    try {
+      toast({
+        title: "جاري إعداد التقرير...",
+        description: "يتم تجميع بيانات المريض وإعداد التقرير للطباعة",
+      })
+
+      // جلب البيانات المتكاملة للمريض
+      const integratedData = await PatientIntegrationService.getPatientIntegratedData(patient.id)
+
+      if (!integratedData) {
+        throw new Error('لا يمكن جلب بيانات المريض')
+      }
+
+      // تصدير سجل المريض كـ PDF
+      await PdfService.exportIndividualPatientRecord(integratedData, settings)
+
+      toast({
+        title: "تم إنشاء التقرير بنجاح",
+        description: `تم إنشاء سجل المريض ${patient.full_name} وحفظه كملف PDF`,
+      })
+    } catch (error) {
+      console.error('Error printing patient record:', error)
+      toast({
+        title: "خطأ في إنشاء التقرير",
+        description: "فشل في إنشاء سجل المريض. يرجى المحاولة مرة أخرى.",
+        variant: "destructive",
+      })
+    }
+  }
 
   useEffect(() => {
     if (patient && open) {
@@ -229,6 +268,15 @@ export default function PatientDetailsModal({
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrintPatientRecord}
+                className="flex items-center gap-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+              >
+                <Printer className="w-4 h-4" />
+                طباعة السجل
+              </Button>
               <Button
                 variant="outline"
                 size="sm"

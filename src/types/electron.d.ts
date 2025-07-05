@@ -23,6 +23,7 @@ export interface ElectronAPI {
   // Patient operations
   patients: {
     getAll: () => Promise<Patient[]>
+    getById: (id: string) => Promise<Patient | null>
     create: (patient: Omit<Patient, 'id' | 'created_at' | 'updated_at'>) => Promise<Patient>
     update: (id: string, patient: Partial<Patient>) => Promise<Patient | null>
     delete: (id: string) => Promise<boolean>

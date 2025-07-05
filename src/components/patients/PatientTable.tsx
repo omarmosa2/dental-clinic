@@ -24,9 +24,14 @@ import {
   ChevronsLeft,
   ChevronsRight,
   MessageCircle,
-  FileText
+  FileText,
+  Printer
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { PatientIntegrationService } from '@/services/patientIntegrationService'
+import { PdfService } from '@/services/pdfService'
+import { useSettingsStore } from '@/store/settingsStore'
+import { useToast } from '@/hooks/use-toast'
 
 interface PatientTableProps {
   patients: Patient[]
@@ -52,6 +57,41 @@ export default function PatientTable({
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+
+  const { settings } = useSettingsStore()
+  const { toast } = useToast()
+
+  // دالة طباعة سجل المريض الشامل
+  const handlePrintPatientRecord = async (patient: Patient) => {
+    try {
+      toast({
+        title: "جاري إعداد التقرير...",
+        description: "يتم تجميع بيانات المريض وإعداد التقرير للطباعة",
+      })
+
+      // جلب البيانات المتكاملة للمريض
+      const integratedData = await PatientIntegrationService.getPatientIntegratedData(patient.id)
+
+      if (!integratedData) {
+        throw new Error('لا يمكن جلب بيانات المريض')
+      }
+
+      // تصدير سجل المريض كـ PDF
+      await PdfService.exportIndividualPatientRecord(integratedData, settings)
+
+      toast({
+        title: "تم إنشاء التقرير بنجاح",
+        description: `تم إنشاء سجل المريض ${patient.full_name} وحفظه كملف PDF`,
+      })
+    } catch (error) {
+      console.error('Error printing patient record:', error)
+      toast({
+        title: "خطأ في إنشاء التقرير",
+        description: "فشل في إنشاء سجل المريض. يرجى المحاولة مرة أخرى.",
+        variant: "destructive",
+      })
+    }
+  }
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -326,6 +366,16 @@ export default function PatientTable({
                   >
                     <Eye className="w-4 h-4 ml-1" />
                     <span className="text-xs arabic-enhanced">عرض</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="action-btn-print text-green-600 hover:text-green-700 hover:bg-green-50"
+                    onClick={() => handlePrintPatientRecord(patient)}
+                    title="طباعة سجل المريض"
+                  >
+                    <Printer className="w-4 h-4 ml-1" />
+                    <span className="text-xs arabic-enhanced">طباعة</span>
                   </Button>
                   {onViewPendingInvoice && (
                     <Button

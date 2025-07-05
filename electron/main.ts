@@ -240,6 +240,15 @@ ipcMain.handle('db:payments:getAll', async () => {
   }
 })
 
+ipcMain.handle('db:payments:getByPatient', async (_, patientId) => {
+  try {
+    return await databaseService.getPaymentsByPatient(patientId)
+  } catch (error) {
+    console.error('Error getting payments by patient:', error)
+    throw error
+  }
+})
+
 ipcMain.handle('db:payments:create', async (_, payment) => {
   try {
     console.log('Creating payment:', payment)

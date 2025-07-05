@@ -18,9 +18,13 @@ import {
   Eye,
   TrendingUp,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Printer
 } from 'lucide-react'
 import { PatientIntegrationService } from '@/services/patientIntegrationService'
+import { PdfService } from '@/services/pdfService'
+import { useSettingsStore } from '@/store/settingsStore'
+import { useToast } from '@/hooks/use-toast'
 import type { PatientIntegratedData, Patient } from '@/types'
 
 interface IntegratedPatientViewProps {
@@ -50,6 +54,9 @@ export default function IntegratedPatientView({
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
 
+  const { settings } = useSettingsStore()
+  const { toast } = useToast()
+
   useEffect(() => {
     loadPatientData()
   }, [patientId])
@@ -72,6 +79,33 @@ export default function IntegratedPatientView({
       style: 'currency',
       currency: 'USD'
     }).format(amount)
+  }
+
+  // دالة طباعة سجل المريض الشامل
+  const handlePrintPatientRecord = async () => {
+    if (!integratedData) return
+
+    try {
+      toast({
+        title: "جاري إعداد التقرير...",
+        description: "يتم تجميع بيانات المريض وإعداد التقرير للطباعة",
+      })
+
+      // تصدير سجل المريض كـ PDF
+      await PdfService.exportIndividualPatientRecord(integratedData, settings)
+
+      toast({
+        title: "تم إنشاء التقرير بنجاح",
+        description: `تم إنشاء سجل المريض ${integratedData.patient.full_name} وحفظه كملف PDF`,
+      })
+    } catch (error) {
+      console.error('Error printing patient record:', error)
+      toast({
+        title: "خطأ في إنشاء التقرير",
+        description: "فشل في إنشاء سجل المريض. يرجى المحاولة مرة أخرى.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Format date
@@ -157,6 +191,14 @@ export default function IntegratedPatientView({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handlePrintPatientRecord}
+                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                طباعة السجل
+              </Button>
               <Button variant="outline" onClick={onEditPatient}>
                 <Edit className="w-4 h-4 mr-2" />
                 تعديل

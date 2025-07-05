@@ -1118,6 +1118,16 @@ class DatabaseService {
     return stmt.all()
   }
 
+  async getPatientById(id) {
+    this.ensureConnection()
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM patients
+      WHERE id = ?
+    `)
+    return stmt.get(id)
+  }
+
   async createPatient(patient) {
     // Ensure date_added column exists before creating
     this.ensureDateAddedColumn()
@@ -1244,6 +1254,20 @@ class DatabaseService {
       ORDER BY a.start_time DESC
     `)
     return stmt.all()
+  }
+
+  async getAppointmentsByPatient(patientId) {
+    this.ensureConnection()
+
+    const stmt = this.db.prepare(`
+      SELECT a.*, p.full_name as patient_name, t.name as treatment_name
+      FROM appointments a
+      LEFT JOIN patients p ON a.patient_id = p.id
+      LEFT JOIN treatments t ON a.treatment_id = t.id
+      WHERE a.patient_id = ?
+      ORDER BY a.start_time DESC
+    `)
+    return stmt.all(patientId)
   }
 
   async checkAppointmentConflict(startTime, endTime, excludeId) {
@@ -1449,6 +1473,107 @@ class DatabaseService {
       },
       hasToothTreatmentId: hasToothTreatmentId
     } : 'No payments found')
+
+    // Transform the data to include patient, appointment, and treatment objects
+    return payments.map(payment => ({
+      ...payment,
+      patient: payment.patient_id ? {
+        id: payment.patient_id,
+        full_name: payment.patient_full_name,
+        first_name: payment.patient_full_name?.split(' ')[0] || '',
+        last_name: payment.patient_full_name?.split(' ').slice(1).join(' ') || '',
+        phone: payment.patient_phone,
+        email: payment.patient_email
+      } : null,
+      appointment: payment.appointment_id ? {
+        id: payment.appointment_id,
+        title: payment.appointment_title,
+        start_time: payment.appointment_start_time,
+        end_time: payment.appointment_end_time
+      } : null,
+      tooth_treatment: (hasToothTreatmentId && payment.tooth_treatment_id) ? {
+        id: payment.tooth_treatment_id,
+        treatment_type: payment.treatment_name,
+        tooth_number: payment.tooth_number,
+        tooth_name: payment.tooth_name,
+        cost: payment.treatment_cost
+      } : null
+    }))
+  }
+
+  // Add checkColumnExists method
+  checkColumnExists(tableName, columnName) {
+    console.log('🔍 [DEBUG] checkColumnExists called with:', { tableName, columnName })
+    try {
+      this.ensureConnection()
+      const stmt = this.db.prepare(`PRAGMA table_info(${tableName})`)
+      const columns = stmt.all()
+      const exists = columns.some(col => col.name === columnName)
+      console.log('🔍 [DEBUG] Column exists result:', { tableName, columnName, exists })
+      return exists
+    } catch (error) {
+      console.error(`Error checking column ${columnName} in table ${tableName}:`, error)
+      return false
+    }
+  }
+
+  async getPaymentsByPatient(patientId) {
+    console.log('🔍 [DEBUG] getPaymentsByPatient() called with patientId:', patientId)
+    console.log('🔍 [DEBUG] this.checkColumnExists type:', typeof this.checkColumnExists)
+    console.log('🔍 [DEBUG] this object keys:', Object.getOwnPropertyNames(this))
+
+    this.ensureConnection()
+
+    // Check if tooth_treatment_id column exists
+    const hasToothTreatmentId = this.checkColumnExists('payments', 'tooth_treatment_id')
+
+    let query
+    if (hasToothTreatmentId) {
+      // Use the full query with tooth_treatments join
+      query = `
+        SELECT
+          p.*,
+          pt.full_name as patient_name,
+          pt.full_name as patient_full_name,
+          pt.phone as patient_phone,
+          pt.email as patient_email,
+          a.title as appointment_title,
+          a.start_time as appointment_start_time,
+          a.end_time as appointment_end_time,
+          tt.treatment_type as treatment_name,
+          tt.tooth_number,
+          tt.tooth_name,
+          tt.cost as treatment_cost
+        FROM payments p
+        LEFT JOIN patients pt ON p.patient_id = pt.id
+        LEFT JOIN appointments a ON p.appointment_id = a.id
+        LEFT JOIN tooth_treatments tt ON p.tooth_treatment_id = tt.id
+        WHERE p.patient_id = ?
+        ORDER BY p.payment_date DESC
+      `
+    } else {
+      // Use simplified query without tooth_treatments join
+      query = `
+        SELECT
+          p.*,
+          pt.full_name as patient_name,
+          pt.full_name as patient_full_name,
+          pt.phone as patient_phone,
+          pt.email as patient_email,
+          a.title as appointment_title,
+          a.start_time as appointment_start_time,
+          a.end_time as appointment_end_time
+        FROM payments p
+        LEFT JOIN patients pt ON p.patient_id = pt.id
+        LEFT JOIN appointments a ON p.appointment_id = a.id
+        WHERE p.patient_id = ?
+        ORDER BY p.payment_date DESC
+      `
+    }
+
+    const stmt = this.db.prepare(query)
+    const payments = stmt.all(patientId)
+    console.log('📊 [DEBUG] Raw payments from database for patient:', payments.length)
 
     // Transform the data to include patient, appointment, and treatment objects
     return payments.map(payment => ({
@@ -2637,6 +2762,69 @@ class DatabaseService {
     })
   }
 
+  async getLabOrdersByPatient(patientId) {
+    console.log('🔍 [DEBUG] getLabOrdersByPatient() called with patientId:', patientId)
+    this.ensureConnection()
+    this.ensureLabTablesExist()
+
+    const stmt = this.db.prepare(`
+      SELECT
+        lo.*,
+        l.name as lab_name,
+        l.contact_info as lab_contact_info,
+        l.address as lab_address,
+        p.full_name as patient_name,
+        p.phone as patient_phone,
+        p.gender as patient_gender
+      FROM lab_orders lo
+      LEFT JOIN labs l ON lo.lab_id = l.id
+      LEFT JOIN patients p ON lo.patient_id = p.id
+      WHERE lo.patient_id = ?
+      ORDER BY lo.order_date DESC
+    `)
+    const labOrders = stmt.all(patientId)
+    console.log('📊 [DEBUG] Raw lab orders from database for patient:', labOrders.length)
+
+    // Add lab and patient objects for compatibility
+    return labOrders.map((order, index) => {
+      const labOrder = {
+        id: order.id,
+        lab_id: order.lab_id,
+        patient_id: order.patient_id,
+        service_name: order.service_name,
+        cost: order.cost,
+        order_date: order.order_date,
+        status: order.status,
+        notes: order.notes,
+        paid_amount: order.paid_amount,
+        remaining_balance: order.remaining_balance,
+        created_at: order.created_at,
+        updated_at: order.updated_at
+      }
+
+      // Always create lab object, even if lab_name is null
+      labOrder.lab = {
+        id: order.lab_id,
+        name: order.lab_name || 'مختبر محذوف',
+        contact_info: order.lab_contact_info || '',
+        address: order.lab_address || '',
+        created_at: '',
+        updated_at: ''
+      }
+
+      if (order.patient_name) {
+        labOrder.patient = {
+          id: order.patient_id,
+          full_name: order.patient_name,
+          phone: order.patient_phone,
+          gender: order.patient_gender
+        }
+      }
+
+      return labOrder
+    })
+  }
+
   async createLabOrder(labOrder) {
     this.ensureConnection()
     this.ensureLabTablesExist()
@@ -3177,6 +3365,20 @@ class DatabaseService {
 
     const now = new Date().toISOString()
 
+    // Verify prescription exists first
+    const checkStmt = this.db.prepare('SELECT id FROM prescriptions WHERE id = ?')
+    const existingPrescription = checkStmt.get(id)
+
+    if (!existingPrescription) {
+      throw new Error(`Prescription with id ${id} not found`)
+    }
+
+    // Verify table structure
+    const tableInfo = this.db.prepare("PRAGMA table_info(prescription_medications)").all()
+    console.log('📋 prescription_medications table structure:', tableInfo)
+
+    console.log('🔄 Updating prescription:', id, 'with data:', updates)
+
     // Begin transaction
     const transaction = this.db.transaction(() => {
       // Update prescription
@@ -3191,14 +3393,18 @@ class DatabaseService {
           WHERE id = ?
         `)
 
+        console.log('📝 Updating prescription fields:', fields, 'with values:', values)
         stmt.run(...values, now, id)
       }
 
       // Update medications if provided
       if (updates.medications) {
+        console.log('💊 Updating medications for prescription:', id, 'medications:', updates.medications)
+
         // Delete existing medications
         const deleteStmt = this.db.prepare('DELETE FROM prescription_medications WHERE prescription_id = ?')
-        deleteStmt.run(id)
+        const deleteResult = deleteStmt.run(id)
+        console.log('🗑️ Deleted existing medications, changes:', deleteResult.changes)
 
         // Insert new medications
         if (updates.medications.length > 0) {
@@ -3207,15 +3413,52 @@ class DatabaseService {
             VALUES (?, ?, ?, ?, ?)
           `)
 
-          updates.medications.forEach(med => {
+          updates.medications.forEach((med, index) => {
             const medId = uuidv4()
-            medicationStmt.run(medId, id, med.medication_id, med.dose, now)
+
+            // Validate medication data
+            if (!med.medication_id) {
+              throw new Error(`Medication ${index + 1} is missing medication_id`)
+            }
+
+            // Verify medication exists
+            const medicationCheckStmt = this.db.prepare('SELECT id FROM medications WHERE id = ?')
+            const medicationExists = medicationCheckStmt.get(med.medication_id)
+
+            if (!medicationExists) {
+              throw new Error(`Medication with id ${med.medication_id} not found`)
+            }
+
+            console.log(`💊 Inserting medication ${index + 1}:`, {
+              medId,
+              prescriptionId: id,
+              medicationId: med.medication_id,
+              dose: med.dose
+            })
+
+            try {
+              medicationStmt.run(medId, id, med.medication_id, med.dose || '', now)
+              console.log(`✅ Medication ${index + 1} inserted successfully`)
+            } catch (error) {
+              console.error(`❌ Error inserting medication ${index + 1}:`, error)
+              throw error
+            }
           })
         }
       }
     })
 
-    transaction()
+    try {
+      transaction()
+      console.log('✅ Prescription update transaction completed successfully')
+    } catch (error) {
+      console.error('❌ Error in prescription update transaction:', error)
+      throw error
+    }
+
+    // Force WAL checkpoint
+    const checkpoint = this.db.pragma('wal_checkpoint(TRUNCATE)')
+    console.log('💾 Checkpoint result:', checkpoint)
 
     return { ...updates, id, updated_at: now }
   }

@@ -74,7 +74,7 @@ export default function AddPrescriptionDialog({
   // Reset form when dialog opens/closes or editing prescription changes
   useEffect(() => {
     if (open) {
-      if (editingPrescription) {
+      if (editingPrescription && editingPrescription.id) {
         setFormData({
           patient_id: editingPrescription.patient_id || '',
           appointment_id: editingPrescription.appointment_id || '',
@@ -155,7 +155,7 @@ export default function AddPrescriptionDialog({
         }))
       }
 
-      if (editingPrescription) {
+      if (editingPrescription && editingPrescription.id) {
         await updatePrescription(editingPrescription.id, prescriptionData)
         notify.success('تم تحديث الوصفة الطبية بنجاح')
       } else {
@@ -166,7 +166,7 @@ export default function AddPrescriptionDialog({
       onOpenChange(false)
     } catch (error) {
       console.error('Error saving prescription:', error)
-      notify.error(editingPrescription ? 'فشل في تحديث الوصفة الطبية' : 'فشل في إنشاء الوصفة الطبية')
+      notify.error(editingPrescription && editingPrescription.id ? 'فشل في تحديث الوصفة الطبية' : 'فشل في إنشاء الوصفة الطبية')
     }
   }
 
@@ -232,10 +232,10 @@ export default function AddPrescriptionDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-right">
             <FileText className="w-5 h-5 text-green-600" />
-            {editingPrescription ? 'تعديل الوصفة الطبية' : 'إنشاء وصفة طبية جديدة'}
+            {editingPrescription && editingPrescription.id ? 'تعديل الوصفة الطبية' : 'إنشاء وصفة طبية جديدة'}
           </DialogTitle>
           <DialogDescription className="text-right">
-            {editingPrescription
+            {editingPrescription && editingPrescription.id
               ? 'قم بتعديل معلومات الوصفة الطبية أدناه'
               : 'أدخل معلومات الوصفة الطبية الجديدة أدناه'
             }
