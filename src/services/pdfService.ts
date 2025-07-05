@@ -1158,14 +1158,22 @@ export class PdfService {
           background: linear-gradient(90deg, #d97706, #f59e0b);
         }
 
-        /* Print Optimizations */
+        /* Print Optimizations - حماية قوية جداً من انقطاع الجداول */
         @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
           body {
             margin: 0;
             padding: 20px;
             background: white !important;
             -webkit-print-color-adjust: exact;
             color-adjust: exact;
+            orphans: 10 !important;
+            widows: 10 !important;
           }
 
           .enhanced-header {
@@ -1205,11 +1213,16 @@ export class PdfService {
             box-shadow: none !important;
             break-inside: avoid !important;
             page-break-inside: avoid !important;
-            page-break-before: auto !important;
-            page-break-after: auto !important;
+            page-break-before: avoid !important;
+            page-break-after: avoid !important;
             display: table !important;
-            orphans: 3 !important;
-            widows: 3 !important;
+            width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: collapse !important;
+            orphans: 10 !important;
+            widows: 10 !important;
+            margin: 0 !important;
+            position: relative !important;
           }
 
           .data-table thead {
@@ -1231,8 +1244,71 @@ export class PdfService {
             page-break-before: avoid !important;
             page-break-after: avoid !important;
             display: table-row !important;
-            orphans: 3 !important;
-            widows: 3 !important;
+            orphans: 10 !important;
+            widows: 10 !important;
+          }
+
+          /* حماية إضافية للجداول */
+          .data-table td, .data-table th {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            page-break-before: avoid !important;
+            page-break-after: avoid !important;
+            orphans: 10 !important;
+            widows: 10 !important;
+          }
+
+          /* حماية شاملة للأقسام */
+          .section-title {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
+            orphans: 10 !important;
+            widows: 10 !important;
+          }
+
+          /* منع الانقطاع للعناصر المحمية */
+          .no-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-before: auto !important;
+            page-break-after: auto !important;
+            display: block !important;
+            overflow: visible !important;
+            orphans: 10 !important;
+            widows: 10 !important;
+            position: relative !important;
+          }
+
+          /* حماية إضافية للجداول الصغيرة */
+          .data-table.small-table {
+            min-height: 200px !important;
+            max-height: 400px !important;
+          }
+
+          /* منع انقطاع الصفوف */
+          .data-table tr.no-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-before: avoid !important;
+            page-break-after: avoid !important;
+            display: table-row !important;
+            orphans: 10 !important;
+            widows: 10 !important;
+          }
+
+          /* حماية خاصة للخلايا */
+          .data-table td.no-break,
+          .data-table th.no-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-before: avoid !important;
+            page-break-after: avoid !important;
+            orphans: 10 !important;
+            widows: 10 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
           }
 
           .data-table th {
@@ -2848,6 +2924,27 @@ export class PdfService {
       }).format(amount || 0)
     }
 
+    // دالة لإنشاء جدول محمي من الانقطاع
+    const createProtectedTable = (title: string, headers: string[], rows: string[], showTotal: boolean = false, totalRow: string = '') => {
+      return `
+        <div style="page-break-before: auto; page-break-inside: avoid !important; break-inside: avoid !important; display: block; margin-bottom: 30px;">
+          <div class="section-title" style="page-break-after: avoid !important; break-after: avoid !important; margin-bottom: 10px;">${title}</div>
+          <div style="page-break-inside: avoid !important; break-inside: avoid !important; display: block; overflow: visible;">
+            <table class="data-table" style="page-break-inside: avoid !important; break-inside: avoid !important; width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0;">
+              <thead style="page-break-inside: avoid !important; break-inside: avoid !important; page-break-after: avoid !important;">
+                <tr>
+                  ${headers.map(header => `<th>${header}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody style="page-break-inside: avoid !important; break-inside: avoid !important;">
+                ${rows.join('')}
+                ${showTotal && totalRow ? totalRow : ''}
+              </tbody>
+            </table>
+          </div>
+        </div>`
+    }
+
     // حساب الإحصائيات المالية الصحيحة
     let totalDue = 0
     let totalPaid = 0
@@ -3109,234 +3206,144 @@ export class PdfService {
         </div>
       </div>`
 
-    // إضافة قسم المواعيد - تقسيم إلى مجموعات صغيرة
+    // إضافة قسم المواعيد - جدول واحد فقط
     if (appointments && appointments.length > 0) {
-      const chunkSize = 5 // عدد الصفوف في كل جدول
-      const appointmentChunks = []
+      const title = `سجل المواعيد (${appointments.length})`
+      const headers = ['التاريخ', 'الوقت', 'نوع الموعد', 'الحالة', 'الملاحظات']
 
-      for (let i = 0; i < appointments.length; i += chunkSize) {
-        appointmentChunks.push(appointments.slice(i, i + chunkSize))
-      }
+      const rows = appointments.map((appointment: any) => {
+        const statusText = appointment.status === 'completed' ? 'مكتمل' :
+                          appointment.status === 'scheduled' ? 'مجدول' :
+                          appointment.status === 'cancelled' ? 'ملغي' : 'معلق'
 
-      appointmentChunks.forEach((chunk, index) => {
-        const isFirst = index === 0
-        const title = isFirst ? `سجل المواعيد (${appointments.length})` : `سجل المواعيد - تتمة (${index + 1})`
-
-        htmlContent += `
-          <div style="page-break-before: ${isFirst ? 'auto' : 'always'}; page-break-inside: avoid; break-inside: avoid;">
-            <div class="section-title">${title}</div>
-            <table class="data-table" style="page-break-inside: avoid !important; break-inside: avoid !important;">
-              <thead>
-                <tr>
-                  <th>التاريخ</th>
-                  <th>الوقت</th>
-                  <th>نوع الموعد</th>
-                  <th>الحالة</th>
-                  <th>الملاحظات</th>
-                </tr>
-              </thead>
-              <tbody>`
-
-        chunk.forEach((appointment: any) => {
-          const statusText = appointment.status === 'completed' ? 'مكتمل' :
-                            appointment.status === 'scheduled' ? 'مجدول' :
-                            appointment.status === 'cancelled' ? 'ملغي' : 'معلق'
-
-          htmlContent += `
-              <tr>
-                <td>${formatDate(appointment.start_time)}</td>
-                <td>${formatTime(appointment.start_time)}</td>
-                <td>${appointment.appointment_type || 'عام'}</td>
-                <td>${statusText}</td>
-                <td>${appointment.notes || '-'}</td>
-              </tr>`
-        })
-
-        htmlContent += `
-              </tbody>
-            </table>
-          </div>`
+        return `
+          <tr>
+            <td>${formatDate(appointment.start_time)}</td>
+            <td>${formatTime(appointment.start_time)}</td>
+            <td>${appointment.appointment_type || 'عام'}</td>
+            <td>${statusText}</td>
+            <td>${appointment.notes || '-'}</td>
+          </tr>`
       })
+
+      htmlContent += createProtectedTable(title, headers, rows)
     } else {
       htmlContent += `
         <div class="section-title">سجل المواعيد</div>
         <div class="no-data">لا توجد مواعيد مسجلة لهذا المريض</div>`
     }
 
-    // إضافة قسم العلاجات - تقسيم إلى مجموعات صغيرة
+    // إضافة قسم العلاجات - جدول واحد فقط
     if (treatments && treatments.length > 0) {
-      const chunkSize = 4 // عدد الصفوف في كل جدول للعلاجات (أقل لأن الجدول أعرض)
-      const treatmentChunks = []
+      const title = `سجل العلاجات (${treatments.length})`
+      const headers = ['رقم السن', 'نوع العلاج', 'التكلفة', 'الحالة', 'التاريخ', 'المدفوعات المرتبطة', 'الملاحظات']
 
-      for (let i = 0; i < treatments.length; i += chunkSize) {
-        treatmentChunks.push(treatments.slice(i, i + chunkSize))
-      }
+      const rows = treatments.map((treatment: any) => {
+        const statusText = treatment.treatment_status === 'completed' ? 'مكتمل' :
+                          treatment.treatment_status === 'in_progress' ? 'قيد التنفيذ' : 'مخطط'
 
-      treatmentChunks.forEach((chunk, index) => {
-        const isFirst = index === 0
-        const title = isFirst ? `سجل العلاجات (${treatments.length})` : `سجل العلاجات - تتمة (${index + 1})`
+        // ترجمة اسم العلاج إلى العربية
+        const treatmentNameArabic = getTreatmentNameInArabic(treatment.treatment_name || treatment.treatment_type || '')
 
-        htmlContent += `
-          <div style="page-break-before: ${isFirst ? 'auto' : 'always'}; page-break-inside: avoid; break-inside: avoid;">
-            <div class="section-title">${title}</div>
-            <table class="data-table" style="page-break-inside: avoid !important; break-inside: avoid !important;">
-              <thead>
-                <tr>
-                  <th>رقم السن</th>
-                  <th>نوع العلاج</th>
-                  <th>التكلفة</th>
-                  <th>الحالة</th>
-                  <th>التاريخ</th>
-                  <th>المدفوعات المرتبطة</th>
-                  <th>الملاحظات</th>
-                </tr>
-              </thead>
-              <tbody>`
+        // البحث عن المدفوعات المرتبطة بهذا العلاج
+        const relatedPayments = treatmentPayments.filter((payment: any) =>
+          payment.tooth_treatment_id === treatment.id
+        )
+        const totalPaidForTreatment = relatedPayments.reduce((sum: number, payment: any) =>
+          sum + (payment.amount || 0), 0
+        )
 
-        chunk.forEach((treatment: any) => {
-          const statusText = treatment.treatment_status === 'completed' ? 'مكتمل' :
-                            treatment.treatment_status === 'in_progress' ? 'قيد التنفيذ' : 'مخطط'
-
-          // ترجمة اسم العلاج إلى العربية
-          const treatmentNameArabic = getTreatmentNameInArabic(treatment.treatment_name || treatment.treatment_type || '')
-
-          // البحث عن المدفوعات المرتبطة بهذا العلاج
-          const relatedPayments = treatmentPayments.filter((payment: any) =>
-            payment.tooth_treatment_id === treatment.id
-          )
-          const totalPaidForTreatment = relatedPayments.reduce((sum: number, payment: any) =>
-            sum + (payment.amount || 0), 0
-          )
-
-          htmlContent += `
-              <tr>
-                <td>${treatment.tooth_number || '-'}</td>
-                <td>${treatmentNameArabic}</td>
-                <td>${formatCurrency(treatment.cost || 0)}</td>
-                <td>${statusText}</td>
-                <td>${formatDate(treatment.treatment_date || treatment.created_at)}</td>
-                <td>${formatCurrency(totalPaidForTreatment)}</td>
-                <td>${treatment.notes || '-'}</td>
-              </tr>`
-        })
-
-        htmlContent += `
-              </tbody>
-            </table>
-          </div>`
+        return `
+          <tr>
+            <td>${treatment.tooth_number || '-'}</td>
+            <td>${treatmentNameArabic}</td>
+            <td>${formatCurrency(treatment.cost || 0)}</td>
+            <td>${statusText}</td>
+            <td>${formatDate(treatment.treatment_date || treatment.created_at)}</td>
+            <td>${formatCurrency(totalPaidForTreatment)}</td>
+            <td>${treatment.notes || '-'}</td>
+          </tr>`
       })
+
+      htmlContent += createProtectedTable(title, headers, rows)
     } else {
       htmlContent += `
         <div class="section-title">سجل العلاجات</div>
         <div class="no-data">لا توجد علاجات مسجلة لهذا المريض</div>`
     }
 
-    // إضافة قسم السجل المالي الشامل - جميع المدفوعات - تقسيم إلى مجموعات صغيرة
+    // إضافة قسم السجل المالي الشامل - جدول واحد فقط
     if (payments && payments.length > 0) {
-      // حساب المبلغ الإجمالي
-      const totalAmount = payments.reduce((sum: number, payment: any) => sum + (payment.total_amount || 0), 0)
-      const chunkSize = 6 // عدد الصفوف في كل جدول للمدفوعات
-      const paymentChunks = []
+      const title = `السجل المالي الشامل - جميع المدفوعات (${payments.length})`
+      const headers = ['التاريخ', 'المبلغ المدفوع', 'المبلغ الإجمالي', 'طريقة الدفع', 'النوع', 'الوصف', 'الملاحظات']
 
-      for (let i = 0; i < payments.length; i += chunkSize) {
-        paymentChunks.push(payments.slice(i, i + chunkSize))
-      }
+      const rows = payments.map((payment: any) => {
+        const paymentMethod = payment.payment_method === 'cash' ? 'نقدي' :
+                             payment.payment_method === 'card' ? 'بطاقة' :
+                             payment.payment_method === 'bank_transfer' ? 'تحويل بنكي' : 'أخرى'
 
-      paymentChunks.forEach((chunk, index) => {
-        const isFirst = index === 0
-        const isLast = index === paymentChunks.length - 1
-        const title = isFirst ? `السجل المالي الشامل - جميع المدفوعات (${payments.length})` : `السجل المالي - تتمة (${index + 1})`
+        // تحديد نوع الدفعة والوصف بالعربية
+        let paymentType = 'عام'
+        let description = payment.description || '-'
 
-        htmlContent += `
-          <div style="page-break-before: ${isFirst ? 'auto' : 'always'}; page-break-inside: avoid; break-inside: avoid;">
-            <div class="section-title">${title}</div>
-            <table class="data-table" style="page-break-inside: avoid !important; break-inside: avoid !important;">
-              <thead>
-                <tr>
-                  <th>التاريخ</th>
-                  <th>المبلغ المدفوع</th>
-                  <th>المبلغ الإجمالي</th>
-                  <th>طريقة الدفع</th>
-                  <th>النوع</th>
-                  <th>الوصف</th>
-                  <th>الملاحظات</th>
-                </tr>
-              </thead>
-              <tbody>`
-
-        chunk.forEach((payment: any) => {
-          const paymentMethod = payment.payment_method === 'cash' ? 'نقدي' :
-                               payment.payment_method === 'card' ? 'بطاقة' :
-                               payment.payment_method === 'bank_transfer' ? 'تحويل بنكي' : 'أخرى'
-
-          // تحديد نوع الدفعة والوصف بالعربية
-          let paymentType = 'عام'
-          let description = payment.description || '-'
-
-          // قاموس ترجمة أنواع العلاجات من الإنجليزية للعربية
-          const treatmentTranslations: { [key: string]: string } = {
-            'zirconia_post_core': 'دعامة زيركونيا - قلب وتد',
-            'bone_graft': 'ترقيع عظم',
-            'crown': 'تاج',
-            'filling': 'حشوة',
-            'root_canal': 'علاج عصب',
-            'extraction': 'خلع',
-            'cleaning': 'تنظيف',
-            'implant': 'زراعة',
-            'bridge': 'جسر',
-            'veneer': 'قشرة',
-            'orthodontics': 'تقويم',
-            'whitening': 'تبييض',
-            'scaling': 'تنظيف الجير',
-            'polishing': 'تلميع',
-            'consultation': 'استشارة'
-          }
-
-          if (payment.tooth_treatment_id) {
-            paymentType = 'علاج أسنان'
-            // ترجمة نوع العلاج إذا كان بالإنجليزية
-            const treatmentName = payment.treatment_name || payment.description || ''
-            description = treatmentTranslations[treatmentName] || treatmentName || 'علاج أسنان'
-          } else if (payment.appointment_id) {
-            paymentType = 'موعد'
-            description = payment.appointment_title || payment.description || 'موعد'
-          } else {
-            // للمدفوعات العامة، ترجم الوصف إذا كان بالإنجليزية
-            const originalDesc = payment.description || ''
-            description = treatmentTranslations[originalDesc] || originalDesc || 'دفعة عامة'
-          }
-
-          htmlContent += `
-              <tr>
-                <td>${formatDate(payment.payment_date || payment.created_at)}</td>
-                <td>${formatCurrency(payment.amount || payment.total_amount)}</td>
-                <td>${formatCurrency(payment.treatment_cost || payment.total_amount || payment.amount)}</td>
-                <td>${paymentMethod}</td>
-                <td>${paymentType}</td>
-                <td>${description}</td>
-                <td>${payment.notes || '-'}</td>
-              </tr>`
-        })
-
-        // إضافة صف المجموع فقط في الجدول الأخير
-        if (isLast) {
-          const totalPaidAmount = payments.reduce((sum: number, payment: any) => sum + (payment.amount || payment.total_amount || 0), 0)
-          const totalCostAmount = payments.reduce((sum: number, payment: any) => sum + (payment.treatment_cost || payment.total_amount || payment.amount || 0), 0)
-
-          htmlContent += `
-              <tr style="background-color: #f8f9fa; font-weight: bold; border-top: 2px solid #dee2e6;">
-                <td style="text-align: right; padding: 12px;">المجموع:</td>
-                <td style="padding: 12px; color: #28a745;">${formatCurrency(totalPaidAmount)}</td>
-                <td style="padding: 12px; color: #007bff;">${formatCurrency(totalCostAmount)}</td>
-                <td colspan="4"></td>
-              </tr>`
+        // قاموس ترجمة أنواع العلاجات من الإنجليزية للعربية
+        const treatmentTranslations: { [key: string]: string } = {
+          'zirconia_post_core': 'دعامة زيركونيا - قلب وتد',
+          'bone_graft': 'ترقيع عظم',
+          'crown': 'تاج',
+          'filling': 'حشوة',
+          'root_canal': 'علاج عصب',
+          'extraction': 'خلع',
+          'cleaning': 'تنظيف',
+          'implant': 'زراعة',
+          'bridge': 'جسر',
+          'veneer': 'قشرة',
+          'orthodontics': 'تقويم',
+          'whitening': 'تبييض',
+          'scaling': 'تنظيف الجير',
+          'polishing': 'تلميع',
+          'consultation': 'استشارة'
         }
 
-        htmlContent += `
-              </tbody>
-            </table>
-          </div>`
+        if (payment.tooth_treatment_id) {
+          paymentType = 'علاج أسنان'
+          // ترجمة نوع العلاج إذا كان بالإنجليزية
+          const treatmentName = payment.treatment_name || payment.description || ''
+          description = treatmentTranslations[treatmentName] || treatmentName || 'علاج أسنان'
+        } else if (payment.appointment_id) {
+          paymentType = 'موعد'
+          description = payment.appointment_title || payment.description || 'موعد'
+        } else {
+          // للمدفوعات العامة، ترجم الوصف إذا كان بالإنجليزية
+          const originalDesc = payment.description || ''
+          description = treatmentTranslations[originalDesc] || originalDesc || 'دفعة عامة'
+        }
+
+        return `
+          <tr>
+            <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+            <td>${formatCurrency(payment.amount || payment.total_amount)}</td>
+            <td>${formatCurrency(payment.treatment_cost || payment.total_amount || payment.amount)}</td>
+            <td>${paymentMethod}</td>
+            <td>${paymentType}</td>
+            <td>${description}</td>
+            <td>${payment.notes || '-'}</td>
+          </tr>`
       })
+
+      // إضافة صف المجموع
+      const totalPaidAmount = payments.reduce((sum: number, payment: any) => sum + (payment.amount || payment.total_amount || 0), 0)
+      const totalCostAmount = payments.reduce((sum: number, payment: any) => sum + (payment.treatment_cost || payment.total_amount || payment.amount || 0), 0)
+
+      const totalRow = `
+        <tr style="background-color: #f8f9fa; font-weight: bold; border-top: 2px solid #dee2e6;">
+          <td style="text-align: right; padding: 12px;">المجموع:</td>
+          <td style="padding: 12px; color: #28a745;">${formatCurrency(totalPaidAmount)}</td>
+          <td style="padding: 12px; color: #007bff;">${formatCurrency(totalCostAmount)}</td>
+          <td colspan="4"></td>
+        </tr>`
+
+      htmlContent += createProtectedTable(title, headers, rows, true, totalRow)
 
     } else {
       htmlContent += `
@@ -3344,59 +3351,43 @@ export class PdfService {
         <div class="no-data">لا توجد مدفوعات مسجلة لهذا المريض</div>`
     }
 
-    // إضافة قسم الوصفات الطبية
+    // إضافة قسم الوصفات الطبية - جدول واحد فقط
     if (prescriptions && prescriptions.length > 0) {
-      htmlContent += `
-        <div style="page-break-before: auto; page-break-inside: avoid; break-inside: avoid;">
-          <div class="section-title">الوصفات الطبية (${prescriptions.length})</div>
-          <table class="data-table" style="page-break-inside: avoid !important; break-inside: avoid !important;">
-            <thead>
-              <tr>
-                <th>التاريخ</th>
-                <th>اسم الدواء</th>
-                <th>الجرعة</th>
-                <th>التكرار</th>
-                <th>المدة</th>
-                <th>تعليمات الاستخدام</th>
-                <th>الملاحظات</th>
-              </tr>
-            </thead>
-            <tbody>`
+      const title = `الوصفات الطبية (${prescriptions.length})`
+      const headers = ['التاريخ', 'اسم الدواء', 'الجرعة', 'التكرار', 'المدة', 'تعليمات الاستخدام', 'الملاحظات']
+      const rows: string[] = []
 
       prescriptions.forEach((prescription: any) => {
         // Handle medications array if it exists
         if (prescription.medications && prescription.medications.length > 0) {
           prescription.medications.forEach((medication: any, index: number) => {
-            htmlContent += `
-                <tr>
-                  <td>${formatDate(prescription.prescription_date || prescription.created_at)}</td>
-                  <td>${medication.medication_name || medication.name || '-'}</td>
-                  <td>${medication.dosage || '-'}</td>
-                  <td>${medication.frequency || '-'}</td>
-                  <td>${medication.duration || '-'}</td>
-                  <td>${medication.medication_instructions || medication.instructions || '-'}</td>
-                  <td>${prescription.notes || '-'}</td>
-                </tr>`
+            rows.push(`
+              <tr>
+                <td>${formatDate(prescription.prescription_date || prescription.created_at)}</td>
+                <td>${medication.medication_name || medication.name || '-'}</td>
+                <td>${medication.dosage || '-'}</td>
+                <td>${medication.frequency || '-'}</td>
+                <td>${medication.duration || '-'}</td>
+                <td>${medication.medication_instructions || medication.instructions || '-'}</td>
+                <td>${prescription.notes || '-'}</td>
+              </tr>`)
           })
         } else {
           // Fallback for single medication data
-          htmlContent += `
-              <tr>
-                <td>${formatDate(prescription.prescription_date || prescription.created_at)}</td>
-                <td>${prescription.medication_name || '-'}</td>
-                <td>${prescription.dosage || '-'}</td>
-                <td>${prescription.frequency || '-'}</td>
-                <td>${prescription.duration || '-'}</td>
-                <td>${prescription.instructions || '-'}</td>
-                <td>${prescription.notes || '-'}</td>
-              </tr>`
+          rows.push(`
+            <tr>
+              <td>${formatDate(prescription.prescription_date || prescription.created_at)}</td>
+              <td>${prescription.medication_name || '-'}</td>
+              <td>${prescription.dosage || '-'}</td>
+              <td>${prescription.frequency || '-'}</td>
+              <td>${prescription.duration || '-'}</td>
+              <td>${prescription.instructions || '-'}</td>
+              <td>${prescription.notes || '-'}</td>
+            </tr>`)
         }
       })
 
-      htmlContent += `
-            </tbody>
-          </table>
-        </div>`
+      htmlContent += createProtectedTable(title, headers, rows)
     } else {
       htmlContent += `
         <div class="section-title">الوصفات الطبية</div>
