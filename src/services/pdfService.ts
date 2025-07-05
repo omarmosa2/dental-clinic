@@ -373,6 +373,8 @@ export class PdfService {
           border-radius: ${this.LAYOUT.borderRadius};
           overflow: hidden;
           box-shadow: ${this.LAYOUT.shadows.card};
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
         }
 
         .section-title {
@@ -387,6 +389,10 @@ export class PdfService {
           display: flex;
           align-items: center;
           gap: 10px;
+          page-break-after: avoid !important;
+          break-after: avoid !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
         }
 
         .section-title::before {
@@ -700,10 +706,13 @@ export class PdfService {
           margin: ${this.LAYOUT.spacing.element} 0;
           background: ${this.COLORS.white};
           border-radius: ${this.LAYOUT.borderRadius};
-          overflow: hidden;
+          overflow: visible;
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-          page-break-inside: avoid;
-          break-inside: avoid;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-before: auto;
+          page-break-after: auto;
+          display: table !important;
         }
 
         .data-table th {
@@ -729,8 +738,24 @@ export class PdfService {
         }
 
         .data-table tr {
-          page-break-inside: avoid;
-          break-inside: avoid;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-before: avoid !important;
+          page-break-after: avoid !important;
+          display: table-row !important;
+        }
+
+        .data-table thead {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: avoid !important;
+          display: table-header-group !important;
+        }
+
+        .data-table tbody {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          display: table-row-group !important;
         }
 
         .data-table tr:nth-child(even) {
@@ -1178,6 +1203,36 @@ export class PdfService {
           .data-table {
             border: 2px solid ${this.COLORS.border} !important;
             box-shadow: none !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            page-break-before: auto !important;
+            page-break-after: auto !important;
+            display: table !important;
+            orphans: 3 !important;
+            widows: 3 !important;
+          }
+
+          .data-table thead {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
+            display: table-header-group !important;
+          }
+
+          .data-table tbody {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            display: table-row-group !important;
+          }
+
+          .data-table tr {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            page-break-before: avoid !important;
+            page-break-after: avoid !important;
+            display: table-row !important;
+            orphans: 3 !important;
+            widows: 3 !important;
           }
 
           .data-table th {
@@ -1186,10 +1241,14 @@ export class PdfService {
             border: 2px solid ${this.COLORS.border} !important;
             -webkit-print-color-adjust: exact;
             color-adjust: exact;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
 
           .data-table td {
             border: 1px solid ${this.COLORS.border} !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
 
           .progress-fill {
@@ -2809,12 +2868,20 @@ export class PdfService {
       totalPaid += payment.amount || 0
     })
 
-    // حساب إجمالي التكاليف
+    // حساب إجمالي التكاليف من المواعيد والعلاجات
     appointments?.forEach((apt: any) => {
       if (apt.cost) totalDue += apt.cost
     })
     treatments?.forEach((treatment: any) => {
       if (treatment.cost) totalDue += treatment.cost
+    })
+
+    // إضافة المدفوعات العامة (غير المرتبطة بعلاج) إلى إجمالي التكاليف
+    // لأنها تمثل خدمات أو رسوم إضافية
+    generalPayments.forEach((payment: any) => {
+      // إضافة المبلغ الإجمالي للدفعة العامة كتكلفة
+      const paymentCost = payment.treatment_cost || payment.total_amount || payment.amount || 0
+      totalDue += paymentCost
     })
 
     const remainingBalance = Math.max(0, totalDue - totalPaid)
@@ -3042,184 +3109,234 @@ export class PdfService {
         </div>
       </div>`
 
-    // إضافة قسم المواعيد
+    // إضافة قسم المواعيد - تقسيم إلى مجموعات صغيرة
     if (appointments && appointments.length > 0) {
-      htmlContent += `
-        <div class="section-title">سجل المواعيد (${appointments.length})</div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>التاريخ</th>
-              <th>الوقت</th>
-              <th>نوع الموعد</th>
-              <th>الحالة</th>
-              <th>الملاحظات</th>
-            </tr>
-          </thead>
-          <tbody>`
+      const chunkSize = 5 // عدد الصفوف في كل جدول
+      const appointmentChunks = []
 
-      appointments.forEach((appointment: any) => {
-        const statusText = appointment.status === 'completed' ? 'مكتمل' :
-                          appointment.status === 'scheduled' ? 'مجدول' :
-                          appointment.status === 'cancelled' ? 'ملغي' : 'معلق'
+      for (let i = 0; i < appointments.length; i += chunkSize) {
+        appointmentChunks.push(appointments.slice(i, i + chunkSize))
+      }
+
+      appointmentChunks.forEach((chunk, index) => {
+        const isFirst = index === 0
+        const title = isFirst ? `سجل المواعيد (${appointments.length})` : `سجل المواعيد - تتمة (${index + 1})`
 
         htmlContent += `
-            <tr>
-              <td>${formatDate(appointment.start_time)}</td>
-              <td>${formatTime(appointment.start_time)}</td>
-              <td>${appointment.appointment_type || 'عام'}</td>
-              <td>${statusText}</td>
-              <td>${appointment.notes || '-'}</td>
-            </tr>`
-      })
+          <div style="page-break-before: ${isFirst ? 'auto' : 'always'}; page-break-inside: avoid; break-inside: avoid;">
+            <div class="section-title">${title}</div>
+            <table class="data-table" style="page-break-inside: avoid !important; break-inside: avoid !important;">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>الوقت</th>
+                  <th>نوع الموعد</th>
+                  <th>الحالة</th>
+                  <th>الملاحظات</th>
+                </tr>
+              </thead>
+              <tbody>`
 
-      htmlContent += `
-          </tbody>
-        </table>`
+        chunk.forEach((appointment: any) => {
+          const statusText = appointment.status === 'completed' ? 'مكتمل' :
+                            appointment.status === 'scheduled' ? 'مجدول' :
+                            appointment.status === 'cancelled' ? 'ملغي' : 'معلق'
+
+          htmlContent += `
+              <tr>
+                <td>${formatDate(appointment.start_time)}</td>
+                <td>${formatTime(appointment.start_time)}</td>
+                <td>${appointment.appointment_type || 'عام'}</td>
+                <td>${statusText}</td>
+                <td>${appointment.notes || '-'}</td>
+              </tr>`
+        })
+
+        htmlContent += `
+              </tbody>
+            </table>
+          </div>`
+      })
     } else {
       htmlContent += `
         <div class="section-title">سجل المواعيد</div>
         <div class="no-data">لا توجد مواعيد مسجلة لهذا المريض</div>`
     }
 
-    // إضافة قسم العلاجات
+    // إضافة قسم العلاجات - تقسيم إلى مجموعات صغيرة
     if (treatments && treatments.length > 0) {
-      htmlContent += `
-        <div class="section-title">سجل العلاجات (${treatments.length})</div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>رقم السن</th>
-              <th>نوع العلاج</th>
-              <th>التكلفة</th>
-              <th>الحالة</th>
-              <th>التاريخ</th>
-              <th>المدفوعات المرتبطة</th>
-              <th>الملاحظات</th>
-            </tr>
-          </thead>
-          <tbody>`
+      const chunkSize = 4 // عدد الصفوف في كل جدول للعلاجات (أقل لأن الجدول أعرض)
+      const treatmentChunks = []
 
-      treatments.forEach((treatment: any) => {
-        const statusText = treatment.treatment_status === 'completed' ? 'مكتمل' :
-                          treatment.treatment_status === 'in_progress' ? 'قيد التنفيذ' : 'مخطط'
+      for (let i = 0; i < treatments.length; i += chunkSize) {
+        treatmentChunks.push(treatments.slice(i, i + chunkSize))
+      }
 
-        // ترجمة اسم العلاج إلى العربية
-        const treatmentNameArabic = getTreatmentNameInArabic(treatment.treatment_name || treatment.treatment_type || '')
-
-        // البحث عن المدفوعات المرتبطة بهذا العلاج
-        const relatedPayments = treatmentPayments.filter((payment: any) =>
-          payment.tooth_treatment_id === treatment.id
-        )
-        const totalPaidForTreatment = relatedPayments.reduce((sum: number, payment: any) =>
-          sum + (payment.amount || 0), 0
-        )
+      treatmentChunks.forEach((chunk, index) => {
+        const isFirst = index === 0
+        const title = isFirst ? `سجل العلاجات (${treatments.length})` : `سجل العلاجات - تتمة (${index + 1})`
 
         htmlContent += `
-            <tr>
-              <td>${treatment.tooth_number || '-'}</td>
-              <td>${treatmentNameArabic}</td>
-              <td>${formatCurrency(treatment.cost || 0)}</td>
-              <td>${statusText}</td>
-              <td>${formatDate(treatment.treatment_date || treatment.created_at)}</td>
-              <td>${formatCurrency(totalPaidForTreatment)}</td>
-              <td>${treatment.notes || '-'}</td>
-            </tr>`
-      })
+          <div style="page-break-before: ${isFirst ? 'auto' : 'always'}; page-break-inside: avoid; break-inside: avoid;">
+            <div class="section-title">${title}</div>
+            <table class="data-table" style="page-break-inside: avoid !important; break-inside: avoid !important;">
+              <thead>
+                <tr>
+                  <th>رقم السن</th>
+                  <th>نوع العلاج</th>
+                  <th>التكلفة</th>
+                  <th>الحالة</th>
+                  <th>التاريخ</th>
+                  <th>المدفوعات المرتبطة</th>
+                  <th>الملاحظات</th>
+                </tr>
+              </thead>
+              <tbody>`
 
-      htmlContent += `
-          </tbody>
-        </table>`
+        chunk.forEach((treatment: any) => {
+          const statusText = treatment.treatment_status === 'completed' ? 'مكتمل' :
+                            treatment.treatment_status === 'in_progress' ? 'قيد التنفيذ' : 'مخطط'
+
+          // ترجمة اسم العلاج إلى العربية
+          const treatmentNameArabic = getTreatmentNameInArabic(treatment.treatment_name || treatment.treatment_type || '')
+
+          // البحث عن المدفوعات المرتبطة بهذا العلاج
+          const relatedPayments = treatmentPayments.filter((payment: any) =>
+            payment.tooth_treatment_id === treatment.id
+          )
+          const totalPaidForTreatment = relatedPayments.reduce((sum: number, payment: any) =>
+            sum + (payment.amount || 0), 0
+          )
+
+          htmlContent += `
+              <tr>
+                <td>${treatment.tooth_number || '-'}</td>
+                <td>${treatmentNameArabic}</td>
+                <td>${formatCurrency(treatment.cost || 0)}</td>
+                <td>${statusText}</td>
+                <td>${formatDate(treatment.treatment_date || treatment.created_at)}</td>
+                <td>${formatCurrency(totalPaidForTreatment)}</td>
+                <td>${treatment.notes || '-'}</td>
+              </tr>`
+        })
+
+        htmlContent += `
+              </tbody>
+            </table>
+          </div>`
+      })
     } else {
       htmlContent += `
         <div class="section-title">سجل العلاجات</div>
         <div class="no-data">لا توجد علاجات مسجلة لهذا المريض</div>`
     }
 
-    // إضافة قسم السجل المالي الشامل - جميع المدفوعات
+    // إضافة قسم السجل المالي الشامل - جميع المدفوعات - تقسيم إلى مجموعات صغيرة
     if (payments && payments.length > 0) {
       // حساب المبلغ الإجمالي
       const totalAmount = payments.reduce((sum: number, payment: any) => sum + (payment.total_amount || 0), 0)
+      const chunkSize = 6 // عدد الصفوف في كل جدول للمدفوعات
+      const paymentChunks = []
 
-      htmlContent += `
-        <div class="section-title">السجل المالي الشامل - جميع المدفوعات (${payments.length})</div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>التاريخ</th>
-              <th>المبلغ</th>
-              <th>طريقة الدفع</th>
-              <th>النوع</th>
-              <th>الوصف</th>
-              <th>الملاحظات</th>
-            </tr>
-          </thead>
-          <tbody>`
+      for (let i = 0; i < payments.length; i += chunkSize) {
+        paymentChunks.push(payments.slice(i, i + chunkSize))
+      }
 
-      payments.forEach((payment: any) => {
-        const paymentMethod = payment.payment_method === 'cash' ? 'نقدي' :
-                             payment.payment_method === 'card' ? 'بطاقة' :
-                             payment.payment_method === 'bank_transfer' ? 'تحويل بنكي' : 'أخرى'
+      paymentChunks.forEach((chunk, index) => {
+        const isFirst = index === 0
+        const isLast = index === paymentChunks.length - 1
+        const title = isFirst ? `السجل المالي الشامل - جميع المدفوعات (${payments.length})` : `السجل المالي - تتمة (${index + 1})`
 
-        // تحديد نوع الدفعة والوصف بالعربية
-        let paymentType = 'عام'
-        let description = payment.description || '-'
+        htmlContent += `
+          <div style="page-break-before: ${isFirst ? 'auto' : 'always'}; page-break-inside: avoid; break-inside: avoid;">
+            <div class="section-title">${title}</div>
+            <table class="data-table" style="page-break-inside: avoid !important; break-inside: avoid !important;">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>المبلغ المدفوع</th>
+                  <th>المبلغ الإجمالي</th>
+                  <th>طريقة الدفع</th>
+                  <th>النوع</th>
+                  <th>الوصف</th>
+                  <th>الملاحظات</th>
+                </tr>
+              </thead>
+              <tbody>`
 
-        // قاموس ترجمة أنواع العلاجات من الإنجليزية للعربية
-        const treatmentTranslations: { [key: string]: string } = {
-          'zirconia_post_core': 'دعامة زيركونيا - قلب وتد',
-          'bone_graft': 'ترقيع عظم',
-          'crown': 'تاج',
-          'filling': 'حشوة',
-          'root_canal': 'علاج عصب',
-          'extraction': 'خلع',
-          'cleaning': 'تنظيف',
-          'implant': 'زراعة',
-          'bridge': 'جسر',
-          'veneer': 'قشرة',
-          'orthodontics': 'تقويم',
-          'whitening': 'تبييض',
-          'scaling': 'تنظيف الجير',
-          'polishing': 'تلميع',
-          'consultation': 'استشارة'
-        }
+        chunk.forEach((payment: any) => {
+          const paymentMethod = payment.payment_method === 'cash' ? 'نقدي' :
+                               payment.payment_method === 'card' ? 'بطاقة' :
+                               payment.payment_method === 'bank_transfer' ? 'تحويل بنكي' : 'أخرى'
 
-        if (payment.tooth_treatment_id) {
-          paymentType = 'علاج أسنان'
-          // ترجمة نوع العلاج إذا كان بالإنجليزية
-          const treatmentName = payment.treatment_name || payment.description || ''
-          description = treatmentTranslations[treatmentName] || treatmentName || 'علاج أسنان'
-        } else if (payment.appointment_id) {
-          paymentType = 'موعد'
-          description = payment.appointment_title || payment.description || 'موعد'
-        } else {
-          // للمدفوعات العامة، ترجم الوصف إذا كان بالإنجليزية
-          const originalDesc = payment.description || ''
-          description = treatmentTranslations[originalDesc] || originalDesc || 'دفعة عامة'
+          // تحديد نوع الدفعة والوصف بالعربية
+          let paymentType = 'عام'
+          let description = payment.description || '-'
+
+          // قاموس ترجمة أنواع العلاجات من الإنجليزية للعربية
+          const treatmentTranslations: { [key: string]: string } = {
+            'zirconia_post_core': 'دعامة زيركونيا - قلب وتد',
+            'bone_graft': 'ترقيع عظم',
+            'crown': 'تاج',
+            'filling': 'حشوة',
+            'root_canal': 'علاج عصب',
+            'extraction': 'خلع',
+            'cleaning': 'تنظيف',
+            'implant': 'زراعة',
+            'bridge': 'جسر',
+            'veneer': 'قشرة',
+            'orthodontics': 'تقويم',
+            'whitening': 'تبييض',
+            'scaling': 'تنظيف الجير',
+            'polishing': 'تلميع',
+            'consultation': 'استشارة'
+          }
+
+          if (payment.tooth_treatment_id) {
+            paymentType = 'علاج أسنان'
+            // ترجمة نوع العلاج إذا كان بالإنجليزية
+            const treatmentName = payment.treatment_name || payment.description || ''
+            description = treatmentTranslations[treatmentName] || treatmentName || 'علاج أسنان'
+          } else if (payment.appointment_id) {
+            paymentType = 'موعد'
+            description = payment.appointment_title || payment.description || 'موعد'
+          } else {
+            // للمدفوعات العامة، ترجم الوصف إذا كان بالإنجليزية
+            const originalDesc = payment.description || ''
+            description = treatmentTranslations[originalDesc] || originalDesc || 'دفعة عامة'
+          }
+
+          htmlContent += `
+              <tr>
+                <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+                <td>${formatCurrency(payment.amount || payment.total_amount)}</td>
+                <td>${formatCurrency(payment.treatment_cost || payment.total_amount || payment.amount)}</td>
+                <td>${paymentMethod}</td>
+                <td>${paymentType}</td>
+                <td>${description}</td>
+                <td>${payment.notes || '-'}</td>
+              </tr>`
+        })
+
+        // إضافة صف المجموع فقط في الجدول الأخير
+        if (isLast) {
+          const totalPaidAmount = payments.reduce((sum: number, payment: any) => sum + (payment.amount || payment.total_amount || 0), 0)
+          const totalCostAmount = payments.reduce((sum: number, payment: any) => sum + (payment.treatment_cost || payment.total_amount || payment.amount || 0), 0)
+
+          htmlContent += `
+              <tr style="background-color: #f8f9fa; font-weight: bold; border-top: 2px solid #dee2e6;">
+                <td style="text-align: right; padding: 12px;">المجموع:</td>
+                <td style="padding: 12px; color: #28a745;">${formatCurrency(totalPaidAmount)}</td>
+                <td style="padding: 12px; color: #007bff;">${formatCurrency(totalCostAmount)}</td>
+                <td colspan="4"></td>
+              </tr>`
         }
 
         htmlContent += `
-            <tr>
-              <td>${formatDate(payment.payment_date || payment.created_at)}</td>
-              <td>${formatCurrency(payment.amount)}</td>
-              <td>${paymentMethod}</td>
-              <td>${paymentType}</td>
-              <td>${description}</td>
-              <td>${payment.notes || '-'}</td>
-            </tr>`
+              </tbody>
+            </table>
+          </div>`
       })
-
-      // إضافة صف المبلغ الإجمالي
-      htmlContent += `
-            <tr style="background-color: #f8f9fa; font-weight: bold; border-top: 2px solid #dee2e6;">
-              <td colspan="5" style="text-align: right; padding: 12px;">المبلغ الإجمالي:</td>
-              <td style="padding: 12px; color: #28a745;">${formatCurrency(totalAmount)}</td>
-            </tr>`
-
-      htmlContent += `
-          </tbody>
-        </table>`
-
 
     } else {
       htmlContent += `
@@ -3230,20 +3347,21 @@ export class PdfService {
     // إضافة قسم الوصفات الطبية
     if (prescriptions && prescriptions.length > 0) {
       htmlContent += `
-        <div class="section-title">الوصفات الطبية (${prescriptions.length})</div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>التاريخ</th>
-              <th>اسم الدواء</th>
-              <th>الجرعة</th>
-              <th>التكرار</th>
-              <th>المدة</th>
-              <th>تعليمات الاستخدام</th>
-              <th>الملاحظات</th>
-            </tr>
-          </thead>
-          <tbody>`
+        <div style="page-break-before: auto; page-break-inside: avoid; break-inside: avoid;">
+          <div class="section-title">الوصفات الطبية (${prescriptions.length})</div>
+          <table class="data-table" style="page-break-inside: avoid !important; break-inside: avoid !important;">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>اسم الدواء</th>
+                <th>الجرعة</th>
+                <th>التكرار</th>
+                <th>المدة</th>
+                <th>تعليمات الاستخدام</th>
+                <th>الملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>`
 
       prescriptions.forEach((prescription: any) => {
         // Handle medications array if it exists
@@ -3276,8 +3394,9 @@ export class PdfService {
       })
 
       htmlContent += `
-          </tbody>
-        </table>`
+            </tbody>
+          </table>
+        </div>`
     } else {
       htmlContent += `
         <div class="section-title">الوصفات الطبية</div>
@@ -3287,18 +3406,19 @@ export class PdfService {
     // إضافة قسم طلبات المختبر
     if (labOrders && labOrders.length > 0) {
       htmlContent += `
-        <div class="section-title">طلبات المختبر (${labOrders.length})</div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>التاريخ</th>
-              <th>نوع الطلب</th>
-              <th>الحالة</th>
-              <th>التكلفة</th>
-              <th>الملاحظات</th>
-            </tr>
-          </thead>
-          <tbody>`
+        <div style="page-break-before: auto; page-break-inside: avoid; break-inside: avoid;">
+          <div class="section-title">طلبات المختبر (${labOrders.length})</div>
+          <table class="data-table" style="page-break-inside: avoid !important; break-inside: avoid !important;">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>نوع الطلب</th>
+                <th>الحالة</th>
+                <th>التكلفة</th>
+                <th>الملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>`
 
       labOrders.forEach((labOrder: any) => {
         const statusText = labOrder.status === 'completed' ? 'مكتمل' :
@@ -3315,8 +3435,9 @@ export class PdfService {
       })
 
       htmlContent += `
-          </tbody>
-        </table>`
+            </tbody>
+          </table>
+        </div>`
     } else {
       htmlContent += `
         <div class="section-title">طلبات المختبر</div>
