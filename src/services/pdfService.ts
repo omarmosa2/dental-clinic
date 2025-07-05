@@ -3100,6 +3100,8 @@ export class PdfService {
             border: 2px solid #000;
             padding: 20px;
             margin: 20px 0;
+            page-break-before: always;
+            page-break-inside: avoid;
           }
           .financial-title {
             font-size: 18px;
@@ -3229,11 +3231,17 @@ export class PdfService {
           </div>
         </div>`
 
-    // إضافة الملخص المالي
+    // إضافة الملخص المالي في صفحة منفصلة
     htmlContent += `
       <!-- الملخص المالي -->
       <div class="financial-summary">
-        <div class="financial-title">الملخص المالي</div>
+        <div class="header" style="margin-bottom: 30px;">
+          <div class="clinic-name">${settings?.clinic_name || 'عيادة الأسنان'}</div>
+          <div class="report-title">الملخص المالي للمريض</div>
+          <div class="report-date">${patient.full_name} - ${formatDate(new Date().toISOString())}</div>
+        </div>
+
+        <div class="financial-title">تفاصيل الحساب المالي</div>
         <div class="financial-row">
           <span class="financial-label">إجمالي التكاليف:</span>
           <span class="financial-amount">${formatCurrency(totalDue)}</span>
@@ -3245,6 +3253,18 @@ export class PdfService {
         <div class="financial-row">
           <span class="financial-label">المبلغ المتبقي:</span>
           <span class="financial-amount">${formatCurrency(remainingBalance)}</span>
+        </div>
+
+        <div style="margin-top: 30px; padding: 15px; background: #f5f5f5; border-radius: 5px;">
+          <div style="font-weight: bold; margin-bottom: 10px;">ملاحظات مالية:</div>
+          <div style="font-size: 14px; line-height: 1.6;">
+            ${remainingBalance > 0 ?
+              `• يوجد مبلغ متبقي قدره ${formatCurrency(remainingBalance)} يجب تحصيله` :
+              '• تم سداد جميع المستحقات المالية بالكامل'
+            }
+            <br>• تاريخ آخر تحديث: ${formatDate(new Date().toISOString())}
+            <br>• عدد المدفوعات المسجلة: ${payments ? payments.length : 0}
+          </div>
         </div>
       </div>`
 
