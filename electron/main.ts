@@ -1047,10 +1047,9 @@ ipcMain.handle('files:uploadDentalImage', async (_, fileBuffer, fileName, patien
     const buffer = Buffer.from(fileBuffer)
     fs.writeFileSync(filePath, buffer)
 
-    // Return relative path for database storage (without filename)
-    const relativePath = `dental_images/${patientId}/${toothNumber}/${imageType}/`
+    // Return relative path for database storage (WITH filename)
+    const relativePath = `dental_images/${patientId}/${toothNumber}/${imageType}/${meaningfulFileName}`
     console.log('Dental image uploaded successfully:', relativePath)
-    console.log('Full file path:', `${relativePath}${meaningfulFileName}`)
 
     return relativePath
   } catch (error) {
@@ -1127,10 +1126,9 @@ ipcMain.handle('files:saveDentalImage', async (_, base64Data, fileName, patientI
     // Write file to disk
     fs.writeFileSync(filePath, base64, 'base64')
 
-    // Return relative path for database storage (without filename)
-    const relativePath = `dental_images/${patientId}/${toothNumber}/${imageType}/`
+    // Return relative path for database storage (WITH filename)
+    const relativePath = `dental_images/${patientId}/${toothNumber}/${imageType}/${meaningfulFileName}`
     console.log('Dental image saved successfully:', relativePath)
-    console.log('Full file path:', `${relativePath}${meaningfulFileName}`)
 
     return relativePath
   } catch (error) {

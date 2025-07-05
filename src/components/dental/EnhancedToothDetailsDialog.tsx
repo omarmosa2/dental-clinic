@@ -321,10 +321,15 @@ export default function EnhancedToothDetailsDialog({
         // Convert file to ArrayBuffer
         const arrayBuffer = await file.arrayBuffer()
 
+        // Create unique filename with timestamp
+        const timestamp = Date.now()
+        const extension = file.name.split('.').pop() || 'jpg'
+        const uniqueFileName = `${file.name.split('.')[0]}_${timestamp}.${extension}`
+
         // Upload file using Electron API with new parameters
         const filePath = await window.electronAPI.files.uploadDentalImage(
           arrayBuffer,
-          file.name,
+          uniqueFileName,
           patientId,
           toothNumber || 0,
           imageType,
@@ -357,9 +362,14 @@ export default function EnhancedToothDetailsDialog({
 
             // Try to use Electron API for saving to public/upload
             if (window.electronAPI && window.electronAPI.files && window.electronAPI.files.saveDentalImage) {
+              // Create unique filename with timestamp
+              const timestamp = Date.now()
+              const extension = file.name.split('.').pop() || 'jpg'
+              const uniqueFileName = `${file.name.split('.')[0]}_${timestamp}.${extension}`
+
               const relativePath = await window.electronAPI.files.saveDentalImage(
                 base64Data,
-                file.name,
+                uniqueFileName,
                 patientId,
                 toothNumber || 0,
                 imageType,
@@ -374,7 +384,7 @@ export default function EnhancedToothDetailsDialog({
               const extension = file.name.split('.').pop() || 'jpg'
               const cleanPatientName = (patient?.full_name || 'Unknown_Patient').replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
               const cleanToothName = (toothInfo?.arabicName || `Tooth_${toothNumber}`).replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').replace(/\s+/g, '_')
-              const fileName = `${cleanToothName}-${timestamp}.${extension}`
+              const fileName = `${file.name.split('.')[0]}_${timestamp}.${extension}`
               const relativePath = `dental_images/${cleanPatientName}/${imageType || 'other'}/${fileName}`
 
               console.log('Using fallback path:', relativePath)
@@ -407,7 +417,7 @@ export default function EnhancedToothDetailsDialog({
 
       for (const item of selectedImages) {
         const imagePath = await uploadImage(item.file, item.type)
-        await createToothTreatmentImage({
+        const imageData = {
           tooth_treatment_id: item.treatmentId || null,
           patient_id: patientId,
           tooth_number: toothNumber,
@@ -415,7 +425,10 @@ export default function EnhancedToothDetailsDialog({
           image_type: item.type,
           description: `${item.type} - السن رقم ${toothNumber}`,
           taken_date: new Date().toISOString()
-        })
+        }
+
+
+        await createToothTreatmentImage(imageData)
       }
 
       // Clear selected images and reload all images for this patient
@@ -969,87 +982,184 @@ export default function EnhancedToothDetailsDialog({
                     <p className="text-sm">قم برفع صور جديدة باستخدام النموذج أعلاه</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {IMAGE_TYPE_OPTIONS.map((imageType) => {
-                      const typeImages = (toothTreatmentImages || []).filter(img =>
-                        img.image_type === imageType.value &&
+                  <div className="space-y-6">
+                    {/* Group images by treatment */}
+                    {currentToothTreatments.map((treatment) => {
+                      const treatmentImages = (toothTreatmentImages || []).filter(img =>
+                        img.tooth_treatment_id === treatment.id &&
                         img.tooth_number === toothNumber &&
                         img.patient_id === patientId
                       )
-                      if (typeImages.length === 0) return null
+
+
+
+                      if (treatmentImages.length === 0) return null
 
                       return (
-                        <Card key={imageType.value} className="image-type-card">
-                          <CardHeader className="pb-3">
+                        <Card key={treatment.id} className="treatment-images-card border-2 border-blue-200 dark:border-blue-700">
+                          <CardHeader className="pb-3 bg-blue-50 dark:bg-blue-900/20">
                             <CardTitle className="text-sm flex items-center gap-2">
-                              <span className="image-type-icon">{imageType.icon}</span>
-                              <span className="image-type-label">{imageType.label}</span>
-                              <Badge variant="secondary" className="image-count-badge mr-auto">
-                                {typeImages.length}
+                              <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                              <span className="font-medium text-blue-700 dark:text-blue-300">
+                                {getTreatmentByValue(treatment.treatment_type)?.label || treatment.treatment_type}
+                              </span>
+                              <Badge variant="secondary" className="mr-auto bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300">
+                                {treatmentImages.length} صورة
                               </Badge>
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                              {typeImages.map((image) => (
-                                <div key={image.id} className="saved-image-card group relative bg-card border border-border rounded-lg p-2 hover:shadow-lg transition-all duration-300">
-                                  <div className="relative overflow-hidden rounded-lg border border-border">
-                                    <DentalImage
-                                      imagePath={image.image_path}
-                                      alt={image.description || imageType.label}
-                                      className="w-full h-24 object-cover transition-transform group-hover:scale-105"
-                                    />
-                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all" />
+                          <CardContent className="space-y-4">
+                            {IMAGE_TYPE_OPTIONS.map((imageType) => {
+                              const typeImages = treatmentImages.filter(img => img.image_type === imageType.value)
+                              if (typeImages.length === 0) return null
 
-                                    {/* Action buttons */}
-                                    <div className="absolute top-2 right-2 flex flex-row items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                      <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        className="w-8 h-8 p-0 bg-black/80 hover:bg-black/95 text-white border-2 border-white/30 hover:border-white/80 rounded-full backdrop-blur-sm shadow-lg transition-all duration-300"
-                                        onClick={() => handleImagePreview(image.image_path)}
-                                      >
-                                        <Eye className="w-4 h-4" />
-                                      </Button>
-                                      <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        className="w-8 h-8 p-0 bg-red-500/90 hover:bg-red-500 dark:bg-red-600/90 dark:hover:bg-red-600 rounded-full shadow-lg transition-all duration-300"
-                                        onClick={() => handleDeleteImage(image.id)}
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
-                                    </div>
+                              return (
+                                <div key={imageType.value} className="space-y-2">
+                                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span className="image-type-icon">{imageType.icon}</span>
+                                    <span className="image-type-label">{imageType.label}</span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {typeImages.length}
+                                    </Badge>
                                   </div>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {typeImages.map((image) => (
+                                      <div key={image.id} className="saved-image-card group relative bg-card border border-border rounded-lg p-2 hover:shadow-lg transition-all duration-300">
+                                        <div className="relative overflow-hidden rounded-lg border border-border">
+                                          <DentalImage
+                                            imagePath={image.image_path}
+                                            alt={image.description || imageType.label}
+                                            className="w-full h-24 object-cover transition-transform group-hover:scale-105"
+                                          />
+                                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all" />
 
-                                  {/* Image info */}
-                                  <div className="mt-2 space-y-1">
-                                    {image.tooth_treatment_id && (
-                                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
-                                        {(() => {
-                                          const linkedTreatment = (toothTreatments || []).find(t => t.id === image.tooth_treatment_id)
-                                          return linkedTreatment ? getTreatmentByValue(linkedTreatment.treatment_type)?.label || linkedTreatment.treatment_type : 'علاج محذوف'
-                                        })()}
-                                      </Badge>
-                                    )}
-                                    {image.description && (
-                                      <p className="text-xs text-muted-foreground truncate">
-                                        {image.description}
-                                      </p>
-                                    )}
-                                    {image.taken_date && (
-                                      <p className="text-xs text-muted-foreground">
-                                        {new Date(image.taken_date).toLocaleDateString('en-GB')}
-                                      </p>
-                                    )}
+                                          {/* Action buttons */}
+                                          <div className="absolute top-2 right-2 flex flex-row items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                            <Button
+                                              variant="secondary"
+                                              size="sm"
+                                              className="w-8 h-8 p-0 bg-black/80 hover:bg-black/95 text-white border-2 border-white/30 hover:border-white/80 rounded-full backdrop-blur-sm shadow-lg transition-all duration-300"
+                                              onClick={() => handleImagePreview(image.image_path)}
+                                            >
+                                              <Eye className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="destructive"
+                                              size="sm"
+                                              className="w-8 h-8 p-0 bg-red-500/90 hover:bg-red-500 dark:bg-red-600/90 dark:hover:bg-red-600 rounded-full shadow-lg transition-all duration-300"
+                                              onClick={() => handleDeleteImage(image.id)}
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        </div>
+
+                                        {/* Image info */}
+                                        <div className="mt-2 space-y-1">
+                                          {image.taken_date && (
+                                            <p className="text-xs text-gray-600 dark:text-gray-300 text-center bg-white dark:bg-gray-700 rounded px-2 py-1 shadow-sm">
+                                              {new Date(image.taken_date).toLocaleDateString('en-GB')}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
-                              ))}
-                            </div>
+                              )
+                            })}
                           </CardContent>
                         </Card>
                       )
                     })}
+
+                    {/* Images without treatment association */}
+                    {(() => {
+                      const unassociatedImages = (toothTreatmentImages || []).filter(img =>
+                        !img.tooth_treatment_id &&
+                        img.tooth_number === toothNumber &&
+                        img.patient_id === patientId
+                      )
+
+                      if (unassociatedImages.length === 0) return null
+
+                      return (
+                        <Card className="unassociated-images-card border-2 border-gray-200 dark:border-gray-600">
+                          <CardHeader className="pb-3 bg-gray-50 dark:bg-gray-800">
+                            <CardTitle className="text-sm flex items-center gap-2">
+                              <span className="w-3 h-3 bg-gray-500 rounded-full"></span>
+                              <span className="font-medium text-gray-700 dark:text-gray-300">
+                                صور غير مرتبطة بعلاج محدد
+                              </span>
+                              <Badge variant="secondary" className="mr-auto">
+                                {unassociatedImages.length} صورة
+                              </Badge>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {IMAGE_TYPE_OPTIONS.map((imageType) => {
+                              const typeImages = unassociatedImages.filter(img => img.image_type === imageType.value)
+                              if (typeImages.length === 0) return null
+
+                              return (
+                                <div key={imageType.value} className="space-y-2">
+                                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span className="image-type-icon">{imageType.icon}</span>
+                                    <span className="image-type-label">{imageType.label}</span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {typeImages.length}
+                                    </Badge>
+                                  </div>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {typeImages.map((image) => (
+                                      <div key={image.id} className="saved-image-card group relative bg-card border border-border rounded-lg p-2 hover:shadow-lg transition-all duration-300">
+                                        <div className="relative overflow-hidden rounded-lg border border-border">
+                                          <DentalImage
+                                            imagePath={image.image_path}
+                                            alt={image.description || imageType.label}
+                                            className="w-full h-24 object-cover transition-transform group-hover:scale-105"
+                                          />
+                                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all" />
+
+                                          {/* Action buttons */}
+                                          <div className="absolute top-2 right-2 flex flex-row items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                            <Button
+                                              variant="secondary"
+                                              size="sm"
+                                              className="w-8 h-8 p-0 bg-black/80 hover:bg-black/95 text-white border-2 border-white/30 hover:border-white/80 rounded-full backdrop-blur-sm shadow-lg transition-all duration-300"
+                                              onClick={() => handleImagePreview(image.image_path)}
+                                            >
+                                              <Eye className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="destructive"
+                                              size="sm"
+                                              className="w-8 h-8 p-0 bg-red-500/90 hover:bg-red-500 dark:bg-red-600/90 dark:hover:bg-red-600 rounded-full shadow-lg transition-all duration-300"
+                                              onClick={() => handleDeleteImage(image.id)}
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        </div>
+
+                                        {/* Image info */}
+                                        <div className="mt-2 space-y-1">
+                                          {image.taken_date && (
+                                            <p className="text-xs text-gray-600 dark:text-gray-300 text-center bg-white dark:bg-gray-700 rounded px-2 py-1 shadow-sm">
+                                              {new Date(image.taken_date).toLocaleDateString('en-GB')}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </CardContent>
+                        </Card>
+                      )
+                    })()}
                   </div>
                 )}
               </CardContent>
