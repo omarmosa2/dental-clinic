@@ -380,7 +380,7 @@ export default function DentalTreatments() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
+          {/* <Button
             onClick={async () => {
               if (selectedPatientId) {
                 console.log('🦷 Force refreshing tooth colors for patient:', selectedPatientId)
@@ -419,7 +419,7 @@ export default function DentalTreatments() {
             size="sm"
           >
             🦷 تحديث الألوان
-          </Button>
+          </Button> */}
           <Button onClick={refreshData} disabled={isLoading} variant="outline">
             <RefreshCw className={`w-4 h-4 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
             تحديث البيانات

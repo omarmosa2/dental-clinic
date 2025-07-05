@@ -1376,6 +1376,106 @@ ipcMain.handle('files:checkImageExists', async (_, imagePath) => {
   }
 })
 
+// Image preview handler
+ipcMain.handle('files:openImagePreview', async (_, imagePath) => {
+  try {
+    console.log('Opening image preview for:', imagePath)
+    const { shell } = require('electron')
+    const fs = require('fs')
+    const path = require('path')
+
+    // Helper function to find the actual image path
+    const findImagePath = (imagePath: string) => {
+      // If it's a directory path, find the first image in it
+      if (!path.extname(imagePath) || imagePath.endsWith('/')) {
+        // Check if we're in development mode
+        const isDevelopment = process.env.NODE_ENV === 'development' ||
+                             process.execPath.includes('node') ||
+                             process.execPath.includes('electron') ||
+                             process.cwd().includes('dental-clinic')
+
+        let baseDir
+        if (isDevelopment) {
+          // Development: use project directory
+          baseDir = process.cwd()
+        } else {
+          // Production: use app directory
+          baseDir = path.dirname(process.execPath)
+        }
+
+        const searchPaths = [
+          // 1. Project directory (development/production)
+          path.join(baseDir, imagePath.endsWith('/') ? imagePath : imagePath + '/'),
+          // 2. User data directory
+          path.join(app.getPath('userData'), imagePath.endsWith('/') ? imagePath : imagePath + '/'),
+          // 3. Public upload directory
+          path.join(__dirname, '..', 'public', 'upload', imagePath.endsWith('/') ? imagePath : imagePath + '/')
+        ]
+
+        console.log('Searching for images in paths:', searchPaths)
+
+        for (const searchPath of searchPaths) {
+          if (fs.existsSync(searchPath)) {
+            try {
+              const files = fs.readdirSync(searchPath)
+              const imageFiles = files.filter(file => {
+                const ext = path.extname(file).toLowerCase()
+                return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)
+              })
+
+              if (imageFiles.length > 0) {
+                // Return the first image found (or you could return the most recent)
+                const imageFile = imageFiles.sort().reverse()[0] // Get most recent by name
+                const fullImagePath = path.join(searchPath, imageFile)
+                console.log('Found image:', fullImagePath)
+                return fullImagePath
+              }
+            } catch (dirError) {
+              console.warn('Error reading directory:', searchPath, dirError.message)
+            }
+          } else {
+            console.log('Directory does not exist:', searchPath)
+          }
+        }
+      } else {
+        // Legacy handling for full file paths
+        const possiblePaths = [
+          // 1. Project directory
+          path.join(process.cwd(), imagePath),
+          // 2. New structure: userData/dental_images/patient_id/tooth_number/image_type/filename
+          path.join(app.getPath('userData'), imagePath),
+          // 3. Fallback structure: public/upload/dental_images/patient_id/tooth_number/image_type/filename
+          path.join(__dirname, '..', 'public', 'upload', imagePath),
+          // 4. Direct absolute path
+          path.isAbsolute(imagePath) ? imagePath : null
+        ].filter(Boolean) // Remove null values
+
+        // Try each path until we find the image
+        for (const fullPath of possiblePaths) {
+          if (fs.existsSync(fullPath)) {
+            return fullPath
+          }
+        }
+      }
+
+      return null
+    }
+
+    const actualImagePath = findImagePath(imagePath)
+
+    if (actualImagePath && fs.existsSync(actualImagePath)) {
+      console.log('Opening image at path:', actualImagePath)
+      await shell.openPath(actualImagePath)
+    } else {
+      console.error('Image not found for preview:', imagePath)
+      throw new Error(`Image not found: ${imagePath}`)
+    }
+  } catch (error) {
+    console.error('Error opening image preview:', error)
+    throw error
+  }
+})
+
 // NEW: Tooth Treatments IPC Handlers
 ipcMain.handle('db:toothTreatments:getAll', async () => {
   try {

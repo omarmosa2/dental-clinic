@@ -147,6 +147,9 @@ export interface ElectronAPI {
   // File operations
   files: {
     uploadDentalImage: (fileBuffer: ArrayBuffer, fileName: string, patientId: string, toothNumber: number) => Promise<string>
+    getDentalImage: (imagePath: string) => Promise<string>
+    checkImageExists: (imagePath: string) => Promise<boolean>
+    openImagePreview: (imagePath: string) => Promise<void>
   }
 
   // License operations
@@ -363,7 +366,8 @@ const electronAPI: ElectronAPI = {
     saveDentalImage: (base64Data, fileName, patientId, toothNumber, imageType, patientName, toothName) =>
       ipcRenderer.invoke('files:saveDentalImage', base64Data, fileName, patientId, toothNumber, imageType, patientName, toothName),
     getDentalImage: (imagePath) => ipcRenderer.invoke('files:getDentalImage', imagePath),
-    checkImageExists: (imagePath) => ipcRenderer.invoke('files:checkImageExists', imagePath)
+    checkImageExists: (imagePath) => ipcRenderer.invoke('files:checkImageExists', imagePath),
+    openImagePreview: (imagePath) => ipcRenderer.invoke('files:openImagePreview', imagePath)
   },
 
   license: {
