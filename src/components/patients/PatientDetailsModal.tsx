@@ -144,7 +144,9 @@ export default function PatientDetailsModal({
       // Load treatments for this patient
       setIsLoadingTreatments(true)
       loadToothTreatmentsByPatient(patient.id).then(() => {
-        const filteredTreatments = toothTreatments.filter(treatment => treatment.patient_id === patient.id)
+        // Get fresh treatments from the store after loading
+        const { toothTreatments: freshTreatments } = useDentalTreatmentStore.getState()
+        const filteredTreatments = freshTreatments.filter(treatment => treatment.patient_id === patient.id)
         setPatientTreatments(filteredTreatments)
         setIsLoadingTreatments(false)
         // تحديث أسماء العلاجات المخصصة
@@ -170,7 +172,7 @@ export default function PatientDetailsModal({
         console.error('خطأ في تحميل طلبات المختبر')
       })
     }
-  }, [patient, open, appointments, payments, toothTreatments, loadToothTreatmentsByPatient])
+  }, [patient, open, appointments, payments, loadToothTreatmentsByPatient])
 
   if (!patient) return null
 
