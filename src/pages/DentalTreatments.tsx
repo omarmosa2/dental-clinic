@@ -359,12 +359,15 @@ export default function DentalTreatments() {
     try {
       setIsLoading(true)
 
-      // إضافة كل علاج على حدة
-      for (const treatmentData of treatments) {
-        await createToothTreatment(treatmentData)
-      }
+      const createdTreatments: ToothTreatment[] = []
 
-      notify.success(`تم إضافة العلاج بنجاح لـ ${treatments.length} سن`)
+      // إضافة كل علاج على حدة وجمع النتائج
+      for (const treatmentData of treatments) {
+        const createdTreatment = await createToothTreatment(treatmentData)
+        if (createdTreatment) {
+          createdTreatments.push(createdTreatment)
+        }
+      }
 
       // إعادة تحميل البيانات
       if (selectedPatientId) {
@@ -377,9 +380,12 @@ export default function DentalTreatments() {
       // إلغاء التحديد المتعدد
       clearMultipleSelection()
 
+      return createdTreatments
+
     } catch (error) {
       console.error('Error adding multiple treatments:', error)
       notify.error('فشل في إضافة العلاجات')
+      throw error
     } finally {
       setIsLoading(false)
     }
