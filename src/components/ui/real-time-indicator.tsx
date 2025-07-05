@@ -19,7 +19,7 @@ export default function RealTimeIndicator({
     // Listen for data change events to show updating indicator
     const handleDataChange = () => {
       setIsUpdating(true)
-      setTimeout(() => setIsUpdating(false), 1000) // Show for 1 second
+      setTimeout(() => setIsUpdating(false), 1000) // Show for 3 seconds
     }
 
     const events = [

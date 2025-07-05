@@ -35,7 +35,7 @@ export default function LogoUploadTest() {
           // Update settings
           await updateSettings({ clinic_logo: base64 })
           setUploadStatus('تم رفع الشعار بنجاح!')
-          
+
           // Clear status after 3 seconds
           setTimeout(() => setUploadStatus(''), 3000)
         } catch (error) {
@@ -64,7 +64,7 @@ export default function LogoUploadTest() {
       
       await updateSettings({ clinic_logo: '' })
       setUploadStatus('تم حذف الشعار بنجاح!')
-      
+
       // Clear status after 3 seconds
       setTimeout(() => setUploadStatus(''), 3000)
     } catch (error) {

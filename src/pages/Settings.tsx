@@ -121,7 +121,7 @@ export default function Settings() {
     setNotification({ message, type, show: true })
     setTimeout(() => {
       setNotification(prev => ({ ...prev, show: false }))
-    }, 5000)
+    }, 3000)
   }
 
   const handleCreateBackup = async (withImages = false) => {
