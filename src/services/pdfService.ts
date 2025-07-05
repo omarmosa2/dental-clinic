@@ -2892,6 +2892,13 @@ export class PdfService {
   }
 
   /**
+   * إنشاء HTML لسجل المريض للطباعة المباشرة
+   */
+  static createPatientRecordHTMLForPrint(patientData: any, settings?: ClinicSettings | null): string {
+    return this.createIndividualPatientRecordHTML(patientData, settings)
+  }
+
+  /**
    * إنشاء قالب HTML لسجل المريض الفردي الشامل
    */
   private static createIndividualPatientRecordHTML(patientData: any, settings?: ClinicSettings | null): string {

@@ -16,6 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import {
   Edit,
@@ -32,6 +33,7 @@ import {
   MessageCircle,
   FileText,
   Printer,
+  Download,
   MoreHorizontal
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
@@ -68,12 +70,12 @@ export default function PatientTable({
   const { settings } = useSettingsStore()
   const { toast } = useToast()
 
-  // دالة طباعة سجل المريض الشامل
-  const handlePrintPatientRecord = async (patient: Patient) => {
+  // دالة طباعة سجل المريض الشامل (تصدير PDF)
+  const handleExportPatientRecord = async (patient: Patient) => {
     try {
       toast({
         title: "جاري إعداد التقرير...",
-        description: "يتم تجميع بيانات المريض وإعداد التقرير للطباعة",
+        description: "يتم تجميع بيانات المريض وإعداد التقرير للتصدير",
       })
 
       // جلب البيانات المتكاملة للمريض
@@ -91,10 +93,59 @@ export default function PatientTable({
         description: `تم إنشاء سجل المريض ${patient.full_name} وحفظه كملف PDF`,
       })
     } catch (error) {
-      console.error('Error printing patient record:', error)
+      console.error('Error exporting patient record:', error)
       toast({
         title: "خطأ في إنشاء التقرير",
         description: "فشل في إنشاء سجل المريض. يرجى المحاولة مرة أخرى.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // دالة الطباعة المباشرة باستخدام window.print()
+  const handleDirectPrint = async (patient: Patient) => {
+    try {
+      toast({
+        title: "جاري إعداد الطباعة...",
+        description: "يتم تجميع بيانات المريض وإعداد الطباعة المباشرة",
+      })
+
+      // جلب البيانات المتكاملة للمريض
+      const integratedData = await PatientIntegrationService.getPatientIntegratedData(patient.id)
+
+      if (!integratedData) {
+        throw new Error('لا يمكن جلب بيانات المريض')
+      }
+
+      // إنشاء HTML للطباعة
+      const htmlContent = PdfService.createPatientRecordHTMLForPrint(integratedData, settings)
+
+      // إنشاء نافذة جديدة للطباعة
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) {
+        throw new Error('لا يمكن فتح نافذة الطباعة')
+      }
+
+      // كتابة المحتوى في النافذة الجديدة
+      printWindow.document.write(htmlContent)
+      printWindow.document.close()
+
+      // انتظار تحميل المحتوى ثم الطباعة
+      printWindow.onload = () => {
+        printWindow.focus()
+        printWindow.print()
+        printWindow.close()
+      }
+
+      toast({
+        title: "تم إعداد الطباعة",
+        description: `تم إعداد طباعة سجل المريض ${patient.full_name}`,
+      })
+    } catch (error) {
+      console.error('Error printing patient record:', error)
+      toast({
+        title: "خطأ في الطباعة",
+        description: "فشل في إعداد طباعة سجل المريض. يرجى المحاولة مرة أخرى.",
         variant: "destructive",
       })
     }
@@ -376,16 +427,7 @@ export default function PatientTable({
                     <Eye className="w-3 h-3" />
                     <span className="text-xs arabic-enhanced hidden sm:inline ml-1">عرض</span>
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="action-btn-print text-green-600 hover:text-green-700 hover:bg-green-50 h-8 px-2 min-w-0"
-                    onClick={() => handlePrintPatientRecord(patient)}
-                    title="طباعة سجل المريض"
-                  >
-                    <Printer className="w-3 h-3" />
-                    <span className="text-xs arabic-enhanced hidden sm:inline ml-1">طباعة</span>
-                  </Button>
+
                   <Button
                     variant="ghost"
                     size="sm"
@@ -395,6 +437,16 @@ export default function PatientTable({
                   >
                     <Edit className="w-3 h-3" />
                     <span className="text-xs arabic-enhanced hidden sm:inline ml-1">تعديل</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="action-btn-delete text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2 min-w-0"
+                    onClick={() => onDelete(patient.id)}
+                    title="حذف المريض"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span className="text-xs arabic-enhanced hidden sm:inline ml-1">حذف</span>
                   </Button>
 
                   {/* قائمة مزيد للأزرار الإضافية */}
@@ -409,7 +461,25 @@ export default function PatientTable({
                         <MoreHorizontal className="w-3 h-3" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="patient-actions-dropdown" dir="rtl">
+                    <DropdownMenuContent align="end" className="patient-actions-dropdown">
+                      {/* خيارات الطباعة */}
+                      <DropdownMenuItem
+                        onClick={() => handleDirectPrint(patient)}
+                        className="dropdown-item"
+                      >
+                        <Printer className="w-4 h-4" />
+                        <span className="arabic-enhanced">طباعة مباشرة</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleExportPatientRecord(patient)}
+                        className="dropdown-item"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span className="arabic-enhanced">تصدير سجل المريض</span>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuSeparator />
+
                       {onViewPendingInvoice && (
                         <DropdownMenuItem
                           onClick={() => onViewPendingInvoice(patient)}
@@ -419,13 +489,6 @@ export default function PatientTable({
                           <span className="arabic-enhanced">فاتورة المعلقات</span>
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem
-                        onClick={() => onDelete(patient.id)}
-                        className="dropdown-item danger"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <span className="arabic-enhanced">حذف المريض</span>
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
