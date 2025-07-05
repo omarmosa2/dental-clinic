@@ -813,8 +813,8 @@ export default function EnhancedToothDetailsDialog({
                           <CardContent>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                               {typeImages.map((image) => (
-                                <div key={image.id} className="saved-image-card group relative">
-                                  <div className="relative overflow-hidden rounded-lg border">
+                                <div key={image.id} className="saved-image-card group relative bg-card border border-border rounded-lg p-2 hover:shadow-lg transition-all duration-300">
+                                  <div className="relative overflow-hidden rounded-lg border border-border">
                                     <DentalImage
                                       imagePath={image.image_path}
                                       alt={image.description || imageType.label}
@@ -827,7 +827,7 @@ export default function EnhancedToothDetailsDialog({
                                       <Button
                                         variant="secondary"
                                         size="sm"
-                                        className="image-action-button w-7 h-7 p-0 bg-white/90 hover:bg-white"
+                                        className="image-action-button w-7 h-7 p-0 bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-700 dark:text-white"
                                         onClick={() => handleImagePreview(image.image_path)}
                                       >
                                         <Eye className="w-3 h-3" />
@@ -835,7 +835,7 @@ export default function EnhancedToothDetailsDialog({
                                       <Button
                                         variant="destructive"
                                         size="sm"
-                                        className="image-action-button w-7 h-7 p-0 bg-red-500/90 hover:bg-red-500"
+                                        className="image-action-button w-7 h-7 p-0 bg-red-500/90 hover:bg-red-500 dark:bg-red-600/90 dark:hover:bg-red-600"
                                         onClick={() => handleDeleteImage(image.id)}
                                       >
                                         <Trash2 className="w-3 h-3" />
@@ -846,7 +846,7 @@ export default function EnhancedToothDetailsDialog({
                                   {/* Image info */}
                                   <div className="mt-2 space-y-1">
                                     {image.tooth_treatment_id && (
-                                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
                                         {(() => {
                                           const linkedTreatment = (toothTreatments || []).find(t => t.id === image.tooth_treatment_id)
                                           return linkedTreatment ? linkedTreatment.treatment_type : 'علاج محذوف'
@@ -860,7 +860,7 @@ export default function EnhancedToothDetailsDialog({
                                     )}
                                     {image.taken_date && (
                                       <p className="text-xs text-muted-foreground">
-                                        {new Date(image.taken_date).toLocaleDateString('ar-SA')}
+                                        {new Date(image.taken_date).toLocaleDateString('en-GB')}
                                       </p>
                                     )}
                                   </div>

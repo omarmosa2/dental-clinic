@@ -109,6 +109,7 @@
 
   .image-type-card:hover {
     border-color: #4b5563;
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2);
   }
 
   .image-type-label {
@@ -117,7 +118,55 @@
 
   .saved-image-card {
     background: #1f2937;
+    border-color: #374151;
   }
+
+  .saved-image-card:hover {
+    background: #1e293b;
+    border-color: #3b82f6;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  }
+
+  .image-count-badge {
+    background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+    color: #dbeafe;
+  }
+}
+
+/* تحسينات إضافية للوضع المظلم باستخدام class selector */
+.dark .image-type-card {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
+  border-color: #374151 !important;
+}
+
+.dark .image-type-card:hover {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2) !important;
+}
+
+.dark .saved-image-card {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+.dark .saved-image-card:hover {
+  background: #1e293b !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .image-count-badge {
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%) !important;
+  color: #dbeafe !important;
+}
+
+.dark .image-type-label {
+  color: #f3f4f6 !important;
+}
+
+.dark .image-action-button {
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* تحسينات للشاشات الصغيرة */
