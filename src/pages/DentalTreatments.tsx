@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select'
 import { usePatientStore } from '@/store/patientStore'
 import { useDentalTreatmentStore } from '@/store/dentalTreatmentStore'
+import { ToothTreatment } from '@/types'
 import { usePrescriptionStore } from '@/store/prescriptionStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import EnhancedDentalChart from '@/components/dental/EnhancedDentalChart'
@@ -19,6 +20,7 @@ import EnhancedToothDetailsDialog from '@/components/dental/EnhancedToothDetails
 
 import PrescriptionReceiptDialog from '@/components/medications/PrescriptionReceiptDialog'
 import PatientSelectionTable from '@/components/dental/PatientSelectionTable'
+import MultipleToothTreatmentDialog from '@/components/dental/MultipleToothTreatmentDialog'
 import { formatDate, calculateAge } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { notify } from '@/services/notificationService'
@@ -33,7 +35,8 @@ import {
   RefreshCw,
   Stethoscope,
   Camera,
-  Activity
+  Activity,
+  Info
 } from 'lucide-react'
 
 export default function DentalTreatments() {
@@ -45,14 +48,18 @@ export default function DentalTreatments() {
     loadToothTreatments,
     loadAllToothTreatmentImages,
     loadToothTreatmentsByPatient,
-    loadAllToothTreatmentImagesByPatient
+    loadAllToothTreatmentImagesByPatient,
+    createToothTreatment
   } = useDentalTreatmentStore()
   const { prescriptions, loadPrescriptions } = usePrescriptionStore()
   const { settings, currency } = useSettingsStore()
 
   const [selectedPatientId, setSelectedPatientId] = useState<string>('')
   const [selectedToothNumber, setSelectedToothNumber] = useState<number | null>(null)
+  const [selectedTeeth, setSelectedTeeth] = useState<number[]>([])
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
   const [showToothDialog, setShowToothDialog] = useState(false)
+  const [showMultipleToothDialog, setShowMultipleToothDialog] = useState(false)
   const [showPrescriptionDialog, setShowPrescriptionDialog] = useState(false)
   const [selectedPrescription, setSelectedPrescription] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -275,6 +282,9 @@ export default function DentalTreatments() {
   const handlePatientSelect = async (patientId: string) => {
     setSelectedPatientId(patientId)
     setSelectedToothNumber(null)
+    // إعادة تعيين التحديد المتعدد عند تغيير المريض
+    setSelectedTeeth([])
+    setIsMultiSelectMode(false)
     // تحميل العلاجات والصور للمريض المحدد
     if (patientId) {
       // تحميل العلاجات أولاً وانتظار اكتمالها
@@ -295,13 +305,84 @@ export default function DentalTreatments() {
     }
   }
 
-  const handleToothClick = (toothNumber: number) => {
+  const handleToothClick = (toothNumber: number, isCtrlPressed: boolean = false) => {
     if (!selectedPatientId) {
       notify.warning('يرجى اختيار مريض أولاً')
       return
     }
-    setSelectedToothNumber(toothNumber)
-    setShowToothDialog(true)
+
+    if (isCtrlPressed) {
+      // التحديد المتعدد مع CTRL
+      handleMultipleToothSelection(toothNumber)
+    } else {
+      // التحديد العادي - إلغاء التحديد المتعدد والعودة للوضع العادي
+      setSelectedTeeth([])
+      setIsMultiSelectMode(false)
+      setSelectedToothNumber(toothNumber)
+      setShowToothDialog(true)
+    }
+  }
+
+  const handleMultipleToothSelection = (toothNumber: number) => {
+    setIsMultiSelectMode(true)
+    setSelectedToothNumber(null) // إلغاء التحديد الفردي
+
+    setSelectedTeeth(prev => {
+      if (prev.includes(toothNumber)) {
+        // إزالة السن من التحديد إذا كان محدد مسبقاً
+        const newSelection = prev.filter(t => t !== toothNumber)
+        if (newSelection.length === 0) {
+          setIsMultiSelectMode(false)
+        }
+        return newSelection
+      } else {
+        // إضافة السن للتحديد
+        return [...prev, toothNumber]
+      }
+    })
+  }
+
+  const handleMultipleToothTreatment = () => {
+    if (selectedTeeth.length === 0) {
+      notify.warning('يرجى تحديد أسنان أولاً')
+      return
+    }
+    setShowMultipleToothDialog(true)
+  }
+
+  const clearMultipleSelection = () => {
+    setSelectedTeeth([])
+    setIsMultiSelectMode(false)
+  }
+
+  const handleAddMultipleTreatments = async (treatments: Omit<ToothTreatment, 'id' | 'created_at' | 'updated_at'>[]) => {
+    try {
+      setIsLoading(true)
+
+      // إضافة كل علاج على حدة
+      for (const treatmentData of treatments) {
+        await createToothTreatment(treatmentData)
+      }
+
+      notify.success(`تم إضافة العلاج بنجاح لـ ${treatments.length} سن`)
+
+      // إعادة تحميل البيانات
+      if (selectedPatientId) {
+        await Promise.all([
+          loadToothTreatmentsByPatient(selectedPatientId),
+          loadAllToothTreatmentImagesByPatient(selectedPatientId)
+        ])
+      }
+
+      // إلغاء التحديد المتعدد
+      clearMultipleSelection()
+
+    } catch (error) {
+      console.error('Error adding multiple treatments:', error)
+      notify.error('فشل في إضافة العلاجات')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleToothDialogClose = async (open: boolean) => {
@@ -658,6 +739,58 @@ export default function DentalTreatments() {
         </Card>
       )}
 
+      {/* Multi-Select Indicators */}
+      {selectedPatient && isMultiSelectMode && selectedTeeth.length > 0 && (
+        <Card className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-orange-500"></div>
+                  <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
+                    تم تحديد {selectedTeeth.length} سن
+                  </span>
+                </div>
+                <div className="text-xs text-orange-600 dark:text-orange-400">
+                  الأسنان المحددة: {selectedTeeth.sort((a, b) => a - b).join(', ')}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleMultipleToothTreatment}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  إضافة علاج للأسنان المحددة
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={clearMultipleSelection}
+                  className="border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/20"
+                >
+                  إلغاء التحديد
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Instructions for Multi-Select */}
+      {selectedPatient && !isMultiSelectMode && (
+        <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+              <Info className="w-4 h-4" />
+              <span>
+                <strong>نصيحة:</strong> اضغط CTRL + النقر لتحديد عدة أسنان وإضافة نفس العلاج لها
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Dental Chart */}
       {selectedPatient && (
         <div id="dental-chart-section">
@@ -665,6 +798,8 @@ export default function DentalTreatments() {
             patientId={selectedPatientId}
             onToothClick={handleToothClick}
             selectedTooth={selectedToothNumber}
+            selectedTeeth={selectedTeeth}
+            isMultiSelectMode={isMultiSelectMode}
             isPrimaryTeeth={isPrimaryTeeth}
             onPrimaryTeethChange={setIsPrimaryTeeth}
           />
@@ -743,6 +878,15 @@ export default function DentalTreatments() {
           prescription={selectedPrescription}
         />
       )}
+
+      {/* Multiple Tooth Treatment Dialog */}
+      <MultipleToothTreatmentDialog
+        open={showMultipleToothDialog}
+        onOpenChange={setShowMultipleToothDialog}
+        patientId={selectedPatientId}
+        selectedTeeth={selectedTeeth}
+        onAddTreatments={handleAddMultipleTreatments}
+      />
     </div>
   )
 }

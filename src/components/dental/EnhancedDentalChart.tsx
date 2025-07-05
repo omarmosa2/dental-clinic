@@ -14,8 +14,10 @@ import { Layers, Activity, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 
 interface EnhancedDentalChartProps {
   patientId: string
-  onToothClick: (toothNumber: number) => void
+  onToothClick: (toothNumber: number, isCtrlPressed?: boolean) => void
   selectedTooth?: number | null
+  selectedTeeth?: number[]
+  isMultiSelectMode?: boolean
   className?: string
   isPrimaryTeeth?: boolean
   onPrimaryTeethChange?: (isPrimary: boolean) => void
@@ -25,6 +27,8 @@ export default function EnhancedDentalChart({
   patientId,
   onToothClick,
   selectedTooth,
+  selectedTeeth = [],
+  isMultiSelectMode = false,
   className,
   isPrimaryTeeth: externalIsPrimaryTeeth = false,
   onPrimaryTeethChange
@@ -203,6 +207,7 @@ export default function EnhancedDentalChart({
     const primaryColor = getToothPrimaryColor(toothNumber)
     const imagesCount = getToothImagesCount(toothNumber)
     const isSelected = selectedTooth === toothNumber
+    const isMultiSelected = selectedTeeth.includes(toothNumber)
     const isHovered = hoveredTooth === toothNumber
 
     if (!toothInfo) return null
@@ -216,6 +221,7 @@ export default function EnhancedDentalChart({
               "relative h-16 w-16 p-1 transition-all duration-200 border-2 overflow-hidden",
               "flex flex-col items-center justify-center text-xs font-medium",
               isSelected && "ring-2 ring-blue-500 ring-offset-2",
+              isMultiSelected && "ring-2 ring-orange-500 ring-offset-2 border-orange-400",
               isHovered && "scale-105 shadow-lg"
             )}
             style={{
@@ -223,7 +229,10 @@ export default function EnhancedDentalChart({
               color: '#000000',
               textShadow: '0 0 2px rgba(255,255,255,0.8)'
             }}
-            onClick={() => onToothClick(toothNumber)}
+            onClick={(e) => {
+              const isCtrlPressed = e.ctrlKey || e.metaKey
+              onToothClick(toothNumber, isCtrlPressed)
+            }}
             onMouseEnter={() => setHoveredTooth(toothNumber)}
             onMouseLeave={() => setHoveredTooth(null)}
           >
