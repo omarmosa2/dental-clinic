@@ -245,3 +245,113 @@
 .image-type-card::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* تحسين مظهر زر المعاينة (Preview Button) */
+.image-preview-button {
+  position: relative !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  color: white !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 50% !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  backdrop-filter: blur(6px) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
+  font-size: 14px !important;
+}
+
+.image-preview-button:hover {
+  background: rgba(0, 0, 0, 0.95);
+  border-color: rgba(255, 255, 255, 0.7);
+  transform: scale(1.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.image-preview-button:active {
+  transform: scale(1.05);
+}
+
+/* تحسينات زر المعاينة للوضع المظلم */
+@media (prefers-color-scheme: dark) {
+  .image-preview-button {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 12px rgba(255, 255, 255, 0.1);
+  }
+
+  .image-preview-button:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 4px 16px rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* تحسينات زر المعاينة للوضع المظلم باستخدام class selector */
+.dark .image-preview-button {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: white !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 12px rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .image-preview-button:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.2) !important;
+}
+
+/* تحسينات زر المعاينة للوضع الفاتح */
+@media (prefers-color-scheme: light) {
+  .image-preview-button {
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .image-preview-button:hover {
+    background: rgba(0, 0, 0, 0.95);
+    border-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* تحسين تخطيط الأزرار فوق الصور - إجبار الترتيب الأفقي */
+.image-action-buttons-container {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 30 !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+/* تأكيد أن الأزرار تظهر جنب بعض */
+.image-action-buttons-container > * {
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+}
+
+/* إزالة أي تنسيق قد يؤثر على الترتيب */
+.image-action-buttons-container .image-action-button,
+.image-action-buttons-container .image-preview-button {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  left: auto !important;
+  bottom: auto !important;
+}

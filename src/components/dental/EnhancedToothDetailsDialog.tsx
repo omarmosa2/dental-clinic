@@ -729,7 +729,10 @@ export default function EnhancedToothDetailsDialog({
                             </div>
                             {item.treatmentId && (
                               <div className="text-blue-600 mt-1">
-                                مربوط بعلاج: {(toothTreatments || []).find(t => t.id === item.treatmentId)?.treatment_type || 'علاج'}
+                                مربوط بعلاج: {(() => {
+                                  const treatment = (toothTreatments || []).find(t => t.id === item.treatmentId)
+                                  return treatment ? getTreatmentByValue(treatment.treatment_type)?.label || treatment.treatment_type : 'علاج'
+                                })()}
                               </div>
                             )}
                           </div>
@@ -750,7 +753,10 @@ export default function EnhancedToothDetailsDialog({
                             {item.file.name} ({item.type})
                             {item.treatmentId && (
                               <span className="text-blue-600 ml-1">
-                                - {(toothTreatments || []).find(t => t.id === item.treatmentId)?.treatment_type || 'علاج'}
+                                - {(() => {
+                                  const treatment = (toothTreatments || []).find(t => t.id === item.treatmentId)
+                                  return treatment ? getTreatmentByValue(treatment.treatment_type)?.label || treatment.treatment_type : 'علاج'
+                                })()}
                               </span>
                             )}
                           </Badge>
@@ -823,22 +829,22 @@ export default function EnhancedToothDetailsDialog({
                                     <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all" />
 
                                     {/* Action buttons */}
-                                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="absolute top-2 right-2 flex flex-row items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                                       <Button
                                         variant="secondary"
                                         size="sm"
-                                        className="image-action-button w-7 h-7 p-0 bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-700 dark:text-white"
+                                        className="w-8 h-8 p-0 bg-black/80 hover:bg-black/95 text-white border-2 border-white/30 hover:border-white/80 rounded-full backdrop-blur-sm shadow-lg transition-all duration-300"
                                         onClick={() => handleImagePreview(image.image_path)}
                                       >
-                                        <Eye className="w-3 h-3" />
+                                        <Eye className="w-4 h-4" />
                                       </Button>
                                       <Button
                                         variant="destructive"
                                         size="sm"
-                                        className="image-action-button w-7 h-7 p-0 bg-red-500/90 hover:bg-red-500 dark:bg-red-600/90 dark:hover:bg-red-600"
+                                        className="w-8 h-8 p-0 bg-red-500/90 hover:bg-red-500 dark:bg-red-600/90 dark:hover:bg-red-600 rounded-full shadow-lg transition-all duration-300"
                                         onClick={() => handleDeleteImage(image.id)}
                                       >
-                                        <Trash2 className="w-3 h-3" />
+                                        <Trash2 className="w-4 h-4" />
                                       </Button>
                                     </div>
                                   </div>
@@ -849,7 +855,7 @@ export default function EnhancedToothDetailsDialog({
                                       <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
                                         {(() => {
                                           const linkedTreatment = (toothTreatments || []).find(t => t.id === image.tooth_treatment_id)
-                                          return linkedTreatment ? linkedTreatment.treatment_type : 'علاج محذوف'
+                                          return linkedTreatment ? getTreatmentByValue(linkedTreatment.treatment_type)?.label || linkedTreatment.treatment_type : 'علاج محذوف'
                                         })()}
                                       </Badge>
                                     )}
