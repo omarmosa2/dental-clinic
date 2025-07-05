@@ -14,21 +14,21 @@ export function useStableSettings() {
 
   // تحديث الإعدادات المستقرة عند تغيير الإعدادات الأصلية
   useEffect(() => {
-    if (settings && settings.clinic_name) {
-      // حفظ الإعدادات الصالحة - إزالة الشرط المقيد لضمان التحديث الفوري
+    if (settings) {
+      // حفظ الإعدادات الصالحة - تحديث فوري بغض النظر عن clinic_name لضمان تحديث الشعار
       lastValidSettings.current = settings
       setStableSettings(settings)
       isInitialized.current = true
 
-      // حفظ النسخة الاحتياطية فوراً عند أي تحديث
+      // حفظ النسخة الاحتياطية فوراً عند أي تحديث (حتى لو كان clinic_name فارغ)
       try {
         localStorage.setItem('dental-clinic-settings-backup', JSON.stringify({
-          clinic_name: settings.clinic_name,
-          doctor_name: settings.doctor_name,
-          clinic_logo: settings.clinic_logo,
-          clinic_phone: settings.clinic_phone,
-          clinic_email: settings.clinic_email,
-          clinic_address: settings.clinic_address,
+          clinic_name: settings.clinic_name || '',
+          doctor_name: settings.doctor_name || '',
+          clinic_logo: settings.clinic_logo || '',
+          clinic_phone: settings.clinic_phone || '',
+          clinic_email: settings.clinic_email || '',
+          clinic_address: settings.clinic_address || '',
           backup_timestamp: Date.now()
         }))
       } catch (error) {
@@ -65,7 +65,7 @@ export function useStableSettings() {
   return {
     settings: finalSettings,
     isLoading: isLoading && !finalSettings, // إخفاء loading إذا كانت لدينا إعدادات مستقرة
-    hasValidSettings: Boolean(finalSettings && finalSettings.clinic_name), // إزالة الشرط المقيد
+    hasValidSettings: Boolean(finalSettings), // تبسيط الشرط لضمان التحديث الفوري
     refreshSettings: loadSettings
   }
 }

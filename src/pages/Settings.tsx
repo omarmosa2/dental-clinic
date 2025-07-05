@@ -74,10 +74,18 @@ export default function Settings() {
   const stableClinicLogo = useStableClinicLogo()
   const { refreshAllImages } = useDentalTreatmentStore()
 
+  // State محلي لإدارة الشعار لضمان التحديث الفوري
+  const [localClinicLogo, setLocalClinicLogo] = useState<string>('')
+
   useEffect(() => {
     loadBackups()
     loadSettings()
   }, [loadBackups, loadSettings])
+
+  // تحديث الشعار المحلي عند تغيير الشعار المستقر
+  useEffect(() => {
+    setLocalClinicLogo(stableClinicLogo)
+  }, [stableClinicLogo])
 
   useEffect(() => {
     if (error) {
@@ -211,7 +219,16 @@ export default function Settings() {
 
   const handleUpdateSettings = async (settingsData: any) => {
     try {
+      // تحديث الشعار المحلي فوراً إذا كان التحديث يتعلق بالشعار
+      if (settingsData.clinic_logo !== undefined) {
+        setLocalClinicLogo(settingsData.clinic_logo)
+      }
+
       await updateSettings(settingsData)
+
+      // إجبار إعادة تحميل الإعدادات لضمان التحديث الفوري في الواجهة
+      await loadSettings()
+
       showNotification('تم حفظ إعدادات العيادة بنجاح', 'success')
     } catch (error) {
       console.error('Error updating settings:', error)
@@ -843,9 +860,9 @@ export default function Settings() {
                     {/* Logo Preview */}
                     <div className="flex-shrink-0">
                       <div className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/50">
-                        {stableClinicLogo ? (
+                        {localClinicLogo ? (
                           <img
-                            src={stableClinicLogo}
+                            src={localClinicLogo}
                             alt="شعار العيادة"
                             className="w-full h-full object-cover rounded-lg"
                           />
@@ -888,7 +905,7 @@ export default function Settings() {
                         >
                           اختيار شعار
                         </button>
-                        {stableClinicLogo && (
+                        {localClinicLogo && (
                           <button
                             type="button"
                             onClick={() => handleUpdateSettings({ clinic_logo: '' })}
