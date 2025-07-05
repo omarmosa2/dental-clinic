@@ -17,6 +17,7 @@ import CurrencyDisplay from '@/components/ui/currency-display'
 import { getCardStyles, getIconStyles } from '../lib/cardStyles'
 import { useToast } from '@/hooks/use-toast'
 import { notify } from '../services/notificationService'
+import { ExportService } from '../services/exportService'
 import type { ClinicExpense } from '../types'
 
 import AddExpenseDialog from '../components/expenses/AddExpenseDialog'
@@ -118,17 +119,13 @@ const Expenses: React.FC = () => {
         return
       }
 
-      // TODO: Implement export functionality
-      toast({
-        title: 'تصدير البيانات',
-        description: 'سيتم تنفيذ وظيفة التصدير قريباً',
-      })
+      // تصدير إلى Excel مع التنسيق الجميل والمقروء
+      await ExportService.exportClinicExpensesToExcel(filteredExpenses)
+
+      notify.exportSuccess(`تم تصدير ${filteredExpenses.length} مصروف بنجاح إلى ملف Excel مع التنسيق الجميل!`)
     } catch (error) {
-      toast({
-        title: 'خطأ في التصدير',
-        description: 'فشل في تصدير بيانات المصروفات',
-        variant: 'destructive',
-      })
+      console.error('Error exporting clinic expenses:', error)
+      notify.exportError('فشل في تصدير بيانات المصروفات')
     }
   }
 

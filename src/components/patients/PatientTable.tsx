@@ -12,6 +12,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   Edit,
   Trash2,
   Eye,
@@ -25,7 +31,8 @@ import {
   ChevronsRight,
   MessageCircle,
   FileText,
-  Printer
+  Printer,
+  MoreHorizontal
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { PatientIntegrationService } from '@/services/patientIntegrationService'
@@ -356,57 +363,71 @@ export default function PatientTable({
                   {formatDate(patient.date_added)}
                 </span>
               </TableCell>
-              <TableCell className="min-w-[220px] text-center">
-                <div className="flex items-center justify-center space-x-1 space-x-reverse">
+              <TableCell className="w-auto text-center">
+                <div className="flex items-center justify-center gap-1">
+                  {/* الأزرار الرئيسية الثلاثة */}
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="action-btn-view"
+                    className="action-btn-view h-8 px-2 min-w-0"
                     onClick={() => onViewDetails(patient)}
+                    title="عرض تفاصيل المريض"
                   >
-                    <Eye className="w-4 h-4 ml-1" />
-                    <span className="text-xs arabic-enhanced">عرض</span>
+                    <Eye className="w-3 h-3" />
+                    <span className="text-xs arabic-enhanced hidden sm:inline ml-1">عرض</span>
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="action-btn-print text-green-600 hover:text-green-700 hover:bg-green-50"
+                    className="action-btn-print text-green-600 hover:text-green-700 hover:bg-green-50 h-8 px-2 min-w-0"
                     onClick={() => handlePrintPatientRecord(patient)}
                     title="طباعة سجل المريض"
                   >
-                    <Printer className="w-4 h-4 ml-1" />
-                    <span className="text-xs arabic-enhanced">طباعة</span>
+                    <Printer className="w-3 h-3" />
+                    <span className="text-xs arabic-enhanced hidden sm:inline ml-1">طباعة</span>
                   </Button>
-                  {onViewPendingInvoice && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="action-btn-invoice"
-                      onClick={() => onViewPendingInvoice(patient)}
-                      title="فاتورة المعلقات"
-                    >
-                      <FileText className="w-4 h-4 ml-1" />
-                      <span className="text-xs arabic-enhanced">معلقات</span>
-                    </Button>
-                  )}
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="action-btn-edit"
+                    className="action-btn-edit h-8 px-2 min-w-0"
                     onClick={() => onEdit(patient)}
+                    title="تعديل بيانات المريض"
                   >
-                    <Edit className="w-4 h-4 ml-1" />
-                    <span className="text-xs arabic-enhanced">تعديل</span>
+                    <Edit className="w-3 h-3" />
+                    <span className="text-xs arabic-enhanced hidden sm:inline ml-1">تعديل</span>
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="action-btn-delete"
-                    onClick={() => onDelete(patient.id)}
-                  >
-                    <Trash2 className="w-4 h-4 ml-1" />
-                    <span className="text-xs arabic-enhanced">حذف</span>
-                  </Button>
+
+                  {/* قائمة مزيد للأزرار الإضافية */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 min-w-0"
+                        title="المزيد من الخيارات"
+                      >
+                        <MoreHorizontal className="w-3 h-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="patient-actions-dropdown" dir="rtl">
+                      {onViewPendingInvoice && (
+                        <DropdownMenuItem
+                          onClick={() => onViewPendingInvoice(patient)}
+                          className="dropdown-item"
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span className="arabic-enhanced">فاتورة المعلقات</span>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onClick={() => onDelete(patient.id)}
+                        className="dropdown-item danger"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span className="arabic-enhanced">حذف المريض</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </TableCell>
             </TableRow>

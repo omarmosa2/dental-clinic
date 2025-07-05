@@ -939,6 +939,9 @@ export class ExportService {
       case 'clinic-needs':
         await this.addClinicNeedsReportToExcel(workbook, data, options)
         break
+      case 'clinic-expenses':
+        await this.addClinicExpensesReportToExcel(workbook, data, options)
+        break
       case 'profit-loss':
         await this.addProfitLossReportToExcel(workbook, data, options)
         break
@@ -1147,6 +1150,121 @@ export class ExportService {
         // Use Gregorian date format instead of Arabic
         worksheet.getCell(currentRow, 5).value = expense.payment_date ? new Date(expense.payment_date).toLocaleDateString('en-GB') : 'غير محدد'
         worksheet.getCell(currentRow, 6).value = expense.vendor || 'غير محدد'
+        currentRow++
+      })
+    }
+
+    // Auto-fit columns
+    worksheet.columns.forEach(column => {
+      column.width = 20
+    })
+  }
+
+  /**
+   * إضافة تقرير مصروفات العيادة إلى Excel
+   */
+  private static async addClinicExpensesReportToExcel(workbook: ExcelJS.Workbook, data: any, options: ReportExportOptions): Promise<void> {
+    const worksheet = workbook.addWorksheet('مصروفات العيادة')
+
+    // إعداد اتجاه الكتابة من اليمين لليسار
+    worksheet.views = [{ rightToLeft: true }]
+
+    let currentRow = 1
+
+    // عنوان التقرير
+    worksheet.mergeCells(currentRow, 1, currentRow, 7)
+    const titleCell = worksheet.getCell(currentRow, 1)
+    titleCell.value = 'تقرير مصروفات العيادة'
+    titleCell.font = { name: 'Arial', size: 18, bold: true }
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }
+    titleCell.font.color = { argb: 'FFFFFFFF' }
+    worksheet.getRow(currentRow).height = 30
+    currentRow += 2
+
+    // معلومات الملخص
+    if (data.summary) {
+      worksheet.mergeCells(currentRow, 1, currentRow, 7)
+      const summaryTitleCell = worksheet.getCell(currentRow, 1)
+      summaryTitleCell.value = 'ملخص المصروفات'
+      summaryTitleCell.font = { name: 'Arial', size: 14, bold: true }
+      summaryTitleCell.alignment = { horizontal: 'center' }
+      summaryTitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE7E6E6' } }
+      currentRow++
+
+      Object.entries(data.summary).forEach(([key, value]) => {
+        worksheet.getCell(currentRow, 1).value = key
+        worksheet.getCell(currentRow, 2).value = value
+        worksheet.getCell(currentRow, 1).font = { name: 'Arial', size: 11, bold: true }
+        worksheet.getCell(currentRow, 2).font = { name: 'Arial', size: 11 }
+        currentRow++
+      })
+      currentRow++
+    }
+
+    // عناوين الأعمدة
+    const headers = ['اسم المصروف', 'نوع المصروف', 'المبلغ', 'طريقة الدفع', 'تاريخ الدفع', 'المورد', 'الحالة']
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(currentRow, index + 1)
+      cell.value = header
+      cell.font = { name: 'Arial', size: 12, bold: true }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    })
+    currentRow++
+
+    // بيانات المصروفات
+    if (data.expenses && data.expenses.length > 0) {
+      const typeMapping: { [key: string]: string } = {
+        'salary': 'راتب',
+        'utilities': 'مرافق',
+        'rent': 'إيجار',
+        'maintenance': 'صيانة',
+        'supplies': 'مستلزمات',
+        'insurance': 'تأمين',
+        'other': 'أخرى'
+      }
+
+      const methodMapping: { [key: string]: string } = {
+        'cash': 'نقدي',
+        'card': 'بطاقة',
+        'bank_transfer': 'تحويل بنكي',
+        'check': 'شيك'
+      }
+
+      const statusMapping: { [key: string]: string } = {
+        'paid': 'مدفوع',
+        'pending': 'معلق',
+        'overdue': 'متأخر'
+      }
+
+      data.expenses.forEach((expense: any) => {
+        worksheet.getCell(currentRow, 1).value = expense.expense_name || 'غير محدد'
+        worksheet.getCell(currentRow, 2).value = typeMapping[expense.expense_type] || expense.expense_type || 'غير محدد'
+        worksheet.getCell(currentRow, 3).value = `${formatCurrency(expense.amount || 0)}`
+        worksheet.getCell(currentRow, 4).value = methodMapping[expense.payment_method] || expense.payment_method || 'غير محدد'
+        worksheet.getCell(currentRow, 5).value = expense.payment_date ? new Date(expense.payment_date).toLocaleDateString('en-GB') : 'غير محدد'
+        worksheet.getCell(currentRow, 6).value = expense.vendor || 'غير محدد'
+        worksheet.getCell(currentRow, 7).value = statusMapping[expense.status] || expense.status || 'غير محدد'
+
+        // تنسيق الخلايا
+        for (let col = 1; col <= 7; col++) {
+          const cell = worksheet.getCell(currentRow, col)
+          cell.font = { name: 'Arial', size: 10 }
+          cell.alignment = { horizontal: 'center', vertical: 'middle' }
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+        }
         currentRow++
       })
     }
@@ -3521,6 +3639,43 @@ export class ExportService {
     }
 
     await this.exportToExcel('inventory', inventoryData, options)
+  }
+
+  /**
+   * تصدير مصروفات العيادة إلى Excel
+   */
+  static async exportClinicExpensesToExcel(expenses: any[]): Promise<void> {
+    if (!expenses || expenses.length === 0) {
+      throw new Error('لا توجد بيانات مصروفات للتصدير')
+    }
+
+    const totalAmount = expenses.reduce((sum, expense) => sum + (parseFloat(String(expense.amount || 0)) || 0), 0)
+    const paidAmount = expenses.filter(expense => expense.status === 'paid').reduce((sum, expense) => sum + (parseFloat(String(expense.amount || 0)) || 0), 0)
+    const pendingAmount = expenses.filter(expense => expense.status === 'pending').reduce((sum, expense) => sum + (parseFloat(String(expense.amount || 0)) || 0), 0)
+    const overdueAmount = expenses.filter(expense => expense.status === 'overdue').reduce((sum, expense) => sum + (parseFloat(String(expense.amount || 0)) || 0), 0)
+
+    const expensesData = {
+      summary: {
+        'إجمالي المصروفات': expenses.length,
+        'إجمالي المبلغ': formatCurrency(totalAmount),
+        'المبلغ المدفوع': formatCurrency(paidAmount),
+        'المبلغ المعلق': formatCurrency(pendingAmount),
+        'المبلغ المتأخر': formatCurrency(overdueAmount),
+        'تاريخ التقرير': formatDate(new Date())
+      },
+      expenses: expenses,
+      filterInfo: `البيانات المصدرة: ${expenses.length} مصروف`,
+      dataCount: expenses.length
+    }
+
+    const options: ReportExportOptions = {
+      format: 'excel',
+      includeCharts: false,
+      includeDetails: true,
+      language: 'ar'
+    }
+
+    await this.exportToExcel('clinic-expenses', expensesData, options)
   }
 
   /**

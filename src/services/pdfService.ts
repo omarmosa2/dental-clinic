@@ -3136,7 +3136,13 @@ export class PdfService {
       <body>
         <!-- رأس التقرير -->
         <div class="header">
+          ${settings?.clinic_logo && settings.clinic_logo.trim() !== '' ? `
+            <div style="text-align: center; margin-bottom: 15px;">
+              <img src="${settings.clinic_logo}" alt="شعار العيادة" style="width: 80px; height: 80px; border-radius: 50%; border: 2px solid #000; object-fit: cover;" />
+            </div>
+          ` : ''}
           <div class="clinic-name">${settings?.clinic_name || 'عيادة الأسنان'}</div>
+          ${settings?.doctor_name ? `<div style="font-size: 16px; margin-bottom: 10px;">د. ${settings.doctor_name}</div>` : ''}
           <div class="report-title">سجل المريض الطبي</div>
           <div class="report-date">تاريخ التقرير: ${formatDate(new Date().toISOString())}</div>
         </div>

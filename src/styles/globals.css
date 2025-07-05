@@ -699,6 +699,39 @@
     max-width: 100%;
   }
 
+  /* Action buttons responsive design */
+  .action-btn-view,
+  .action-btn-print,
+  .action-btn-invoice,
+  .action-btn-edit,
+  .action-btn-delete {
+    @apply transition-all duration-200 flex items-center justify-center;
+  }
+
+  /* Mobile responsive action buttons */
+  @media (max-width: 640px) {
+    .action-btn-view,
+    .action-btn-print,
+    .action-btn-invoice,
+    .action-btn-edit,
+    .action-btn-delete {
+      @apply w-8 h-8 p-1 min-w-8;
+    }
+  }
+
+  /* Dropdown menu improvements for patient actions */
+  .patient-actions-dropdown {
+    @apply min-w-[180px];
+  }
+
+  .patient-actions-dropdown .dropdown-item {
+    @apply flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent;
+  }
+
+  .patient-actions-dropdown .dropdown-item.danger {
+    @apply text-destructive hover:bg-destructive/10;
+  }
+
   .table-no-scroll th,
   .table-no-scroll td {
     overflow: hidden;
