@@ -127,6 +127,138 @@ export default function PatientDetailsModal({
     }
   }
 
+  const handlePrintPatientPayments = async () => {
+    if (!patient) return
+
+    try {
+      toast({
+        title: "جاري إعداد تقرير المدفوعات...",
+        description: "يتم تجميع بيانات مدفوعات المريض وإعداد التقرير للطباعة",
+      })
+
+      // جلب البيانات المتكاملة للمريض
+      const integratedData = await PatientIntegrationService.getPatientIntegratedData(patient.id)
+
+      if (!integratedData) {
+        throw new Error('لا يمكن جلب بيانات المريض')
+      }
+
+      // تصدير مدفوعات المريض كـ PDF
+      await PdfService.exportPatientPayments(integratedData, settings)
+
+      toast({
+        title: "تم إنشاء تقرير المدفوعات بنجاح",
+        description: `تم إنشاء تقرير مدفوعات المريض ${patient.full_name} وحفظه كملف PDF`,
+      })
+    } catch (error) {
+      console.error('Error printing patient payments:', error)
+      toast({
+        title: "خطأ في إنشاء تقرير المدفوعات",
+        description: "فشل في إنشاء تقرير مدفوعات المريض. يرجى المحاولة مرة أخرى.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handlePrintPatientTreatments = async () => {
+    if (!patient) return
+
+    try {
+      toast({
+        title: "جاري إعداد تقرير العلاجات...",
+        description: "يتم تجميع بيانات علاجات المريض وإعداد التقرير للطباعة",
+      })
+
+      // جلب البيانات المتكاملة للمريض
+      const integratedData = await PatientIntegrationService.getPatientIntegratedData(patient.id)
+
+      if (!integratedData) {
+        throw new Error('لا يمكن جلب بيانات المريض')
+      }
+
+      // تصدير علاجات المريض كـ PDF
+      await PdfService.exportPatientTreatments(integratedData, settings)
+
+      toast({
+        title: "تم إنشاء تقرير العلاجات بنجاح",
+        description: `تم إنشاء تقرير علاجات المريض ${patient.full_name} وحفظه كملف PDF`,
+      })
+    } catch (error) {
+      console.error('Error printing patient treatments:', error)
+      toast({
+        title: "خطأ في إنشاء تقرير العلاجات",
+        description: "فشل في إنشاء تقرير علاجات المريض. يرجى المحاولة مرة أخرى.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handlePrintPatientAppointments = async () => {
+    if (!patient) return
+
+    try {
+      toast({
+        title: "جاري إعداد تقرير المواعيد...",
+        description: "يتم تجميع بيانات مواعيد المريض وإعداد التقرير للطباعة",
+      })
+
+      // جلب البيانات المتكاملة للمريض
+      const integratedData = await PatientIntegrationService.getPatientIntegratedData(patient.id)
+
+      if (!integratedData) {
+        throw new Error('لا يمكن جلب بيانات المريض')
+      }
+
+      // تصدير مواعيد المريض كـ PDF
+      await PdfService.exportPatientAppointments(integratedData, settings)
+
+      toast({
+        title: "تم إنشاء تقرير المواعيد بنجاح",
+        description: `تم إنشاء تقرير مواعيد المريض ${patient.full_name} وحفظه كملف PDF`,
+      })
+    } catch (error) {
+      console.error('Error printing patient appointments:', error)
+      toast({
+        title: "خطأ في إنشاء تقرير المواعيد",
+        description: "فشل في إنشاء تقرير مواعيد المريض. يرجى المحاولة مرة أخرى.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handlePrintPatientPrescriptions = async () => {
+    if (!patient) return
+
+    try {
+      toast({
+        title: "جاري إعداد تقرير الوصفات...",
+        description: "يتم تجميع بيانات وصفات المريض وإعداد التقرير للطباعة",
+      })
+
+      // جلب البيانات المتكاملة للمريض
+      const integratedData = await PatientIntegrationService.getPatientIntegratedData(patient.id)
+
+      if (!integratedData) {
+        throw new Error('لا يمكن جلب بيانات المريض')
+      }
+
+      // تصدير وصفات المريض كـ PDF
+      await PdfService.exportPatientPrescriptions(integratedData, settings)
+
+      toast({
+        title: "تم إنشاء تقرير الوصفات بنجاح",
+        description: `تم إنشاء تقرير وصفات المريض ${patient.full_name} وحفظه كملف PDF`,
+      })
+    } catch (error) {
+      console.error('Error printing patient prescriptions:', error)
+      toast({
+        title: "خطأ في إنشاء تقرير الوصفات",
+        description: "فشل في إنشاء تقرير وصفات المريض. يرجى المحاولة مرة أخرى.",
+        variant: "destructive",
+      })
+    }
+  }
+
   useEffect(() => {
     if (patient && open) {
       // Filter appointments for this patient
@@ -465,14 +597,25 @@ export default function PatientDetailsModal({
             <TabsContent value="treatments" className="space-y-4 dialog-rtl" dir="rtl">
               <div className="flex justify-between items-center mb-4" dir="rtl">
                 <h3 className="text-lg font-medium">العلاجات السنية</h3>
-                <Button
-                  onClick={handleAddTreatment}
-                  className="flex items-center gap-2"
-                  size="sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  إضافة علاج
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handlePrintPatientTreatments}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <Printer className="w-4 h-4" />
+                    طباعة العلاجات
+                  </Button>
+                  <Button
+                    onClick={handleAddTreatment}
+                    className="flex items-center gap-2"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    إضافة علاج
+                  </Button>
+                </div>
               </div>
 
               {isLoadingTreatments ? (
@@ -600,14 +743,25 @@ export default function PatientDetailsModal({
             <TabsContent value="appointments" className="space-y-4 dialog-rtl" dir="rtl">
               <div className="flex justify-between items-center mb-4" dir="rtl">
                 <h3 className="text-lg font-medium">المواعيد</h3>
-                <Button
-                  onClick={handleAddAppointment}
-                  className="flex items-center gap-2"
-                  size="sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  إضافة موعد
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handlePrintPatientAppointments}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <Printer className="w-4 h-4" />
+                    طباعة المواعيد
+                  </Button>
+                  <Button
+                    onClick={handleAddAppointment}
+                    className="flex items-center gap-2"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    إضافة موعد
+                  </Button>
+                </div>
               </div>
               {isLoadingAppointments ? (
                 <div className="flex items-center justify-center py-8">
@@ -730,14 +884,25 @@ export default function PatientDetailsModal({
             <TabsContent value="payments" className="space-y-4 dialog-rtl" dir="rtl">
               <div className="flex justify-between items-center mb-4" dir="rtl">
                 <h3 className="text-lg font-medium">المدفوعات</h3>
-                <Button
-                  onClick={handleAddPayment}
-                  className="flex items-center gap-2"
-                  size="sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  إضافة دفعة
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handlePrintPatientPayments}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <Printer className="w-4 h-4" />
+                    طباعة المدفوعات
+                  </Button>
+                  <Button
+                    onClick={handleAddPayment}
+                    className="flex items-center gap-2"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    إضافة دفعة
+                  </Button>
+                </div>
               </div>
               {isLoadingPayments ? (
                 <div className="flex items-center justify-center py-8">
@@ -1069,14 +1234,25 @@ export default function PatientDetailsModal({
             <TabsContent value="prescriptions" className="space-y-4 dialog-rtl" dir="rtl">
               <div className="flex justify-between items-center mb-4" dir="rtl">
                 <h3 className="text-lg font-medium">الوصفات الطبية</h3>
-                <Button
-                  onClick={handleAddPrescription}
-                  className="flex items-center gap-2"
-                  size="sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  إضافة وصفة
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handlePrintPatientPrescriptions}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <Printer className="w-4 h-4" />
+                    طباعة الوصفات
+                  </Button>
+                  <Button
+                    onClick={handleAddPrescription}
+                    className="flex items-center gap-2"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    إضافة وصفة
+                  </Button>
+                </div>
               </div>
               {isLoadingPrescriptions ? (
                 <div className="flex items-center justify-center py-8">

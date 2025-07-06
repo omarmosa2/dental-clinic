@@ -2892,6 +2892,74 @@ export class PdfService {
   }
 
   /**
+   * تصدير مدفوعات مريض فردي
+   */
+  static async exportPatientPayments(patientData: any, settings?: ClinicSettings | null): Promise<void> {
+    try {
+      const htmlContent = this.createPatientPaymentsHTML(patientData, settings)
+      // تنسيق اسم الملف: مدفوعات_اسم المريض + التاريخ
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-GB').replace(/\//g, '-') // DD-MM-YYYY
+      const fileName = `مدفوعات_${patientData.patient.full_name.replace(/\s+/g, '_')}_${dateStr}.pdf`
+      await this.convertHTMLToPDF(htmlContent, fileName)
+    } catch (error) {
+      console.error('Error exporting patient payments:', error)
+      throw new Error('فشل في تصدير مدفوعات المريض')
+    }
+  }
+
+  /**
+   * تصدير علاجات مريض فردي
+   */
+  static async exportPatientTreatments(patientData: any, settings?: ClinicSettings | null): Promise<void> {
+    try {
+      const htmlContent = this.createPatientTreatmentsHTML(patientData, settings)
+      // تنسيق اسم الملف: علاجات_اسم المريض + التاريخ
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-GB').replace(/\//g, '-') // DD-MM-YYYY
+      const fileName = `علاجات_${patientData.patient.full_name.replace(/\s+/g, '_')}_${dateStr}.pdf`
+      await this.convertHTMLToPDF(htmlContent, fileName)
+    } catch (error) {
+      console.error('Error exporting patient treatments:', error)
+      throw new Error('فشل في تصدير علاجات المريض')
+    }
+  }
+
+  /**
+   * تصدير مواعيد مريض فردي
+   */
+  static async exportPatientAppointments(patientData: any, settings?: ClinicSettings | null): Promise<void> {
+    try {
+      const htmlContent = this.createPatientAppointmentsHTML(patientData, settings)
+      // تنسيق اسم الملف: مواعيد_اسم المريض + التاريخ
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-GB').replace(/\//g, '-') // DD-MM-YYYY
+      const fileName = `مواعيد_${patientData.patient.full_name.replace(/\s+/g, '_')}_${dateStr}.pdf`
+      await this.convertHTMLToPDF(htmlContent, fileName)
+    } catch (error) {
+      console.error('Error exporting patient appointments:', error)
+      throw new Error('فشل في تصدير مواعيد المريض')
+    }
+  }
+
+  /**
+   * تصدير وصفات مريض فردي
+   */
+  static async exportPatientPrescriptions(patientData: any, settings?: ClinicSettings | null): Promise<void> {
+    try {
+      const htmlContent = this.createPatientPrescriptionsHTML(patientData, settings)
+      // تنسيق اسم الملف: وصفات_اسم المريض + التاريخ
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-GB').replace(/\//g, '-') // DD-MM-YYYY
+      const fileName = `وصفات_${patientData.patient.full_name.replace(/\s+/g, '_')}_${dateStr}.pdf`
+      await this.convertHTMLToPDF(htmlContent, fileName)
+    } catch (error) {
+      console.error('Error exporting patient prescriptions:', error)
+      throw new Error('فشل في تصدير وصفات المريض')
+    }
+  }
+
+  /**
    * إنشاء HTML لسجل المريض للطباعة المباشرة
    */
   static createPatientRecordHTMLForPrint(patientData: any, settings?: ClinicSettings | null): string {
@@ -4418,5 +4486,1039 @@ export class PdfService {
     const year = date.getFullYear()
 
     return `${day}/${month}/${year}`
+  }
+
+  /**
+   * إنشاء HTML لمدفوعات المريض فقط
+   */
+  private static createPatientPaymentsHTML(patientData: any, settings?: ClinicSettings | null): string {
+    const { patient, payments } = patientData
+    const clinic_info = settings || {}
+
+    // دالة تنسيق العملة
+    const formatCurrency = (amount: number): string => {
+      if ((clinic_info as any)?.currency && (clinic_info as any)?.currency !== 'SYP') {
+        const currencySymbols: { [key: string]: string } = {
+          'USD': '$',
+          'EUR': '€',
+          'SYP': 'ل.س',
+          'TRY': '₺',
+          'SAR': 'ر.س'
+        }
+        const symbol = currencySymbols[(clinic_info as any).currency] || (clinic_info as any).currency
+        return `${amount.toLocaleString('ar-SA')} ${symbol}`
+      }
+      return `${amount.toLocaleString('ar-SA')} ل.س`
+    }
+
+    // دالة تنسيق التاريخ بالتقويم الميلادي
+    const formatDate = (dateString: string): string => {
+      const date = new Date(dateString)
+      if (!date || isNaN(date.getTime())) {
+        return 'غير محدد'
+      }
+
+      const day = date.getDate().toString().padStart(2, '0')
+      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+      const year = date.getFullYear()
+
+      return `${day}/${month}/${year}`
+    }
+
+    // حساب الإحصائيات المالية
+    let totalPaid = 0
+    const treatmentPayments: any[] = []
+    const appointmentPayments: any[] = []
+    const generalPayments: any[] = []
+
+    payments?.forEach((payment: any) => {
+      if (payment.tooth_treatment_id) {
+        treatmentPayments.push(payment)
+      } else if (payment.appointment_id) {
+        appointmentPayments.push(payment)
+      } else {
+        generalPayments.push(payment)
+      }
+      totalPaid += payment.amount || 0
+    })
+
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>مدفوعات المريض - ${patient.full_name}</title>
+        <style>
+          body {
+            font-family: 'Tajawal', Arial, sans-serif;
+            direction: rtl;
+            margin: 20px;
+            line-height: 1.6;
+            color: #1e293b;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #0ea5e9;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .clinic-info h1 {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin-bottom: 10px;
+          }
+          .report-info h2 {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 5px;
+          }
+          .patient-info, .financial-summary {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+          }
+          .info-grid, .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+          }
+          .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+          }
+          .label {
+            font-weight: 600;
+            color: #64748b;
+          }
+          .value {
+            font-weight: bold;
+            color: #0ea5e9;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          }
+          th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          th {
+            background: #f8fafc;
+            font-weight: bold;
+            color: #1e293b;
+            font-size: 14px;
+          }
+          .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin: 30px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+          }
+          .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+            font-style: italic;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="clinic-info">
+            <h1>${(clinic_info as any)?.clinic_name || 'عيادة الأسنان الحديثة'}</h1>
+            ${(clinic_info as any)?.address ? `<p>${(clinic_info as any).address}</p>` : ''}
+            ${(clinic_info as any)?.phone ? `<p>الهاتف: ${(clinic_info as any).phone}</p>` : ''}
+            ${(clinic_info as any)?.email ? `<p>البريد الإلكتروني: ${(clinic_info as any).email}</p>` : ''}
+          </div>
+          <div class="report-info">
+            <h2>تقرير مدفوعات المريض</h2>
+            <p>تاريخ التقرير: ${formatDate(new Date().toISOString())}</p>
+          </div>
+        </div>
+
+        <div class="patient-info">
+          <h3>معلومات المريض</h3>
+          <div class="info-grid">
+            <div><strong>الاسم:</strong> ${patient.full_name}</div>
+            <div><strong>الجنس:</strong> ${patient.gender === 'male' ? 'ذكر' : 'أنثى'}</div>
+            <div><strong>العمر:</strong> ${patient.age} سنة</div>
+            ${patient.phone ? `<div><strong>الهاتف:</strong> ${patient.phone}</div>` : ''}
+            ${patient.email ? `<div><strong>البريد الإلكتروني:</strong> ${patient.email}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="financial-summary">
+          <h3>الملخص المالي</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span class="label">إجمالي المدفوعات:</span>
+              <span class="value">${formatCurrency(totalPaid)}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">عدد المدفوعات:</span>
+              <span class="value">${payments?.length || 0}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">مدفوعات العلاجات:</span>
+              <span class="value">${treatmentPayments.length}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">مدفوعات المواعيد:</span>
+              <span class="value">${appointmentPayments.length}</span>
+            </div>
+          </div>
+        </div>`
+
+    // جدول المدفوعات
+    if (payments && payments.length > 0) {
+      const title = 'سجل المدفوعات'
+      const headers = ['التاريخ', 'المبلغ', 'طريقة الدفع', 'النوع', 'الوصف', 'رقم الإيصال', 'الحالة']
+
+      const rows = payments.map((payment: any) => {
+        const paymentType = payment.tooth_treatment_id ? 'علاج سني' :
+                           payment.appointment_id ? 'موعد' : 'دفعة عامة'
+
+        const statusText = payment.status === 'completed' ? 'مكتمل' :
+                          payment.status === 'partial' ? 'جزئي' : 'معلق'
+
+        const methodText = payment.payment_method === 'cash' ? 'نقدي' : 'تحويل بنكي'
+
+        return `
+          <tr>
+            <td>${formatDate(payment.payment_date)}</td>
+            <td>${formatCurrency(payment.amount)}</td>
+            <td>${methodText}</td>
+            <td>${paymentType}</td>
+            <td>${payment.description || '-'}</td>
+            <td>${payment.receipt_number || '-'}</td>
+            <td>${statusText}</td>
+          </tr>`
+      })
+
+      htmlContent += `
+        <div class="section-title">${title}</div>
+        <table>
+          <thead>
+            <tr>
+              ${headers.map(header => `<th>${header}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.join('')}
+          </tbody>
+        </table>`
+    } else {
+      htmlContent += `
+        <div class="section-title">سجل المدفوعات</div>
+        <div class="no-data">لا توجد مدفوعات مسجلة لهذا المريض</div>`
+    }
+
+    htmlContent += `
+        <div class="footer">
+          <p>تم إنشاء هذا التقرير بواسطة ${(clinic_info as any)?.clinic_name || 'عيادة الأسنان الحديثة'}</p>
+          <p>تاريخ الطباعة: ${formatDate(new Date().toISOString())}</p>
+        </div>
+      </body>
+      </html>`
+
+    return htmlContent
+  }
+
+  /**
+   * إنشاء HTML لعلاجات المريض فقط
+   */
+  private static createPatientTreatmentsHTML(patientData: any, settings?: ClinicSettings | null): string {
+    const { patient, treatments } = patientData
+    const clinic_info = settings || {}
+
+    // دالة تنسيق العملة
+    const formatCurrency = (amount: number): string => {
+      if ((clinic_info as any)?.currency && (clinic_info as any)?.currency !== 'SYP') {
+        const currencySymbols: { [key: string]: string } = {
+          'USD': '$',
+          'EUR': '€',
+          'SYP': 'ل.س',
+          'TRY': '₺',
+          'SAR': 'ر.س'
+        }
+        const symbol = currencySymbols[(clinic_info as any).currency] || (clinic_info as any).currency
+        return `${amount.toLocaleString('ar-SA')} ${symbol}`
+      }
+      return `${amount.toLocaleString('ar-SA')} ل.س`
+    }
+
+    // دالة تنسيق التاريخ بالتقويم الميلادي
+    const formatDate = (dateString: string): string => {
+      const date = new Date(dateString)
+      if (!date || isNaN(date.getTime())) {
+        return 'غير محدد'
+      }
+
+      const day = date.getDate().toString().padStart(2, '0')
+      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+      const year = date.getFullYear()
+
+      return `${day}/${month}/${year}`
+    }
+
+    // حساب الإحصائيات
+    const totalTreatments = treatments?.length || 0
+    const completedTreatments = treatments?.filter((t: any) => t.treatment_status === 'completed').length || 0
+    const inProgressTreatments = treatments?.filter((t: any) => t.treatment_status === 'in_progress').length || 0
+    const plannedTreatments = treatments?.filter((t: any) => t.treatment_status === 'planned').length || 0
+    const totalCost = treatments?.reduce((sum: number, t: any) => sum + (t.cost || 0), 0) || 0
+
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>علاجات المريض - ${patient.full_name}</title>
+        <style>
+          body {
+            font-family: 'Tajawal', Arial, sans-serif;
+            direction: rtl;
+            margin: 20px;
+            line-height: 1.6;
+            color: #1e293b;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #0ea5e9;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .clinic-info h1 {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin-bottom: 10px;
+          }
+          .report-info h2 {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 5px;
+          }
+          .patient-info, .financial-summary {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+          }
+          .info-grid, .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+          }
+          .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+          }
+          .label {
+            font-weight: 600;
+            color: #64748b;
+          }
+          .value {
+            font-weight: bold;
+            color: #0ea5e9;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          }
+          th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          th {
+            background: #f8fafc;
+            font-weight: bold;
+            color: #1e293b;
+            font-size: 14px;
+          }
+          .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin: 30px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+          }
+          .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+            font-style: italic;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="clinic-info">
+            <h1>${(clinic_info as any)?.clinic_name || 'عيادة الأسنان الحديثة'}</h1>
+            ${(clinic_info as any)?.address ? `<p>${(clinic_info as any).address}</p>` : ''}
+            ${(clinic_info as any)?.phone ? `<p>الهاتف: ${(clinic_info as any).phone}</p>` : ''}
+            ${(clinic_info as any)?.email ? `<p>البريد الإلكتروني: ${(clinic_info as any).email}</p>` : ''}
+          </div>
+          <div class="report-info">
+            <h2>تقرير علاجات المريض</h2>
+            <p>تاريخ التقرير: ${formatDate(new Date().toISOString())}</p>
+          </div>
+        </div>
+
+        <div class="patient-info">
+          <h3>معلومات المريض</h3>
+          <div class="info-grid">
+            <div><strong>الاسم:</strong> ${patient.full_name}</div>
+            <div><strong>الجنس:</strong> ${patient.gender === 'male' ? 'ذكر' : 'أنثى'}</div>
+            <div><strong>العمر:</strong> ${patient.age} سنة</div>
+            ${patient.phone ? `<div><strong>الهاتف:</strong> ${patient.phone}</div>` : ''}
+            ${patient.email ? `<div><strong>البريد الإلكتروني:</strong> ${patient.email}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="financial-summary">
+          <h3>ملخص العلاجات</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span class="label">إجمالي العلاجات:</span>
+              <span class="value">${totalTreatments}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">العلاجات المكتملة:</span>
+              <span class="value">${completedTreatments}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">العلاجات قيد التنفيذ:</span>
+              <span class="value">${inProgressTreatments}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">العلاجات المخططة:</span>
+              <span class="value">${plannedTreatments}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">إجمالي التكلفة:</span>
+              <span class="value">${formatCurrency(totalCost)}</span>
+            </div>
+          </div>
+        </div>`
+
+    // جدول العلاجات
+    if (treatments && treatments.length > 0) {
+      const title = 'سجل العلاجات'
+      const headers = ['رقم السن', 'اسم السن', 'نوع العلاج', 'التكلفة', 'الحالة', 'تاريخ البدء', 'تاريخ الانتهاء', 'الملاحظات']
+
+      const rows = treatments.map((treatment: any) => {
+        const statusText = treatment.treatment_status === 'completed' ? 'مكتمل' :
+                          treatment.treatment_status === 'in_progress' ? 'قيد التنفيذ' :
+                          treatment.treatment_status === 'planned' ? 'مخطط' : 'ملغي'
+
+        // ترجمة اسم العلاج إلى العربية
+        const treatmentNameArabic = getTreatmentNameInArabic(treatment.treatment_type || '')
+
+        return `
+          <tr>
+            <td>${treatment.tooth_number || '-'}</td>
+            <td>${treatment.tooth_name || '-'}</td>
+            <td>${treatmentNameArabic}</td>
+            <td>${formatCurrency(treatment.cost || 0)}</td>
+            <td>${statusText}</td>
+            <td>${treatment.start_date ? formatDate(treatment.start_date) : '-'}</td>
+            <td>${treatment.completion_date ? formatDate(treatment.completion_date) : '-'}</td>
+            <td>${treatment.notes || '-'}</td>
+          </tr>`
+      })
+
+      htmlContent += `
+        <div class="section-title">${title}</div>
+        <table>
+          <thead>
+            <tr>
+              ${headers.map(header => `<th>${header}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.join('')}
+          </tbody>
+        </table>`
+    } else {
+      htmlContent += `
+        <div class="section-title">سجل العلاجات</div>
+        <div class="no-data">لا توجد علاجات مسجلة لهذا المريض</div>`
+    }
+
+    htmlContent += `
+        <div class="footer">
+          <p>تم إنشاء هذا التقرير بواسطة ${(clinic_info as any)?.clinic_name || 'عيادة الأسنان الحديثة'}</p>
+          <p>تاريخ الطباعة: ${formatDate(new Date().toISOString())}</p>
+        </div>
+      </body>
+      </html>`
+
+    return htmlContent
+  }
+
+  /**
+   * إنشاء HTML لمواعيد المريض فقط
+   */
+  private static createPatientAppointmentsHTML(patientData: any, settings?: ClinicSettings | null): string {
+    const { patient, appointments } = patientData
+    const clinic_info = settings || {}
+
+    // دالة تنسيق التاريخ بالتقويم الميلادي
+    const formatDate = (dateString: string): string => {
+      if (!dateString) return 'غير محدد'
+
+      const date = new Date(dateString)
+      if (!date || isNaN(date.getTime())) {
+        return 'غير محدد'
+      }
+
+      const day = date.getDate().toString().padStart(2, '0')
+      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+      const year = date.getFullYear()
+
+      return `${day}/${month}/${year}`
+    }
+
+    // دالة تنسيق الوقت
+    const formatTime = (dateTimeString: string): string => {
+      if (!dateTimeString) return 'غير محدد'
+
+      const date = new Date(dateTimeString)
+      if (!date || isNaN(date.getTime())) {
+        return 'غير محدد'
+      }
+
+      // تنسيق الوقت بصيغة HH:MM
+      return date.toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })
+    }
+
+    // دالة تنسيق التاريخ والوقت معاً
+    const formatDateTime = (dateTimeString: string): { date: string, time: string } => {
+      if (!dateTimeString) return { date: 'غير محدد', time: 'غير محدد' }
+
+      const date = new Date(dateTimeString)
+      if (!date || isNaN(date.getTime())) {
+        return { date: 'غير محدد', time: 'غير محدد' }
+      }
+
+      return {
+        date: formatDate(dateTimeString),
+        time: formatTime(dateTimeString)
+      }
+    }
+
+    // حساب الإحصائيات
+    const totalAppointments = appointments?.length || 0
+    const completedAppointments = appointments?.filter((a: any) => a.status === 'completed').length || 0
+    const cancelledAppointments = appointments?.filter((a: any) => a.status === 'cancelled').length || 0
+    const scheduledAppointments = appointments?.filter((a: any) => a.status === 'scheduled').length || 0
+    const noShowAppointments = appointments?.filter((a: any) => a.status === 'no_show').length || 0
+
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>مواعيد المريض - ${patient.full_name}</title>
+        <style>
+          body {
+            font-family: 'Tajawal', Arial, sans-serif;
+            direction: rtl;
+            margin: 20px;
+            line-height: 1.6;
+            color: #1e293b;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #0ea5e9;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .clinic-info h1 {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin-bottom: 10px;
+          }
+          .report-info h2 {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 5px;
+          }
+          .patient-info, .financial-summary {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+          }
+          .info-grid, .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+          }
+          .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+          }
+          .label {
+            font-weight: 600;
+            color: #64748b;
+          }
+          .value {
+            font-weight: bold;
+            color: #0ea5e9;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          }
+          th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          th {
+            background: #f8fafc;
+            font-weight: bold;
+            color: #1e293b;
+            font-size: 14px;
+          }
+          .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin: 30px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+          }
+          .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+            font-style: italic;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="clinic-info">
+            <h1>${(clinic_info as any)?.clinic_name || 'عيادة الأسنان الحديثة'}</h1>
+            ${(clinic_info as any)?.address ? `<p>${(clinic_info as any).address}</p>` : ''}
+            ${(clinic_info as any)?.phone ? `<p>الهاتف: ${(clinic_info as any).phone}</p>` : ''}
+            ${(clinic_info as any)?.email ? `<p>البريد الإلكتروني: ${(clinic_info as any).email}</p>` : ''}
+          </div>
+          <div class="report-info">
+            <h2>تقرير مواعيد المريض</h2>
+            <p>تاريخ التقرير: ${formatDate(new Date().toISOString())}</p>
+          </div>
+        </div>
+
+        <div class="patient-info">
+          <h3>معلومات المريض</h3>
+          <div class="info-grid">
+            <div><strong>الاسم:</strong> ${patient.full_name}</div>
+            <div><strong>الجنس:</strong> ${patient.gender === 'male' ? 'ذكر' : 'أنثى'}</div>
+            <div><strong>العمر:</strong> ${patient.age} سنة</div>
+            ${patient.phone ? `<div><strong>الهاتف:</strong> ${patient.phone}</div>` : ''}
+            ${patient.email ? `<div><strong>البريد الإلكتروني:</strong> ${patient.email}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="financial-summary">
+          <h3>ملخص المواعيد</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span class="label">إجمالي المواعيد:</span>
+              <span class="value">${totalAppointments}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">المواعيد المكتملة:</span>
+              <span class="value">${completedAppointments}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">المواعيد المجدولة:</span>
+              <span class="value">${scheduledAppointments}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">المواعيد الملغية:</span>
+              <span class="value">${cancelledAppointments}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">لم يحضر:</span>
+              <span class="value">${noShowAppointments}</span>
+            </div>
+          </div>
+        </div>`
+
+    // جدول المواعيد
+    if (appointments && appointments.length > 0) {
+      const title = 'سجل المواعيد'
+      const headers = ['التاريخ', 'الوقت', 'نوع الموعد', 'الحالة', 'الملاحظات']
+
+      const rows = appointments.map((appointment: any) => {
+        const statusText = appointment.status === 'completed' ? 'مكتمل' :
+                          appointment.status === 'cancelled' ? 'ملغي' :
+                          appointment.status === 'scheduled' ? 'مجدول' :
+                          appointment.status === 'no_show' ? 'لم يحضر' : 'معلق'
+
+        // استخدام start_time للتاريخ والوقت
+        const dateTime = formatDateTime(appointment.start_time)
+
+        return `
+          <tr>
+            <td>${dateTime.date}</td>
+            <td>${dateTime.time}</td>
+            <td>${appointment.title || appointment.appointment_type || 'فحص عام'}</td>
+            <td>${statusText}</td>
+            <td>${appointment.notes || '-'}</td>
+          </tr>`
+      })
+
+      htmlContent += `
+        <div class="section-title">${title}</div>
+        <table>
+          <thead>
+            <tr>
+              ${headers.map(header => `<th>${header}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.join('')}
+          </tbody>
+        </table>`
+    } else {
+      htmlContent += `
+        <div class="section-title">سجل المواعيد</div>
+        <div class="no-data">لا توجد مواعيد مسجلة لهذا المريض</div>`
+    }
+
+    htmlContent += `
+        <div class="footer">
+          <p>تم إنشاء هذا التقرير بواسطة ${(clinic_info as any)?.clinic_name || 'عيادة الأسنان الحديثة'}</p>
+          <p>تاريخ الطباعة: ${formatDate(new Date().toISOString())}</p>
+        </div>
+      </body>
+      </html>`
+
+    return htmlContent
+  }
+
+  /**
+   * إنشاء HTML لوصفات المريض فقط
+   */
+  private static createPatientPrescriptionsHTML(patientData: any, settings?: ClinicSettings | null): string {
+    const { patient, prescriptions } = patientData
+    const clinic_info = settings || {}
+
+    // دالة تنسيق التاريخ بالتقويم الميلادي
+    const formatDate = (dateString: string): string => {
+      const date = new Date(dateString)
+      if (!date || isNaN(date.getTime())) {
+        return 'غير محدد'
+      }
+
+      const day = date.getDate().toString().padStart(2, '0')
+      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+      const year = date.getFullYear()
+
+      return `${day}/${month}/${year}`
+    }
+
+    // حساب الإحصائيات
+    const totalPrescriptions = prescriptions?.length || 0
+    const totalMedications = prescriptions?.reduce((total: number, p: any) => {
+      return total + (p.medications?.length || 0)
+    }, 0) || 0
+    const recentPrescriptions = prescriptions?.filter((p: any) => {
+      const prescriptionDate = new Date(p.prescription_date)
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      return prescriptionDate >= thirtyDaysAgo
+    }).length || 0
+
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>وصفات المريض - ${patient.full_name}</title>
+        <style>
+          body {
+            font-family: 'Tajawal', Arial, sans-serif;
+            direction: rtl;
+            margin: 20px;
+            line-height: 1.6;
+            color: #1e293b;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #0ea5e9;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .clinic-info h1 {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin-bottom: 10px;
+          }
+          .report-info h2 {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 5px;
+          }
+          .patient-info, .financial-summary {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+          }
+          .info-grid, .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+          }
+          .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+          }
+          .label {
+            font-weight: 600;
+            color: #64748b;
+          }
+          .value {
+            font-weight: bold;
+            color: #0ea5e9;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          }
+          th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          th {
+            background: #f8fafc;
+            font-weight: bold;
+            color: #1e293b;
+            font-size: 14px;
+          }
+          .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #0ea5e9;
+            margin: 30px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+          }
+          .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+            font-style: italic;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="clinic-info">
+            <h1>${(clinic_info as any)?.clinic_name || 'عيادة الأسنان الحديثة'}</h1>
+            ${(clinic_info as any)?.address ? `<p>${(clinic_info as any).address}</p>` : ''}
+            ${(clinic_info as any)?.phone ? `<p>الهاتف: ${(clinic_info as any).phone}</p>` : ''}
+            ${(clinic_info as any)?.email ? `<p>البريد الإلكتروني: ${(clinic_info as any).email}</p>` : ''}
+          </div>
+          <div class="report-info">
+            <h2>تقرير وصفات المريض</h2>
+            <p>تاريخ التقرير: ${formatDate(new Date().toISOString())}</p>
+          </div>
+        </div>
+
+        <div class="patient-info">
+          <h3>معلومات المريض</h3>
+          <div class="info-grid">
+            <div><strong>الاسم:</strong> ${patient.full_name}</div>
+            <div><strong>الجنس:</strong> ${patient.gender === 'male' ? 'ذكر' : 'أنثى'}</div>
+            <div><strong>العمر:</strong> ${patient.age} سنة</div>
+            ${patient.phone ? `<div><strong>الهاتف:</strong> ${patient.phone}</div>` : ''}
+            ${patient.email ? `<div><strong>البريد الإلكتروني:</strong> ${patient.email}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="financial-summary">
+          <h3>ملخص الوصفات</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span class="label">إجمالي الوصفات:</span>
+              <span class="value">${totalPrescriptions}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">إجمالي الأدوية:</span>
+              <span class="value">${totalMedications}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">الوصفات الحديثة (30 يوم):</span>
+              <span class="value">${recentPrescriptions}</span>
+            </div>
+          </div>
+        </div>`
+
+    // جدول الوصفات
+    if (prescriptions && prescriptions.length > 0) {
+      const title = 'سجل الوصفات'
+      const headers = ['تاريخ الوصفة', 'اسم الدواء', 'الجرعة', 'تعليمات الاستخدام', 'ملاحظات']
+
+      const rows: string[] = []
+
+      prescriptions.forEach((prescription: any) => {
+        if (prescription.medications && prescription.medications.length > 0) {
+          // إذا كانت الوصفة تحتوي على أدوية، أضف كل دواء في صف منفصل
+          prescription.medications.forEach((medication: any) => {
+            rows.push(`
+              <tr>
+                <td>${formatDate(prescription.prescription_date)}</td>
+                <td>${medication.medication_name || medication.name || '-'}</td>
+                <td>${medication.dose || medication.dosage || '-'}</td>
+                <td>${medication.medication_instructions || medication.instructions || '-'}</td>
+                <td>${prescription.notes || '-'}</td>
+              </tr>`)
+          })
+        } else {
+          // إذا لم تكن هناك أدوية، أضف صف فارغ مع ملاحظات الوصفة فقط
+          rows.push(`
+            <tr>
+              <td>${formatDate(prescription.prescription_date)}</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>${prescription.notes || '-'}</td>
+            </tr>`)
+        }
+      })
+
+      htmlContent += `
+        <div class="section-title">${title}</div>
+        <table>
+          <thead>
+            <tr>
+              ${headers.map(header => `<th>${header}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.join('')}
+          </tbody>
+        </table>`
+    } else {
+      htmlContent += `
+        <div class="section-title">سجل الوصفات</div>
+        <div class="no-data">لا توجد وصفات مسجلة لهذا المريض</div>`
+    }
+
+    htmlContent += `
+        <div class="footer">
+          <p>تم إنشاء هذا التقرير بواسطة ${(clinic_info as any)?.clinic_name || 'عيادة الأسنان الحديثة'}</p>
+          <p>تاريخ الطباعة: ${formatDate(new Date().toISOString())}</p>
+        </div>
+      </body>
+      </html>`
+
+    return htmlContent
   }
 }
